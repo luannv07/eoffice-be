@@ -11,6 +11,7 @@ import java.util.Date;
 public class PublicController {
     @GetMapping("/health")
     public String health() {
+        // secretToken: sluannsdflksdnkf
         return "OK: " + new Date();
     }
 }
