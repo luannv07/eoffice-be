@@ -66,14 +66,16 @@ jobs:
       - name: 8. Install AI Reviewer dependencies
         run: npm --prefix eoffice-ai-review install
 
-      - name: 9. AI Code Review bằng Gemini
+      - name: 9. AI Code Review bằng Gemini hoặc OpenRouter
         run: |
           node \
             -r ./eoffice-ai-review/node_modules/ts-node/register \
             ./eoffice-ai-review/ai_service.ts
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
+          GEMINI_MODELS: ${{ secrets.GEMINI_MODELS }}
+          OPENROUTER_API_KEYS: ${{ secrets.OPENROUTER_API_KEYS }}
+          OPENROUTER_MODELS: ${{ secrets.OPENROUTER_MODELS }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO_OWNER: ${{ github.repository_owner }}
