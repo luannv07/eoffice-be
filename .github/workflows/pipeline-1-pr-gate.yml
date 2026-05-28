@@ -1,61 +1,75 @@
-name: "Pipeline 1: PR Gate (Security & Code Review)"
+name: "Pipeline 1: PR Gate"
 
 on:
   pull_request:
     branches:
       - dev
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 permissions:
   contents: read
   pull-requests: write
 
 jobs:
-  security-and-review:
-    name: "Quét Bảo Mật & AI Code Review"
+  pr-gate:
+    name: "PR Gate - Security & Code Review"
     runs-on: ubuntu-latest
+
     steps:
-      - name: 1. Checkout Mã Nguồn Backend
+      - name: 1. Checkout source
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: 2. Secret Scan (Chặn lộ mật khẩu/Key)
+      - name: 2. Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+          cache: "maven"
+
+      - name: 3. Compile/Test nhanh
+        run: mvn -B clean test
+
+      - name: 4. Secret Scan bằng TruffleHog
         uses: trufflesecurity/trufflehog@main
         continue-on-error: true
         with:
           extra_args: --results=verified,unknown
 
-      - name: 2.5. Thiết lập Java
-        uses: actions/setup-java@v4
-        with:
-          java-version: "21"
-          distribution: "temurin"
-
-      - name: 3. Dependency Scan (Quét thư viện lỗi thời)
-        continue-on-error: true
+      - name: 5. SonarQube Scan + Quality Gate
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          mvn org.owasp:dependency-check-maven:check \
-            -DfailBuildOnCVSS=9 \
-            -DnvdApiKey=${{ secrets.NVD_API_KEY }} \
-            -Dformat=HTML \
-            -DoutputDirectory=dependency-check-report
+          mvn -B verify sonar:sonar \
+            -Dsonar.projectKey=luannv07_eoffice-be \
+            -Dsonar.organization=luannv07 \
+            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
+            -Dsonar.token=${{ secrets.SONAR_TOKEN }}
 
-      - name: 4. Thiết lập môi trường Node.js
+      - name: 6. Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "24"
 
-      - name: 5. Kéo mã nguồn công cụ AI Reviewer từ repo độc lập
+      - name: 7. Checkout repo eoffice-ai-review
         uses: actions/checkout@v4
         with:
           repository: "luannv07/eoffice-ai-review"
           path: "eoffice-ai-review"
           token: ${{ secrets.GH_PAT }}
 
-      - name: 6. Cài đặt thư viện & Kích hoạt AI Reviewer
+      - name: 8. Install AI Reviewer dependencies
+        run: npm --prefix eoffice-ai-review install
+
+      - name: 9. AI Code Review bằng Gemini
         run: |
-          npm --prefix eoffice-ai-review install
-          node -r ./eoffice-ai-review/node_modules/ts-node/register ./eoffice-ai-review/ai_service.ts
+          node \
+            -r ./eoffice-ai-review/node_modules/ts-node/register \
+            ./eoffice-ai-review/ai_service.ts
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -64,14 +78,8 @@ jobs:
           REPO_NAME: ${{ github.event.repository.name }}
           COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-      - name: 7. Cổ Vũ Tinh Thần 🎉
+
+      - name: 10. Finish
         if: always()
         run: |
-          echo "╔════════════════════════════════════════╗"
-          echo "║                                        ║"
-          echo "║   💪 Cố lên bạn ơi! Code của bạn      ║"
-          echo "║      đang được bảo vệ tận răng rồi!   ║"
-          echo "║                                        ║"
-          echo "║   🔥 Keep pushing, stay secure! 🔒    ║"
-          echo "║                                        ║"
-          echo "╚════════════════════════════════════════╝"
+          echo "luannv: Pipeline 1 - PR Gate finished."
