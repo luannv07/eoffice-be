@@ -54,9 +54,8 @@ jobs:
 
       - name: 6. Cài đặt thư viện & Kích hoạt AI Reviewer
         run: |
-          cd eoffice-ai-review
-          npm install
-          npm run start
+          npm --prefix eoffice-ai-review install
+          node -r ./eoffice-ai-review/node_modules/ts-node/register ./eoffice-ai-review/ai_service.ts
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
