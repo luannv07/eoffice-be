@@ -13,4 +13,10 @@ public class PublicController {
     public String health() {
         return "OK: " + new Date();
     }
+
+    @GetMapping("/test-v2")
+    public String testV2() {
+        String secretToken = "daylasecrettoken";
+        return "OK: " + secretToken;
+    }
 }
