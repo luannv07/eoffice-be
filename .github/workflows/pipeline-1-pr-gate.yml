@@ -17,22 +17,28 @@ jobs:
       - name: 1. Checkout Mã Nguồn Backend
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # TruffleHog cần full history
+          fetch-depth: 0
 
       - name: 2. Secret Scan (Chặn lộ mật khẩu/Key)
         uses: trufflesecurity/trufflehog@main
         continue-on-error: true
         with:
-          extra_args: --results=verified,unknown # ✅ cách mới, không cần base/head SHA
+          extra_args: --results=verified,unknown
+
+      - name: 2.5. Thiết lập Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
 
       - name: 3. Dependency Scan (Quét thư viện lỗi thời)
-        uses: dependency-check/Dependency-Check_Action@main
         continue-on-error: true
-        with:
-          project: "eoffice-backend"
-          path: "."
-          format: "HTML"
-          out: "dependency-check-report"
+        run: |
+          mvn org.owasp:dependency-check-maven:check \
+            -DfailBuildOnCVSS=9 \
+            -DnvdApiKey=${{ secrets.NVD_API_KEY }} \
+            -Dformat=HTML \
+            -DoutputDirectory=dependency-check-report
 
       - name: 4. Thiết lập môi trường Node.js
         uses: actions/setup-node@v4
