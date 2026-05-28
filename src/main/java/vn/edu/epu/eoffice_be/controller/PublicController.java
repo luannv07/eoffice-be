@@ -16,8 +16,7 @@ public class PublicController {
 
     @GetMapping("/sql-test-v1")
     public String sqlTest() {
-        String sql = "SELECT * FROM users where secret = ";
-        String secret = "secret2026@nckhdevsecops";
-        return sql + secret;
+        String username = "admin";
+        return "SELECT * FROM users WHERE username = '" + username + "'";
     }
 }
