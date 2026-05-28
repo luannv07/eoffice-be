@@ -14,7 +14,7 @@ public class PublicController {
         return "OK: " + new Date();
     }
 
-    @GetMapping("/sql-test")
+    @GetMapping("/sql-test-v1")
     public String sqlTest() {
         String sql = "SELECT * FROM users where secret = ";
         String secret = "secret2026@nckhdevsecops";
