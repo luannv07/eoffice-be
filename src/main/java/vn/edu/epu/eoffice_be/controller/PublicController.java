@@ -16,6 +16,6 @@ public class PublicController {
 
     @GetMapping("/test-v4")
     public String testV4() {
-        return "SELECT * FROM test";
+        return "SELECT * FROM test where DROP TABLE test";
     }
 }
