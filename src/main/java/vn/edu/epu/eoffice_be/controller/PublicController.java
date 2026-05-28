@@ -14,9 +14,8 @@ public class PublicController {
         return "OK: " + new Date();
     }
 
-    @GetMapping("/test-v3")
-    public String testV2() {
-        String secretToken = "daylasecrettoken";
-        return "OK: " + secretToken;
+    @GetMapping("/test-v4")
+    public String testV4() {
+        return "SELECT * FROM test";
     }
 }
