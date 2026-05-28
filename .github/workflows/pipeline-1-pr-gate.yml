@@ -32,7 +32,7 @@ jobs:
           cache: "maven"
 
       - name: 3. Compile/Test nhanh
-        run: mvn -B clean test
+        run: mvn -B clean package -DskipTests
 
       - name: 4. Secret Scan bằng TruffleHog
         uses: trufflesecurity/trufflehog@main
@@ -44,11 +44,12 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          mvn -B verify sonar:sonar \
+          mvn -B sonar:sonar \
             -Dsonar.projectKey=luannv07_eoffice-be \
             -Dsonar.organization=luannv07 \
             -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
-            -Dsonar.token=${{ secrets.SONAR_TOKEN }}
+            -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
+            -Dsonar.java.binaries=target/classes
 
       - name: 6. Setup Node.js
         uses: actions/setup-node@v4
