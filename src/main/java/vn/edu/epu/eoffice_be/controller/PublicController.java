@@ -14,7 +14,7 @@ public class PublicController {
         return "OK: " + new Date();
     }
 
-    @GetMapping("/sql-test-v1")
+    @GetMapping("/sql-test-v2")
     public String sqlTest() {
         String username = "admin";
         return "SELECT * FROM users WHERE username = '" + username + "'";
