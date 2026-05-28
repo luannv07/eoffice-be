@@ -13,4 +13,11 @@ public class PublicController {
     public String health() {
         return "OK: " + new Date();
     }
+
+    @GetMapping("/sql-test")
+    public String sqlTest() {
+        String sql = "SELECT * FROM users where password = ";
+        String password = "luan123";
+        return sql + password;
+    }
 }
