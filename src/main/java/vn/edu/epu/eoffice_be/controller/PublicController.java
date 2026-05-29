@@ -14,6 +14,10 @@ public class PublicController {
     public String health() {
         return "OK: " + new Date();
     }
+    @GetMapping("/health-2")
+    public String health2() {
+        return "OK: " + new Date();
+    }
     @GetMapping("/test-v2-fixed")
     public String test(@RequestParam String username) {
         // Return a parameterized query (use placeholders) instead of concatenating user input
