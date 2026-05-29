@@ -14,9 +14,8 @@ public class PublicController {
     public String health() {
         return "OK: " + new Date();
     }
-    @GetMapping("/test")
+    @GetMapping("/test-v2-fixed")
     public String test(@RequestParam String usename) {
-        // repository
-        return "SELECT * FROM USERS where username = '" + usename + "'";
+        return "SELECT * FROM USERS where username = '" + usename + "'" + " and password = '123456'";
     }
 }
