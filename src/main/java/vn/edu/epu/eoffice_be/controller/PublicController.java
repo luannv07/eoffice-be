@@ -15,7 +15,9 @@ public class PublicController {
         return "OK: " + new Date();
     }
     @GetMapping("/test-v2-fixed")
-    public String test(@RequestParam String usename) {
-        return "SELECT * FROM USERS where username = '" + usename + "'" + " and password = '123456'";
+    public String test(@RequestParam String username) {
+        // Return a parameterized query (use placeholders) instead of concatenating user input
+        // This demonstrates using a prepared statement / parameterized query to prevent SQL injection.
+        return "SELECT * FROM USERS where username = ? and password = ?";
     }
 }
