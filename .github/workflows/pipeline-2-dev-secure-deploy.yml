@@ -59,6 +59,9 @@ jobs:
         with:
           image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:dev
           format: table
+          # NOTE(dev): Temporary gate for first rollout.
+          # TODO(security): After base image/runtime hardening, switch back to CRITICAL,HIGH.
+          # Suggested follow-up: update Dockerfile base image, rebuild, and re-scan until HIGH is reduced.
           severity: CRITICAL
           exit-code: 1
           ignore-unfixed: true
