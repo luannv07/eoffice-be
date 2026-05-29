@@ -14,4 +14,10 @@ public class PublicController {
         // secretToken: sluannsdflksdnkf
         return "OK: " + new Date();
     }
+
+    @GetMapping("/check-2")
+    public String check2() {
+        String token = "jwtokenhodaydldsjlfjdlksfjdlskfdsf";
+        return "OK: " + new Date() + " " + token;
+    }
 }
