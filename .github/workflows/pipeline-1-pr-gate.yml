@@ -31,10 +31,10 @@ jobs:
           java-version: "21"
           cache: "maven"
 
-      - name: 3. Compile/Test nhanh
+      - name: 3. Build (Skip Tests)
         run: mvn -B clean package -DskipTests
 
-      - name: 4. Secret Scan bằng TruffleHog
+      - name: 4. Secret Scan (TruffleHog)
         uses: trufflesecurity/trufflehog@main
         continue-on-error: true
         with:
@@ -66,14 +66,14 @@ jobs:
       - name: 8. Install AI Reviewer dependencies
         run: npm --prefix eoffice-ai-review install
 
-      - name: 9. AI Code Review bằng Gemini hoặc OpenRouter
+      - name: 9. AI Code Review (Groq/OpenRouter)
         run: |
           node \
             -r ./eoffice-ai-review/node_modules/ts-node/register \
             ./eoffice-ai-review/ai_service.ts
         env:
-          GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
-          GEMINI_MODELS: ${{ secrets.GEMINI_MODELS }}
+          GROQ_API_KEYS: ${{ secrets.GROQ_API_KEYS }}
+          GROQ_MODELS: ${{ secrets.GROQ_MODELS }}
           OPENROUTER_API_KEYS: ${{ secrets.OPENROUTER_API_KEYS }}
           OPENROUTER_MODELS: ${{ secrets.OPENROUTER_MODELS }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -86,4 +86,4 @@ jobs:
       - name: 10. Finish
         if: always()
         run: |
-          echo "luannv: Pipeline 1 - PR Gate finished."
+          echo "[DONE] Pipeline 1 (PR Gate) finished."
