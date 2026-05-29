@@ -3,3 +3,12 @@ spring:
     name: eoffice-be
   profiles:
     active: local
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
