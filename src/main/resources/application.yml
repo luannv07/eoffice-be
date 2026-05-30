@@ -5,6 +5,18 @@ spring:
       - optional:file:.env.deploy[.properties]
   application:
     name: eoffice-be
+  jackson:
+    time-zone: UTC
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 50
+          time_zone: UTC
+        order_inserts: true
+        order_updates: true
+        jdbc.batch_versioned_data: true
+        generate_statistics: false
   profiles:
     active: staging
   liquibase:

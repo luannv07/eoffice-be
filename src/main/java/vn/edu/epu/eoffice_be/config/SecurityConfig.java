@@ -22,15 +22,21 @@ public class SecurityConfig {
             "/actuator/health/**"
     };
 
+    private static final String[] PUBLIC_ENDPOINTS = {
+            "/public/**"
+    };
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) {
         try {
             http
+                    // JWT stateless APIs do not rely on cookie-based authentication.
                     .csrf(AbstractHttpConfigurer::disable)
                     .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                     .authorizeHttpRequests(auth -> auth
                             .requestMatchers(HEALTH_WHITELIST).permitAll()
                             .requestMatchers(SWAGGER_WHITELIST).permitAll()
+                            .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                             .anyRequest().authenticated()
                     )
                     .httpBasic(AbstractHttpConfigurer::disable)
