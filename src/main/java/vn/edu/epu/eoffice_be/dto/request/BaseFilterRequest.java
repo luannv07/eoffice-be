@@ -15,6 +15,8 @@ import java.util.Set;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class BaseFilterRequest {
+    private static final String CREATED_DATE = "createdDate";
+    private static final String UPDATED_DATE = "updatedDate";
 
     @Range(min = 1, max = 1000, message = "{validation.field.size_not_in_range}")
     Integer page = 1;
@@ -22,7 +24,7 @@ public class BaseFilterRequest {
     @Range(min = 1, max = 1000, message = "{validation.field.size_not_in_range}")
     Integer size = 10;
 
-    String sortBy = "createdDate";
+    String sortBy = CREATED_DATE;
 
     Sort.Direction sortDirection = Sort.Direction.DESC;
 
@@ -39,10 +41,10 @@ public class BaseFilterRequest {
     }
 
     protected Set<String> getAllowedSortFields() {
-        return Set.of("createdDate", "updatedDate");
+        return Set.of(CREATED_DATE, UPDATED_DATE);
     }
 
     protected String getDefaultSortBy() {
-        return "createdDate";
+        return CREATED_DATE;
     }
 }
