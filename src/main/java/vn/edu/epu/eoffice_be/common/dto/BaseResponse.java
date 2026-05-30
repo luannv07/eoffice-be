@@ -9,6 +9,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
+import org.jspecify.annotations.Nullable;
 
 import java.time.Instant;
 
@@ -19,12 +20,13 @@ import java.time.Instant;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class BaseResponse<T> {
+public class BaseResponse<T extends @Nullable Object> {
 
     @Schema(description = "Trạng thái thành công hay thất bại", example = "true")
     boolean success;
 
     @Schema(description = "Dữ liệu trả về (nếu có)")
+    @Nullable
     T data;
 
     @Schema(description = "Thông báo", example = "Thành công")
@@ -36,7 +38,7 @@ public class BaseResponse<T> {
     @Schema(description = "Thời gian phản hồi", example = "2025-12-11T09:09:16Z")
     Instant timestamp;
 
-    public static <T> BaseResponse<T> success(T data) {
+    public static <T extends @Nullable Object> BaseResponse<T> success(T data) {
         return BaseResponse.<T>builder()
                 .success(true)
                 .data(data)
@@ -45,7 +47,7 @@ public class BaseResponse<T> {
                 .build();
     }
 
-    public static <T> BaseResponse<T> success(T data, String message) {
+    public static <T extends @Nullable Object> BaseResponse<T> success(T data, String message) {
         return BaseResponse.<T>builder()
                 .success(true)
                 .data(data)
@@ -54,7 +56,7 @@ public class BaseResponse<T> {
                 .build();
     }
 
-    public static <T> BaseResponse<T> error(String message) {
+    public static <T extends @Nullable Object> BaseResponse<T> error(String message) {
         return BaseResponse.<T>builder()
                 .success(false)
                 .message(message)
@@ -62,7 +64,7 @@ public class BaseResponse<T> {
                 .build();
     }
 
-    public static <T> BaseResponse<T> error(String message, String errorCode) {
+    public static <T extends @Nullable Object> BaseResponse<T> error(String message, String errorCode) {
         return BaseResponse.<T>builder()
                 .success(false)
                 .message(message)
