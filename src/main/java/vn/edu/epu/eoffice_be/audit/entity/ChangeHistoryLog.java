@@ -5,7 +5,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -51,15 +50,12 @@ public class ChangeHistoryLog {
     @Column(name = "source_service", nullable = false, length = 100)
     String sourceService;
 
-    @Lob
-    @Column(name = "before_data")
+    @Column(name = "before_data", columnDefinition = "jsonb")
     String beforeData;
 
-    @Lob
-    @Column(name = "after_data")
+    @Column(name = "after_data", columnDefinition = "jsonb")
     String afterData;
 
-    @Lob
-    @Column(name = "changed_fields")
+    @Column(name = "changed_fields", columnDefinition = "jsonb")
     String changedFields;
 }

@@ -128,7 +128,11 @@ public class EntityChangeAuditAspect {
             return objectMapper.writeValueAsString(input);
         } catch (JsonProcessingException ex) {
             log.warn("Failed to convert entity to json for change history", ex);
-            return String.valueOf(input);
+            try {
+                return objectMapper.writeValueAsString(java.util.Map.of("raw", String.valueOf(input)));
+            } catch (JsonProcessingException ignored) {
+                return "{\"raw\":\"serialization_error\"}";
+            }
         }
     }
 

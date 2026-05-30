@@ -7,7 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import vn.edu.epu.eoffice_be.audit.entity.UserAuditLog;
-import vn.edu.epu.eoffice_be.audit.repository.UserAuditLogRepository;
+import vn.edu.epu.eoffice_be.audit.service.AuditLogAsyncService;
 import vn.edu.epu.eoffice_be.common.annotation.Auditable;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ControllerAuditAspect {
 
-    private final UserAuditLogRepository userAuditLogRepository;
+    private final AuditLogAsyncService auditLogAsyncService;
     private final ObjectMapper objectMapper;
 
     @Around("execution(public * vn.edu.epu.eoffice_be.controller..*(..))")
@@ -74,9 +74,20 @@ public class ControllerAuditAspect {
                 .requestUri(request != null ? request.getRequestURI() : null)
                 .methodName(method.getDeclaringClass().getSimpleName() + "." + method.getName())
                 .executionTimeMs(System.currentTimeMillis() - start)
-                .paramContent(throwable == null ? params : params + " | exception=" + throwable.getClass().getSimpleName())
+                .paramContent(throwable == null ? params : buildErrorPayload(params, throwable))
                 .build();
-        userAuditLogRepository.save(logEntry);
+        auditLogAsyncService.saveAsync(logEntry);
+    }
+
+    private String buildErrorPayload(String params, Throwable throwable) {
+        try {
+            return objectMapper.writeValueAsString(java.util.Map.of(
+                    "params", objectMapper.readTree(params),
+                    "exception", throwable.getClass().getSimpleName()
+            ));
+        } catch (Exception ex) {
+            return "{\"params\":" + params + ",\"exception\":\"" + throwable.getClass().getSimpleName() + "\"}";
+        }
     }
 
     private String resolveUsername() {
