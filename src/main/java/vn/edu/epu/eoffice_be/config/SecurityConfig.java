@@ -16,13 +16,19 @@ public class SecurityConfig {
             "/swagger-ui.html"
     };
 
+    private static final String[] HEALTH_WHITELIST = {
+            "/public/health",
+            "/actuator/health",
+            "/actuator/health/**"
+    };
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/public/health").permitAll()
+                        .requestMatchers(HEALTH_WHITELIST).permitAll()
                         .requestMatchers(SWAGGER_WHITELIST).permitAll()
                         .anyRequest().authenticated()
                 )
