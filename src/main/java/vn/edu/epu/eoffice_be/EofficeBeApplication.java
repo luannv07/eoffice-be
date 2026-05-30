@@ -15,7 +15,7 @@ public class EofficeBeApplication {
     public static void main(String[] args) {
 		TimeZone.setDefault(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
 		SpringApplication.run(EofficeBeApplication.class, args);
-        log.info("Application started 1234 8 chickens office");
+        log.info("✅ Application started 1234 8 chickens office");
 	}
 
 }
