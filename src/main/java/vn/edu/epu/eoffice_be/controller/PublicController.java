@@ -26,6 +26,8 @@ public class PublicController {
     // lo secret
     @GetMapping("/test-secret")
     public String test3() {
+        String apiKey = "apiKey12lkjslkdjfsd";
+        String secretKey = "secret";
         return "jwtTOkenSecretabc89237894234";
     }
 }
