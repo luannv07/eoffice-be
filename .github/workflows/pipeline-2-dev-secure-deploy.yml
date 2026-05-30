@@ -75,7 +75,7 @@ jobs:
             set -euo pipefail
             cd "${{ secrets.DEPLOY_PATH }}"
 
-            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "${{ env.IMAGE_OWNER }}" --password-stdin
+            echo "${{ secrets.GH_PAT }}" | docker login ghcr.io -u "${{ env.IMAGE_OWNER }}" --password-stdin
 
             cat > .env.deploy <<EOF
             IMAGE_REGISTRY=${{ env.IMAGE_REGISTRY }}
