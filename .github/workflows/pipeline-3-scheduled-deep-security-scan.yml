@@ -1,0 +1,89 @@
+name: "Pipeline 3: Scheduled Deep Security Scan"
+
+on:
+  schedule:
+    - cron: "0 18 * * *" # 01:00 ICT (UTC+7)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deep-security-scan:
+    name: Deep Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Checkout source
+        uses: actions/checkout@v4
+
+      - name: 2. Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - name: 2. Cache OWASP Dependency-Check DB
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/dependency-check
+          key: owasp-db-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            owasp-db-${{ runner.os }}-
+
+      - name: 3. OWASP Dependency Check
+        run: |
+          mkdir -p security-reports
+          mvn -B org.owasp:dependency-check-maven:check \
+            -Dformat=JSON \
+            -DoutputDirectory=security-reports \
+            -DdataDirectory=$HOME/.cache/dependency-check \
+            -DnvdApiKey=${{ secrets.NVD_API_KEY }} \
+            -DfailBuildOnCVSS=9
+
+      - name: 4. Full Trivy scan (filesystem)
+        uses: aquasecurity/trivy-action@v0.32.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,misconfig,secret,license
+          format: json
+          output: security-reports/trivy-full.json
+          ignore-unfixed: true
+          exit-code: 0
+
+      - name: 5. Generate SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@v0.32.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: cyclonedx
+          output: security-reports/sbom-cyclonedx.json
+          exit-code: 0
+
+      - name: 6. Upload report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deep-security-reports-${{ github.run_id }}
+          path: security-reports/
+          if-no-files-found: warn
+
+      - name: 7. Fail if CRITICAL or CVSS >= 9
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          critical_count=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' security-reports/trivy-full.json)
+          cvss9_count=$(jq '[.Results[]?.Vulnerabilities[]? | .CVSS? // {} | to_entries[]? | .value.V3Score? | select(. >= 9)] | length' security-reports/trivy-full.json)
+
+          echo "Trivy CRITICAL count: ${critical_count}"
+          echo "Trivy CVSS >= 9 count: ${cvss9_count}"
+
+          if [ "${critical_count}" -gt 0 ] || [ "${cvss9_count}" -gt 0 ]; then
+            echo "[FAIL] Found CRITICAL vulnerabilities or CVSS >= 9"
+            exit 1
+          fi
+
+          echo "[PASS] No CRITICAL vulnerability and no CVSS >= 9 found in Trivy report."
