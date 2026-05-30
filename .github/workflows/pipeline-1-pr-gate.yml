@@ -13,6 +13,10 @@ permissions:
   contents: read
   pull-requests: write
 
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   pr-gate:
     name: "PR Gate - Security & Code Review"
@@ -76,12 +80,14 @@ jobs:
           GROQ_MODELS: ${{ secrets.GROQ_MODELS }}
           OPENROUTER_API_KEYS: ${{ secrets.OPENROUTER_API_KEYS }}
           OPENROUTER_MODELS: ${{ secrets.OPENROUTER_MODELS }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
           COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_EVENT_ACTION: ${{ github.event.action }}
+          GITHUB_BOT_LOGIN: github-actions[bot]
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 10. Finish
         if: always()
