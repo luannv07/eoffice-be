@@ -16,19 +16,29 @@ public class SecurityConfig {
             "/swagger-ui.html"
     };
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/public/health").permitAll()
-                        .requestMatchers(SWAGGER_WHITELIST).permitAll()
-                        .anyRequest().authenticated()
-                )
-                .httpBasic(AbstractHttpConfigurer::disable)
-                .formLogin(AbstractHttpConfigurer::disable);
+    private static final String[] HEALTH_WHITELIST = {
+            "/public/health",
+            "/actuator/health",
+            "/actuator/health/**"
+    };
 
-        return http.build();
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) {
+        try {
+            http
+                    .csrf(AbstractHttpConfigurer::disable)
+                    .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                    .authorizeHttpRequests(auth -> auth
+                            .requestMatchers(HEALTH_WHITELIST).permitAll()
+                            .requestMatchers(SWAGGER_WHITELIST).permitAll()
+                            .anyRequest().authenticated()
+                    )
+                    .httpBasic(AbstractHttpConfigurer::disable)
+                    .formLogin(AbstractHttpConfigurer::disable);
+
+            return http.build();
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to initialize Spring Security filter chain", ex);
+        }
     }
 }
