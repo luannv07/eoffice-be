@@ -1,0 +1,28 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:168.144.105.33}:${DB_PORT:5432}/${DB_NAME:eoffice}?options=-c%20TimeZone%3DAsia%2FHo_Chi_Minh
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Ho_Chi_Minh
+
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/master.yml
+
+server:
+  port: 8888
+
+logging:
+  level:
+    liquibase: DEBUG
+

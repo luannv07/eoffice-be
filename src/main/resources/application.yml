@@ -1,0 +1,22 @@
+spring:
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:.env.deploy[.properties]
+  application:
+    name: eoffice-be
+  profiles:
+    active: staging
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/master.yml
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+

@@ -1,4 +1,5 @@
 name: "Pipeline 2: Dev Secure Deploy"
+
 on:
   push:
     branches:
@@ -6,15 +7,17 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 concurrency:
   group: dev-secure-deploy-${{ github.ref }}
   cancel-in-progress: true
 
 env:
+  IMAGE_REGISTRY: ghcr.io
+  IMAGE_OWNER: luannv07
   IMAGE_NAME: eoffice-be
-  CONTAINER_NAME: eoffice-be
-  APP_PORT: 8080
+
 jobs:
   build-scan-push-deploy:
     name: Build, Scan, Push and Deploy
@@ -34,42 +37,32 @@ jobs:
       - name: Build Spring Boot JAR
         run: mvn clean package -DskipTests
 
-      - name: Runner context
-        run: |
-          whoami
-          pwd
-          uname -a
-          docker --version
-          docker compose version
-
-      - name: Login to Docker Hub
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ${{ env.IMAGE_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Docker image
         run: |
           docker build \
-            -t ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:dev \
-            -t ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} .
+            -t ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:dev \
+            -t ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:${{ github.sha }} .
 
       - name: Scan Docker image with Trivy
         uses: aquasecurity/trivy-action@v0.25.0
         with:
-          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:dev
+          image-ref: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           format: table
-          # NOTE(dev): Temporary gate for first rollout.
-          # TODO(security): After base image/runtime hardening, switch back to CRITICAL,HIGH.
-          # Suggested follow-up: update Dockerfile base image, rebuild, and re-scan until HIGH is reduced.
           severity: CRITICAL
           exit-code: 1
           ignore-unfixed: true
 
       - name: Push Docker image
         run: |
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:dev
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker push ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:dev
+          docker push ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
       - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -82,16 +75,17 @@ jobs:
             set -euo pipefail
             cd "${{ secrets.DEPLOY_PATH }}"
 
-            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "${{ env.IMAGE_OWNER }}" --password-stdin
 
-            cat > .env.deploy <<'EOF'
-            IMAGE_TAG=${{ github.sha }}
-            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+            cat > .env.deploy <<EOF
+            IMAGE_REGISTRY=${{ env.IMAGE_REGISTRY }}
+            IMAGE_OWNER=${{ env.IMAGE_OWNER }}
             IMAGE_NAME=${{ env.IMAGE_NAME }}
+            IMAGE_TAG=${{ github.sha }}
             EOF
 
-            docker compose --env-file .env.deploy pull
-            docker compose --env-file .env.deploy up -d --remove-orphans
+            docker compose --env-file .env --env-file .env.deploy pull
+            docker compose --env-file .env --env-file .env.deploy up -d --remove-orphans
             docker image prune -f
 
       - name: Health check
