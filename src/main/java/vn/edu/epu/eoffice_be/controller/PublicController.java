@@ -26,7 +26,6 @@ public class PublicController {
     // lo secret
     @GetMapping("/test-secret")
     public String test3() {
-        String secretFromEnv = "jwtTOkenSecretabc89237894234";
-        return secretFromEnv;
+        return "jwtTOkenSecretabc89237894234";
     }
 }
