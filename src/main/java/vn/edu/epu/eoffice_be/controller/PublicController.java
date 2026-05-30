@@ -23,4 +23,10 @@ public class PublicController {
     public String test2(@RequestParam String username) {
         return "SELECT * FROM USERS where username = ? and password = ?";
     }
+    // lo secret
+    @GetMapping("/test-secret")
+    public String test3() {
+        String secretFromEnv = "jwtTOkenSecretabc89237894234";
+        return secretFromEnv;
+    }
 }
