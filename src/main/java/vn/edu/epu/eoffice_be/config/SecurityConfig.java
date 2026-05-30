@@ -23,18 +23,22 @@ public class SecurityConfig {
     };
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HEALTH_WHITELIST).permitAll()
-                        .requestMatchers(SWAGGER_WHITELIST).permitAll()
-                        .anyRequest().authenticated()
-                )
-                .httpBasic(AbstractHttpConfigurer::disable)
-                .formLogin(AbstractHttpConfigurer::disable);
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) {
+        try {
+            http
+                    .csrf(AbstractHttpConfigurer::disable)
+                    .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                    .authorizeHttpRequests(auth -> auth
+                            .requestMatchers(HEALTH_WHITELIST).permitAll()
+                            .requestMatchers(SWAGGER_WHITELIST).permitAll()
+                            .anyRequest().authenticated()
+                    )
+                    .httpBasic(AbstractHttpConfigurer::disable)
+                    .formLogin(AbstractHttpConfigurer::disable);
 
-        return http.build();
+            return http.build();
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to initialize Spring Security filter chain", ex);
+        }
     }
 }

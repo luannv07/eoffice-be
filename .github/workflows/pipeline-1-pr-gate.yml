@@ -31,7 +31,7 @@ jobs:
           java-version: "21"
           cache: "maven"
 
-      - name: 3. Build (Skip Tests)
+      - name: 3. Build (Tests + Static Analysis)
         run: mvn -B clean verify
 
       - name: 4. Secret Scan (TruffleHog)
