@@ -1,19 +1,19 @@
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST:ip-host}:${DB_PORT:5432}/${DB_NAME:eoffice}?options=-c%20TimeZone%3DAsia%2FHo_Chi_Minh
+    url: jdbc:postgresql://${DB_HOST:ip-host}:${DB_PORT:5432}/${DB_NAME:eoffice}?options=-c%20TimeZone%3DUTC
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: none
     open-in-view: false
 
     properties:
       hibernate:
         jdbc:
-          time_zone: Asia/Ho_Chi_Minh
+          time_zone: UTC
 
   liquibase:
     enabled: true
@@ -21,6 +21,8 @@ spring:
 
 server:
   port: 8080
+  servlet:
+    context-path: ${SERVER_CONTEXT_PATH:/api/v1}
 
 logging:
   level:

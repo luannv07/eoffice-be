@@ -13,7 +13,7 @@ public class EofficeBeApplication {
     private static final Logger log = LoggerFactory.getLogger(EofficeBeApplication.class);
 
     public static void main(String[] args) {
-		TimeZone.setDefault(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
+		TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
 		SpringApplication.run(EofficeBeApplication.class, args);
         log.info("✅ Application started 1234 8 chickens office");
 	}
