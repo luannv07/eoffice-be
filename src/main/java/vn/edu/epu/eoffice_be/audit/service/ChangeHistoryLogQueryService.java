@@ -23,23 +23,28 @@ public class ChangeHistoryLogQueryService {
 
     @Transactional(readOnly = true)
     public Page<ChangeHistoryLogResponse> filter(ChangeHistoryLogFilterRequest request) {
+        String tableName = trimToNull(request.getTableName());
+        String objectId = trimToNull(request.getObjectId());
+        String changedBy = trimToNull(request.getChangedBy());
+        String action = trimToNull(request.getAction());
+
         Specification<ChangeHistoryLog> specification = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
-            if (StringUtils.hasText(request.getTableName())) {
-                predicates.add(cb.equal(root.get("tableName"), request.getTableName().trim()));
+            if (tableName != null) {
+                predicates.add(cb.equal(root.get("tableName"), tableName));
             }
 
-            if (StringUtils.hasText(request.getObjectId())) {
-                predicates.add(cb.equal(root.get("objectId"), request.getObjectId().trim()));
+            if (objectId != null) {
+                predicates.add(cb.equal(root.get("objectId"), objectId));
             }
 
-            if (StringUtils.hasText(request.getChangedBy())) {
-                predicates.add(cb.equal(root.get("changedBy"), request.getChangedBy().trim()));
+            if (changedBy != null) {
+                predicates.add(cb.equal(root.get("changedBy"), changedBy));
             }
 
-            if (StringUtils.hasText(request.getAction())) {
-                predicates.add(cb.equal(root.get("action"), request.getAction().trim()));
+            if (action != null && shouldApplyActionFilter(tableName, objectId, changedBy, request)) {
+                predicates.add(cb.equal(root.get("action"), action));
             }
 
             if (request.getChangedFrom() != null) {
@@ -55,6 +60,25 @@ public class ChangeHistoryLogQueryService {
 
         return changeHistoryLogRepository.findAll(specification, request.pageable())
                 .map(this::toResponse);
+    }
+
+    boolean shouldApplyActionFilter(
+            String tableName,
+            String objectId,
+            String changedBy,
+            ChangeHistoryLogFilterRequest request
+    ) {
+        boolean hasObjectLeadingIndex = tableName != null && objectId != null;
+        boolean hasChangedByLeadingIndex = changedBy != null
+                && (request.getChangedFrom() != null || request.getChangedTo() != null);
+        return hasObjectLeadingIndex || hasChangedByLeadingIndex;
+    }
+
+    private String trimToNull(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        return value.trim();
     }
 
     private ChangeHistoryLogResponse toResponse(ChangeHistoryLog entity) {
