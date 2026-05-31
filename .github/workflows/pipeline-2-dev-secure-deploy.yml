@@ -73,7 +73,29 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script: |
             set -euo pipefail
+
+            echo "=== BASIC INFO ==="
+            pwd
+            whoami
+            hostname
+            date
+            uname -a
+
+            echo "=== DISK / MEMORY ==="
+            df -h
+            free -h
+
+            echo "=== DOCKER INFO ==="
+            docker --version
+            docker compose version
+            docker ps -a
+
+            echo "=== DEPLOY PATH CHECK ==="
             cd "${{ secrets.DEPLOY_PATH }}"
+            pwd
+            ls -la
+            test -f docker-compose.yml && echo "docker-compose.yml exists"
+            test -f .env && echo ".env exists"
 
             echo "${{ secrets.GH_PAT }}" | docker login ghcr.io -u "${{ env.IMAGE_OWNER }}" --password-stdin
 
@@ -86,6 +108,10 @@ jobs:
 
             docker compose --env-file .env --env-file .env.deploy pull
             docker compose --env-file .env --env-file .env.deploy up -d --remove-orphans
+
+            echo "=== AFTER DEPLOY ==="
+            docker compose --env-file .env --env-file .env.deploy ps
+            docker ps
             docker image prune -f
 
       - name: Health check

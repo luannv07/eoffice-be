@@ -42,27 +42,41 @@ jobs:
             -DnvdApiKey=${{ secrets.NVD_API_KEY }} \
             -DfailBuildOnCVSS=9
 
-      - name: 4. Full Trivy scan (filesystem)
-        uses: aquasecurity/trivy-action@v0.32.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          scanners: vuln,misconfig,secret,license
-          format: json
-          output: security-reports/trivy-full.json
-          ignore-unfixed: true
-          exit-code: 0
+      - name: 4. Install Trivy CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y wget gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | \
+            gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | \
+            sudo tee /etc/apt/sources.list.d/trivy.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y trivy
+          trivy --version
 
-      - name: 5. Generate SBOM (CycloneDX)
-        uses: aquasecurity/trivy-action@v0.32.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          format: cyclonedx
-          output: security-reports/sbom-cyclonedx.json
-          exit-code: 0
+      - name: 5. Full Trivy scan (filesystem)
+        shell: bash
+        run: |
+          set -euo pipefail
+          trivy fs . \
+            --scanners vuln,misconfig,secret,license \
+            --format json \
+            --output security-reports/trivy-full.json \
+            --ignore-unfixed \
+            --exit-code 0
 
-      - name: 6. Upload report artifact
+      - name: 6. Generate SBOM (CycloneDX)
+        shell: bash
+        run: |
+          set -euo pipefail
+          trivy fs . \
+            --format cyclonedx \
+            --output security-reports/sbom-cyclonedx.json \
+            --exit-code 0
+
+      - name: 7. Upload report artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -70,7 +84,7 @@ jobs:
           path: security-reports/
           if-no-files-found: warn
 
-      - name: 7. Fail if CRITICAL or CVSS >= 9
+      - name: 8. Fail if CRITICAL or CVSS >= 9
         shell: bash
         run: |
           set -euo pipefail
