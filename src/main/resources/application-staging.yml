@@ -24,7 +24,7 @@ spring:
     change-log: classpath:db/changelog/master.yml
 
 server:
-  port: 8080
+  port: ${PORT:8080}
   servlet:
     context-path: ${SERVER_CONTEXT_PATH:/api/v1}
 
