@@ -7,20 +7,14 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: dev-secure-deploy-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  IMAGE_REGISTRY: ghcr.io
-  IMAGE_OWNER: luannv07
-  IMAGE_NAME: eoffice-be
-
 jobs:
   build-scan-push-deploy:
-    name: Build, Scan, Push and Deploy
+    name: Build, Scan, Push and Deploy to Heroku
     runs-on: ubuntu-latest
 
     steps:
@@ -37,82 +31,38 @@ jobs:
       - name: Build Spring Boot JAR
         run: mvn clean package -DskipTests
 
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.IMAGE_REGISTRY }}
-          username: ${{ env.IMAGE_OWNER }}
-          password: ${{ secrets.GH_PAT }}
-
       - name: Build Docker image
         run: |
           docker build \
-            -t ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:dev \
-            -t ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:${{ github.sha }} .
+            -t registry.heroku.com/${{ secrets.HEROKU_APP_NAME }}/web:latest \
+            -t registry.heroku.com/${{ secrets.HEROKU_APP_NAME }}/web:${{ github.sha }} .
 
       - name: Scan Docker image with Trivy
         uses: aquasecurity/trivy-action@v0.25.0
         with:
-          image-ref: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          image-ref: registry.heroku.com/${{ secrets.HEROKU_APP_NAME }}/web:${{ github.sha }}
           format: table
           severity: CRITICAL
           exit-code: 1
           ignore-unfixed: true
 
-      - name: Push Docker image
+      - name: Login to Heroku Container Registry
         run: |
-          docker push ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:dev
-          docker push ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          echo "${{ secrets.HEROKU_API_KEY }}" | docker login registry.heroku.com -u _ --password-stdin
 
-      - name: Deploy to VPS via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
-          script: |
-            set -euo pipefail
+      - name: Push Docker image to Heroku
+        run: |
+          docker push registry.heroku.com/${{ secrets.HEROKU_APP_NAME }}/web:latest
+          docker push registry.heroku.com/${{ secrets.HEROKU_APP_NAME }}/web:${{ github.sha }}
 
-            echo "=== BASIC INFO ==="
-            pwd
-            whoami
-            hostname
-            date
-            uname -a
+      - name: Install Heroku CLI
+        run: |
+          curl -s https://cli-assets.heroku.com/install.sh | sh
 
-            echo "=== DISK / MEMORY ==="
-            df -h
-            free -h
-
-            echo "=== DOCKER INFO ==="
-            docker --version
-            docker compose version
-            docker ps -a
-
-            echo "=== DEPLOY PATH CHECK ==="
-            cd "${{ secrets.DEPLOY_PATH }}"
-            pwd
-            ls -la
-            test -f docker-compose.yml && echo "docker-compose.yml exists"
-            test -f .env && echo ".env exists"
-
-            echo "${{ secrets.GH_PAT }}" | docker login ghcr.io -u "${{ env.IMAGE_OWNER }}" --password-stdin
-
-            cat > .env.deploy <<EOF
-            IMAGE_REGISTRY=${{ env.IMAGE_REGISTRY }}
-            IMAGE_OWNER=${{ env.IMAGE_OWNER }}
-            IMAGE_NAME=${{ env.IMAGE_NAME }}
-            IMAGE_TAG=${{ github.sha }}
-            EOF
-
-            docker compose --env-file .env --env-file .env.deploy pull
-            docker compose --env-file .env --env-file .env.deploy up -d --remove-orphans
-
-            echo "=== AFTER DEPLOY ==="
-            docker compose --env-file .env --env-file .env.deploy ps
-            docker ps
-            docker image prune -f
+      - name: Release to Heroku
+        run: heroku container:release web -a ${{ secrets.HEROKU_APP_NAME }}
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
 
       - name: Health check
         env:
