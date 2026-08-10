@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.DefaultSecurityFilterChain;
 import org.springframework.security.web.SecurityFilterChain;
+import vn.edu.epu.eoffice_be.auth.security.JwtAuthenticationFilter;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
@@ -11,9 +12,11 @@ import static org.mockito.Mockito.when;
 
 class SecurityConfigTest {
 
+    private final JwtAuthenticationFilter jwtAuthenticationFilter = mock(JwtAuthenticationFilter.class);
+
     @Test
     void securityFilterChainShouldWrapExceptionAsIllegalStateException() throws Exception {
-        SecurityConfig config = new SecurityConfig();
+        SecurityConfig config = new SecurityConfig(jwtAuthenticationFilter);
         HttpSecurity httpSecurity = mock(HttpSecurity.class);
         when(httpSecurity.csrf(org.mockito.ArgumentMatchers.any())).thenThrow(new RuntimeException("boom"));
 
@@ -22,7 +25,7 @@ class SecurityConfigTest {
 
     @Test
     void securityFilterChainShouldReturnBuiltChainWhenHttpSecurityBuilds() throws Exception {
-        SecurityConfig config = new SecurityConfig();
+        SecurityConfig config = new SecurityConfig(jwtAuthenticationFilter);
         HttpSecurity httpSecurity = mock(HttpSecurity.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
         DefaultSecurityFilterChain chain = mock(DefaultSecurityFilterChain.class);
 
@@ -31,6 +34,8 @@ class SecurityConfigTest {
         when(httpSecurity.authorizeHttpRequests(org.mockito.ArgumentMatchers.any())).thenReturn(httpSecurity);
         when(httpSecurity.httpBasic(org.mockito.ArgumentMatchers.any())).thenReturn(httpSecurity);
         when(httpSecurity.formLogin(org.mockito.ArgumentMatchers.any())).thenReturn(httpSecurity);
+        when(httpSecurity.addFilterBefore(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(httpSecurity);
         when(httpSecurity.build()).thenReturn(chain);
 
         SecurityFilterChain result = config.securityFilterChain(httpSecurity);
