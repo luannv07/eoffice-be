@@ -15,7 +15,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
-import vn.edu.epu.eoffice_be.common.entity.BaseEntity;
 
 import java.io.Serializable;
 
@@ -28,7 +27,7 @@ import java.io.Serializable;
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class OrgNodeClosure extends BaseEntity {
+public class OrgNodeClosure {
 
     @Id
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

@@ -1,4 +1,4 @@
-package vn.edu.epu.eoffice_be.auth.security;
+package vn.edu.epu.eoffice_be.security;
 
 import vn.edu.epu.eoffice_be.common.enums.Role;
 

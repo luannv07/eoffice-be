@@ -1,4 +1,4 @@
-package vn.edu.epu.eoffice_be.auth.security;
+package vn.edu.epu.eoffice_be.security;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
@@ -11,7 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import vn.edu.epu.eoffice_be.common.enums.Role;
-import vn.edu.epu.eoffice_be.jwt.service.JwtService;
+import vn.edu.epu.eoffice_be.service.JwtService;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;

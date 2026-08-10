@@ -12,8 +12,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import vn.edu.epu.eoffice_be.auth.security.JwtAuthenticationFilter;
-import vn.edu.epu.eoffice_be.auth.security.RbacPermissionEvaluator;
+import vn.edu.epu.eoffice_be.security.JwtAuthenticationFilter;
+import vn.edu.epu.eoffice_be.security.RbacPermissionEvaluator;
 
 @Configuration
 @EnableMethodSecurity

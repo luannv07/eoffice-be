@@ -37,9 +37,10 @@ public interface OrgNodeRepository extends JpaRepository<OrgNode, Long> {
     @Query("""
             SELECT DISTINCT n FROM OrgNode n
             JOIN OrgNodeClosure c ON c.descendant = n
-            JOIN PositionPermission p ON p.orgNode.id = c.ancestor.id
-            WHERE p.positionCd = :positionCd
-              AND p.inheritToChildren = true
+            JOIN PositionAssignment pa ON pa.orgNode.id = c.ancestor.id
+            WHERE pa.positionCd = :positionCd
+              AND pa.deleteFlg = false
+              AND pa.actualDismissalDate IS NULL
               AND n.deleteFlg = false
             ORDER BY n.orgOrder ASC
             """)

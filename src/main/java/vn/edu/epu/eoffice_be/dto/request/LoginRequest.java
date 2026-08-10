@@ -1,4 +1,4 @@
-package vn.edu.epu.eoffice_be.auth.dto.request;
+package vn.edu.epu.eoffice_be.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

@@ -7,8 +7,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
-import vn.edu.epu.eoffice_be.jwt.service.JwtService;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
+import vn.edu.epu.eoffice_be.service.JwtService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -40,7 +40,8 @@ class AuthCoreContextTest {
         var found = userLoginRepository.findByUsernameAndDeleteFlgFalse("ctx-admin");
         assertTrue(found.isPresent());
         assertEquals("ctx-admin", found.get().getUsername());
-        assertFalse(found.get().isAccountLocked());
+        assertEquals("ACTIVE", found.get().getUserStatusCd());
+        assertFalse(found.get().isMustChangePassword());
         assertNotNull(found.get().getId());
 
         String access = jwtService.generateAccessToken(user.getId(), user.getUsername(), user.getRole());

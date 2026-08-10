@@ -40,12 +40,15 @@ public class DictionaryItem extends BaseEntity {
     @Column(name = "item_cd", nullable = false, length = 50)
     String itemCd;
 
-    @Column(nullable = false, length = 255)
-    String name;
+    @Column(name = "name_vn", nullable = false, length = 255)
+    String nameVn;
 
-    @Column(name = "sort_order", nullable = false)
+    @Column(name = "name_en", nullable = false, length = 255)
+    String nameEn;
+
+    @Column(name = "display_order", nullable = false)
     @Builder.Default
-    int sortOrder = 0;
+    int displayOrder = 0;
 
     @Column(name = "active_flg", nullable = false)
     @Builder.Default

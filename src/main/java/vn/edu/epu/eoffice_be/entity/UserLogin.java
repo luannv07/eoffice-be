@@ -39,6 +39,9 @@ public class UserLogin extends BaseEntity {
     @Column(nullable = false, length = 100, unique = true)
     String username;
 
+    @Column(length = 255, unique = true)
+    String email;
+
     @Column(name = "password_hash", nullable = false, length = 255)
     String passwordHash;
 
@@ -47,9 +50,13 @@ public class UserLogin extends BaseEntity {
     @Builder.Default
     Role role = Role.USER;
 
-    @Column(name = "account_locked", nullable = false)
+    @Column(name = "user_status_cd", nullable = false, length = 20)
     @Builder.Default
-    boolean accountLocked = false;
+    String userStatusCd = "ACTIVE";
+
+    @Column(name = "must_change_password", nullable = false)
+    @Builder.Default
+    boolean mustChangePassword = false;
 
     @Column(name = "password_expired_at")
     Instant passwordExpiredAt;

@@ -47,7 +47,7 @@ public class PositionAssignment extends BaseEntity {
     @Column(name = "position_cd", nullable = false, length = 50)
     String positionCd;
 
-    @Column(name = "effective_from")
+    @Column(name = "effective_from", nullable = false)
     Instant effectiveFrom;
 
     @Column(name = "effective_to")
@@ -56,8 +56,11 @@ public class PositionAssignment extends BaseEntity {
     @Column(name = "actual_dismissal_date")
     Instant actualDismissalDate;
 
-    @Column(columnDefinition = "TEXT")
-    String reason;
+    @Column(name = "dismissal_reason_cd", length = 50)
+    String dismissalReasonCd;
+
+    @Column(name = "dismissal_note", columnDefinition = "TEXT")
+    String dismissalNote;
 
     @Column(name = "delete_flg", nullable = false)
     @Builder.Default

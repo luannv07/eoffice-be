@@ -1,4 +1,4 @@
-package vn.edu.epu.eoffice_be.auth.controller;
+package vn.edu.epu.eoffice_be.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -9,12 +9,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import vn.edu.epu.eoffice_be.auth.dto.request.LoginRequest;
-import vn.edu.epu.eoffice_be.auth.dto.response.LoginResponse;
-import vn.edu.epu.eoffice_be.auth.dto.response.MeResponse;
-import vn.edu.epu.eoffice_be.auth.security.JwtUserPrincipal;
-import vn.edu.epu.eoffice_be.auth.service.AuthService;
 import vn.edu.epu.eoffice_be.common.dto.BaseResponse;
+import vn.edu.epu.eoffice_be.dto.request.LoginRequest;
+import vn.edu.epu.eoffice_be.dto.response.LoginResponse;
+import vn.edu.epu.eoffice_be.dto.response.MeResponse;
+import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
+import vn.edu.epu.eoffice_be.service.AuthService;
 
 @RestController
 @RequestMapping("/auth")

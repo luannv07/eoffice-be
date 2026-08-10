@@ -1,4 +1,4 @@
-package vn.edu.epu.eoffice_be.jwt.config;
+package vn.edu.epu.eoffice_be.config;
 
 import lombok.AccessLevel;
 import lombok.Getter;

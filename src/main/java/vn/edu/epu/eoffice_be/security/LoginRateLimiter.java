@@ -1,10 +1,10 @@
-package vn.edu.epu.eoffice_be.auth.security;
+package vn.edu.epu.eoffice_be.security;
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import vn.edu.epu.eoffice_be.jwt.config.JwtProperties;
 import org.springframework.stereotype.Component;
+import vn.edu.epu.eoffice_be.config.JwtProperties;
 
 import java.time.Duration;
 import java.time.Instant;

@@ -19,8 +19,6 @@ import lombok.Setter;
 import lombok.experimental.FieldDefaults;
 import vn.edu.epu.eoffice_be.common.entity.BaseEntity;
 
-import java.time.Instant;
-
 @Entity
 @Table(name = "org_nodes")
 @Getter
@@ -43,8 +41,11 @@ public class OrgNode extends BaseEntity {
     @Column(nullable = false, length = 50, unique = true)
     String code;
 
-    @Column(nullable = false, length = 255)
-    String name;
+    @Column(name = "name_vn", nullable = false, length = 255)
+    String nameVn;
+
+    @Column(name = "name_en", nullable = false, length = 255)
+    String nameEn;
 
     @Column(name = "type_cd", nullable = false, length = 50)
     String typeCd;
@@ -52,12 +53,6 @@ public class OrgNode extends BaseEntity {
     @Column(name = "org_order")
     @Builder.Default
     Integer orgOrder = 0;
-
-    @Column(name = "effective_date")
-    Instant effectiveDate;
-
-    @Column(name = "expiration_date")
-    Instant expirationDate;
 
     @Column(name = "delete_flg", nullable = false)
     @Builder.Default

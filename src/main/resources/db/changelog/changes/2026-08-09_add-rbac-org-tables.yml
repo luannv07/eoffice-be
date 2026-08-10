@@ -5,63 +5,74 @@ databaseChangeLog:
       changes:
         - createTable:
             tableName: org_nodes
+            remarks: Nút tổ chức (cây đơn vị) - code là giá trị nghiệp vụ bất biến
             columns:
               - column:
                   name: id
                   type: BIGINT
-                  autoIncrement: true
+                  defaultValueComputed: nextval('hibernate_sequence')
                   constraints:
                     primaryKey: true
                     nullable: false
               - column:
                   name: parent_id
                   type: BIGINT
+                  remarks: Nút cha trong cây tổ chức (self-FK), NULL nếu là gốc
               - column:
                   name: code
                   type: VARCHAR(50)
+                  remarks: Mã nghiệp vụ, bất biến, không được đổi tên
                   constraints:
                     nullable: false
               - column:
-                  name: name
+                  name: name_vn
                   type: VARCHAR(255)
+                  remarks: Tên hiển thị tiếng Việt
+                  constraints:
+                    nullable: false
+              - column:
+                  name: name_en
+                  type: VARCHAR(255)
+                  remarks: Tên hiển thị tiếng Anh
                   constraints:
                     nullable: false
               - column:
                   name: type_cd
                   type: VARCHAR(50)
+                  remarks: Loại nút tổ chức (dictionary group ORG_NODE_TYPE_CD)
                   constraints:
                     nullable: false
               - column:
                   name: org_order
                   type: INT
                   defaultValueNumeric: 0
-              - column:
-                  name: effective_date
-                  type: TIMESTAMP WITH TIME ZONE
-              - column:
-                  name: expiration_date
-                  type: TIMESTAMP WITH TIME ZONE
+                  remarks: Thứ tự sắp xếp trong cây
               - column:
                   name: delete_flg
                   type: BOOLEAN
                   defaultValueBoolean: false
+                  remarks: Cờ xóa mềm
                   constraints:
                     nullable: false
               - column:
                   name: created_by
                   type: VARCHAR(100)
+                  remarks: Người tạo (audit)
               - column:
                   name: created_date
                   type: TIMESTAMP WITH TIME ZONE
                   defaultValueComputed: CURRENT_TIMESTAMP
+                  remarks: Thời điểm tạo (audit)
                   constraints:
                     nullable: false
               - column:
                   name: updated_by
                   type: VARCHAR(100)
+                  remarks: Người cập nhật (audit)
               - column:
                   name: updated_date
                   type: TIMESTAMP WITH TIME ZONE
+                  remarks: Thời điểm cập nhật (audit)
 
         - addUniqueConstraint:
             constraintName: uq_org_nodes_code
@@ -90,38 +101,27 @@ databaseChangeLog:
 
         - createTable:
             tableName: org_node_closures
+            remarks: Bảng closure phục vụ truy vấn cây tổ chức (kỹ thuật, không phải nghiệp vụ)
             columns:
               - column:
                   name: ancestor_id
                   type: BIGINT
+                  remarks: Nút tổ tiên (FK org_nodes)
                   constraints:
                     nullable: false
               - column:
                   name: descendant_id
                   type: BIGINT
+                  remarks: Nút hậu duệ (FK org_nodes)
                   constraints:
                     nullable: false
               - column:
                   name: depth
                   type: INT
                   defaultValueNumeric: 0
+                  remarks: Độ sâu giữa ancestor và descendant (0 = chính nó)
                   constraints:
                     nullable: false
-              - column:
-                  name: created_by
-                  type: VARCHAR(100)
-              - column:
-                  name: created_date
-                  type: TIMESTAMP WITH TIME ZONE
-                  defaultValueComputed: CURRENT_TIMESTAMP
-                  constraints:
-                    nullable: false
-              - column:
-                  name: updated_by
-                  type: VARCHAR(100)
-              - column:
-                  name: updated_date
-                  type: TIMESTAMP WITH TIME ZONE
 
         - addPrimaryKey:
             constraintName: pk_org_node_closures
@@ -156,62 +156,81 @@ databaseChangeLog:
 
         - createTable:
             tableName: position_assignments
+            remarks: Gán vị trí/chức danh cho người dùng tại một đơn vị
             columns:
               - column:
                   name: id
                   type: BIGINT
-                  autoIncrement: true
+                  defaultValueComputed: nextval('hibernate_sequence')
                   constraints:
                     primaryKey: true
                     nullable: false
               - column:
                   name: user_login_id
                   type: BIGINT
+                  remarks: FK user_logins - người được gán
                   constraints:
                     nullable: false
               - column:
                   name: org_node_id
                   type: BIGINT
+                  remarks: FK org_nodes - đơn vị gán chức danh
                   constraints:
                     nullable: false
               - column:
                   name: position_cd
                   type: VARCHAR(50)
+                  remarks: Mã chức danh (dictionary group POSITION_CD)
                   constraints:
                     nullable: false
               - column:
                   name: effective_from
                   type: TIMESTAMP WITH TIME ZONE
+                  remarks: Ngày bổ nhiệm, bắt buộc phải có
+                  constraints:
+                    nullable: false
               - column:
                   name: effective_to
                   type: TIMESTAMP WITH TIME ZONE
+                  remarks: Ngày hết hiệu lực
               - column:
                   name: actual_dismissal_date
                   type: TIMESTAMP WITH TIME ZONE
+                  remarks: Ngày bàn giao thực tế (đi kèm dismissal_reason_cd)
               - column:
-                  name: reason
+                  name: dismissal_reason_cd
+                  type: VARCHAR(50)
+                  remarks: Lý do bàn giao (dictionary group DISMISSAL_REASON_CD, không FK cứng)
+              - column:
+                  name: dismissal_note
                   type: TEXT
+                  remarks: Ghi chú bàn giao, chỉ dùng khi dismissal_reason_cd = 'OTHER'
               - column:
                   name: delete_flg
                   type: BOOLEAN
                   defaultValueBoolean: false
+                  remarks: Cờ xóa mềm
                   constraints:
                     nullable: false
               - column:
                   name: created_by
                   type: VARCHAR(100)
+                  remarks: Người tạo (audit)
               - column:
                   name: created_date
                   type: TIMESTAMP WITH TIME ZONE
                   defaultValueComputed: CURRENT_TIMESTAMP
+                  remarks: Thời điểm tạo (audit)
                   constraints:
                     nullable: false
               - column:
                   name: updated_by
                   type: VARCHAR(100)
+                  remarks: Người cập nhật (audit)
               - column:
                   name: updated_date
                   type: TIMESTAMP WITH TIME ZONE
+                  remarks: Thời điểm cập nhật (audit)
 
         - createIndex:
             indexName: idx_pos_assign_user
@@ -226,78 +245,69 @@ databaseChangeLog:
               - column:
                   name: org_node_id
 
-        - addCheckConstraint:
-            constraintName: ck_pos_assign_dismissal_pair
-            tableName: position_assignments
-            checkCondition: >-
-              (actual_dismissal_date IS NULL AND reason IS NULL)
-              OR (actual_dismissal_date IS NOT NULL AND reason IS NOT NULL)
+        - sql:
+            sql: >-
+              ALTER TABLE position_assignments
+              ADD CONSTRAINT ck_pos_assign_dismissal_pair
+              CHECK ((actual_dismissal_date IS NULL) = (dismissal_reason_cd IS NULL))
 
         - createTable:
             tableName: position_permissions
+            remarks: Định nghĩa năng lực của một chức danh (global theo position_cd, không scope theo đơn vị)
             columns:
               - column:
                   name: id
                   type: BIGINT
-                  autoIncrement: true
+                  defaultValueComputed: nextval('hibernate_sequence')
                   constraints:
                     primaryKey: true
                     nullable: false
               - column:
-                  name: org_node_id
-                  type: BIGINT
-                  constraints:
-                    nullable: false
-              - column:
                   name: position_cd
                   type: VARCHAR(50)
+                  remarks: Mã chức danh (dictionary group POSITION_CD)
                   constraints:
                     nullable: false
               - column:
                   name: permission_cd
                   type: VARCHAR(100)
-                  constraints:
-                    nullable: false
-              - column:
-                  name: grant_flg
-                  type: BOOLEAN
-                  defaultValueBoolean: true
+                  remarks: Mã quyền (permission code)
                   constraints:
                     nullable: false
               - column:
                   name: inherit_to_children
                   type: BOOLEAN
-                  defaultValueBoolean: true
+                  defaultValueBoolean: false
+                  remarks: Kế thừa xuống đơn vị con (mặc định không kế thừa)
                   constraints:
                     nullable: false
               - column:
                   name: delete_flg
                   type: BOOLEAN
                   defaultValueBoolean: false
+                  remarks: Cờ xóa mềm
                   constraints:
                     nullable: false
               - column:
                   name: created_by
                   type: VARCHAR(100)
+                  remarks: Người tạo (audit)
               - column:
                   name: created_date
                   type: TIMESTAMP WITH TIME ZONE
                   defaultValueComputed: CURRENT_TIMESTAMP
+                  remarks: Thời điểm tạo (audit)
                   constraints:
                     nullable: false
               - column:
                   name: updated_by
                   type: VARCHAR(100)
+                  remarks: Người cập nhật (audit)
               - column:
                   name: updated_date
                   type: TIMESTAMP WITH TIME ZONE
+                  remarks: Thời điểm cập nhật (audit)
 
-        - createIndex:
-            indexName: idx_pos_perm_org
-            tableName: position_permissions
-            columns:
-              - column:
-                  name: org_node_id
         - createIndex:
             indexName: idx_pos_perm_position
             tableName: position_permissions
@@ -313,45 +323,53 @@ databaseChangeLog:
 
         - createTable:
             tableName: role_permissions
+            remarks: Phân quyền cấp role (global), không gắn đơn vị
             columns:
               - column:
                   name: id
                   type: BIGINT
-                  autoIncrement: true
+                  defaultValueComputed: nextval('hibernate_sequence')
                   constraints:
                     primaryKey: true
                     nullable: false
               - column:
                   name: role
                   type: VARCHAR(20)
+                  remarks: Vai trò (USER, ADMIN, SYSTEM_ADMIN)
                   constraints:
                     nullable: false
               - column:
                   name: permission_cd
                   type: VARCHAR(100)
+                  remarks: Mã quyền (permission code)
                   constraints:
                     nullable: false
               - column:
                   name: delete_flg
                   type: BOOLEAN
                   defaultValueBoolean: false
+                  remarks: Cờ xóa mềm
                   constraints:
                     nullable: false
               - column:
                   name: created_by
                   type: VARCHAR(100)
+                  remarks: Người tạo (audit)
               - column:
                   name: created_date
                   type: TIMESTAMP WITH TIME ZONE
                   defaultValueComputed: CURRENT_TIMESTAMP
+                  remarks: Thời điểm tạo (audit)
                   constraints:
                     nullable: false
               - column:
                   name: updated_by
                   type: VARCHAR(100)
+                  remarks: Người cập nhật (audit)
               - column:
                   name: updated_date
                   type: TIMESTAMP WITH TIME ZONE
+                  remarks: Thời điểm cập nhật (audit)
 
         - createIndex:
             indexName: idx_role_perm_role
@@ -368,65 +386,89 @@ databaseChangeLog:
 
         - createTable:
             tableName: position_degs
+            remarks: "Sự kiện uỷ quyền tạm thời quyền (delegation event) - chỉ 1 service sau bước approve workflow được insert"
             columns:
               - column:
                   name: id
                   type: BIGINT
-                  autoIncrement: true
+                  defaultValueComputed: nextval('hibernate_sequence')
                   constraints:
                     primaryKey: true
                     nullable: false
               - column:
-                  name: deg_cd
-                  type: VARCHAR(50)
-                  constraints:
-                    nullable: false
-              - column:
-                  name: name
-                  type: VARCHAR(255)
-                  constraints:
-                    nullable: false
-              - column:
-                  name: description
-                  type: TEXT
-              - column:
                   name: org_node_id
                   type: BIGINT
+                  remarks: FK org_nodes - đơn vị áp dụng uỷ quyền
+                  constraints:
+                    nullable: false
               - column:
-                  name: approval_request_id
+                  name: permission_cd
+                  type: VARCHAR(100)
+                  remarks: Mã quyền được uỷ quyền
+                  constraints:
+                    nullable: false
+              - column:
+                  name: delegator_user_id
                   type: BIGINT
+                  remarks: FK user_logins - người NHƯỢNG quyền, phải thực sự sở hữu quyền tại org_node
+                  constraints:
+                    nullable: false
+              - column:
+                  name: delegatee_user_id
+                  type: BIGINT
+                  remarks: FK user_logins - người NHẬN quyền tạm thời
+                  constraints:
+                    nullable: false
               - column:
                   name: effective_from
                   type: TIMESTAMP WITH TIME ZONE
+                  remarks: Thời điểm bắt đầu hiệu lực
+                  constraints:
+                    nullable: false
               - column:
                   name: effective_to
                   type: TIMESTAMP WITH TIME ZONE
+                  remarks: Thời điểm hết hiệu lực (bắt buộc có hạn, không uỷ quyền vô thời hạn)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: actual_revoked_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  remarks: Thời điểm thu hồi sớm thực tế (housekeeping, cơ chế chặn chính là re-check real-time)
+              - column:
+                  name: revoke_reason_cd
+                  type: VARCHAR(50)
+                  remarks: Lý do thu hồi (nullable, phải khớp actual_revoked_at)
+              - column:
+                  name: approval_request_id
+                  type: BIGINT
+                  remarks: FK workflow approval (module Workflow - Giai đoạn 5, sẽ thêm FK bằng Liquibase riêng)
               - column:
                   name: delete_flg
                   type: BOOLEAN
                   defaultValueBoolean: false
+                  remarks: Cờ xóa mềm
                   constraints:
                     nullable: false
               - column:
                   name: created_by
                   type: VARCHAR(100)
+                  remarks: Người tạo (audit)
               - column:
                   name: created_date
                   type: TIMESTAMP WITH TIME ZONE
                   defaultValueComputed: CURRENT_TIMESTAMP
+                  remarks: Thời điểm tạo (audit)
                   constraints:
                     nullable: false
               - column:
                   name: updated_by
                   type: VARCHAR(100)
+                  remarks: Người cập nhật (audit)
               - column:
                   name: updated_date
                   type: TIMESTAMP WITH TIME ZONE
-
-        - addUniqueConstraint:
-            constraintName: uq_position_degs_deg_cd
-            tableName: position_degs
-            columnNames: deg_cd
+                  remarks: Thời điểm cập nhật (audit)
 
         - createIndex:
             indexName: idx_position_degs_org
@@ -434,6 +476,24 @@ databaseChangeLog:
             columns:
               - column:
                   name: org_node_id
+        - createIndex:
+            indexName: idx_position_degs_delegator
+            tableName: position_degs
+            columns:
+              - column:
+                  name: delegator_user_id
+        - createIndex:
+            indexName: idx_position_degs_delegatee
+            tableName: position_degs
+            columns:
+              - column:
+                  name: delegatee_user_id
+
+        - sql:
+            sql: >-
+              ALTER TABLE position_degs
+              ADD CONSTRAINT ck_pos_deg_revoke_pair
+              CHECK ((actual_revoked_at IS NULL) = (revoke_reason_cd IS NULL))
 
         - addForeignKeyConstraint:
             baseTableName: position_assignments
@@ -448,25 +508,27 @@ databaseChangeLog:
             referencedTableName: org_nodes
             referencedColumnNames: id
         - addForeignKeyConstraint:
-            baseTableName: position_permissions
-            baseColumnNames: org_node_id
-            constraintName: fk_pos_perm_org
-            referencedTableName: org_nodes
-            referencedColumnNames: id
-        - addForeignKeyConstraint:
             baseTableName: position_degs
             baseColumnNames: org_node_id
             constraintName: fk_pos_deg_org
             referencedTableName: org_nodes
             referencedColumnNames: id
+        - addForeignKeyConstraint:
+            baseTableName: position_degs
+            baseColumnNames: delegator_user_id
+            constraintName: fk_pos_deg_delegator
+            referencedTableName: user_logins
+            referencedColumnNames: id
+        - addForeignKeyConstraint:
+            baseTableName: position_degs
+            baseColumnNames: delegatee_user_id
+            constraintName: fk_pos_deg_delegatee
+            referencedTableName: user_logins
+            referencedColumnNames: id
 
   - changeSet:
       id: d9c4e6f1-3a7b-4c2d-8e5f-9b0a1c3d5e78
       author: luannv
-      preConditions:
-        - onFail: MARK_RAN
-        - dbms:
-            type: postgresql
       changes:
         - createIndex:
             indexName: uq_position_assignments_active
@@ -478,21 +540,3 @@ databaseChangeLog:
               - column:
                   name: position_cd
             where: "delete_flg = false AND actual_dismissal_date IS NULL"
-
-  - changeSet:
-      id: d9c4e6f1-3a7b-4c2d-8e5f-9b0a1c3d5e79
-      author: luannv
-      preConditions:
-        - onFail: MARK_RAN
-        - dbms:
-            type: h2
-      changes:
-        - createIndex:
-            indexName: uq_position_assignments_active
-            tableName: position_assignments
-            unique: true
-            columns:
-              - column:
-                  name: org_node_id
-              - column:
-                  name: position_cd

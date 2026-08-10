@@ -2,12 +2,9 @@ package vn.edu.epu.eoffice_be.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
@@ -34,23 +31,15 @@ public class PositionPermission extends BaseEntity {
     @SequenceGenerator(name = "eoffice_seq", sequenceName = "hibernate_sequence", allocationSize = 50)
     Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "org_node_id", nullable = false)
-    OrgNode orgNode;
-
     @Column(name = "position_cd", nullable = false, length = 50)
     String positionCd;
 
     @Column(name = "permission_cd", nullable = false, length = 100)
     String permissionCd;
 
-    @Column(name = "grant_flg", nullable = false)
-    @Builder.Default
-    boolean grantFlg = true;
-
     @Column(name = "inherit_to_children", nullable = false)
     @Builder.Default
-    boolean inheritToChildren = true;
+    boolean inheritToChildren = false;
 
     @Column(name = "delete_flg", nullable = false)
     @Builder.Default

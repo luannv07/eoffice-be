@@ -1,4 +1,4 @@
-package vn.edu.epu.eoffice_be.jwt.service;
+package vn.edu.epu.eoffice_be.service;
 
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
@@ -9,12 +9,12 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import com.nimbusds.jose.JOSEException;
-import vn.edu.epu.eoffice_be.common.enums.Role;
-import vn.edu.epu.eoffice_be.jwt.config.JwtProperties;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
+import vn.edu.epu.eoffice_be.common.enums.Role;
+import vn.edu.epu.eoffice_be.config.JwtProperties;
 
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;

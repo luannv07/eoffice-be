@@ -1,12 +1,12 @@
-package vn.edu.epu.eoffice_be.auth.security;
+package vn.edu.epu.eoffice_be.security;
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import vn.edu.epu.eoffice_be.auth.service.PermissionResolver;
 import org.springframework.security.access.PermissionEvaluator;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
+import vn.edu.epu.eoffice_be.service.PermissionResolver;
 
 import java.io.Serializable;
 

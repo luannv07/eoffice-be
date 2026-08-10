@@ -19,7 +19,7 @@ public interface PositionAssignmentRepository extends JpaRepository<PositionAssi
             WHERE pa.userLogin.id = :userId
               AND pa.deleteFlg = false
               AND pa.actualDismissalDate IS NULL
-              AND (pa.effectiveFrom IS NULL OR pa.effectiveFrom <= :atTime)
+              AND pa.effectiveFrom <= :atTime
               AND (pa.effectiveTo IS NULL OR pa.effectiveTo >= :atTime)
             """)
     List<PositionAssignment> findActiveAssignments(@Param("userId") Long userId, @Param("atTime") Instant atTime);

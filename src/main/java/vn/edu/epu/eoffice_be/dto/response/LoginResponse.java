@@ -1,4 +1,4 @@
-package vn.edu.epu.eoffice_be.auth.dto.response;
+package vn.edu.epu.eoffice_be.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AccessLevel;

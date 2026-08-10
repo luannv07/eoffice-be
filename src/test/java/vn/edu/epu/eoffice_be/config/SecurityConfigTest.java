@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.DefaultSecurityFilterChain;
 import org.springframework.security.web.SecurityFilterChain;
-import vn.edu.epu.eoffice_be.auth.security.JwtAuthenticationFilter;
+import vn.edu.epu.eoffice_be.security.JwtAuthenticationFilter;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;

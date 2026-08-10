@@ -8,7 +8,7 @@ import java.util.Optional;
 
 public interface DictionaryItemRepository extends JpaRepository<DictionaryItem, Long> {
 
-    List<DictionaryItem> findByGroupCdAndDeleteFlgFalseAndActiveFlgTrueOrderBySortOrderAsc(String groupCd);
+    List<DictionaryItem> findByGroupCdAndDeleteFlgFalseAndActiveFlgTrueOrderByDisplayOrderAsc(String groupCd);
 
     Optional<DictionaryItem> findByGroupCdAndItemCdAndDeleteFlgFalse(String groupCd, String itemCd);
 }

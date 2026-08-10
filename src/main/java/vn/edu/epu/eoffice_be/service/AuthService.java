@@ -1,22 +1,21 @@
-package vn.edu.epu.eoffice_be.auth.service;
+package vn.edu.epu.eoffice_be.service;
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import vn.edu.epu.eoffice_be.auth.dto.request.LoginRequest;
-import vn.edu.epu.eoffice_be.auth.dto.response.LoginResponse;
-import vn.edu.epu.eoffice_be.auth.dto.response.MeResponse;
-import vn.edu.epu.eoffice_be.auth.security.LoginRateLimiter;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.enums.Role;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
+import vn.edu.epu.eoffice_be.config.JwtProperties;
+import vn.edu.epu.eoffice_be.dto.request.LoginRequest;
+import vn.edu.epu.eoffice_be.dto.response.LoginResponse;
+import vn.edu.epu.eoffice_be.dto.response.MeResponse;
 import vn.edu.epu.eoffice_be.entity.UserInfo;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
-import vn.edu.epu.eoffice_be.jwt.config.JwtProperties;
-import vn.edu.epu.eoffice_be.jwt.service.JwtService;
 import vn.edu.epu.eoffice_be.repository.UserInfoRepository;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
+import vn.edu.epu.eoffice_be.security.LoginRateLimiter;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,7 +51,12 @@ public class AuthService {
                     return new BusinessException(ErrorCode.INVALID_CREDENTIALS);
                 });
 
-        if (user.isAccountLocked() || (user.getLockoutUntil() != null && user.getLockoutUntil().isAfter(Instant.now()))) {
+        switch (user.getUserStatusCd()) {
+            case "LOCKED" -> throw new BusinessException(ErrorCode.ACCOUNT_LOCKED);
+            case "DISABLED" -> throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
+            default -> { }
+        }
+        if (user.getLockoutUntil() != null && user.getLockoutUntil().isAfter(Instant.now())) {
             throw new BusinessException(ErrorCode.ACCOUNT_LOCKED);
         }
 
@@ -97,7 +101,7 @@ public class AuthService {
         }
         user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
         if (user.getFailedLoginAttempts() >= MAX_FAILED_ATTEMPTS) {
-            user.setAccountLocked(true);
+            user.setUserStatusCd("LOCKED");
             user.setLockoutUntil(Instant.now().plus(LOCKOUT_DURATION));
         }
         userLoginRepository.save(user);
@@ -105,7 +109,7 @@ public class AuthService {
 
     private void resetFailedAttempts(UserLogin user) {
         user.setFailedLoginAttempts(0);
-        user.setAccountLocked(false);
+        user.setUserStatusCd("ACTIVE");
         user.setLockoutUntil(null);
     }
 
@@ -114,7 +118,7 @@ public class AuthService {
                 .id(user.getId())
                 .username(user.getUsername())
                 .displayName(displayName(user, info))
-                .email(info == null ? null : info.getEmail())
+                .email(user.getEmail())
                 .avatarUrl(info == null ? null : info.getAvatarUrl())
                 .role(user.getRole())
                 .passwordExpiredAt(user.getPasswordExpiredAt())
@@ -126,7 +130,7 @@ public class AuthService {
                 .id(user.getId())
                 .username(user.getUsername())
                 .displayName(displayName(user, info))
-                .email(info == null ? null : info.getEmail())
+                .email(user.getEmail())
                 .avatarUrl(info == null ? null : info.getAvatarUrl())
                 .role(user.getRole())
                 .passwordExpiredAt(user.getPasswordExpiredAt())
@@ -134,11 +138,11 @@ public class AuthService {
     }
 
     private String displayName(UserLogin user, UserInfo info) {
-        if (info != null && info.getJobTitle() != null && !info.getJobTitle().isBlank()) {
-            return info.getJobTitle();
+        if (info != null && info.getFullName() != null && !info.getFullName().isBlank()) {
+            return info.getFullName();
         }
-        if (info != null && info.getEmail() != null && !info.getEmail().isBlank()) {
-            return info.getEmail();
+        if (user.getEmail() != null && !user.getEmail().isBlank()) {
+            return user.getEmail();
         }
         return user.getUsername();
     }
