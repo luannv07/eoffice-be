@@ -1,0 +1,419 @@
+databaseChangeLog:
+  - changeSet:
+      id: b7a34c10-8f2e-4b6d-a1c9-3e5f7d9b2a11
+      author: luannv
+      changes:
+        - createTable:
+            tableName: user_logins
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: username
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: password_hash
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: role
+                  type: VARCHAR(20)
+                  defaultValue: USER
+                  constraints:
+                    nullable: false
+              - column:
+                  name: account_locked
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: password_expired_at
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: failed_login_attempts
+                  type: INT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: lockout_until
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: last_login_at
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: delete_flg
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+              - column:
+                  name: created_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+              - column:
+                  name: updated_date
+                  type: TIMESTAMP WITH TIME ZONE
+
+        - addUniqueConstraint:
+            constraintName: uq_user_logins_username
+            tableName: user_logins
+            columnNames: username
+
+        - createIndex:
+            indexName: idx_user_logins_delete_flg
+            tableName: user_logins
+            columns:
+              - column:
+                  name: delete_flg
+
+        - createTable:
+            tableName: user_infos
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: user_login_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: email
+                  type: VARCHAR(255)
+              - column:
+                  name: phone
+                  type: VARCHAR(20)
+              - column:
+                  name: avatar_url
+                  type: VARCHAR(500)
+              - column:
+                  name: job_title
+                  type: VARCHAR(255)
+              - column:
+                  name: department_name
+                  type: VARCHAR(255)
+              - column:
+                  name: delete_flg
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+              - column:
+                  name: created_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+              - column:
+                  name: updated_date
+                  type: TIMESTAMP WITH TIME ZONE
+
+        - addUniqueConstraint:
+            constraintName: uq_user_infos_user_login_id
+            tableName: user_infos
+            columnNames: user_login_id
+
+        - createTable:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: group_cd
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: item_cd
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: sort_order
+                  type: INT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: active_flg
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: delete_flg
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+              - column:
+                  name: created_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+              - column:
+                  name: updated_date
+                  type: TIMESTAMP WITH TIME ZONE
+
+        - addUniqueConstraint:
+            constraintName: uq_dictionary_items_group_item
+            tableName: dictionary_items
+            columns: group_cd, item_cd
+
+        - createIndex:
+            indexName: idx_dictionary_items_group_sort
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+              - column:
+                  name: sort_order
+
+        - addForeignKeyConstraint:
+            baseTableName: user_infos
+            baseColumnNames: user_login_id
+            constraintName: fk_user_infos_user_login
+            referencedTableName: user_logins
+            referencedColumnNames: id
+
+  - changeSet:
+      id: b7a34c10-8f2e-4b6d-a1c9-3e5f7d9b2a12
+      author: luannv
+      changes:
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: POSITION_CD
+              - column:
+                  name: item_cd
+                  value: HT
+              - column:
+                  name: name
+                  value: Hiệu trưởng
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: POSITION_CD
+              - column:
+                  name: item_cd
+                  value: PHT
+              - column:
+                  name: name
+                  value: Phó Hiệu trưởng
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: POSITION_CD
+              - column:
+                  name: item_cd
+                  value: TK
+              - column:
+                  name: name
+                  value: Trưởng Khoa
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: POSITION_CD
+              - column:
+                  name: item_cd
+                  value: PK
+              - column:
+                  name: name
+                  value: Phó Trưởng Khoa
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: POSITION_CD
+              - column:
+                  name: item_cd
+                  value: TP
+              - column:
+                  name: name
+                  value: Trưởng Phòng
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: POSITION_CD
+              - column:
+                  name: item_cd
+                  value: PP
+              - column:
+                  name: name
+                  value: Phó Trưởng Phòng
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: POSITION_CD
+              - column:
+                  name: item_cd
+                  value: GĐTT
+              - column:
+                  name: name
+                  value: Giám đốc Trung tâm
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: POSITION_CD
+              - column:
+                  name: item_cd
+                  value: PGDTT
+              - column:
+                  name: name
+                  value: Phó Giám đốc Trung tâm
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: POSITION_CD
+              - column:
+                  name: item_cd
+                  value: BT
+              - column:
+                  name: name
+                  value: Bí thư
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: POSITION_CD
+              - column:
+                  name: item_cd
+                  value: PBT
+              - column:
+                  name: name
+                  value: Phó Bí thư
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: POSITION_CD
+              - column:
+                  name: item_cd
+                  value: UV
+              - column:
+                  name: name
+                  value: Ủy viên
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: ORG_NODE_TYPE_CD
+              - column:
+                  name: item_cd
+                  value: UNIVERSITY
+              - column:
+                  name: name
+                  value: Trường
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: ORG_NODE_TYPE_CD
+              - column:
+                  name: item_cd
+                  value: FACULTY
+              - column:
+                  name: name
+                  value: Khoa
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: ORG_NODE_TYPE_CD
+              - column:
+                  name: item_cd
+                  value: DEPARTMENT
+              - column:
+                  name: name
+                  value: Phòng/Ban
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: ORG_NODE_TYPE_CD
+              - column:
+                  name: item_cd
+                  value: CENTER
+              - column:
+                  name: name
+                  value: Trung tâm
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: ORG_NODE_TYPE_CD
+              - column:
+                  name: item_cd
+                  value: MAJOR
+              - column:
+                  name: name
+                  value: Ngành/Tổ

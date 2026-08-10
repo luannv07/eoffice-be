@@ -1,0 +1,498 @@
+databaseChangeLog:
+  - changeSet:
+      id: d9c4e6f1-3a7b-4c2d-8e5f-9b0a1c3d5e77
+      author: luannv
+      changes:
+        - createTable:
+            tableName: org_nodes
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: parent_id
+                  type: BIGINT
+              - column:
+                  name: code
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: type_cd
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: org_order
+                  type: INT
+                  defaultValueNumeric: 0
+              - column:
+                  name: effective_date
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: expiration_date
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: delete_flg
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+              - column:
+                  name: created_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+              - column:
+                  name: updated_date
+                  type: TIMESTAMP WITH TIME ZONE
+
+        - addUniqueConstraint:
+            constraintName: uq_org_nodes_code
+            tableName: org_nodes
+            columnNames: code
+
+        - createIndex:
+            indexName: idx_org_nodes_parent
+            tableName: org_nodes
+            columns:
+              - column:
+                  name: parent_id
+        - createIndex:
+            indexName: idx_org_nodes_type
+            tableName: org_nodes
+            columns:
+              - column:
+                  name: type_cd
+
+        - addForeignKeyConstraint:
+            baseTableName: org_nodes
+            baseColumnNames: parent_id
+            constraintName: fk_org_nodes_parent
+            referencedTableName: org_nodes
+            referencedColumnNames: id
+
+        - createTable:
+            tableName: org_node_closures
+            columns:
+              - column:
+                  name: ancestor_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: descendant_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: depth
+                  type: INT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+              - column:
+                  name: created_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+              - column:
+                  name: updated_date
+                  type: TIMESTAMP WITH TIME ZONE
+
+        - addPrimaryKey:
+            constraintName: pk_org_node_closures
+            tableName: org_node_closures
+            columnNames: ancestor_id, descendant_id
+
+        - createIndex:
+            indexName: idx_closure_descendant
+            tableName: org_node_closures
+            columns:
+              - column:
+                  name: descendant_id
+        - createIndex:
+            indexName: idx_closure_depth
+            tableName: org_node_closures
+            columns:
+              - column:
+                  name: depth
+
+        - addForeignKeyConstraint:
+            baseTableName: org_node_closures
+            baseColumnNames: ancestor_id
+            constraintName: fk_closure_ancestor
+            referencedTableName: org_nodes
+            referencedColumnNames: id
+        - addForeignKeyConstraint:
+            baseTableName: org_node_closures
+            baseColumnNames: descendant_id
+            constraintName: fk_closure_descendant
+            referencedTableName: org_nodes
+            referencedColumnNames: id
+
+        - createTable:
+            tableName: position_assignments
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: user_login_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: org_node_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: position_cd
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: effective_from
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: effective_to
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: actual_dismissal_date
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: reason
+                  type: TEXT
+              - column:
+                  name: delete_flg
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+              - column:
+                  name: created_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+              - column:
+                  name: updated_date
+                  type: TIMESTAMP WITH TIME ZONE
+
+        - createIndex:
+            indexName: idx_pos_assign_user
+            tableName: position_assignments
+            columns:
+              - column:
+                  name: user_login_id
+        - createIndex:
+            indexName: idx_pos_assign_org
+            tableName: position_assignments
+            columns:
+              - column:
+                  name: org_node_id
+
+        - addCheckConstraint:
+            constraintName: ck_pos_assign_dismissal_pair
+            tableName: position_assignments
+            checkCondition: >-
+              (actual_dismissal_date IS NULL AND reason IS NULL)
+              OR (actual_dismissal_date IS NOT NULL AND reason IS NOT NULL)
+
+        - createTable:
+            tableName: position_permissions
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: org_node_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: position_cd
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: permission_cd
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: grant_flg
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: inherit_to_children
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: delete_flg
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+              - column:
+                  name: created_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+              - column:
+                  name: updated_date
+                  type: TIMESTAMP WITH TIME ZONE
+
+        - createIndex:
+            indexName: idx_pos_perm_org
+            tableName: position_permissions
+            columns:
+              - column:
+                  name: org_node_id
+        - createIndex:
+            indexName: idx_pos_perm_position
+            tableName: position_permissions
+            columns:
+              - column:
+                  name: position_cd
+        - createIndex:
+            indexName: idx_pos_perm_permission
+            tableName: position_permissions
+            columns:
+              - column:
+                  name: permission_cd
+
+        - createTable:
+            tableName: role_permissions
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: role
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: permission_cd
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: delete_flg
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+              - column:
+                  name: created_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+              - column:
+                  name: updated_date
+                  type: TIMESTAMP WITH TIME ZONE
+
+        - createIndex:
+            indexName: idx_role_perm_role
+            tableName: role_permissions
+            columns:
+              - column:
+                  name: role
+        - createIndex:
+            indexName: idx_role_perm_permission
+            tableName: role_permissions
+            columns:
+              - column:
+                  name: permission_cd
+
+        - createTable:
+            tableName: position_degs
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: deg_cd
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: description
+                  type: TEXT
+              - column:
+                  name: org_node_id
+                  type: BIGINT
+              - column:
+                  name: approval_request_id
+                  type: BIGINT
+              - column:
+                  name: effective_from
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: effective_to
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: delete_flg
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+              - column:
+                  name: created_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+              - column:
+                  name: updated_date
+                  type: TIMESTAMP WITH TIME ZONE
+
+        - addUniqueConstraint:
+            constraintName: uq_position_degs_deg_cd
+            tableName: position_degs
+            columnNames: deg_cd
+
+        - createIndex:
+            indexName: idx_position_degs_org
+            tableName: position_degs
+            columns:
+              - column:
+                  name: org_node_id
+
+        - addForeignKeyConstraint:
+            baseTableName: position_assignments
+            baseColumnNames: user_login_id
+            constraintName: fk_pos_assign_user
+            referencedTableName: user_logins
+            referencedColumnNames: id
+        - addForeignKeyConstraint:
+            baseTableName: position_assignments
+            baseColumnNames: org_node_id
+            constraintName: fk_pos_assign_org
+            referencedTableName: org_nodes
+            referencedColumnNames: id
+        - addForeignKeyConstraint:
+            baseTableName: position_permissions
+            baseColumnNames: org_node_id
+            constraintName: fk_pos_perm_org
+            referencedTableName: org_nodes
+            referencedColumnNames: id
+        - addForeignKeyConstraint:
+            baseTableName: position_degs
+            baseColumnNames: org_node_id
+            constraintName: fk_pos_deg_org
+            referencedTableName: org_nodes
+            referencedColumnNames: id
+
+  - changeSet:
+      id: d9c4e6f1-3a7b-4c2d-8e5f-9b0a1c3d5e78
+      author: luannv
+      preConditions:
+        - onFail: MARK_RAN
+        - dbms:
+            type: postgresql
+      changes:
+        - createIndex:
+            indexName: uq_position_assignments_active
+            tableName: position_assignments
+            unique: true
+            columns:
+              - column:
+                  name: org_node_id
+              - column:
+                  name: position_cd
+            where: "delete_flg = false AND actual_dismissal_date IS NULL"
+
+  - changeSet:
+      id: d9c4e6f1-3a7b-4c2d-8e5f-9b0a1c3d5e79
+      author: luannv
+      preConditions:
+        - onFail: MARK_RAN
+        - dbms:
+            type: h2
+      changes:
+        - createIndex:
+            indexName: uq_position_assignments_active
+            tableName: position_assignments
+            unique: true
+            columns:
+              - column:
+                  name: org_node_id
+              - column:
+                  name: position_cd
