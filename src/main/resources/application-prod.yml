@@ -24,3 +24,13 @@ spring:
 
 server:
   port: 8080
+
+eoffice:
+  jwt:
+    issuer: eoffice-be
+    private-key: ${JWT_PRIVATE_KEY:}
+    public-key: ${JWT_PUBLIC_KEY:}
+    access-token-ttl: ${JWT_ACCESS_TTL:PT15M}
+    refresh-token-ttl: ${JWT_REFRESH_TTL:P30D}
+    auth-rate-limit: 10
+    auth-rate-window-seconds: 300
