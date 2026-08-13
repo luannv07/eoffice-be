@@ -10,4 +10,8 @@ public interface UserLoginRepository extends JpaRepository<UserLogin, Long> {
     Optional<UserLogin> findByUsernameAndDeleteFlgFalse(String username);
 
     Optional<UserLogin> findByIdAndDeleteFlgFalse(Long id);
+
+    boolean existsByUsernameAndDeleteFlgFalse(String username);
+
+    boolean existsByEmailAndDeleteFlgFalse(String email);
 }

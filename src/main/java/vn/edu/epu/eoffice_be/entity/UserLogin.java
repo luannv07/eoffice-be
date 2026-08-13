@@ -18,6 +18,7 @@ import lombok.Setter;
 import lombok.experimental.FieldDefaults;
 import vn.edu.epu.eoffice_be.common.entity.BaseEntity;
 import vn.edu.epu.eoffice_be.common.enums.Role;
+import vn.edu.epu.eoffice_be.common.enums.UserStatusCd;
 
 import java.time.Instant;
 
@@ -52,7 +53,7 @@ public class UserLogin extends BaseEntity {
 
     @Column(name = "user_status_cd", nullable = false, length = 20)
     @Builder.Default
-    String userStatusCd = "ACTIVE";
+    String userStatusCd = UserStatusCd.ACTIVE.name();
 
     @Column(name = "must_change_password", nullable = false)
     @Builder.Default

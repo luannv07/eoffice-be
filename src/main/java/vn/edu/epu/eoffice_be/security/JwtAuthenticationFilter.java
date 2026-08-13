@@ -54,12 +54,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (username == null || username.isBlank()) {
             username = claims.getSubject();
         }
-        Role role;
-        try {
-            role = Role.valueOf(claims.get("role", String.class));
-        } catch (IllegalArgumentException e) {
-            role = Role.USER;
-        }
+        Role role = Role.from(claims.get("role", String.class), Role.USER);
 
         JwtUserPrincipal principal = new JwtUserPrincipal(userId, username, role.name(), List.of());
 

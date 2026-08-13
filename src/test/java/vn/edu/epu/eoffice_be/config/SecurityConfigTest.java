@@ -1,5 +1,6 @@
 package vn.edu.epu.eoffice_be.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.DefaultSecurityFilterChain;
@@ -16,7 +17,7 @@ class SecurityConfigTest {
 
     @Test
     void securityFilterChainShouldWrapExceptionAsIllegalStateException() throws Exception {
-        SecurityConfig config = new SecurityConfig(jwtAuthenticationFilter);
+        SecurityConfig config = new SecurityConfig(jwtAuthenticationFilter, new ObjectMapper());
         HttpSecurity httpSecurity = mock(HttpSecurity.class);
         when(httpSecurity.csrf(org.mockito.ArgumentMatchers.any())).thenThrow(new RuntimeException("boom"));
 
@@ -25,11 +26,12 @@ class SecurityConfigTest {
 
     @Test
     void securityFilterChainShouldReturnBuiltChainWhenHttpSecurityBuilds() throws Exception {
-        SecurityConfig config = new SecurityConfig(jwtAuthenticationFilter);
+        SecurityConfig config = new SecurityConfig(jwtAuthenticationFilter, new ObjectMapper());
         HttpSecurity httpSecurity = mock(HttpSecurity.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
         DefaultSecurityFilterChain chain = mock(DefaultSecurityFilterChain.class);
 
         when(httpSecurity.csrf(org.mockito.ArgumentMatchers.any())).thenReturn(httpSecurity);
+        when(httpSecurity.cors(org.mockito.ArgumentMatchers.any())).thenReturn(httpSecurity);
         when(httpSecurity.sessionManagement(org.mockito.ArgumentMatchers.any())).thenReturn(httpSecurity);
         when(httpSecurity.authorizeHttpRequests(org.mockito.ArgumentMatchers.any())).thenReturn(httpSecurity);
         when(httpSecurity.httpBasic(org.mockito.ArgumentMatchers.any())).thenReturn(httpSecurity);

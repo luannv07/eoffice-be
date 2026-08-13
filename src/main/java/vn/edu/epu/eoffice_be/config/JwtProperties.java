@@ -8,6 +8,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
@@ -18,9 +20,7 @@ public class JwtProperties {
 
     String issuer = "eoffice-be";
 
-    String privateKey;
-
-    String publicKey;
+    String secretKey;
 
     Duration accessTokenTtl = Duration.ofMinutes(15);
 
@@ -29,4 +29,14 @@ public class JwtProperties {
     int authRateLimit = 10;
 
     long authRateWindowSeconds = 300;
+
+    String cookieName = "refresh_token";
+
+    String cookiePath = "/auth";
+
+    boolean cookieSecure = false;
+
+    String cookieSameSite = "Strict";
+
+    List<String> allowedOrigins = new ArrayList<>();
 }

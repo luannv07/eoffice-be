@@ -1,4 +1,4 @@
-# Auth (JWT RS256) + RBAC nền tảng
+# Auth (JWT HS256) + RBAC nền tảng
 
 **Branch:** `feat/jwt` — **Stack:** Spring Boot 4.0.6 / Java 21 / Spring Security 7 / PostgreSQL + Liquibase / H2 (test)
 **Ngày:** 2026-08-09
@@ -6,7 +6,7 @@
 ## 1. Tổng quan
 
 - Đăng nhập trả JWT trong JSON body (không dùng cookie), giao thức stateless.
-- Access token ngắn hạn (15m) + refresh token dài hạn (30d); cả hai đều là JWT RS256.
+- Access token ngắn hạn (15m) + refresh token dài hạn (30d); cả hai đều là JWT HS256.
 - Permission chi tiết KHÔNG nhúng trong token — resolve từ DB tại runtime theo org scope.
 - 3 role miền: `USER`, `ADMIN`, `SYSTEM_ADMIN` (xem `common/enums/Role.java`).
 
@@ -43,11 +43,43 @@ Response:
 }
 ```
 
-### 2.2 Thông tin người dùng hiện tại — `GET /auth/me`
+### 2.2 Đăng ký — `POST /auth/register`
 
-Yêu cầu `Authorization: Bearer <accessToken>`. Trả về thông tin user từ claims + `user_infos`.
+Public (whitelist). Request:
+```json
+{ "username": "alice", "email": "alice@example.com", "password": "secret123" }
+```
 
-### 2.3 Ghi chú `/auth/refresh`
+Xử lý (`service/AuthService.java`):
+1. Rate limit theo client IP (chung `LoginRateLimiter` với login).
+2. Check trùng `username` / `email` (bảng `user_logins`) → 409 `USERNAME_ALREADY_EXISTS` / `EMAIL_ALREADY_EXISTS`.
+3. Tạo `UserLogin`: role `USER`, status `ACTIVE`, password hash BCrypt (`@Size(min=8, max=72)`).
+4. Auto-login: sinh access + refresh token, response giống `POST /auth/login` (`LoginResponse`).
+5. Defense: `DataIntegrityViolationException` do race condition → map về lỗi trùng.
+
+Lưu ý: register **không** tạo bản ghi `user_infos` — FE kiểm tra `profileCompleted` ở `/auth/me` để hiện popup điền hồ sơ.
+
+### 2.3 Thông tin người dùng hiện tại — `GET /auth/me`
+
+Yêu cầu `Authorization: Bearer <accessToken>`. Trả về DTO merge `user_logins` + `user_infos` (`MeResponse`):
+
+```json
+{
+  "id": 10, "username": "alice", "email": "alice@example.com", "role": "USER",
+  "userStatusCd": "ACTIVE", "mustChangePassword": false,
+  "passwordExpiredAt": null, "lastLoginAt": "...",
+  "fullName": null, "dateOfBirth": null, "gender": null, "nationalIdNumber": null,
+  "avatarUrl": null, "contactEmail": null, "contactPhone": null, "address": null,
+  "employeeCode": null, "academicTitle": null, "academicDegree": null,
+  "partyMembershipDate": null, "employmentStatusCd": null, "joinOrgDate": null,
+  "profileCompleted": false
+}
+```
+
+- `profileCompleted = true` khi user đã có bản ghi `user_infos` — FE dùng để hiện popup điền hồ sơ.
+- Các field `user_infos` bị omit khi chưa có profile (`@JsonInclude(NON_NULL)`).
+
+### 2.4 Ghi chú `/auth/refresh`
 
 Được whitelist trong `SecurityConfig` nhưng **chưa implement** (deferred).
 
@@ -55,30 +87,29 @@ Yêu cầu `Authorization: Bearer <accessToken>`. Trả về thông tin user t�
 
 Claims: `sub` (userId), `username`, `role`, `token_type` (`access`/`refresh`), `jti`, `iat`, `exp`, `iss`.
 
-- Ký số: Nimbus `RSASSASigner` / `RSASSAVerifier`, thuật toán RS256, JWS compact.
+- Ký số: jjwt, thuật toán HS256 (HMAC-SHA256) với shared secret, JWS compact.
 - Parse: `JwtService.parseAccessToken` / `parseRefreshToken` — xác thực chữ ký + kiểm tra `token_type` + `requireIssuer`.
 
 ## 4. Cấu hình
 
-`eoffice.jwt.*` (xem `jwt/config/JwtProperties.java` + `application.yml`):
+`eoffice.jwt.*` (xem `config/JwtProperties.java` + `application.yml`):
 
 | Key | Env | Mặc định |
 |---|---|---|
 | `eoffice.jwt.issuer` | — | `eoffice-be` |
-| `eoffice.jwt.private-key` | `JWT_PRIVATE_KEY` | blank |
-| `eoffice.jwt.public-key` | `JWT_PUBLIC_KEY` | blank |
+| `eoffice.jwt.secret-key` | `JWT_SECRET` | `eoffice-be-jwt-secret-fixed-for-all-environments-2026` |
 | `eoffice.jwt.access-token-ttl` | `JWT_ACCESS_TTL` | `PT15M` |
 | `eoffice.jwt.refresh-token-ttl` | `JWT_REFRESH_TTL` | `P30D` |
 | `eoffice.jwt.auth-rate-limit` | — | `10` |
 | `eoffice.jwt.auth-rate-window-seconds` | — | `300` |
 
-> Nếu `private-key`/`public-key` blank, `JwtConfig` tự sinh RSA 2048 **dev key** mỗi lần khởi động. Production/staging phải set `JWT_PRIVATE_KEY`/`JWT_PUBLIC_KEY` (PKCS8 / X509 base64).
+> Secret key cố định cho mọi môi trường (định nghĩa ở base `application.yml`, staging/prod kế thừa). Nếu `JWT_SECRET` blank, app fail-fast khi khởi động. Secret phải ≥ 32 ký tự (256 bits) cho HS256.
 
 ## 5. Security chain
 
 `config/SecurityConfig.java`:
 - CSRF disable, STATELESS, disable httpBasic + formLogin.
-- Whitelist: `/public/**`, `/auth/login`, `/auth/refresh`, `/actuator/health/**`, Swagger.
+- Whitelist: `/public/**`, `/auth/login`, `/auth/register`, `/auth/refresh`, `/actuator/health/**`, Swagger.
 - `JwtAuthenticationFilter` chạy trước `UsernamePasswordAuthenticationToken` — parse Bearer token, gán `JwtUserPrincipal` (userId, username, role) + authority `ROLE_<role>`.
 - `@EnableMethodSecurity` + `MethodSecurityExpressionHandler` đăng ký `RbacPermissionEvaluator`.
 
@@ -141,12 +172,11 @@ ID dùng sequence chung `hibernate_sequence` (allocationSize 50) qua generator `
 ## 8. Dependencies mới (`pom.xml`)
 
 - `io.jsonwebtoken:jjwt-api/impl/jackson:0.12.6`
-- `com.nimbusds:nimbus-jose-jwt:10.0.1`
 - `com.github.ben-manes.caffeine:caffeine` (managed version)
 
 ## 9. Error codes mới (`common/enums/ErrorCode.java`)
 
-`INVALID_CREDENTIALS` (401), `ACCOUNT_LOCKED` (423), `RATE_LIMITED` (429), `INVALID_TOKEN` (401), `PASSWORD_EXPIRED` (401).
+`INVALID_CREDENTIALS` (401), `ACCOUNT_LOCKED` (423), `RATE_LIMITED` (429), `INVALID_TOKEN` (401), `PASSWORD_EXPIRED` (401), `USERNAME_ALREADY_EXISTS` (409), `EMAIL_ALREADY_EXISTS` (409).
 
 ## 10. Còn lại / Deferred
 

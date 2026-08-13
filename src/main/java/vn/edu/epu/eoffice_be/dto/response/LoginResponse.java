@@ -1,5 +1,6 @@
 package vn.edu.epu.eoffice_be.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -19,6 +20,7 @@ public class LoginResponse {
 
     String accessToken;
 
+    @JsonIgnore
     String refreshToken;
 
     Long expiresIn;

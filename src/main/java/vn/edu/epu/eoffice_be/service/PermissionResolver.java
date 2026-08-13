@@ -121,13 +121,6 @@ public class PermissionResolver {
     }
 
     private Role resolveRole(String roleName) {
-        if (roleName == null || roleName.isBlank()) {
-            return Role.USER;
-        }
-        try {
-            return Role.valueOf(roleName);
-        } catch (IllegalArgumentException e) {
-            return Role.USER;
-        }
+        return Role.from(roleName, Role.USER);
     }
 }
