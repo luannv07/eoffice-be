@@ -9,7 +9,7 @@ class CorsConfigTest {
 
     @Test
     void corsFilterShouldBeCreated() {
-        CorsConfig config = new CorsConfig();
+        CorsConfig config = new CorsConfig(new JwtProperties());
         CorsFilter filter = config.corsFilter();
         assertNotNull(filter);
     }

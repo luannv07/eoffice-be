@@ -9,6 +9,7 @@ spring:
   jackson:
     time-zone: UTC
   jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     properties:
       hibernate:
         jdbc:
@@ -36,6 +37,20 @@ management:
   endpoint:
     health:
       show-details: never
+
+eoffice:
+  jwt:
+    issuer: eoffice-be
+    secret-key: ${JWT_SECRET}
+    access-token-ttl: ${JWT_ACCESS_TTL:PT15M}
+    refresh-token-ttl: ${JWT_REFRESH_TTL:P30D}
+    auth-rate-limit: 10
+    auth-rate-window-seconds: 300
+    cookie-name: refresh_token
+    cookie-path: /auth
+    cookie-secure: ${COOKIE_SECURE:false}
+    cookie-same-site: Strict
+    allowed-origins: ${JWT_ALLOWED_ORIGINS:}
 
 springdoc:
   api-docs:
