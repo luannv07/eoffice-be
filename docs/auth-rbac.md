@@ -125,7 +125,7 @@ Claims: `sub` (userId), `username`, `role`, `token_type` (`access`/`refresh`), `
 1. `PermissionResolver.resolvePermissions(principal)` — tập hợp toàn bộ quyền.
 2. `positionAssignmentRepository.findActiveAssignments(userId, now)` — assignment còn hiệu lực (`effective_from/effective_to`, `actual_dismissal_date IS NULL`).
 3. `positionPermissionRepository.findGrantedPermissionCodes(orgId, positionCd)` — quyền trực tiếp tại node.
-4. `positionPermissionRepository.findInheritedGrantedPermissionCodes(descendantOrgId, positionCd)` — quyền kế thừa từ tổ tiên qua `org_node_closures` (chỉ `inherit_to_children=true`).
+4. `positionPermissionRepository.findInheritedGrantedPermissionCodes(descendantOrgId, positionCd)` — quyền kế thừa từ tổ tiên qua recursive CTE trên `org_nodes.parent_id` (chỉ `inherit_to_children=true`).
 5. `rolePermissionRepository.findPermissionCodesByRole(role)` — quyền theo role.
 
 ### 6.2 Permission codes
@@ -149,15 +149,15 @@ Claims: `sub` (userId), `username`, `role`, `token_type` (`access`/`refresh`), `
 |---|---|
 | `2026-08-09_add-shared-sequence.yml` | Sequence `hibernate_sequence` (start 1, increment 50) |
 | `2026-08-09_add-auth-core-tables.yml` | `user_logins`, `user_infos`, `dictionary_items` + seed POSITION_CD / ORG_NODE_TYPE_CD |
-| `2026-08-09_add-rbac-org-tables.yml` | `org_nodes`, `org_node_closures`, `position_assignments`, `position_permissions`, `role_permissions`, `position_degs` |
+| `2026-08-09_add-rbac-org-tables.yml` | `org_nodes`, `position_assignments`, `position_permissions`, `role_permissions`, `position_degs` |
+| `2026-08-17_drop-org-node-closures.yml` | Bỏ `org_node_closures`, chuyển truy vấn cây sang recursive CTE trên `org_nodes.parent_id` |
 
 ### 7.2 Entity (`entity/`)
 
 - `UserLogin` — tài khoản đăng nhập (password hash, role, lockout, password expiry).
 - `UserInfo` — profile bổ sung (email, phone, avatar, job_title, department).
 - `DictionaryItem` — từ điển (position cd, org node type cd...).
-- `OrgNode` — nút tổ chức, tự tham chiếu `parent_id`.
-- `OrgNodeClosure` — closure table (`@IdClass` nested `OrgNodeClosureId` = ancestor_id + descendant_id, depth).
+- `OrgNode` — nút tổ chức, tự tham chiếu `parent_id`. Truy vấn cây dùng recursive CTE (adjacency list), không dùng closure table.
 - `PositionAssignment` — gán người dùng vào vị trí tại một org node.
 - `PositionPermission` — quyền theo vị trí tại một org node (grant, inherit).
 - `RolePermission` — quyền theo role.
@@ -167,7 +167,7 @@ ID dùng sequence chung `hibernate_sequence` (allocationSize 50) qua generator `
 
 ### 7.3 Repository (`repository/`)
 
-9 repository: `UserLogin`, `UserInfo`, `DictionaryItem`, `OrgNode`, `OrgNodeClosure`, `PositionAssignment`, `PositionPermission`, `RolePermission`, `PositionDeg` — chứa các query org-scoped/active (đã lọc `delete_flg`).
+8 repository: `UserLogin`, `UserInfo`, `DictionaryItem`, `OrgNode`, `PositionAssignment`, `PositionPermission`, `RolePermission`, `PositionDeg` — chứa các query org-scoped/active (đã lọc `delete_flg`).
 
 ## 8. Dependencies mới (`pom.xml`)
 
