@@ -11,6 +11,7 @@ import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.dto.request.DictionaryItemBatchDeleteRequest;
 import vn.edu.epu.eoffice_be.dto.request.DictionaryItemCreateRequest;
+import vn.edu.epu.eoffice_be.dto.request.DictionaryItemFilterRequest;
 import vn.edu.epu.eoffice_be.dto.request.DictionaryItemUpdateRequest;
 import vn.edu.epu.eoffice_be.entity.DictionaryItem;
 import vn.edu.epu.eoffice_be.repository.DictionaryItemRepository;
@@ -286,5 +287,58 @@ class DictionaryItemServiceImplTest {
         assertTrue(result.isEmpty());
         verify(dictionaryItemRepository).findByGroupCdInAndDeleteFlgFalseAndActiveFlgTrueOrderByGroupCdAscDisplayOrderAsc(
                 List.of("USER_STATUS_CD"));
+    }
+
+    @Test
+    void getAllShouldApplyNoFiltersWhenRequestEmpty() {
+        DictionaryItemFilterRequest request = new DictionaryItemFilterRequest();
+
+        var page = new org.springframework.data.domain.PageImpl<>(
+                List.of(item(20L, "G1", "CD1", false)),
+                request.pageable(), 1);
+        when(dictionaryItemRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(page);
+
+        var result = dictionaryItemService.getAll(request);
+
+        assertEquals(1, result.getTotalElements());
+        assertEquals("CD1", result.getContent().get(0).getItemCd());
+    }
+
+    @Test
+    void getAllShouldApplyAllFiltersWhenProvided() {
+        DictionaryItemFilterRequest request = new DictionaryItemFilterRequest();
+        request.setGroupCd("GROUP");
+        request.setItemCd("ITEM");
+        request.setNameVn("Tên");
+        request.setNameEn("Name");
+        request.setActiveFlg(true);
+
+        var page = new org.springframework.data.domain.PageImpl<>(List.of(), request.pageable(), 0);
+        when(dictionaryItemRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(page);
+
+        var result = dictionaryItemService.getAll(request);
+
+        assertEquals(0, result.getTotalElements());
+        verify(dictionaryItemRepository).findAll(any(org.springframework.data.jpa.domain.Specification.class), any(org.springframework.data.domain.Pageable.class));
+    }
+
+    @Test
+    void getAllShouldIgnoreBlankFiltersButApplyActiveFlg() {
+        DictionaryItemFilterRequest request = new DictionaryItemFilterRequest();
+        request.setGroupCd("   ");
+        request.setItemCd("");
+        request.setNameVn(null);
+        request.setNameEn(null);
+        request.setActiveFlg(false);
+
+        var page = new org.springframework.data.domain.PageImpl<>(List.of(), request.pageable(), 0);
+        when(dictionaryItemRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(page);
+
+        var result = dictionaryItemService.getAll(request);
+
+        assertEquals(0, result.getTotalElements());
     }
 }
