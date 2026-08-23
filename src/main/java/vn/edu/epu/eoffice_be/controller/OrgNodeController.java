@@ -1,6 +1,9 @@
 package vn.edu.epu.eoffice_be.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -66,7 +69,22 @@ public class OrgNodeController {
 			@ApiResponse(responseCode = "409", description = "Mã đơn vị đã tồn tại (ORG_NODE_CODE_EXISTS)")
 	})
 	@PostMapping
-	public BaseResponse<Void> create(@Valid @RequestBody OrgNodeCreateRequest request) {
+	public BaseResponse<Void> create(
+			@Valid @org.springframework.web.bind.annotation.RequestBody
+			@io.swagger.v3.oas.annotations.parameters.RequestBody(
+					description = "Thông tin đơn vị mới (typeCd nhận UNIVERSITY/FACULTY/DEPARTMENT/CENTER/MAJOR)",
+					content = @Content(mediaType = "application/json",
+							schema = @Schema(implementation = OrgNodeCreateRequest.class),
+							examples = @ExampleObject(value = """
+									{
+									  "code": "CNTT",
+									  "parentId": 1001,
+									  "nameVn": "Khoa Công nghệ thông tin",
+									  "nameEn": "Faculty of Information Technology",
+									  "typeCd": "FACULTY",
+									  "orgOrder": 2
+									}""")))
+			OrgNodeCreateRequest request) {
 		orgNodeService.create(request);
 		return BaseResponse.success(null);
 	}
@@ -84,7 +102,19 @@ public class OrgNodeController {
 	@PutMapping("/{id}")
 	public BaseResponse<List<OrgNodeResponse>> update(
 			@PathVariable Long id,
-			@Valid @RequestBody OrgNodeUpdateRequest request) {
+			@Valid @org.springframework.web.bind.annotation.RequestBody
+			@io.swagger.v3.oas.annotations.parameters.RequestBody(
+					description = "Thông tin cập nhật (parentId = null để chuyển thành node gốc)",
+					content = @Content(mediaType = "application/json",
+							schema = @Schema(implementation = OrgNodeUpdateRequest.class),
+							examples = @ExampleObject(value = """
+									{
+									  "id": 1015,
+									  "parentId": 1001,
+									  "nameVn": "Khoa Công nghệ thông tin và Truyền thông",
+									  "nameEn": "Faculty of Information and Communication Technology"
+									}""")))
+			OrgNodeUpdateRequest request) {
 		request.setId(id);
 		return BaseResponse.success(orgNodeService.update(request));
 	}

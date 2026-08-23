@@ -14,7 +14,7 @@ import java.util.List;
 public class DictionaryItemBatchDeleteRequest {
 
     @Schema(description = "Danh sách id các mục từ điển cần xóa. Chỉ id tồn tại và chưa xóa mềm mới được tính vào kết quả",
-            example = "[1012, 1013, 1053]", requiredMode = Schema.RequiredMode.REQUIRED)
+            example = "[1051, 1052, 1053]", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotEmpty(message = "ids không được để trống")
     List<Long> ids;
 }

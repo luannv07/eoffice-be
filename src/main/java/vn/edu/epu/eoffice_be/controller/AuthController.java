@@ -1,6 +1,9 @@
 package vn.edu.epu.eoffice_be.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
@@ -46,6 +49,15 @@ public class AuthController {
             @ApiResponse(responseCode = "429", description = "Quá nhiều lần thử (RATE_LIMITED)")
     })
     @SecurityRequirements
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            description = "Thông tin đăng nhập",
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = LoginRequest.class),
+                    examples = @ExampleObject(value = """
+                            {
+                              "username": "admin",
+                              "password": "Admin@1234"
+                            }""")))
     @PostMapping("/login")
     public BaseResponse<LoginResponse> login(
             @Valid @RequestBody LoginRequest request,
@@ -69,6 +81,16 @@ public class AuthController {
             @ApiResponse(responseCode = "429", description = "Quá nhiều lần thử (RATE_LIMITED)")
     })
     @SecurityRequirements
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            description = "Thông tin đăng ký tài khoản mới",
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = RegisterRequest.class),
+                    examples = @ExampleObject(value = """
+                            {
+                              "username": "nguyen.van.a",
+                              "email": "nguyen.van.a@epu.edu.vn",
+                              "password": "MatKhau@2026"
+                            }""")))
     @PostMapping("/register")
     public BaseResponse<LoginResponse> register(
             @Valid @RequestBody RegisterRequest request,

@@ -14,6 +14,7 @@ import vn.edu.epu.eoffice_be.dto.request.DictionaryItemCreateRequest;
 import vn.edu.epu.eoffice_be.dto.request.DictionaryItemUpdateRequest;
 import vn.edu.epu.eoffice_be.entity.DictionaryItem;
 import vn.edu.epu.eoffice_be.repository.DictionaryItemRepository;
+import vn.edu.epu.eoffice_be.service.impl.DictionaryItemServiceImpl;
 
 import java.util.List;
 import java.util.Optional;
@@ -35,7 +36,7 @@ class DictionaryItemServiceImplTest {
     DictionaryItemRepository dictionaryItemRepository;
 
     @InjectMocks
-    DictionaryItemServiceImpl dictionaryItemService;
+		DictionaryItemServiceImpl dictionaryItemService;
 
     private DictionaryItem item(Long id, String groupCd, String itemCd, boolean deleteFlg) {
         return DictionaryItem.builder()

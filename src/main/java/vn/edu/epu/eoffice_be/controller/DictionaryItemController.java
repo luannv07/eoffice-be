@@ -1,6 +1,9 @@
 package vn.edu.epu.eoffice_be.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -73,7 +76,22 @@ public class DictionaryItemController {
             @ApiResponse(responseCode = "409", description = "Cặp (groupCd, itemCd) đã tồn tại và đang hoạt động (DICTIONARY_ITEM_ALREADY_EXISTS)")
     })
     @PostMapping
-    public BaseResponse<DictionaryItemResponse> create(@Valid @RequestBody DictionaryItemCreateRequest request) {
+    public BaseResponse<DictionaryItemResponse> create(
+            @Valid @org.springframework.web.bind.annotation.RequestBody
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "Thông tin mục từ điển mới",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = DictionaryItemCreateRequest.class),
+                            examples = @ExampleObject(value = """
+                                    {
+                                      "groupCd": "USER_STATUS_CD",
+                                      "itemCd": "SUSPENDED",
+                                      "nameVn": "Tạm ngưng hoạt động",
+                                      "nameEn": "Suspended",
+                                      "displayOrder": 3,
+                                      "activeFlg": true
+                                    }""")))
+            DictionaryItemCreateRequest request) {
         return BaseResponse.success(dictionaryItemService.create(request));
     }
 
@@ -89,7 +107,19 @@ public class DictionaryItemController {
     @PutMapping("/{id}")
     public BaseResponse<DictionaryItemResponse> update(
             @PathVariable Long id,
-            @Valid @RequestBody DictionaryItemUpdateRequest request) {
+            @Valid @org.springframework.web.bind.annotation.RequestBody
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "Nội dung cập nhật (không chứa groupCd/itemCd)",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = DictionaryItemUpdateRequest.class),
+                            examples = @ExampleObject(value = """
+                                    {
+                                      "nameVn": "Bị khoá tạm thời",
+                                      "nameEn": "Temporarily locked",
+                                      "displayOrder": 1,
+                                      "activeFlg": false
+                                    }""")))
+            DictionaryItemUpdateRequest request) {
         return BaseResponse.success(dictionaryItemService.update(id, request));
     }
 
@@ -117,7 +147,17 @@ public class DictionaryItemController {
             @ApiResponse(responseCode = "400", description = "Danh sách ids rỗng hoặc không hợp lệ")
     })
     @PostMapping("/batch-delete")
-    public BaseResponse<Long> batchDelete(@Valid @RequestBody DictionaryItemBatchDeleteRequest request) {
+    public BaseResponse<Long> batchDelete(
+            @Valid @org.springframework.web.bind.annotation.RequestBody
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "Danh sách id cần xóa mềm",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = DictionaryItemBatchDeleteRequest.class),
+                            examples = @ExampleObject(value = """
+                                    {
+                                      "ids": [1051, 1052, 1053]
+                                    }""")))
+            DictionaryItemBatchDeleteRequest request) {
         return BaseResponse.success(dictionaryItemService.batchDelete(request));
     }
 }

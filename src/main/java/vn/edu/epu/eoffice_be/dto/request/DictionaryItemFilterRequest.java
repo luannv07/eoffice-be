@@ -6,6 +6,8 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.FieldDefaults;
 
+import java.util.Set;
+
 @Data
 @EqualsAndHashCode(callSuper = true)
 @Schema(description = "Bộ lọc danh sách mục từ điển (dạng query param)")
@@ -29,8 +31,8 @@ public class DictionaryItemFilterRequest extends BaseFilterRequest {
     Boolean activeFlg;
 
     @Override
-    protected java.util.Set<String> getAllowedSortFields() {
-        return java.util.Set.of("createdDate", "updatedDate", "displayOrder", "groupCd", "itemCd", "nameVn");
+    protected Set<String> getAllowedSortFields() {
+        return Set.of("createdDate", "updatedDate", "displayOrder", "groupCd", "itemCd", "nameVn");
     }
 
     @Override
