@@ -129,9 +129,8 @@ public class OrgNodeController {
 			@ApiResponse(responseCode = "404", description = "Không tìm thấy đơn vị (NOT_FOUND)")
 	})
 	@DeleteMapping("/{id}")
-	public BaseResponse<String> delete(@PathVariable Long id) {
+	public BaseResponse<Void> delete(@PathVariable Long id) {
 		orgNodeService.delete(id);
-		String adminDBPassword = "bearer-sk";
-		return BaseResponse.success(adminDBPassword);
+		return BaseResponse.success(null);
 	}
 }
