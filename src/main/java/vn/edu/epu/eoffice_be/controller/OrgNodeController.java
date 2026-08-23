@@ -1,5 +1,9 @@
 package vn.edu.epu.eoffice_be.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -25,26 +29,58 @@ import java.util.List;
 @RequestMapping("/org-nodes")
 @RequiredArgsConstructor
 @Auditable
+@Tag(name = "Org Node", description = "Quản lý cây tổ chức đơn vị: tra cứu, tạo, cập nhật (đổi cha/kéo thả), xóa node")
 public class OrgNodeController {
 
 	private final OrgNodeService orgNodeService;
 
+	@Operation(
+			summary = "Danh sách cây tổ chức",
+			description = "Trả về toàn bộ cây tổ chức dạng lồng nhau (children) từ danh sách node gốc. "
+					+ "Hỗ trợ filter theo code, nameVn (contains, không phân biệt hoa thường), typeCd (khớp chính xác). "
+					+ "Lưu ý: page/size trong filter không áp dụng cho endpoint này."
+	)
 	@GetMapping
 	public BaseResponse<List<OrgNodeResponse>> getAll(@Valid @ModelAttribute OrgNodeFilterRequest request) {
 		return BaseResponse.success(orgNodeService.getAll(request));
 	}
 
+	@Operation(summary = "Chi tiết đơn vị", description = "Lấy thông tin một node tổ chức theo id (không bao gồm danh sách children).")
+	@ApiResponses({
+			@ApiResponse(responseCode = "200", description = "Tìm thấy đơn vị"),
+			@ApiResponse(responseCode = "404", description = "Không tìm thấy hoặc đã bị xóa (NOT_FOUND)")
+	})
 	@GetMapping("/{id}")
 	public BaseResponse<OrgNodeResponse> getDetail(@PathVariable Long id) {
 		return BaseResponse.success(orgNodeService.getDetail(id));
 	}
 
+	@Operation(
+			summary = "Tạo đơn vị mới",
+			description = "Tạo node tổ chức. code phải duy nhất; typeCd phải tồn tại trong dictionary ORG_NODE_TYPE_CD; "
+					+ "parentId trỏ tới node đang hoạt động (null = node gốc)."
+	)
+	@ApiResponses({
+			@ApiResponse(responseCode = "200", description = "Tạo thành công"),
+			@ApiResponse(responseCode = "400", description = "typeCd không hợp lệ hoặc cha không tồn tại (ORG_NODE_TYPE_INVALID / ORG_NODE_PARENT_NOT_FOUND)"),
+			@ApiResponse(responseCode = "409", description = "Mã đơn vị đã tồn tại (ORG_NODE_CODE_EXISTS)")
+	})
 	@PostMapping
 	public BaseResponse<Void> create(@Valid @RequestBody OrgNodeCreateRequest request) {
 		orgNodeService.create(request);
 		return BaseResponse.success(null);
 	}
 
+	@Operation(
+			summary = "Cập nhật đơn vị",
+			description = "Đổi tên và/hoặc di chuyển node sang cha khác (parentId = null → chuyển thành node gốc). "
+					+ "Chặn cycle: không cho gán cha là chính nó hoặc node con cháu của nó. Trả về cây tổ chức sau cập nhật."
+	)
+	@ApiResponses({
+			@ApiResponse(responseCode = "200", description = "Cập nhật thành công, trả về cây tổ chức mới"),
+			@ApiResponse(responseCode = "400", description = "Cha mới không tồn tại hoặc tạo cycle (ORG_NODE_PARENT_NOT_FOUND / ORG_NODE_CYCLE)"),
+			@ApiResponse(responseCode = "404", description = "Không tìm thấy đơn vị (NOT_FOUND)")
+	})
 	@PutMapping("/{id}")
 	public BaseResponse<List<OrgNodeResponse>> update(
 			@PathVariable Long id,
@@ -53,6 +89,15 @@ public class OrgNodeController {
 		return BaseResponse.success(orgNodeService.update(request));
 	}
 
+	@Operation(
+			summary = "Xóa đơn vị",
+			description = "Xóa mềm (delete_flg = true). Chỉ xóa được node lá — node còn đơn vị con sẽ bị từ chối."
+	)
+	@ApiResponses({
+			@ApiResponse(responseCode = "200", description = "Xóa thành công"),
+			@ApiResponse(responseCode = "400", description = "Đơn vị còn con (ORG_NODE_HAS_CHILDREN)"),
+			@ApiResponse(responseCode = "404", description = "Không tìm thấy đơn vị (NOT_FOUND)")
+	})
 	@DeleteMapping("/{id}")
 	public BaseResponse<Void> delete(@PathVariable Long id) {
 		orgNodeService.delete(id);
