@@ -7,6 +7,8 @@ import vn.edu.epu.eoffice_be.dto.request.DictionaryItemUpdateRequest;
 import vn.edu.epu.eoffice_be.dto.response.DictionaryItemResponse;
 import vn.edu.epu.eoffice_be.entity.DictionaryItem;
 
+import java.util.List;
+
 public interface DictionaryItemService {
 
     DictionaryItemResponse create(DictionaryItemCreateRequest request);
@@ -20,6 +22,8 @@ public interface DictionaryItemService {
     org.springframework.data.domain.Page<DictionaryItemResponse> getAll(DictionaryItemFilterRequest request);
 
     DictionaryItemResponse getDetail(Long id);
+
+    List<DictionaryItemResponse> lookupByGroups(List<String> groups);
 
     DictionaryItem getEntityByIdAndGroup(Long id, String groupCd);
 }

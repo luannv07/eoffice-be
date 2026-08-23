@@ -20,6 +20,8 @@ import vn.edu.epu.eoffice_be.entity.DictionaryItem;
 import vn.edu.epu.eoffice_be.repository.DictionaryItemRepository;
 import vn.edu.epu.eoffice_be.service.DictionaryItemService;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -136,6 +138,25 @@ public class DictionaryItemServiceImpl implements DictionaryItemService {
         return dictionaryItemRepository.findByIdAndDeleteFlgFalse(id)
                 .map(this::toDto)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<DictionaryItemResponse> lookupByGroups(List<String> groups) {
+        if (groups == null || groups.isEmpty() || groups.stream().allMatch(g -> g == null || g.isBlank())) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST,
+                    "Danh sách groups không được để trống (ví dụ: ?groups=USER_STATUS_CD,EMPLOYMENT_STATUS_CD)");
+        }
+        List<String> normalized = groups.stream()
+                .filter(g -> g != null && !g.isBlank())
+                .map(String::trim)
+                .distinct()
+                .toList();
+        return dictionaryItemRepository
+                .findByGroupCdInAndDeleteFlgFalseAndActiveFlgTrueOrderByGroupCdAscDisplayOrderAsc(normalized)
+                .stream()
+                .map(this::toDto)
+                .toList();
     }
 
     @Override

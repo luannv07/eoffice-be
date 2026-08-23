@@ -16,7 +16,7 @@ class JpaAuditingConfigTest {
         SecurityContextHolder.clearContext();
         JpaAuditingConfig config = new JpaAuditingConfig();
         AuditorAware<String> auditorAware = config.auditorProvider();
-        assertEquals("system", auditorAware.getCurrentAuditor().orElse("missing"));
+        assertEquals("unknown", auditorAware.getCurrentAuditor().orElse("missing"));
     }
 
     @Test
@@ -47,7 +47,7 @@ class JpaAuditingConfigTest {
         SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken("tester", "n/a"));
         JpaAuditingConfig config = new JpaAuditingConfig();
         AuditorAware<String> auditorAware = config.auditorProvider();
-        assertEquals("system", auditorAware.getCurrentAuditor().orElse("missing"));
+        assertEquals("unknown", auditorAware.getCurrentAuditor().orElse("missing"));
         SecurityContextHolder.clearContext();
     }
 

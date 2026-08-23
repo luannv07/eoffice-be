@@ -16,8 +16,11 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+
+import java.util.List;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.edu.epu.eoffice_be.common.annotation.Auditable;
 import vn.edu.epu.eoffice_be.common.dto.BaseResponse;
@@ -62,6 +65,46 @@ public class DictionaryItemController {
     @GetMapping("/{id}")
     public BaseResponse<DictionaryItemResponse> getDetail(@PathVariable Long id) {
         return BaseResponse.success(dictionaryItemService.getDetail(id));
+    }
+
+    @Operation(
+            summary = "Tra cứu mục từ điển theo nhiều nhóm",
+            description = "Trả về toàn bộ mục từ điển đang hoạt động (chưa xóa mềm, activeFlg = true) thuộc các nhóm được truyền vào "
+                    + "qua query param groups (phân tách bằng dấu phẩy), KHÔNG phân trang. "
+                    + "Kết quả sắp xếp ổn định: groupCd ASC, rồi displayOrder ASC. "
+                    + "Nhóm không tồn tại hoặc không còn mục active sẽ đơn giản không có kết quả (không báo lỗi)."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Lấy danh sách thành công",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = DictionaryItemResponse.class),
+                            examples = @ExampleObject(name = "Ví dụ dữ liệu thật từ seed",
+                                    value = """
+                                            {
+                                              "success": true,
+                                              "data": [
+                                                { "id": 1001, "groupCd": "USER_STATUS_CD", "itemCd": "ACTIVE",   "nameVn": "Đang hoạt động", "nameEn": "Active",   "displayOrder": 0, "activeFlg": true },
+                                                { "id": 1002, "groupCd": "USER_STATUS_CD", "itemCd": "LOCKED",   "nameVn": "Bị khoá tạm",    "nameEn": "Locked",   "displayOrder": 1, "activeFlg": true },
+                                                { "id": 1003, "groupCd": "USER_STATUS_CD", "itemCd": "DISABLED", "nameVn": "Vô hiệu hoá",    "nameEn": "Disabled", "displayOrder": 2, "activeFlg": true },
+                                                { "id": 1051, "groupCd": "EMPLOYMENT_STATUS_CD", "itemCd": "ACTIVE",   "nameVn": "Đang công tác",  "nameEn": "Active",    "displayOrder": 0, "activeFlg": true },
+                                                { "id": 1052, "groupCd": "EMPLOYMENT_STATUS_CD", "itemCd": "RETIRED",  "nameVn": "Đã nghỉ hưu",    "nameEn": "Retired",   "displayOrder": 1, "activeFlg": true },
+                                                { "id": 1053, "groupCd": "EMPLOYMENT_STATUS_CD", "itemCd": "RESIGNED", "nameVn": "Đã nghỉ việc",   "nameEn": "Resigned",  "displayOrder": 2, "activeFlg": true },
+                                                { "id": 1054, "groupCd": "EMPLOYMENT_STATUS_CD", "itemCd": "ON_LEAVE", "nameVn": "Đang nghỉ phép", "nameEn": "On Leave",  "displayOrder": 3, "activeFlg": true }
+                                              ],
+                                              "message": "Thành công",
+                                              "timestamp": "2025-12-11T09:09:16Z"
+                                            }"""))),
+            @ApiResponse(responseCode = "400", description = "Danh sách groups rỗng hoặc không được truyền (BAD_REQUEST)")
+    })
+    @GetMapping("/lookup-by-groups")
+    public BaseResponse<List<DictionaryItemResponse>> lookupByGroups(
+            @io.swagger.v3.oas.annotations.Parameter(
+                    name = "groups",
+                    description = "Danh sách mã nhóm cần tra cứu, phân tách bằng dấu phẩy",
+                    example = "USER_STATUS_CD,EMPLOYMENT_STATUS_CD",
+                    required = true,
+                    schema = @Schema(type = "string"))
+            @RequestParam(value = "groups", required = false) List<String> groups) {
+        return BaseResponse.success(dictionaryItemService.lookupByGroups(groups));
     }
 
     @Operation(

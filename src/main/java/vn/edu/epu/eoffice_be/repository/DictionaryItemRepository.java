@@ -12,6 +12,8 @@ public interface DictionaryItemRepository extends JpaRepository<DictionaryItem, 
 
     List<DictionaryItem> findByGroupCdAndDeleteFlgFalseAndActiveFlgTrueOrderByDisplayOrderAsc(String groupCd);
 
+    List<DictionaryItem> findByGroupCdInAndDeleteFlgFalseAndActiveFlgTrueOrderByGroupCdAscDisplayOrderAsc(Collection<String> groupCds);
+
     Optional<DictionaryItem> findByGroupCdAndItemCdAndDeleteFlgFalse(String groupCd, String itemCd);
 
     Optional<DictionaryItem> findByGroupCdAndItemCd(String groupCd, String itemCd);

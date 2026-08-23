@@ -11,6 +11,7 @@ import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.dto.request.DictionaryItemBatchDeleteRequest;
 import vn.edu.epu.eoffice_be.dto.request.DictionaryItemCreateRequest;
+import vn.edu.epu.eoffice_be.dto.request.DictionaryItemFilterRequest;
 import vn.edu.epu.eoffice_be.dto.request.DictionaryItemUpdateRequest;
 import vn.edu.epu.eoffice_be.entity.DictionaryItem;
 import vn.edu.epu.eoffice_be.repository.DictionaryItemRepository;
@@ -242,5 +243,102 @@ class DictionaryItemServiceImplTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> dictionaryItemService.getEntityByIdAndGroup(14L, "EXPECTED_GROUP"));
         assertEquals(ErrorCode.NOT_FOUND, ex.getErrorCode());
+    }
+
+    @Test
+    void lookupByGroupsShouldReturnItemsFromRepository() {
+        DictionaryItem userStatus = item(1001L, "USER_STATUS_CD", "ACTIVE", false);
+        DictionaryItem employment = item(1051L, "EMPLOYMENT_STATUS_CD", "ACTIVE", false);
+        when(dictionaryItemRepository.findByGroupCdInAndDeleteFlgFalseAndActiveFlgTrueOrderByGroupCdAscDisplayOrderAsc(
+                List.of("USER_STATUS_CD", "EMPLOYMENT_STATUS_CD")))
+                .thenReturn(List.of(userStatus, employment));
+
+        var result = dictionaryItemService.lookupByGroups(List.of("USER_STATUS_CD", "EMPLOYMENT_STATUS_CD"));
+
+        assertEquals(2, result.size());
+        assertEquals(1001L, result.get(0).getId());
+        assertEquals("USER_STATUS_CD", result.get(0).getGroupCd());
+        assertEquals(1051L, result.get(1).getId());
+    }
+
+    @Test
+    void lookupByGroupsShouldThrowBadRequestWhenEmptyOrNull() {
+        BusinessException ex1 = assertThrows(BusinessException.class,
+                () -> dictionaryItemService.lookupByGroups(null));
+        assertEquals(ErrorCode.BAD_REQUEST, ex1.getErrorCode());
+
+        BusinessException ex2 = assertThrows(BusinessException.class,
+                () -> dictionaryItemService.lookupByGroups(List.of()));
+        assertEquals(ErrorCode.BAD_REQUEST, ex2.getErrorCode());
+
+        BusinessException ex3 = assertThrows(BusinessException.class,
+                () -> dictionaryItemService.lookupByGroups(List.of("  ", "")));
+        assertEquals(ErrorCode.BAD_REQUEST, ex3.getErrorCode());
+    }
+
+    @Test
+    void lookupByGroupsShouldTrimDeduplicateAndIgnoreBlankEntries() {
+        when(dictionaryItemRepository.findByGroupCdInAndDeleteFlgFalseAndActiveFlgTrueOrderByGroupCdAscDisplayOrderAsc(
+                List.of("USER_STATUS_CD")))
+                .thenReturn(List.of());
+
+        var result = dictionaryItemService.lookupByGroups(List.of(" USER_STATUS_CD ", "USER_STATUS_CD", ""));
+
+        assertTrue(result.isEmpty());
+        verify(dictionaryItemRepository).findByGroupCdInAndDeleteFlgFalseAndActiveFlgTrueOrderByGroupCdAscDisplayOrderAsc(
+                List.of("USER_STATUS_CD"));
+    }
+
+    @Test
+    void getAllShouldApplyNoFiltersWhenRequestEmpty() {
+        DictionaryItemFilterRequest request = new DictionaryItemFilterRequest();
+
+        var page = new org.springframework.data.domain.PageImpl<>(
+                List.of(item(20L, "G1", "CD1", false)),
+                request.pageable(), 1);
+        when(dictionaryItemRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(page);
+
+        var result = dictionaryItemService.getAll(request);
+
+        assertEquals(1, result.getTotalElements());
+        assertEquals("CD1", result.getContent().get(0).getItemCd());
+    }
+
+    @Test
+    void getAllShouldApplyAllFiltersWhenProvided() {
+        DictionaryItemFilterRequest request = new DictionaryItemFilterRequest();
+        request.setGroupCd("GROUP");
+        request.setItemCd("ITEM");
+        request.setNameVn("Tên");
+        request.setNameEn("Name");
+        request.setActiveFlg(true);
+
+        var page = new org.springframework.data.domain.PageImpl<>(List.of(), request.pageable(), 0);
+        when(dictionaryItemRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(page);
+
+        var result = dictionaryItemService.getAll(request);
+
+        assertEquals(0, result.getTotalElements());
+        verify(dictionaryItemRepository).findAll(any(org.springframework.data.jpa.domain.Specification.class), any(org.springframework.data.domain.Pageable.class));
+    }
+
+    @Test
+    void getAllShouldIgnoreBlankFiltersButApplyActiveFlg() {
+        DictionaryItemFilterRequest request = new DictionaryItemFilterRequest();
+        request.setGroupCd("   ");
+        request.setItemCd("");
+        request.setNameVn(null);
+        request.setNameEn(null);
+        request.setActiveFlg(false);
+
+        var page = new org.springframework.data.domain.PageImpl<>(List.of(), request.pageable(), 0);
+        when(dictionaryItemRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(page);
+
+        var result = dictionaryItemService.getAll(request);
+
+        assertEquals(0, result.getTotalElements());
     }
 }
