@@ -28,7 +28,8 @@ public enum ErrorCode {
     ORG_NODE_PARENT_NOT_FOUND("ORG_NODE_PARENT_NOT_FOUND", "Đơn vị cha không tồn tại", HttpStatus.BAD_REQUEST),
     ORG_NODE_HAS_CHILDREN("ORG_NODE_HAS_CHILDREN", "Đơn vị còn đơn vị con, không thể xóa", HttpStatus.BAD_REQUEST),
     ORG_NODE_CYCLE("ORG_NODE_CYCLE", "Không thể chuyển đơn vị vào chính nó hoặc đơn vị con", HttpStatus.BAD_REQUEST),
-    ORG_NODE_TYPE_INVALID("ORG_NODE_TYPE_INVALID", "Loại đơn vị không hợp lệ", HttpStatus.BAD_REQUEST);
+    ORG_NODE_TYPE_INVALID("ORG_NODE_TYPE_INVALID", "Loại đơn vị không hợp lệ", HttpStatus.BAD_REQUEST),
+    DICTIONARY_ITEM_ALREADY_EXISTS("DICTIONARY_ITEM_ALREADY_EXISTS", "Mục từ điển đã tồn tại trong nhóm", HttpStatus.CONFLICT);
 
     private final String code;
     private final String message;

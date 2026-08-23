@@ -47,7 +47,7 @@ eoffice:
     auth-rate-limit: 10
     auth-rate-window-seconds: 300
     cookie-name: refresh_token
-    cookie-path: /auth
+    cookie-path: ${COOKIE_PATH:/auth}
     cookie-secure: ${COOKIE_SECURE:false}
     cookie-same-site: Strict
     allowed-origins: ${JWT_ALLOWED_ORIGINS:}
