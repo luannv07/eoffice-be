@@ -24,7 +24,7 @@ public interface OrgNodeRepository extends JpaRepository<OrgNode, Long> {
                 INNER JOIN descendants d ON n.parent_id = d.id
                 WHERE n.delete_flg = false
             )
-            SELECT n FROM org_nodes n
+            SELECT n.* FROM org_nodes n
             JOIN descendants ON descendants.id = n.id
             WHERE n.id <> :ancestorId
             ORDER BY n.org_order ASC
@@ -39,7 +39,7 @@ public interface OrgNodeRepository extends JpaRepository<OrgNode, Long> {
                 INNER JOIN ancestors a ON n.id = a.id
                 WHERE n.parent_id IS NOT NULL AND n.delete_flg = false
             )
-            SELECT n FROM org_nodes n
+            SELECT n.* FROM org_nodes n
             JOIN ancestors ON ancestors.id = n.id
             WHERE n.delete_flg = false
             ORDER BY n.org_order ASC
@@ -58,7 +58,7 @@ public interface OrgNodeRepository extends JpaRepository<OrgNode, Long> {
                 INNER JOIN reachable r ON child.parent_id = r.id
                 WHERE child.delete_flg = false
             )
-            SELECT n FROM org_nodes n
+            SELECT n.* FROM org_nodes n
             JOIN reachable ON reachable.id = n.id
             WHERE n.delete_flg = false
             ORDER BY n.org_order ASC

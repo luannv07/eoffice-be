@@ -6,12 +6,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 import java.io.Serializable;
+import java.security.Principal;
 import java.util.List;
 
 @Getter
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class JwtUserPrincipal implements Serializable {
+public class JwtUserPrincipal implements Principal, Serializable {
 
     Long userId;
 
@@ -20,4 +21,9 @@ public class JwtUserPrincipal implements Serializable {
     String role;
 
     List<String> permissions;
+
+    @Override
+    public String getName() {
+        return username;
+    }
 }
