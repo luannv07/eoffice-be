@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: eoffice-postgres
+    environment:
+      POSTGRES_DB: eoffice
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - eoffice-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d eoffice"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: eoffice-be
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: staging
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: eoffice
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET: eoffice-be-jwt-secret-fixed-for-all-environments-2026
+      COOKIE_SECURE: "false"
+    ports:
+      - "8080:8080"
+    networks:
+      - eoffice-net
+
+volumes:
+  pgdata:
+
+networks:
+  eoffice-net:
+    driver: bridge
