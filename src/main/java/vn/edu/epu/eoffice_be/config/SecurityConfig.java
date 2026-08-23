@@ -44,9 +44,7 @@ public class SecurityConfig {
     private static final String[] PUBLIC_ENDPOINTS = {
             "/public/**",
             "/auth/login",
-            "/auth/register",
-            "/auth/refresh",
-            "/auth/logout"
+            "/auth/register"
     };
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;

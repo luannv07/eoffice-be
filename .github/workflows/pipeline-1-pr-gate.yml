@@ -70,7 +70,7 @@ jobs:
       - name: 8. Install AI Reviewer dependencies
         run: npm --prefix eoffice-ai-review install
 
-      - name: 9. AI Code Review (Groq/OpenRouter)
+      - name: 9. AI Code Review (Groq/OpenRouter/Gemini/17WTF)
         run: |
           node \
             -r ./eoffice-ai-review/node_modules/ts-node/register \
@@ -80,6 +80,10 @@ jobs:
           GROQ_MODELS: ${{ secrets.GROQ_MODELS }}
           OPENROUTER_API_KEYS: ${{ secrets.OPENROUTER_API_KEYS }}
           OPENROUTER_MODELS: ${{ secrets.OPENROUTER_MODELS }}
+          GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
+          GEMINI_MODELS: ${{ secrets.GEMINI_MODELS }}
+          SEVEN_TEEN_WTF_API_KEYS: ${{ secrets.SEVEN_TEEN_WTF_API_KEYS }}
+          SEVEN_TEEN_WTF_MODELS: ${{ secrets.SEVEN_TEEN_WTF_MODELS }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}

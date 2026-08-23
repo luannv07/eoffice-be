@@ -30,20 +30,19 @@
     <springProfile name="prod">
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
-            <appender-ref ref="FILE"/>
         </root>
     </springProfile>
 
     <springProfile name="staging">
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
-            <appender-ref ref="FILE"/>
         </root>
     </springProfile>
 
     <springProfile name="!staging &amp; !prod">
         <root level="DEBUG">
             <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE"/>
         </root>
     </springProfile>
 </configuration>

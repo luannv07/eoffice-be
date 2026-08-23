@@ -50,12 +50,12 @@ public class ChangeHistoryLog {
     @Column(name = "source_service", nullable = false, length = 100)
     String sourceService;
 
-    @Column(name = "before_data", columnDefinition = "jsonb")
+    @Column(name = "before_data", columnDefinition = "TEXT")
     String beforeData;
 
-    @Column(name = "after_data", columnDefinition = "jsonb")
+    @Column(name = "after_data", columnDefinition = "TEXT")
     String afterData;
 
-    @Column(name = "changed_fields", columnDefinition = "jsonb")
+    @Column(name = "changed_fields", columnDefinition = "TEXT")
     String changedFields;
 }

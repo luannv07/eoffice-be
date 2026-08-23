@@ -9,7 +9,7 @@ import vn.edu.epu.eoffice_be.common.enums.Role;
 import vn.edu.epu.eoffice_be.entity.OrgNode;
 import vn.edu.epu.eoffice_be.entity.PositionAssignment;
 import vn.edu.epu.eoffice_be.entity.PositionPermission;
-import vn.edu.epu.eoffice_be.repository.OrgNodeClosureRepository;
+import vn.edu.epu.eoffice_be.repository.OrgNodeRepository;
 import vn.edu.epu.eoffice_be.repository.PositionAssignmentRepository;
 import vn.edu.epu.eoffice_be.repository.PositionDegRepository;
 import vn.edu.epu.eoffice_be.repository.PositionPermissionRepository;
@@ -32,7 +32,7 @@ public class PermissionResolver {
     final PositionAssignmentRepository positionAssignmentRepository;
     final PositionPermissionRepository positionPermissionRepository;
     final PositionDegRepository positionDegRepository;
-    final OrgNodeClosureRepository orgNodeClosureRepository;
+    final OrgNodeRepository orgNodeRepository;
     final RolePermissionRepository rolePermissionRepository;
 
     @Transactional(readOnly = true)
@@ -61,8 +61,9 @@ public class PermissionResolver {
         }
 
         // Đường 1: position-based. orgNodeId dùng để lọc theo phạm vi position_assignments
-        // (qua org_node_closures), KHÔNG truyền vào PositionPermission query (bảng đó giờ
-        // global theo position_cd). orgNodeId null => chỉ xét quyền không phụ thuộc node.
+        // (qua recursive CTE trên org_nodes.parent_id), KHÔNG truyền vào PositionPermission
+        // query (bảng đó giờ global theo position_cd). orgNodeId null => chỉ xét quyền không
+        // phụ thuộc node.
         List<PositionAssignment> assignments =
                 positionAssignmentRepository.findActiveAssignments(principal.getUserId(), Instant.now());
         for (PositionAssignment pa : assignments) {
@@ -110,7 +111,7 @@ public class PermissionResolver {
         if (!pp.isInheritToChildren()) {
             return assignedNode.getId().equals(orgNodeId);
         }
-        Set<Long> scope = new HashSet<>(orgNodeClosureRepository.findDescendantIdsOf(assignedNode.getId()));
+        Set<Long> scope = new HashSet<>(orgNodeRepository.findActiveDescendantIds(assignedNode.getId()));
         scope.add(assignedNode.getId());
         return scope.contains(orgNodeId);
     }
