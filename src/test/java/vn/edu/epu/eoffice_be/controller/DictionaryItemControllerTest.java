@@ -151,4 +151,29 @@ class DictionaryItemControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").value(2));
     }
+
+    @Test
+    void lookupByGroupsShouldReturnItemsSorted() throws Exception {
+        when(dictionaryItemService.lookupByGroups(List.of("USER_STATUS_CD", "EMPLOYMENT_STATUS_CD")))
+                .thenReturn(List.of(
+                        sample(1001L),
+                        sample(1051L)));
+
+        mockMvc.perform(get("/dictionary-items/lookup-by-groups")
+                        .param("groups", "USER_STATUS_CD,EMPLOYMENT_STATUS_CD"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[0].id").value(1001))
+                .andExpect(jsonPath("$.data[1].id").value(1051));
+    }
+
+    @Test
+    void lookupByGroupsShouldReturn400WhenMissing() throws Exception {
+        when(dictionaryItemService.lookupByGroups(null))
+                .thenThrow(new BusinessException(ErrorCode.BAD_REQUEST));
+
+        mockMvc.perform(get("/dictionary-items/lookup-by-groups"))
+                .andExpect(status().isBadRequest());
+    }
 }

@@ -243,4 +243,48 @@ class DictionaryItemServiceImplTest {
                 () -> dictionaryItemService.getEntityByIdAndGroup(14L, "EXPECTED_GROUP"));
         assertEquals(ErrorCode.NOT_FOUND, ex.getErrorCode());
     }
+
+    @Test
+    void lookupByGroupsShouldReturnItemsFromRepository() {
+        DictionaryItem userStatus = item(1001L, "USER_STATUS_CD", "ACTIVE", false);
+        DictionaryItem employment = item(1051L, "EMPLOYMENT_STATUS_CD", "ACTIVE", false);
+        when(dictionaryItemRepository.findByGroupCdInAndDeleteFlgFalseAndActiveFlgTrueOrderByGroupCdAscDisplayOrderAsc(
+                List.of("USER_STATUS_CD", "EMPLOYMENT_STATUS_CD")))
+                .thenReturn(List.of(userStatus, employment));
+
+        var result = dictionaryItemService.lookupByGroups(List.of("USER_STATUS_CD", "EMPLOYMENT_STATUS_CD"));
+
+        assertEquals(2, result.size());
+        assertEquals(1001L, result.get(0).getId());
+        assertEquals("USER_STATUS_CD", result.get(0).getGroupCd());
+        assertEquals(1051L, result.get(1).getId());
+    }
+
+    @Test
+    void lookupByGroupsShouldThrowBadRequestWhenEmptyOrNull() {
+        BusinessException ex1 = assertThrows(BusinessException.class,
+                () -> dictionaryItemService.lookupByGroups(null));
+        assertEquals(ErrorCode.BAD_REQUEST, ex1.getErrorCode());
+
+        BusinessException ex2 = assertThrows(BusinessException.class,
+                () -> dictionaryItemService.lookupByGroups(List.of()));
+        assertEquals(ErrorCode.BAD_REQUEST, ex2.getErrorCode());
+
+        BusinessException ex3 = assertThrows(BusinessException.class,
+                () -> dictionaryItemService.lookupByGroups(List.of("  ", "")));
+        assertEquals(ErrorCode.BAD_REQUEST, ex3.getErrorCode());
+    }
+
+    @Test
+    void lookupByGroupsShouldTrimDeduplicateAndIgnoreBlankEntries() {
+        when(dictionaryItemRepository.findByGroupCdInAndDeleteFlgFalseAndActiveFlgTrueOrderByGroupCdAscDisplayOrderAsc(
+                List.of("USER_STATUS_CD")))
+                .thenReturn(List.of());
+
+        var result = dictionaryItemService.lookupByGroups(List.of(" USER_STATUS_CD ", "USER_STATUS_CD", ""));
+
+        assertTrue(result.isEmpty());
+        verify(dictionaryItemRepository).findByGroupCdInAndDeleteFlgFalseAndActiveFlgTrueOrderByGroupCdAscDisplayOrderAsc(
+                List.of("USER_STATUS_CD"));
+    }
 }
