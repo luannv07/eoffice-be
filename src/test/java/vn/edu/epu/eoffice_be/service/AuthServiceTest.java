@@ -24,7 +24,6 @@ import vn.edu.epu.eoffice_be.entity.UserInfo;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
 import vn.edu.epu.eoffice_be.repository.UserInfoRepository;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
-import vn.edu.epu.eoffice_be.security.LoginRateLimiter;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -58,8 +57,6 @@ class AuthServiceTest {
     @Mock
     JwtProperties jwtProperties;
     @Mock
-    LoginRateLimiter loginRateLimiter;
-    @Mock
     RefreshTokenService refreshTokenService;
 
     @InjectMocks
@@ -67,7 +64,6 @@ class AuthServiceTest {
 
     @Test
     void registerShouldReturnTokensWithEncodedPasswordAndActiveUser() {
-        when(loginRateLimiter.tryAcquire(CLIENT_IP)).thenReturn(true);
         when(userLoginRepository.existsByUsernameAndDeleteFlgFalse("alice")).thenReturn(false);
         when(userLoginRepository.existsByEmailAndDeleteFlgFalse("alice@example.com")).thenReturn(false);
         when(passwordEncoder.encode("secret123")).thenReturn("$2a$10$encodedHash");
@@ -98,7 +94,6 @@ class AuthServiceTest {
 
     @Test
     void registerDuplicateUsernameShouldThrowConflict() {
-        when(loginRateLimiter.tryAcquire(CLIENT_IP)).thenReturn(true);
         when(userLoginRepository.existsByUsernameAndDeleteFlgFalse("alice")).thenReturn(true);
 
         BusinessException ex = assertThrows(BusinessException.class,
@@ -110,7 +105,6 @@ class AuthServiceTest {
 
     @Test
     void registerDuplicateEmailShouldThrowConflict() {
-        when(loginRateLimiter.tryAcquire(CLIENT_IP)).thenReturn(true);
         when(userLoginRepository.existsByUsernameAndDeleteFlgFalse("alice")).thenReturn(false);
         when(userLoginRepository.existsByEmailAndDeleteFlgFalse("alice@example.com")).thenReturn(true);
 
@@ -122,19 +116,7 @@ class AuthServiceTest {
     }
 
     @Test
-    void registerRateLimitedShouldThrowRateLimited() {
-        when(loginRateLimiter.tryAcquire(CLIENT_IP)).thenReturn(false);
-
-        BusinessException ex = assertThrows(BusinessException.class,
-                () -> authService.register(registerRequest("alice", "alice@example.com", "secret123"), CLIENT_IP));
-
-        assertEquals(ErrorCode.RATE_LIMITED, ex.getErrorCode());
-        verify(userLoginRepository, never()).saveAndFlush(any());
-    }
-
-    @Test
     void registerConstraintViolationRaceShouldMapToDuplicateError() {
-        when(loginRateLimiter.tryAcquire(CLIENT_IP)).thenReturn(true);
         when(userLoginRepository.existsByUsernameAndDeleteFlgFalse("alice"))
                 .thenReturn(false)
                 .thenReturn(true);
@@ -152,7 +134,6 @@ class AuthServiceTest {
     @Test
     void loginShouldRevokeExistingActiveTokensAndIssueNewRefreshToken() {
         UserLogin user = user("alice", "alice@example.com", Role.USER);
-        when(loginRateLimiter.tryAcquire(CLIENT_IP)).thenReturn(true);
         when(userLoginRepository.findByUsernameAndDeleteFlgFalse("alice")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("secret123", "$2a$10$hash")).thenReturn(true);
         when(jwtProperties.getAccessTokenTtl()).thenReturn(Duration.ofMinutes(15));

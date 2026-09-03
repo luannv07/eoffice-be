@@ -20,7 +20,7 @@ import static org.mockito.Mockito.verify;
 
 class ProfileCompletedFilterTest {
 
-    final ProfileCompletedFilter filter = new ProfileCompletedFilter(new ObjectMapper());
+    final ProfileCompletedFilter filter = new ProfileCompletedFilter(new ObjectMapper().findAndRegisterModules());
 
     @AfterEach
     void tearDown() {

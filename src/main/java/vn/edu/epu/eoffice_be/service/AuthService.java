@@ -20,7 +20,6 @@ import vn.edu.epu.eoffice_be.entity.UserInfo;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
 import vn.edu.epu.eoffice_be.repository.UserInfoRepository;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
-import vn.edu.epu.eoffice_be.security.LoginRateLimiter;
 import vn.edu.epu.eoffice_be.utils.AccountStatusUtils;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -44,15 +43,10 @@ public class AuthService {
     final PasswordEncoder passwordEncoder;
     final JwtService jwtService;
     final JwtProperties jwtProperties;
-    final LoginRateLimiter loginRateLimiter;
     final RefreshTokenService refreshTokenService;
 
     @Transactional
     public LoginResponse login(LoginRequest request, String clientIp) {
-        if (!loginRateLimiter.tryAcquire(clientIp)) {
-            throw new BusinessException(ErrorCode.RATE_LIMITED);
-        }
-
         UserLogin user = userLoginRepository.findByUsernameAndDeleteFlgFalse(request.getUsername().trim())
                 .orElseThrow(() -> {
                     recordFailedAttempt(clientIp, null);
@@ -99,10 +93,6 @@ public class AuthService {
 
     @Transactional
     public LoginResponse register(RegisterRequest request, String clientIp) {
-        if (!loginRateLimiter.tryAcquire(clientIp)) {
-            throw new BusinessException(ErrorCode.RATE_LIMITED);
-        }
-
         String username = request.getUsername().trim();
         String email = request.getEmail().trim();
 

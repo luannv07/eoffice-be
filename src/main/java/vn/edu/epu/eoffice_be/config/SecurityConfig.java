@@ -21,6 +21,7 @@ import vn.edu.epu.eoffice_be.common.dto.BaseResponse;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.security.JwtAuthenticationFilter;
 import vn.edu.epu.eoffice_be.security.ProfileCompletedFilter;
+import vn.edu.epu.eoffice_be.security.RateLimitFilter;
 import vn.edu.epu.eoffice_be.security.RbacPermissionEvaluator;
 import vn.edu.epu.eoffice_be.config.SecurityWhitelist;
 
@@ -34,13 +35,16 @@ public class SecurityConfig {
     // Whitelists centralized in SecurityWhitelist
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final RateLimitFilter rateLimitFilter;
     private final ProfileCompletedFilter profileCompletedFilter;
     private final ObjectMapper objectMapper;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+                          RateLimitFilter rateLimitFilter,
                           ProfileCompletedFilter profileCompletedFilter,
                           ObjectMapper objectMapper) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.rateLimitFilter = rateLimitFilter;
         this.profileCompletedFilter = profileCompletedFilter;
         this.objectMapper = objectMapper;
     }
@@ -81,6 +85,7 @@ public class SecurityConfig {
                     )
                     .httpBasic(AbstractHttpConfigurer::disable)
                     .formLogin(AbstractHttpConfigurer::disable)
+                    .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                     .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                     .addFilterAfter(profileCompletedFilter, JwtAuthenticationFilter.class);
 

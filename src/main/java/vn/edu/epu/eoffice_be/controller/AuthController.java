@@ -20,12 +20,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import vn.edu.epu.eoffice_be.common.dto.BaseResponse;
 import vn.edu.epu.eoffice_be.config.JwtProperties;
+import vn.edu.epu.eoffice_be.dto.request.ForgotPasswordRequest;
 import vn.edu.epu.eoffice_be.dto.request.LoginRequest;
 import vn.edu.epu.eoffice_be.dto.request.RegisterRequest;
+import vn.edu.epu.eoffice_be.dto.request.ResetPasswordRequest;
 import vn.edu.epu.eoffice_be.dto.response.LoginResponse;
 import vn.edu.epu.eoffice_be.dto.response.MeResponse;
 import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
 import vn.edu.epu.eoffice_be.service.AuthService;
+import vn.edu.epu.eoffice_be.service.PasswordResetService;
 import vn.edu.epu.eoffice_be.utils.AuthHttpUtils;
 
 @RestController
@@ -35,6 +38,7 @@ import vn.edu.epu.eoffice_be.utils.AuthHttpUtils;
 public class AuthController {
 
     private final AuthService authService;
+    private final PasswordResetService passwordResetService;
     private final JwtProperties jwtProperties;
 
     @Operation(
@@ -157,5 +161,35 @@ public class AuthController {
         authService.logout(AuthHttpUtils.refreshTokenFrom(request, jwtProperties.getCookieName()));
         AuthHttpUtils.clearRefreshTokenCookie(response, jwtProperties);
         return BaseResponse.success(null);
+    }
+
+    @Operation(
+            summary = "Yêu cầu đặt lại mật khẩu",
+            description = "Nhận email đăng nhập và gửi link đặt lại mật khẩu nếu email tồn tại. Response luôn thành công để tránh dò tài khoản."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Đã tiếp nhận yêu cầu"),
+            @ApiResponse(responseCode = "400", description = "Dữ liệu không hợp lệ")
+    })
+    @SecurityRequirements
+    @PostMapping("/forgot-password")
+    public BaseResponse<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        passwordResetService.forgotPassword(request);
+        return BaseResponse.success(null, "Nếu email tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu đã được gửi");
+    }
+
+    @Operation(
+            summary = "Đặt lại mật khẩu",
+            description = "Đặt mật khẩu mới bằng token lấy từ link quên mật khẩu. Token chỉ dùng một lần và có thời hạn."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Đặt lại mật khẩu thành công"),
+            @ApiResponse(responseCode = "400", description = "Dữ liệu không hợp lệ hoặc token không hợp lệ/hết hạn")
+    })
+    @SecurityRequirements
+    @PostMapping("/reset-password")
+    public BaseResponse<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        passwordResetService.resetPassword(request);
+        return BaseResponse.success(null, "Đặt lại mật khẩu thành công");
     }
 }
