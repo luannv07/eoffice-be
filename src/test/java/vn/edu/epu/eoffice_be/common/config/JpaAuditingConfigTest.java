@@ -32,7 +32,7 @@ class JpaAuditingConfigTest {
 
     @Test
     void auditorProviderShouldReturnUsernameWhenPrincipalIsJwtUserPrincipal() {
-        JwtUserPrincipal principal = new JwtUserPrincipal(1002L, "admin", "ADMIN", java.util.List.of());
+        JwtUserPrincipal principal = new JwtUserPrincipal(1002L, "admin", "ADMIN", true, java.util.List.of());
         SecurityContextHolder.getContext().setAuthentication(
                 UsernamePasswordAuthenticationToken.authenticated(principal, "n/a", java.util.List.of())
         );

@@ -20,7 +20,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import vn.edu.epu.eoffice_be.common.dto.BaseResponse;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.security.JwtAuthenticationFilter;
+import vn.edu.epu.eoffice_be.security.ProfileCompletedFilter;
 import vn.edu.epu.eoffice_be.security.RbacPermissionEvaluator;
+import vn.edu.epu.eoffice_be.config.SecurityWhitelist;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -29,29 +31,17 @@ import java.nio.charset.StandardCharsets;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private static final String[] SWAGGER_WHITELIST = {
-            "/v3/api-docs/**",
-            "/swagger-ui/**",
-            "/swagger-ui.html"
-    };
-
-    private static final String[] HEALTH_WHITELIST = {
-            "/public/health",
-            "/actuator/health",
-            "/actuator/health/**"
-    };
-
-    private static final String[] PUBLIC_ENDPOINTS = {
-            "/public/**",
-            "/auth/login",
-            "/auth/register"
-    };
+    // Whitelists centralized in SecurityWhitelist
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final ProfileCompletedFilter profileCompletedFilter;
     private final ObjectMapper objectMapper;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, ObjectMapper objectMapper) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+                          ProfileCompletedFilter profileCompletedFilter,
+                          ObjectMapper objectMapper) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.profileCompletedFilter = profileCompletedFilter;
         this.objectMapper = objectMapper;
     }
 
@@ -77,9 +67,9 @@ public class SecurityConfig {
                     .cors(Customizer.withDefaults())
                     .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                     .authorizeHttpRequests(auth -> auth
-                            .requestMatchers(HEALTH_WHITELIST).permitAll()
-                            .requestMatchers(SWAGGER_WHITELIST).permitAll()
-                            .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
+                            .requestMatchers(SecurityWhitelist.HEALTH_WHITELIST).permitAll()
+                            .requestMatchers(SecurityWhitelist.SWAGGER_WHITELIST).permitAll()
+                            .requestMatchers(SecurityWhitelist.PUBLIC_ENDPOINTS).permitAll()
                             .anyRequest().authenticated()
                     )
                     .exceptionHandling(exception -> exception
@@ -90,7 +80,8 @@ public class SecurityConfig {
                     )
                     .httpBasic(AbstractHttpConfigurer::disable)
                     .formLogin(AbstractHttpConfigurer::disable)
-                    .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                    .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                    .addFilterAfter(profileCompletedFilter, JwtAuthenticationFilter.class);
 
             return http.build();
         } catch (Exception ex) {

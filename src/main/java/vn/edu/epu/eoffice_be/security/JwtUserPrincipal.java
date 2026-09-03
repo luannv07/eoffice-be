@@ -20,7 +20,30 @@ public class JwtUserPrincipal implements Principal, Serializable {
 
     String role;
 
+    boolean profileCompleted;
+
     List<String> permissions;
+
+    // Record-style accessors for compatibility with previous record usage
+    public Long userId() {
+        return userId;
+    }
+
+    public String username() {
+        return username;
+    }
+
+    public String role() {
+        return role;
+    }
+
+    public boolean profileCompleted() {
+        return profileCompleted;
+    }
+
+    public List<String> permissions() {
+        return permissions;
+    }
 
     @Override
     public String getName() {

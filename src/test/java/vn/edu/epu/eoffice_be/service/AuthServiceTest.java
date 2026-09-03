@@ -78,7 +78,7 @@ class AuthServiceTest {
             saved.setId(10L);
             return saved;
         });
-        when(jwtService.generateAccessToken(10L, "alice", Role.USER)).thenReturn("access-token");
+        when(jwtService.generateAccessToken(10L, "alice", Role.USER, false)).thenReturn("access-token");
         when(jwtService.generateRefreshToken(10L, "alice", Role.USER)).thenReturn("refresh-token");
         when(jwtService.parseRefreshToken("refresh-token")).thenReturn(claimsWithJti("rt-jti", "10"));
 
@@ -157,7 +157,7 @@ class AuthServiceTest {
         when(passwordEncoder.matches("secret123", "$2a$10$hash")).thenReturn(true);
         when(jwtProperties.getAccessTokenTtl()).thenReturn(Duration.ofMinutes(15));
         when(jwtProperties.getRefreshTokenTtl()).thenReturn(Duration.ofDays(30));
-        when(jwtService.generateAccessToken(10L, "alice", Role.USER)).thenReturn("access-token");
+        when(jwtService.generateAccessToken(10L, "alice", Role.USER, false)).thenReturn("access-token");
         when(jwtService.generateRefreshToken(10L, "alice", Role.USER)).thenReturn("refresh-token");
         when(jwtService.parseRefreshToken("refresh-token")).thenReturn(claimsWithJti("rt-jti", "10"));
         when(userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(10L)).thenReturn(Optional.empty());
@@ -239,7 +239,7 @@ class AuthServiceTest {
         when(jwtService.generateRefreshToken(10L, "alice", Role.USER)).thenReturn("new-rt");
         when(jwtService.parseRefreshToken("new-rt")).thenReturn(claimsWithJti("new-jti", "10"));
         when(jwtProperties.getRefreshTokenTtl()).thenReturn(Duration.ofDays(30));
-        when(jwtService.generateAccessToken(10L, "alice", Role.USER)).thenReturn("new-at");
+        when(jwtService.generateAccessToken(10L, "alice", Role.USER, false)).thenReturn("new-at");
         when(jwtProperties.getAccessTokenTtl()).thenReturn(Duration.ofMinutes(15));
         when(userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(10L)).thenReturn(Optional.empty());
 

@@ -114,7 +114,7 @@ public class AuthController {
     @GetMapping("/me")
     public BaseResponse<MeResponse> me(Authentication authentication) {
         JwtUserPrincipal principal = (JwtUserPrincipal) authentication.getPrincipal();
-        return BaseResponse.success(authService.me(principal.getUserId()));
+        return BaseResponse.success(authService.me(principal.userId()));
     }
 
     @Operation(

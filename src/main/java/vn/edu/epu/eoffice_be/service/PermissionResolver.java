@@ -37,11 +37,11 @@ public class PermissionResolver {
 
     @Transactional(readOnly = true)
     public Set<String> resolvePermissions(JwtUserPrincipal principal) {
-        if (principal == null || principal.getUserId() == null) {
+        if (principal == null || principal.userId() == null) {
             return Collections.emptySet();
         }
-        Set<String> permissions = resolvePositionPermissions(principal.getUserId());
-        permissions.addAll(resolveRolePermissions(principal.getRole()));
+        Set<String> permissions = resolvePositionPermissions(principal.userId());
+        permissions.addAll(resolveRolePermissions(principal.role()));
         return permissions;
     }
 
@@ -50,7 +50,7 @@ public class PermissionResolver {
         if (principal == null || permissionCd == null || permissionCd.isBlank()) {
             return false;
         }
-        Role role = resolveRole(principal.getRole());
+        Role role = resolveRole(principal.role());
         if (role == Role.SYSTEM_ADMIN) {
             return true;
         }
@@ -65,7 +65,7 @@ public class PermissionResolver {
         // query (bảng đó giờ global theo position_cd). orgNodeId null => chỉ xét quyền không
         // phụ thuộc node.
         List<PositionAssignment> assignments =
-                positionAssignmentRepository.findActiveAssignments(principal.getUserId(), Instant.now());
+                positionAssignmentRepository.findActiveAssignments(principal.userId(), Instant.now());
         for (PositionAssignment pa : assignments) {
             if (!isPositionEffectiveWithinScope(pa.getOrgNode(), pa.getPositionCd(), permissionCd, orgNodeId)) {
                 continue;
@@ -75,7 +75,7 @@ public class PermissionResolver {
 
         // Đường 2: delegation (uỷ quyền). orgNodeId khớp trực tiếp position_degs.org_node_id.
         if (orgNodeId != null && positionDegRepository.hasValidDelegation(
-                principal.getUserId(), orgNodeId, permissionCd, Instant.now())) {
+                principal.userId(), orgNodeId, permissionCd, Instant.now())) {
             return true;
         }
 
