@@ -70,6 +70,7 @@ public class SecurityConfig {
                             .requestMatchers(SecurityWhitelist.HEALTH_WHITELIST).permitAll()
                             .requestMatchers(SecurityWhitelist.SWAGGER_WHITELIST).permitAll()
                             .requestMatchers(SecurityWhitelist.PUBLIC_ENDPOINTS).permitAll()
+                            .requestMatchers(SecurityWhitelist.REFRESH_TOKEN_ONLY_ENDPOINTS).permitAll()
                             .anyRequest().authenticated()
                     )
                     .exceptionHandling(exception -> exception

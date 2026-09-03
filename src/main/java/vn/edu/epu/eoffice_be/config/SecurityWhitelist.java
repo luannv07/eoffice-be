@@ -25,6 +25,11 @@ public final class SecurityWhitelist {
             "/auth/register"
     };
 
+    public static final String[] REFRESH_TOKEN_ONLY_ENDPOINTS = {
+            "/auth/logout",
+            "/auth/refresh"
+    };
+
     private SecurityWhitelist() { }
 
     public static boolean isProfileFilterExempt(String path, String httpMethod) {
