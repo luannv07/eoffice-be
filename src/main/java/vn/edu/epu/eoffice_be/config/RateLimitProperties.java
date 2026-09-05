@@ -17,4 +17,6 @@ public class RateLimitProperties {
     int endpointLimit = 10;
 
     long endpointWindowSeconds = 300;
+
+    long maximumSize = 10_000;
 }

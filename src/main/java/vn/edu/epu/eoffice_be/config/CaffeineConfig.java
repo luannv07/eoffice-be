@@ -12,6 +12,7 @@ public class CaffeineConfig {
     @Bean("rateLimitCacheBuilder")
     public Caffeine<Object, Object> rateLimitCacheBuilder(RateLimitProperties properties) {
         return Caffeine.newBuilder()
-                .expireAfterWrite(Duration.ofSeconds(properties.getEndpointWindowSeconds()));
+                .expireAfterWrite(Duration.ofSeconds(properties.getEndpointWindowSeconds()))
+                .maximumSize(properties.getMaximumSize());
     }
 }

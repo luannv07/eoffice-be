@@ -107,6 +107,7 @@ Claims: `sub` (userId), `username`, `role`, `token_type` (`access`/`refresh`), `
 |---|---|---|
 | `eoffice.rate-limit.endpoint-limit` | `RATE_LIMIT_ENDPOINT_LIMIT` | `10` |
 | `eoffice.rate-limit.endpoint-window-seconds` | `RATE_LIMIT_ENDPOINT_WINDOW_SECONDS` | `300` |
+| `eoffice.rate-limit.maximum-size` | `RATE_LIMIT_MAXIMUM_SIZE` | `10000` |
 
 > Secret key cố định cho mọi môi trường (định nghĩa ở base `application.yml`, staging/prod kế thừa). Nếu `JWT_SECRET` blank, app fail-fast khi khởi động. Secret phải ≥ 32 ký tự (256 bits) cho HS256.
 
