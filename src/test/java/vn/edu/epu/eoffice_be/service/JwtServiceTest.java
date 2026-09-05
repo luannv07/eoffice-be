@@ -36,13 +36,14 @@ class JwtServiceTest {
 
     @Test
     void generateAccessTokenShouldBeParsableWithExpectedClaims() {
-        String token = jwtService.generateAccessToken(42L, "alice", Role.ADMIN);
+        String token = jwtService.generateAccessToken(42L, "alice", Role.ADMIN, true);
 
         Claims claims = jwtService.parseAccessToken(token);
         assertEquals("42", claims.getSubject());
         assertEquals("alice", claims.get("username", String.class));
         assertEquals("ADMIN", claims.get("role", String.class));
         assertEquals("access", claims.get("token_type", String.class));
+        assertEquals(true, claims.get("profileCompleted", Boolean.class));
         assertEquals("eoffice-be-test", claims.getIssuer());
         assertNotNull(claims.getId());
     }
@@ -57,14 +58,14 @@ class JwtServiceTest {
 
     @Test
     void accessTokenShouldBeRejectedByRefreshParser() {
-        String accessToken = jwtService.generateAccessToken(42L, "alice", Role.ADMIN);
+        String accessToken = jwtService.generateAccessToken(42L, "alice", Role.ADMIN, true);
 
         assertThrows(JwtException.class, () -> jwtService.parseRefreshToken(accessToken));
     }
 
     @Test
     void tamperedTokenShouldBeRejected() {
-        String token = jwtService.generateAccessToken(42L, "alice", Role.ADMIN);
+        String token = jwtService.generateAccessToken(42L, "alice", Role.ADMIN, true);
         String[] parts = token.split("\\.");
         String tampered = parts[0] + "." + parts[1] + ".xxxx" + parts[2].substring(4);
 

@@ -24,27 +24,32 @@ public class JwtService {
     static final String CLAIM_USERNAME = "username";
     static final String CLAIM_ROLE = "role";
     static final String CLAIM_TOKEN_TYPE = "token_type";
+    public static final String CLAIM_PROFILE_COMPLETED = "profileCompleted";
     static final String TYPE_ACCESS = "access";
     static final String TYPE_REFRESH = "refresh";
 
     final JwtProperties properties;
     final SecretKey secretKey;
 
-    public String generateAccessToken(Long userId, String username, Role role) {
-        return buildToken(userId, username, role, TYPE_ACCESS, properties.getAccessTokenTtl());
+    public String generateAccessToken(Long userId, String username, Role role, boolean profileCompleted) {
+        return buildToken(userId, username, role, TYPE_ACCESS, properties.getAccessTokenTtl(), profileCompleted);
     }
 
     public String generateRefreshToken(Long userId, String username, Role role) {
-        return buildToken(userId, username, role, TYPE_REFRESH, properties.getRefreshTokenTtl());
+        return buildToken(userId, username, role, TYPE_REFRESH, properties.getRefreshTokenTtl(), false);
     }
 
-    private String buildToken(Long userId, String username, Role role, String type, Duration ttl) {
+    private String buildToken(Long userId, String username, Role role, String type, Duration ttl, boolean profileCompleted) {
         Instant now = Instant.now();
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(String.valueOf(userId))
                 .claim(CLAIM_USERNAME, username)
                 .claim(CLAIM_ROLE, role.name())
-                .claim(CLAIM_TOKEN_TYPE, type)
+                .claim(CLAIM_TOKEN_TYPE, type);
+        if (TYPE_ACCESS.equals(type)) {
+            builder.claim(CLAIM_PROFILE_COMPLETED, profileCompleted);
+        }
+        return builder
                 .id(UUID.randomUUID().toString())
                 .issuer(properties.getIssuer())
                 .issuedAt(Date.from(now))

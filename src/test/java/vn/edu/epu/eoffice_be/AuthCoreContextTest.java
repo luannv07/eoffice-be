@@ -44,12 +44,13 @@ class AuthCoreContextTest {
         assertFalse(found.get().isMustChangePassword());
         assertNotNull(found.get().getId());
 
-        String access = jwtService.generateAccessToken(user.getId(), user.getUsername(), user.getRole());
+        String access = jwtService.generateAccessToken(user.getId(), user.getUsername(), user.getRole(), false);
         String refresh = jwtService.generateRefreshToken(user.getId(), user.getUsername(), user.getRole());
 
         var claims = jwtService.parseAccessToken(access);
         assertEquals(user.getId().toString(), claims.getSubject());
         assertEquals("access", claims.get("token_type", String.class));
+        assertEquals(false, claims.get("profileCompleted", Boolean.class));
         assertEquals("eoffice-be-test", claims.getIssuer());
 
         var refreshClaims = jwtService.parseRefreshToken(refresh);

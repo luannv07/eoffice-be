@@ -55,8 +55,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             username = claims.getSubject();
         }
         Role role = Role.from(claims.get("role", String.class), Role.USER);
+        Boolean profileCompleted = claims.get(JwtService.CLAIM_PROFILE_COMPLETED, Boolean.class);
 
-        JwtUserPrincipal principal = new JwtUserPrincipal(userId, username, role.name(), List.of());
+        JwtUserPrincipal principal = new JwtUserPrincipal(userId, username, role.name(), Boolean.TRUE.equals(profileCompleted), List.of());
 
         var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
 

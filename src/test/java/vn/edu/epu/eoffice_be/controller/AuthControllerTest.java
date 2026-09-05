@@ -15,6 +15,7 @@ import vn.edu.epu.eoffice_be.config.JwtProperties;
 import vn.edu.epu.eoffice_be.dto.request.LoginRequest;
 import vn.edu.epu.eoffice_be.dto.response.LoginResponse;
 import vn.edu.epu.eoffice_be.service.AuthService;
+import vn.edu.epu.eoffice_be.service.PasswordResetService;
 
 import java.time.Duration;
 
@@ -33,6 +34,8 @@ class AuthControllerTest {
 
     @Mock
     AuthService authService;
+    @Mock
+    PasswordResetService passwordResetService;
 
     JwtProperties jwtProperties;
     MockMvc mockMvc;
@@ -42,7 +45,7 @@ class AuthControllerTest {
     void setUp() {
         jwtProperties = new JwtProperties();
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new AuthController(authService, jwtProperties))
+                .standaloneSetup(new AuthController(authService, passwordResetService, jwtProperties))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -151,5 +154,27 @@ class AuthControllerTest {
                         .cookie(new Cookie("refresh_token", "rt-old"))
                         .header("Origin", "https://evil.example.com"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void forgotPasswordShouldReturnGenericSuccess() throws Exception {
+        mockMvc.perform(post("/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"alice@example.com\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(passwordResetService).forgotPassword(any());
+    }
+
+    @Test
+    void resetPasswordShouldReturnSuccess() throws Exception {
+        mockMvc.perform(post("/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"raw-token\",\"newPassword\":\"NewPassword@2026\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(passwordResetService).resetPassword(any());
     }
 }
