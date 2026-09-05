@@ -26,10 +26,6 @@ public class JwtProperties {
 
     Duration refreshTokenTtl = Duration.ofDays(30);
 
-    int authRateLimit = 10;
-
-    long authRateWindowSeconds = 300;
-
     String cookieName = "refresh_token";
 
     String cookiePath = "/auth";

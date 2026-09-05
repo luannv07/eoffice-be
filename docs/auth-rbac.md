@@ -20,7 +20,7 @@ Request:
 ```
 
 Xử lý (`auth/service/AuthService.java`):
-1. Rate limit theo client IP (X-Forwarded-For → remoteAddr), mặc định 10 lần/300s (`LoginRateLimiter`, in-memory bucket).
+1. Rate limit theo client IP (X-Forwarded-For → remoteAddr), mặc định 10 lần/300s (`RateLimitFilter`, in-memory bucket).
 2. Tìm `user_logins` theo username + `delete_flg=false`.
 3. Kiểm tra khóa tài khoản (`account_locked` / `lockout_until`).
 4. Verify password bằng BCrypt; sai → tăng `failed_login_attempts`, đạt 5 lần → khóa 30 phút.
@@ -51,7 +51,7 @@ Public (whitelist). Request:
 ```
 
 Xử lý (`service/AuthService.java`):
-1. Rate limit theo client IP (chung `LoginRateLimiter` với login).
+1. Rate limit theo client IP (chung `RateLimitFilter` với login).
 2. Check trùng `username` / `email` (bảng `user_logins`) → 409 `USERNAME_ALREADY_EXISTS` / `EMAIL_ALREADY_EXISTS`.
 3. Tạo `UserLogin`: role `USER`, status `ACTIVE`, password hash BCrypt (`@Size(min=8, max=72)`).
 4. Auto-login: sinh access + refresh token, response giống `POST /auth/login` (`LoginResponse`).
@@ -100,8 +100,13 @@ Claims: `sub` (userId), `username`, `role`, `token_type` (`access`/`refresh`), `
 | `eoffice.jwt.secret-key` | `JWT_SECRET` | `eoffice-be-jwt-secret-fixed-for-all-environments-2026` |
 | `eoffice.jwt.access-token-ttl` | `JWT_ACCESS_TTL` | `PT15M` |
 | `eoffice.jwt.refresh-token-ttl` | `JWT_REFRESH_TTL` | `P30D` |
-| `eoffice.jwt.auth-rate-limit` | — | `10` |
-| `eoffice.jwt.auth-rate-window-seconds` | — | `300` |
+
+`eoffice.rate-limit.*` (xem `config/RateLimitProperties.java` + `application.yml`):
+
+| Key | Env | Mặc định |
+|---|---|---|
+| `eoffice.rate-limit.endpoint-limit` | `RATE_LIMIT_ENDPOINT_LIMIT` | `10` |
+| `eoffice.rate-limit.endpoint-window-seconds` | `RATE_LIMIT_ENDPOINT_WINDOW_SECONDS` | `300` |
 
 > Secret key cố định cho mọi môi trường (định nghĩa ở base `application.yml`, staging/prod kế thừa). Nếu `JWT_SECRET` blank, app fail-fast khi khởi động. Secret phải ≥ 32 ký tự (256 bits) cho HS256.
 

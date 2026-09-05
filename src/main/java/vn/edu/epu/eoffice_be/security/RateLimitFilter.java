@@ -13,19 +13,49 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import vn.edu.epu.eoffice_be.common.dto.BaseResponse;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
+import vn.edu.epu.eoffice_be.config.RateLimitProperties;
 import vn.edu.epu.eoffice_be.config.SecurityWhitelist;
 import vn.edu.epu.eoffice_be.utils.AuthHttpUtils;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Component
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    LoginRateLimiter rateLimiter;
+    RateLimitProperties properties;
     ObjectMapper objectMapper;
+    ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>();
+
+    private static final class Bucket {
+        final Duration window;
+        final int limit;
+        Instant windowStart;
+        AtomicInteger count;
+
+        Bucket(Duration window, int limit) {
+            this.window = window;
+            this.limit = limit;
+            this.windowStart = Instant.now();
+            this.count = new AtomicInteger(0);
+        }
+
+        synchronized boolean allow() {
+            Instant now = Instant.now();
+            if (now.isBefore(windowStart.plus(window))) {
+                return count.incrementAndGet() <= limit;
+            }
+            windowStart = now;
+            count.set(1);
+            return true;
+        }
+    }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -36,11 +66,25 @@ public class RateLimitFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         String clientKey = AuthHttpUtils.clientIp(request) + ":" + request.getMethod() + ":" + requestPath(request);
-        if (!rateLimiter.tryAcquire(clientKey)) {
+        if (!tryAcquire(clientKey)) {
             writeRateLimitedResponse(response);
             return;
         }
         filterChain.doFilter(request, response);
+    }
+
+    private boolean tryAcquire(String clientKey) {
+        return buckets.computeIfAbsent(clientKey,
+                key -> new Bucket(getWindow(), getLimit()))
+                .allow();
+    }
+
+    private Duration getWindow() {
+        return Duration.ofSeconds(properties.getEndpointWindowSeconds());
+    }
+
+    private int getLimit() {
+        return properties.getEndpointLimit();
     }
 
     private String requestPath(HttpServletRequest request) {

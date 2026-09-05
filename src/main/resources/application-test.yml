@@ -32,6 +32,7 @@ eoffice:
     secret-key: eoffice-be-jwt-secret-fixed-for-all-environments-2026
     access-token-ttl: PT15M
     refresh-token-ttl: P30D
-    auth-rate-limit: 100
-    auth-rate-window-seconds: 300
+  rate-limit:
+    endpoint-limit: ${RATE_LIMIT_ENDPOINT_LIMIT:10}
+    endpoint-window-seconds: ${RATE_LIMIT_ENDPOINT_WINDOW_SECONDS:300}
 

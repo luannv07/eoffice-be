@@ -68,11 +68,10 @@ public class RefreshTokenService {
     }
 
     @Transactional
-    public int revokeAllActive(Long userId) {
+    public void revokeAllActive(Long userId) {
         int revoked = refreshTokenRepository.revokeAllActiveByUserId(userId);
         if (revoked > 0) {
             log.info("Revoked {} active refresh tokens for userId={}", revoked, userId);
         }
-        return revoked;
     }
 }

@@ -32,5 +32,6 @@ eoffice:
     refresh-token-ttl: ${JWT_REFRESH_TTL:P30D}
     cookie-secure: ${COOKIE_SECURE:true}
     allowed-origins: ${JWT_ALLOWED_ORIGINS:}
-    auth-rate-limit: 10
-    auth-rate-window-seconds: 300
+  rate-limit:
+    endpoint-limit: ${RATE_LIMIT_ENDPOINT_LIMIT:10}
+    endpoint-window-seconds: ${RATE_LIMIT_ENDPOINT_WINDOW_SECONDS:300}
