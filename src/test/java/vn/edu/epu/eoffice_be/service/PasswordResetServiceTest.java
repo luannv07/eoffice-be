@@ -24,9 +24,9 @@ import java.time.Instant;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -121,7 +121,54 @@ class PasswordResetServiceTest {
         BusinessException ex = assertThrows(BusinessException.class, () -> passwordResetService.resetPassword(request));
 
         assertEquals(ErrorCode.PASSWORD_RESET_TOKEN_EXPIRED, ex.getErrorCode());
-        assertTrue(token.isDeleteFlg());
+        assertFalse(token.isDeleteFlg());
+        verify(passwordEncoder, never()).encode(any());
+        verify(refreshTokenService, never()).revokeAllActive(any());
+    }
+
+    @Test
+    void resetPasswordShouldRejectUsedTokenWithoutUpdatingPassword() {
+        PasswordResetToken token = PasswordResetToken.builder()
+                .userLogin(user())
+                .tokenHash(SecureTokenUtils.sha256Hex("raw-token"))
+                .expiresAt(Instant.now().plus(Duration.ofMinutes(10)))
+                .usedAt(Instant.now().minus(Duration.ofMinutes(1)))
+                .build();
+        when(passwordResetTokenRepository.findByTokenHashAndDeleteFlgFalse(SecureTokenUtils.sha256Hex("raw-token")))
+                .thenReturn(Optional.of(token));
+
+        ResetPasswordRequest request = new ResetPasswordRequest();
+        request.setToken("raw-token");
+        request.setNewPassword("NewPassword@2026");
+
+        BusinessException ex = assertThrows(BusinessException.class, () -> passwordResetService.resetPassword(request));
+
+        assertEquals(ErrorCode.PASSWORD_RESET_TOKEN_INVALID, ex.getErrorCode());
+        verify(passwordEncoder, never()).encode(any());
+        verify(refreshTokenService, never()).revokeAllActive(any());
+    }
+
+    @Test
+    void resetPasswordShouldRejectDisabledUserWithoutUpdatingPassword() {
+        UserLogin user = user();
+        user.setUserStatusCd("DISABLED");
+        PasswordResetToken token = PasswordResetToken.builder()
+                .userLogin(user)
+                .tokenHash(SecureTokenUtils.sha256Hex("raw-token"))
+                .expiresAt(Instant.now().plus(Duration.ofMinutes(10)))
+                .build();
+        when(passwordResetTokenRepository.findByTokenHashAndDeleteFlgFalse(SecureTokenUtils.sha256Hex("raw-token")))
+                .thenReturn(Optional.of(token));
+
+        ResetPasswordRequest request = new ResetPasswordRequest();
+        request.setToken("raw-token");
+        request.setNewPassword("NewPassword@2026");
+
+        BusinessException ex = assertThrows(BusinessException.class, () -> passwordResetService.resetPassword(request));
+
+        assertEquals(ErrorCode.PASSWORD_RESET_TOKEN_INVALID, ex.getErrorCode());
+        verify(passwordEncoder, never()).encode(any());
+        verify(refreshTokenService, never()).revokeAllActive(any());
     }
 
     private ForgotPasswordRequest request(String email) {
