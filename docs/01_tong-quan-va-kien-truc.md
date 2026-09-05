@@ -54,7 +54,7 @@ graph TD
     Client[Web Browser / Mobile App / Postman] -->|HTTP Request| Gateway[Spring Security Filter Chain]
     
     subgraph "1. Security & Authentication Layer"
-        Gateway --> RateLimit[LoginRateLimiter - Caffeine]
+        Gateway --> RateLimit[RateLimitFilter - Caffeine cache]
         Gateway --> JwtFilter[JwtAuthenticationFilter]
         JwtFilter --> RbacEval[RbacPermissionEvaluator]
     end
@@ -118,7 +118,7 @@ graph TD
 ## 5. Các Mẫu Thiết Kế Áp Dụng (Design Patterns)
 
 1. **DTO Pattern (Data Transfer Object):** Tách bạch giữa Entity trong DB và dữ liệu trao đổi qua API (Request/Response DTO), ngăn lộ lọt các trường nhạy cảm như `password_hash`.
-2. **Token Bucket Pattern:** Sử dụng trong `LoginRateLimiter` để giới hạn số lần thử đăng nhập/đăng ký từ cùng một địa chỉ IP.
+2. **Token Bucket Pattern:** Sử dụng trong `RateLimitFilter` để giới hạn số request auth từ cùng một địa chỉ IP.
 3. **Closure Table Pattern:** Lưu trữ quan hệ tổ tiên - hậu duệ cho cây tổ chức phòng ban trong bảng `org_node_closures`, cho phép kiểm tra quan hệ phân cấp chỉ bằng 1 câu lệnh `JOIN`.
 4. **Token Rotation Pattern:** Tự động hủy Refresh Token cũ và sinh cặp token mới mỗi khi refresh, chống lại rủi ro bị đánh cắp token.
 

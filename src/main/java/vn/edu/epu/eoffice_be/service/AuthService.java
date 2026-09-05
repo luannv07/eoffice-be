@@ -6,7 +6,9 @@ import io.jsonwebtoken.JwtException;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.enums.Role;
 import vn.edu.epu.eoffice_be.common.enums.UserStatusCd;
@@ -35,8 +37,12 @@ import java.time.Instant;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class AuthService {
 
-    static final int MAX_FAILED_ATTEMPTS = 5;
-    static final Duration LOCKOUT_DURATION = Duration.ofMinutes(30);
+    @NonFinal
+    @Value("${eoffice.auth.max-failed-attempts:5}")
+    int maxFailedAttempts;
+    @NonFinal
+    @Value("${eoffice.auth.lockout-minutes:30}")
+    int lockoutMinutes;
 
     final UserLoginRepository userLoginRepository;
     final UserInfoRepository userInfoRepository;
@@ -199,9 +205,9 @@ public class AuthService {
             return;
         }
         user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
-        if (user.getFailedLoginAttempts() >= MAX_FAILED_ATTEMPTS) {
+        if (user.getFailedLoginAttempts() >= maxFailedAttempts) {
             user.setUserStatusCd(UserStatusCd.LOCKED.name());
-            user.setLockoutUntil(Instant.now().plus(LOCKOUT_DURATION));
+            user.setLockoutUntil(Instant.now().plus(Duration.ofMinutes(lockoutMinutes)));
         }
         userLoginRepository.save(user);
     }
