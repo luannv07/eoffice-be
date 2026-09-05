@@ -90,7 +90,6 @@ public class PasswordResetService {
             throw new BusinessException(ErrorCode.PASSWORD_RESET_TOKEN_INVALID);
         }
         if (!token.getExpiresAt().isAfter(now)) {
-            token.setDeleteFlg(true);
             throw new BusinessException(ErrorCode.PASSWORD_RESET_TOKEN_EXPIRED);
         }
 

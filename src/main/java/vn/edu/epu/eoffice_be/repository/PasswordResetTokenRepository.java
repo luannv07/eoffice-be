@@ -16,7 +16,7 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<PasswordResetToken> findByTokenHashAndDeleteFlgFalse(String tokenHash);
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("update PasswordResetToken t set t.usedAt = :usedAt where t.userLogin.id = :userId and t.usedAt is null and t.deleteFlg = false")
     int markUnusedTokensUsedByUserId(@Param("userId") Long userId, @Param("usedAt") Instant usedAt);
 }

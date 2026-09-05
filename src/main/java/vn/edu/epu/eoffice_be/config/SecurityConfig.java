@@ -87,7 +87,7 @@ public class SecurityConfig {
                     .formLogin(AbstractHttpConfigurer::disable)
                     .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                     .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                    .addFilterAfter(profileCompletedFilter, JwtAuthenticationFilter.class);
+                    .addFilterBefore(profileCompletedFilter, UsernamePasswordAuthenticationFilter.class);
 
             return http.build();
         } catch (Exception ex) {
