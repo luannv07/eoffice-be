@@ -54,7 +54,7 @@ graph TD
     Client[Web Browser / Mobile App / Postman] -->|HTTP Request| Gateway[Spring Security Filter Chain]
     
     subgraph "1. Security & Authentication Layer"
-        Gateway --> RateLimit[RateLimitFilter - in-memory bucket]
+        Gateway --> RateLimit[RateLimitFilter - Caffeine cache]
         Gateway --> JwtFilter[JwtAuthenticationFilter]
         JwtFilter --> RbacEval[RbacPermissionEvaluator]
     end

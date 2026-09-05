@@ -1,13 +1,15 @@
 package vn.edu.epu.eoffice_be.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -21,17 +23,23 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Component
-@RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class RateLimitFilter extends OncePerRequestFilter {
 
     RateLimitProperties properties;
     ObjectMapper objectMapper;
-    ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>();
+    Cache<String, Bucket> buckets;
+
+    public RateLimitFilter(RateLimitProperties properties,
+                           ObjectMapper objectMapper,
+                           @Qualifier("rateLimitCacheBuilder") Caffeine<Object, Object> cacheBuilder) {
+        this.properties = properties;
+        this.objectMapper = objectMapper;
+        this.buckets = cacheBuilder.build();
+    }
 
     private static final class Bucket {
         final Duration window;
@@ -74,7 +82,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private boolean tryAcquire(String clientKey) {
-        return buckets.computeIfAbsent(clientKey,
+        return buckets.get(clientKey,
                 key -> new Bucket(getWindow(), getLimit()))
                 .allow();
     }

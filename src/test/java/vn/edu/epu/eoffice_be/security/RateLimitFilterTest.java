@@ -1,12 +1,15 @@
 package vn.edu.epu.eoffice_be.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.config.RateLimitProperties;
+
+import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -17,7 +20,10 @@ import static org.mockito.Mockito.verify;
 class RateLimitFilterTest {
 
     final RateLimitProperties properties = rateLimitProperties();
-    final RateLimitFilter filter = new RateLimitFilter(properties, new ObjectMapper().findAndRegisterModules());
+    final RateLimitFilter filter = new RateLimitFilter(
+            properties,
+            new ObjectMapper().findAndRegisterModules(),
+            Caffeine.newBuilder().expireAfterWrite(Duration.ofSeconds(properties.getEndpointWindowSeconds())));
 
     @Test
     void shouldReturnTooManyRequestsForRateLimitedEndpoint() throws Exception {

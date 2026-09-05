@@ -120,7 +120,7 @@ sequenceDiagram
 
 | Tính năng | Cơ chế thực hiện | Mục đích bảo vệ |
 | :--- | :--- | :--- |
-| **Chống Brute-force** | `RateLimitFilter` (in-memory bucket) | Giới hạn tối đa 10 request/300s trên mỗi IP |
+| **Chống Brute-force** | `RateLimitFilter` (Caffeine cache) | Giới hạn tối đa 10 request/300s trên mỗi IP |
 | **Khóa tài khoản tự động** | `failed_login_attempts >= 5` | Khóa tài khoản tạm thời 30 phút sau 5 lần sai mật khẩu |
 | **Bảo vệ Cookie** | `HttpOnly; SameSite=Strict; Secure` | Chống tấn công XSS đọc trộm cookie và CSRF |
 | **Origin Whitelist** | `AuthHttpUtils.assertAllowedOrigin` | Chỉ cho phép các domain Frontend được cấu hình gọi refresh/logout |

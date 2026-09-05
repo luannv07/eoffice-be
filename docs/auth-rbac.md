@@ -20,7 +20,7 @@ Request:
 ```
 
 Xử lý (`auth/service/AuthService.java`):
-1. Rate limit theo client IP (X-Forwarded-For → remoteAddr), mặc định 10 lần/300s (`RateLimitFilter`, in-memory bucket).
+1. Rate limit theo client IP (X-Forwarded-For → remoteAddr), mặc định 10 lần/300s (`RateLimitFilter`, Caffeine cache).
 2. Tìm `user_logins` theo username + `delete_flg=false`.
 3. Kiểm tra khóa tài khoản (`account_locked` / `lockout_until`).
 4. Verify password bằng BCrypt; sai → tăng `failed_login_attempts`, đạt 5 lần → khóa 30 phút.
