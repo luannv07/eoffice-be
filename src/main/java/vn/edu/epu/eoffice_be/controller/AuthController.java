@@ -175,7 +175,7 @@ public class AuthController {
     @PostMapping("/forgot-password")
     public BaseResponse<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         passwordResetService.forgotPassword(request);
-        return BaseResponse.success(null, "Nếu email tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu đã được gửi");
+        return BaseResponse.success(null, "Nếu email tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu sẽ được gửi");
     }
 
     @Operation(

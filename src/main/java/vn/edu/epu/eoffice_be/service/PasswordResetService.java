@@ -3,6 +3,7 @@ package vn.edu.epu.eoffice_be.service;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,7 +24,9 @@ import vn.edu.epu.eoffice_be.utils.SecureTokenUtils;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -42,19 +45,40 @@ public class PasswordResetService {
     @Transactional
     public void forgotPassword(ForgotPasswordRequest request) {
         String email = request.getEmail().trim();
-        userLoginRepository.findByEmailAndDeleteFlgFalse(email).ifPresent(user -> {
-            Instant now = Instant.now();
-            String rawToken = SecureTokenUtils.generateUrlSafeToken(RESET_TOKEN_BYTES);
-            passwordResetTokenRepository.markUnusedTokensUsedByUserId(user.getId(), now);
-            passwordResetTokenRepository.save(PasswordResetToken.builder()
-                    .userLogin(user)
-                    .tokenHash(SecureTokenUtils.sha256Hex(rawToken))
-                    .expiresAt(now.plus(Duration.ofMinutes(properties.getTokenTtlMinutes())))
-                    .build());
-            String resetLink = resetLink(rawToken);
-            var context = new PasswordResetMailTemplate.Context(resetLink);
-            mailSender.send(user.getEmail(), passwordResetMailTemplate.subject(context), passwordResetMailTemplate.htmlBody(context));
-        });
+        Optional<UserLogin> userLogin =
+                userLoginRepository.findByEmailAndDeleteFlgFalse(email);
+        if (userLogin.isEmpty()) {
+            log.info("[PASSWORD_RESET] Email [{}] does not exist", email);
+            return;
+        }
+        UserLogin user = userLogin.get();
+        Instant now = Instant.now();
+        String rawToken = SecureTokenUtils.generateUrlSafeToken(RESET_TOKEN_BYTES);
+        passwordResetTokenRepository.markUnusedTokensUsedByUserId(
+                user.getId(),
+                now
+        );
+        passwordResetTokenRepository.save(
+                PasswordResetToken.builder()
+                        .userLogin(user)
+                        .tokenHash(SecureTokenUtils.sha256Hex(rawToken))
+                        .expiresAt(now.plus(
+                                Duration.ofMinutes(properties.getTokenTtlMinutes())
+                        ))
+                        .build()
+        );
+        String resetLink = resetLink(rawToken);
+        PasswordResetMailTemplate.Context context =
+                new PasswordResetMailTemplate.Context(
+                        resetLink,
+                        properties.getTokenTtlMinutes()
+                );
+        log.info("[PASSWORD_RESET] Email [{}] exists, sending reset email", email);
+        mailSender.send(
+                user.getEmail(),
+                passwordResetMailTemplate.subject(context),
+                passwordResetMailTemplate.htmlBody(context)
+        );
     }
 
     @Transactional
