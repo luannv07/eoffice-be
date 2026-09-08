@@ -7,10 +7,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class CorsConfigTest {
 
-    @Test
-    void corsFilterShouldBeCreated() {
-        CorsConfig config = new CorsConfig(new JwtProperties());
-        CorsFilter filter = config.corsFilter();
-        assertNotNull(filter);
-    }
+	@Test
+	void corsFilterShouldBeCreated() {
+		CorsConfig config = new CorsConfig(new JwtProperties());
+		CorsFilter filter = config.corsFilter();
+		assertNotNull(filter);
+	}
 }

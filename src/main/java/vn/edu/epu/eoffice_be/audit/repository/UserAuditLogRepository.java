@@ -1,8 +1,8 @@
 package vn.edu.epu.eoffice_be.audit.repository;
 
-import vn.edu.epu.eoffice_be.audit.entity.UserAuditLog;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import vn.edu.epu.eoffice_be.audit.entity.UserAuditLog;
 
 import java.util.UUID;
 

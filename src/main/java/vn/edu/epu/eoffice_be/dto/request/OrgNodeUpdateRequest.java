@@ -19,7 +19,7 @@ public class OrgNodeUpdateRequest {
 
 	// nullable: null = chuyển thành root; khác null = đổi cha
 	@Schema(description = "Id node cha mới. null = chuyển thành node gốc; khác null = di chuyển sang cha mới",
-			example = "1001", nullable = true)
+					example = "1001", nullable = true)
 	Long parentId;
 
 	@Schema(description = "Tên tiếng Việt mới", example = "Khoa Công nghệ thông tin và Truyền thông", requiredMode = Schema.RequiredMode.REQUIRED)

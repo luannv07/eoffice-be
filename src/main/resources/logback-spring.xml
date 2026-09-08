@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration scan="true" scanPeriod="30 seconds">
     <property name="LOG_DIR" value="logs"/>
-    <property name="LOG_PATTERN" value="%d{dd-MM-yyyy HH:mm:ss,Asia/Ho_Chi_Minh} [TZ=ICT+07] %-5level [%thread] [%X{correlationId:-N/A}] %logger{36} - %msg%n"/>
+    <property name="LOG_PATTERN"
+              value="%d{dd-MM-yyyy HH:mm:ss,Asia/Ho_Chi_Minh} [TZ=ICT+07] %-5level [%thread] [%X{correlationId:-N/A}] %logger{36} - %msg%n"/>
 
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>

@@ -4,11 +4,7 @@ import org.junit.jupiter.api.Test;
 import vn.edu.epu.eoffice_be.common.dto.BaseResponse;
 import vn.edu.epu.eoffice_be.controller.PublicController;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 class EofficeBeApplicationTests {
 

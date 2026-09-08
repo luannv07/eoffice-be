@@ -14,39 +14,39 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class JwtUserPrincipal implements Principal, Serializable {
 
-    Long userId;
+	Long userId;
 
-    String username;
+	String username;
 
-    String role;
+	String role;
 
-    boolean profileCompleted;
+	boolean profileCompleted;
 
-    List<String> permissions;
+	List<String> permissions;
 
-    // Record-style accessors for compatibility with previous record usage
-    public Long userId() {
-        return userId;
-    }
+	// Record-style accessors for compatibility with previous record usage
+	public Long userId() {
+		return userId;
+	}
 
-    public String username() {
-        return username;
-    }
+	public String username() {
+		return username;
+	}
 
-    public String role() {
-        return role;
-    }
+	public String role() {
+		return role;
+	}
 
-    public boolean profileCompleted() {
-        return profileCompleted;
-    }
+	public boolean profileCompleted() {
+		return profileCompleted;
+	}
 
-    public List<String> permissions() {
-        return permissions;
-    }
+	public List<String> permissions() {
+		return permissions;
+	}
 
-    @Override
-    public String getName() {
-        return username;
-    }
+	@Override
+	public String getName() {
+		return username;
+	}
 }

@@ -18,21 +18,21 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class JwtProperties {
 
-    String issuer = "eoffice-be";
+	String issuer = "eoffice-be";
 
-    String secretKey;
+	String secretKey;
 
-    Duration accessTokenTtl = Duration.ofMinutes(15);
+	Duration accessTokenTtl = Duration.ofMinutes(15);
 
-    Duration refreshTokenTtl = Duration.ofDays(30);
+	Duration refreshTokenTtl = Duration.ofDays(30);
 
-    String cookieName = "refresh_token";
+	String cookieName = "refresh_token";
 
-    String cookiePath = "/auth";
+	String cookiePath = "/auth";
 
-    boolean cookieSecure = false;
+	boolean cookieSecure = false;
 
-    String cookieSameSite = "Strict";
+	String cookieSameSite = "Strict";
 
-    List<String> allowedOrigins = new ArrayList<>();
+	List<String> allowedOrigins = new ArrayList<>();
 }

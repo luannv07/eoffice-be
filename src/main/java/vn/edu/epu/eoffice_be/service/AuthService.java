@@ -9,6 +9,10 @@ import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.enums.Role;
 import vn.edu.epu.eoffice_be.common.enums.UserStatusCd;
@@ -23,10 +27,6 @@ import vn.edu.epu.eoffice_be.entity.UserLogin;
 import vn.edu.epu.eoffice_be.repository.UserInfoRepository;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
 import vn.edu.epu.eoffice_be.utils.AccountStatusUtils;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -37,236 +37,235 @@ import java.time.Instant;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class AuthService {
 
-    @NonFinal
-    @Value("${eoffice.auth.max-failed-attempts:5}")
-    int maxFailedAttempts;
-    @NonFinal
-    @Value("${eoffice.auth.lockout-minutes:30}")
-    int lockoutMinutes;
+	final UserLoginRepository userLoginRepository;
+	final UserInfoRepository userInfoRepository;
+	final PasswordEncoder passwordEncoder;
+	final JwtService jwtService;
+	final JwtProperties jwtProperties;
+	final RefreshTokenService refreshTokenService;
+	@NonFinal
+	@Value("${eoffice.auth.max-failed-attempts:5}")
+	int maxFailedAttempts;
+	@NonFinal
+	@Value("${eoffice.auth.lockout-minutes:30}")
+	int lockoutMinutes;
 
-    final UserLoginRepository userLoginRepository;
-    final UserInfoRepository userInfoRepository;
-    final PasswordEncoder passwordEncoder;
-    final JwtService jwtService;
-    final JwtProperties jwtProperties;
-    final RefreshTokenService refreshTokenService;
+	@Transactional
+	public LoginResponse login(LoginRequest request, String clientIp) {
+		UserLogin user = userLoginRepository.findByUsernameAndDeleteFlgFalse(request.getUsername().trim())
+						.orElseThrow(() -> {
+							recordFailedAttempt(clientIp, null);
+							return new BusinessException(ErrorCode.INVALID_CREDENTIALS);
+						});
 
-    @Transactional
-    public LoginResponse login(LoginRequest request, String clientIp) {
-        UserLogin user = userLoginRepository.findByUsernameAndDeleteFlgFalse(request.getUsername().trim())
-                .orElseThrow(() -> {
-                    recordFailedAttempt(clientIp, null);
-                    return new BusinessException(ErrorCode.INVALID_CREDENTIALS);
-                });
+		AccountStatusUtils.checkLoginAllowed(user, Instant.now());
 
-        AccountStatusUtils.checkLoginAllowed(user, Instant.now());
+		if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+			recordFailedAttempt(clientIp, user);
+			throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
+		}
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            recordFailedAttempt(clientIp, user);
-            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
-        }
+		resetFailedAttempts(user);
+		user.setLastLoginAt(Instant.now());
+		userLoginRepository.save(user);
 
-        resetFailedAttempts(user);
-        user.setLastLoginAt(Instant.now());
-        userLoginRepository.save(user);
+		if (user.getPasswordExpiredAt() != null && user.getPasswordExpiredAt().isBefore(Instant.now())) {
+			throw new BusinessException(ErrorCode.PASSWORD_EXPIRED);
+		}
 
-        if (user.getPasswordExpiredAt() != null && user.getPasswordExpiredAt().isBefore(Instant.now())) {
-            throw new BusinessException(ErrorCode.PASSWORD_EXPIRED);
-        }
+		UserInfo info = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(user.getId()).orElse(null);
+		boolean profileCompleted = info != null;
+		String refreshToken = jwtService.generateRefreshToken(user.getId(), user.getUsername(), user.getRole());
+		String accessToken = jwtService.generateAccessToken(user.getId(), user.getUsername(), user.getRole(), profileCompleted);
+		refreshTokenService.revokeAllActive(user.getId());
+		persistRefreshToken(user.getId(), refreshToken);
 
-        UserInfo info = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(user.getId()).orElse(null);
-        boolean profileCompleted = info != null;
-        String refreshToken = jwtService.generateRefreshToken(user.getId(), user.getUsername(), user.getRole());
-        String accessToken = jwtService.generateAccessToken(user.getId(), user.getUsername(), user.getRole(), profileCompleted);
-        refreshTokenService.revokeAllActive(user.getId());
-        persistRefreshToken(user.getId(), refreshToken);
+		return LoginResponse.builder()
+						.accessToken(accessToken)
+						.refreshToken(refreshToken)
+						.expiresIn(jwtProperties.getAccessTokenTtl().toSeconds())
+						.user(toTokenUser(user, info))
+						.build();
+	}
 
-        return LoginResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .expiresIn(jwtProperties.getAccessTokenTtl().toSeconds())
-                .user(toTokenUser(user, info))
-                .build();
-    }
+	@Transactional(readOnly = true)
+	public MeResponse me(Long userId) {
+		UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
+						.orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+		UserInfo info = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(userId).orElse(null);
+		return toMeResponse(user, info);
+	}
 
-    @Transactional(readOnly = true)
-    public MeResponse me(Long userId) {
-        UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-        UserInfo info = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(userId).orElse(null);
-        return toMeResponse(user, info);
-    }
+	@Transactional
+	public LoginResponse register(RegisterRequest request, String clientIp) {
+		String username = request.getUsername().trim();
+		String email = request.getEmail().trim();
 
-    @Transactional
-    public LoginResponse register(RegisterRequest request, String clientIp) {
-        String username = request.getUsername().trim();
-        String email = request.getEmail().trim();
+		if (userLoginRepository.existsByUsernameAndDeleteFlgFalse(username)) {
+			throw new BusinessException(ErrorCode.USERNAME_ALREADY_EXISTS);
+		}
+		if (userLoginRepository.existsByEmailAndDeleteFlgFalse(email)) {
+			throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS);
+		}
 
-        if (userLoginRepository.existsByUsernameAndDeleteFlgFalse(username)) {
-            throw new BusinessException(ErrorCode.USERNAME_ALREADY_EXISTS);
-        }
-        if (userLoginRepository.existsByEmailAndDeleteFlgFalse(email)) {
-            throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS);
-        }
+		UserLogin user = UserLogin.builder()
+						.username(username)
+						.email(email)
+						.passwordHash(passwordEncoder.encode(request.getPassword()))
+						.role(Role.USER)
+						.userStatusCd(UserStatusCd.ACTIVE.name())
+						.build();
 
-        UserLogin user = UserLogin.builder()
-                .username(username)
-                .email(email)
-                .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .role(Role.USER)
-                .userStatusCd(UserStatusCd.ACTIVE.name())
-                .build();
+		try {
+			user = userLoginRepository.saveAndFlush(user);
+		} catch (DataIntegrityViolationException ex) {
+			if (userLoginRepository.existsByUsernameAndDeleteFlgFalse(username)) {
+				throw new BusinessException(ErrorCode.USERNAME_ALREADY_EXISTS);
+			}
+			if (userLoginRepository.existsByEmailAndDeleteFlgFalse(email)) {
+				throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS);
+			}
+			throw ex;
+		}
 
-        try {
-            user = userLoginRepository.saveAndFlush(user);
-        } catch (DataIntegrityViolationException ex) {
-            if (userLoginRepository.existsByUsernameAndDeleteFlgFalse(username)) {
-                throw new BusinessException(ErrorCode.USERNAME_ALREADY_EXISTS);
-            }
-            if (userLoginRepository.existsByEmailAndDeleteFlgFalse(email)) {
-                throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS);
-            }
-            throw ex;
-        }
+		String accessToken = jwtService.generateAccessToken(user.getId(), user.getUsername(), user.getRole(), false);
+		String refreshToken = jwtService.generateRefreshToken(user.getId(), user.getUsername(), user.getRole());
+		persistRefreshToken(user.getId(), refreshToken);
 
-        String accessToken = jwtService.generateAccessToken(user.getId(), user.getUsername(), user.getRole(), false);
-        String refreshToken = jwtService.generateRefreshToken(user.getId(), user.getUsername(), user.getRole());
-        persistRefreshToken(user.getId(), refreshToken);
+		return LoginResponse.builder()
+						.accessToken(accessToken)
+						.refreshToken(refreshToken)
+						.expiresIn(jwtProperties.getAccessTokenTtl().toSeconds())
+						.user(toTokenUser(user, null))
+						.build();
+	}
 
-        return LoginResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .expiresIn(jwtProperties.getAccessTokenTtl().toSeconds())
-                .user(toTokenUser(user, null))
-                .build();
-    }
+	@Transactional
+	public LoginResponse refresh(String refreshToken) {
+		if (refreshToken == null || refreshToken.isBlank()) {
+			throw new BusinessException(ErrorCode.SESSION_EXPIRED);
+		}
+		Instant now = Instant.now();
+		Claims claims;
+		try {
+			claims = jwtService.parseRefreshToken(refreshToken);
+		} catch (JwtException ex) {
+			throw new BusinessException(ErrorCode.SESSION_EXPIRED);
+		}
 
-    @Transactional
-    public LoginResponse refresh(String refreshToken) {
-        if (refreshToken == null || refreshToken.isBlank()) {
-            throw new BusinessException(ErrorCode.SESSION_EXPIRED);
-        }
-        Instant now = Instant.now();
-        Claims claims;
-        try {
-            claims = jwtService.parseRefreshToken(refreshToken);
-        } catch (JwtException ex) {
-            throw new BusinessException(ErrorCode.SESSION_EXPIRED);
-        }
+		Long userId = Long.valueOf(claims.getSubject());
+		UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
+						.orElseThrow(() -> new BusinessException(ErrorCode.SESSION_EXPIRED));
 
-        Long userId = Long.valueOf(claims.getSubject());
-        UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.SESSION_EXPIRED));
+		AccountStatusUtils.checkLoginAllowed(user, now);
 
-        AccountStatusUtils.checkLoginAllowed(user, now);
+		String newRefreshToken = jwtService.generateRefreshToken(user.getId(), user.getUsername(), user.getRole());
+		refreshTokenService.rotate(
+						userId,
+						claims.getId(),
+						jwtService.parseRefreshToken(newRefreshToken).getId(),
+						now.plus(jwtProperties.getRefreshTokenTtl()));
+		UserInfo info = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(userId).orElse(null);
+		boolean profileCompleted = info != null;
+		String accessToken = jwtService.generateAccessToken(user.getId(), user.getUsername(), user.getRole(), profileCompleted);
 
-        String newRefreshToken = jwtService.generateRefreshToken(user.getId(), user.getUsername(), user.getRole());
-        refreshTokenService.rotate(
-                userId,
-                claims.getId(),
-                jwtService.parseRefreshToken(newRefreshToken).getId(),
-                now.plus(jwtProperties.getRefreshTokenTtl()));
-        UserInfo info = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(userId).orElse(null);
-        boolean profileCompleted = info != null;
-        String accessToken = jwtService.generateAccessToken(user.getId(), user.getUsername(), user.getRole(), profileCompleted);
+		return LoginResponse.builder()
+						.accessToken(accessToken)
+						.refreshToken(newRefreshToken)
+						.expiresIn(jwtProperties.getAccessTokenTtl().toSeconds())
+						.user(toTokenUser(user, info))
+						.build();
+	}
 
-        return LoginResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(newRefreshToken)
-                .expiresIn(jwtProperties.getAccessTokenTtl().toSeconds())
-                .user(toTokenUser(user, info))
-                .build();
-    }
+	public void logout(String refreshToken) {
+		if (refreshToken == null || refreshToken.isBlank()) {
+			return;
+		}
+		String jti;
+		try {
+			jti = jwtService.parseRefreshToken(refreshToken).getId();
+		} catch (ExpiredJwtException ex) {
+			jti = ex.getClaims().getId();
+		} catch (JwtException ex) {
+			log.debug("Ignoring logout with unparsable refresh token: {}", ex.getMessage());
+			return;
+		}
+		refreshTokenService.revoke(jti);
+	}
 
-    public void logout(String refreshToken) {
-        if (refreshToken == null || refreshToken.isBlank()) {
-            return;
-        }
-        String jti;
-        try {
-            jti = jwtService.parseRefreshToken(refreshToken).getId();
-        } catch (ExpiredJwtException ex) {
-            jti = ex.getClaims().getId();
-        } catch (JwtException ex) {
-            log.debug("Ignoring logout with unparsable refresh token: {}", ex.getMessage());
-            return;
-        }
-        refreshTokenService.revoke(jti);
-    }
+	private void persistRefreshToken(Long userId, String refreshToken) {
+		String jti = jwtService.parseRefreshToken(refreshToken).getId();
+		refreshTokenService.issue(userId, jti, Instant.now().plus(jwtProperties.getRefreshTokenTtl()));
+	}
 
-    private void persistRefreshToken(Long userId, String refreshToken) {
-        String jti = jwtService.parseRefreshToken(refreshToken).getId();
-        refreshTokenService.issue(userId, jti, Instant.now().plus(jwtProperties.getRefreshTokenTtl()));
-    }
+	private void recordFailedAttempt(String clientIp, UserLogin user) {
+		log.warn("Failed login attempt for username={} from ip={}", user == null ? "(unknown)" : user.getUsername(), clientIp);
+		if (user == null) {
+			return;
+		}
+		user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
+		if (user.getFailedLoginAttempts() >= maxFailedAttempts) {
+			user.setUserStatusCd(UserStatusCd.LOCKED.name());
+			user.setLockoutUntil(Instant.now().plus(Duration.ofMinutes(lockoutMinutes)));
+		}
+		userLoginRepository.save(user);
+	}
 
-    private void recordFailedAttempt(String clientIp, UserLogin user) {
-        log.warn("Failed login attempt for username={} from ip={}", user == null ? "(unknown)" : user.getUsername(), clientIp);
-        if (user == null) {
-            return;
-        }
-        user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
-        if (user.getFailedLoginAttempts() >= maxFailedAttempts) {
-            user.setUserStatusCd(UserStatusCd.LOCKED.name());
-            user.setLockoutUntil(Instant.now().plus(Duration.ofMinutes(lockoutMinutes)));
-        }
-        userLoginRepository.save(user);
-    }
+	private void resetFailedAttempts(UserLogin user) {
+		user.setFailedLoginAttempts(0);
+		user.setUserStatusCd(UserStatusCd.ACTIVE.name());
+		user.setLockoutUntil(null);
+	}
 
-    private void resetFailedAttempts(UserLogin user) {
-        user.setFailedLoginAttempts(0);
-        user.setUserStatusCd(UserStatusCd.ACTIVE.name());
-        user.setLockoutUntil(null);
-    }
+	private LoginResponse.TokenUser toTokenUser(UserLogin user, UserInfo info) {
+		return LoginResponse.TokenUser.builder()
+						.id(user.getId())
+						.username(user.getUsername())
+						.displayName(displayName(user, info))
+						.email(user.getEmail())
+						.avatarUrl(info == null ? null : info.getAvatarUrl())
+						.role(user.getRole())
+						.passwordExpiredAt(user.getPasswordExpiredAt())
+						.build();
+	}
 
-    private LoginResponse.TokenUser toTokenUser(UserLogin user, UserInfo info) {
-        return LoginResponse.TokenUser.builder()
-                .id(user.getId())
-                .username(user.getUsername())
-                .displayName(displayName(user, info))
-                .email(user.getEmail())
-                .avatarUrl(info == null ? null : info.getAvatarUrl())
-                .role(user.getRole())
-                .passwordExpiredAt(user.getPasswordExpiredAt())
-                .build();
-    }
+	private MeResponse toMeResponse(UserLogin user, UserInfo info) {
+		MeResponse.MeResponseBuilder builder = MeResponse.builder()
+						.id(user.getId())
+						.username(user.getUsername())
+						.email(user.getEmail())
+						.role(user.getRole())
+						.userStatusCd(user.getUserStatusCd())
+						.mustChangePassword(user.isMustChangePassword())
+						.passwordExpiredAt(user.getPasswordExpiredAt())
+						.lastLoginAt(user.getLastLoginAt())
+						.profileCompleted(info != null);
+		if (info != null) {
+			builder.fullName(info.getFullName())
+							.dateOfBirth(info.getDateOfBirth())
+							.gender(info.getGender())
+							.nationalIdNumber(info.getNationalIdNumber())
+							.avatarUrl(info.getAvatarUrl())
+							.contactEmail(info.getContactEmail())
+							.contactPhone(info.getContactPhone())
+							.address(info.getAddress())
+							.employeeCode(info.getEmployeeCode())
+							.academicTitle(info.getAcademicTitle())
+							.academicDegree(info.getAcademicDegree())
+							.partyMembershipDate(info.getPartyMembershipDate())
+							.employmentStatusCd(info.getEmploymentStatusCd())
+							.joinOrgDate(info.getJoinOrgDate());
+		}
+		return builder.build();
+	}
 
-    private MeResponse toMeResponse(UserLogin user, UserInfo info) {
-        MeResponse.MeResponseBuilder builder = MeResponse.builder()
-                .id(user.getId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .role(user.getRole())
-                .userStatusCd(user.getUserStatusCd())
-                .mustChangePassword(user.isMustChangePassword())
-                .passwordExpiredAt(user.getPasswordExpiredAt())
-                .lastLoginAt(user.getLastLoginAt())
-                .profileCompleted(info != null);
-        if (info != null) {
-            builder.fullName(info.getFullName())
-                    .dateOfBirth(info.getDateOfBirth())
-                    .gender(info.getGender())
-                    .nationalIdNumber(info.getNationalIdNumber())
-                    .avatarUrl(info.getAvatarUrl())
-                    .contactEmail(info.getContactEmail())
-                    .contactPhone(info.getContactPhone())
-                    .address(info.getAddress())
-                    .employeeCode(info.getEmployeeCode())
-                    .academicTitle(info.getAcademicTitle())
-                    .academicDegree(info.getAcademicDegree())
-                    .partyMembershipDate(info.getPartyMembershipDate())
-                    .employmentStatusCd(info.getEmploymentStatusCd())
-                    .joinOrgDate(info.getJoinOrgDate());
-        }
-        return builder.build();
-    }
-
-    private String displayName(UserLogin user, UserInfo info) {
-        if (info != null && info.getFullName() != null && !info.getFullName().isBlank()) {
-            return info.getFullName();
-        }
-        if (user.getEmail() != null && !user.getEmail().isBlank()) {
-            return user.getEmail();
-        }
-        return user.getUsername();
-    }
+	private String displayName(UserLogin user, UserInfo info) {
+		if (info != null && info.getFullName() != null && !info.getFullName().isBlank()) {
+			return info.getFullName();
+		}
+		if (user.getEmail() != null && !user.getEmail().isBlank()) {
+			return user.getEmail();
+		}
+		return user.getUsername();
+	}
 }

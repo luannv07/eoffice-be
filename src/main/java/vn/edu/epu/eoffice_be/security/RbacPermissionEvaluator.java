@@ -19,50 +19,50 @@ import java.io.Serializable;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class RbacPermissionEvaluator implements PermissionEvaluator {
 
-    final PermissionResolver permissionResolver;
+	final PermissionResolver permissionResolver;
 
-    @Override
-    public boolean hasPermission(Authentication authentication, Object targetDomainObject, Object permission) {
-        JwtUserPrincipal principal = principalOf(authentication);
-        if (principal == null || targetDomainObject == null || permission == null) {
-            return false;
-        }
-        Long orgNodeId = null;
-        if (targetDomainObject instanceof Number number) {
-            orgNodeId = number.longValue();
-        } else if (targetDomainObject instanceof String str) {
-            try {
-                orgNodeId = Long.valueOf(str);
-            } catch (NumberFormatException ignored) {
-                return false;
-            }
-        }
-        return permissionResolver.hasPermission(principal, permission.toString(), orgNodeId);
-    }
+	@Override
+	public boolean hasPermission(Authentication authentication, Object targetDomainObject, Object permission) {
+		JwtUserPrincipal principal = principalOf(authentication);
+		if (principal == null || targetDomainObject == null || permission == null) {
+			return false;
+		}
+		Long orgNodeId = null;
+		if (targetDomainObject instanceof Number number) {
+			orgNodeId = number.longValue();
+		} else if (targetDomainObject instanceof String str) {
+			try {
+				orgNodeId = Long.valueOf(str);
+			} catch (NumberFormatException ignored) {
+				return false;
+			}
+		}
+		return permissionResolver.hasPermission(principal, permission.toString(), orgNodeId);
+	}
 
-    @Override
-    public boolean hasPermission(Authentication authentication, Serializable targetId, String targetType, Object permission) {
-        JwtUserPrincipal principal = principalOf(authentication);
-        if (principal == null) {
-            return false;
-        }
-        Long orgNodeId = null;
-        if (targetId instanceof Number number) {
-            orgNodeId = number.longValue();
-        } else if (targetId instanceof String str) {
-            try {
-                orgNodeId = Long.valueOf(str);
-            } catch (NumberFormatException ignored) {
-                orgNodeId = null;
-            }
-        }
-        return permissionResolver.hasPermission(principal, permission.toString(), orgNodeId);
-    }
+	@Override
+	public boolean hasPermission(Authentication authentication, Serializable targetId, String targetType, Object permission) {
+		JwtUserPrincipal principal = principalOf(authentication);
+		if (principal == null) {
+			return false;
+		}
+		Long orgNodeId = null;
+		if (targetId instanceof Number number) {
+			orgNodeId = number.longValue();
+		} else if (targetId instanceof String str) {
+			try {
+				orgNodeId = Long.valueOf(str);
+			} catch (NumberFormatException ignored) {
+				orgNodeId = null;
+			}
+		}
+		return permissionResolver.hasPermission(principal, permission.toString(), orgNodeId);
+	}
 
-    private JwtUserPrincipal principalOf(Authentication authentication) {
-        if (authentication == null || !(authentication.getPrincipal() instanceof JwtUserPrincipal principal)) {
-            return null;
-        }
-        return principal;
-    }
+	private JwtUserPrincipal principalOf(Authentication authentication) {
+		if (authentication == null || !(authentication.getPrincipal() instanceof JwtUserPrincipal principal)) {
+			return null;
+		}
+		return principal;
+	}
 }

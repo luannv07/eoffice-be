@@ -17,48 +17,46 @@ import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class SmtpMailSenderTest {
 
-    @Mock
-    JavaMailSender javaMailSender;
+	@Mock
+	JavaMailSender javaMailSender;
 
-    @Test
-    void sendShouldCreateHtmlMessageWithConfiguredSender() throws Exception {
-        MimeMessage message = new MimeMessage(Session.getInstance(new Properties()));
-        when(javaMailSender.createMimeMessage()).thenReturn(message);
-        SmtpMailSender smtpMailSender = sender();
+	@Test
+	void sendShouldCreateHtmlMessageWithConfiguredSender() throws Exception {
+		MimeMessage message = new MimeMessage(Session.getInstance(new Properties()));
+		when(javaMailSender.createMimeMessage()).thenReturn(message);
+		SmtpMailSender smtpMailSender = sender();
 
-        smtpMailSender.send("bob@example.com", "Reset password", "<p>Reset</p>");
+		smtpMailSender.send("bob@example.com", "Reset password", "<p>Reset</p>");
 
-        ArgumentCaptor<MimeMessage> captor = ArgumentCaptor.forClass(MimeMessage.class);
-        verify(javaMailSender).send(captor.capture());
-        MimeMessage sent = captor.getValue();
-        assertEquals("no-reply@eoffice.local", sent.getFrom()[0].toString());
-        assertEquals("bob@example.com", sent.getAllRecipients()[0].toString());
-        assertEquals("Reset password", sent.getSubject());
-    }
+		ArgumentCaptor<MimeMessage> captor = ArgumentCaptor.forClass(MimeMessage.class);
+		verify(javaMailSender).send(captor.capture());
+		MimeMessage sent = captor.getValue();
+		assertEquals("no-reply@eoffice.local", sent.getFrom()[0].toString());
+		assertEquals("bob@example.com", sent.getAllRecipients()[0].toString());
+		assertEquals("Reset password", sent.getSubject());
+	}
 
-    @Test
-    void sendShouldMapMailFailuresToBusinessException() {
-        MimeMessage message = new MimeMessage(Session.getInstance(new Properties()));
-        when(javaMailSender.createMimeMessage()).thenReturn(message);
-        doThrow(new MailSendException("smtp-down")).when(javaMailSender).send(message);
-        SmtpMailSender smtpMailSender = sender();
+	@Test
+	void sendShouldMapMailFailuresToBusinessException() {
+		MimeMessage message = new MimeMessage(Session.getInstance(new Properties()));
+		when(javaMailSender.createMimeMessage()).thenReturn(message);
+		doThrow(new MailSendException("smtp-down")).when(javaMailSender).send(message);
+		SmtpMailSender smtpMailSender = sender();
 
-        BusinessException ex = assertThrows(BusinessException.class,
-                () -> smtpMailSender.send("bob@example.com", "Reset password", "<p>Reset</p>"));
+		BusinessException ex = assertThrows(BusinessException.class,
+						() -> smtpMailSender.send("bob@example.com", "Reset password", "<p>Reset</p>"));
 
-        assertEquals(ErrorCode.MAIL_SEND_FAILED, ex.getErrorCode());
-    }
+		assertEquals(ErrorCode.MAIL_SEND_FAILED, ex.getErrorCode());
+	}
 
-    private SmtpMailSender sender() {
-        SmtpMailSender smtpMailSender = new SmtpMailSender(javaMailSender);
-        ReflectionTestUtils.setField(smtpMailSender, "from", "no-reply@eoffice.local");
-        return smtpMailSender;
-    }
+	private SmtpMailSender sender() {
+		SmtpMailSender smtpMailSender = new SmtpMailSender(javaMailSender);
+		ReflectionTestUtils.setField(smtpMailSender, "from", "no-reply@eoffice.local");
+		return smtpMailSender;
+	}
 }
