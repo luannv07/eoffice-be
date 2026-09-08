@@ -3,6 +3,7 @@ package vn.edu.epu.eoffice_be.audit.aspect;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.persistence.Entity;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Table;
@@ -11,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import vn.edu.epu.eoffice_be.audit.entity.ChangeHistoryLog;
 import vn.edu.epu.eoffice_be.audit.repository.ChangeHistoryLogRepository;
 import vn.edu.epu.eoffice_be.common.annotation.TrackChange;
+import vn.edu.epu.eoffice_be.common.annotation.TrackField;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -20,10 +22,14 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -55,13 +61,13 @@ public class EntityChangeAuditAspect {
 
         if (!isCreate) {
             Object currentEntity = entityManager.find(entity.getClass(), entityId);
-            beforeData = toJson(currentEntity);
+            beforeData = toJson(toAuditMap(currentEntity));
         }
 
         Object result = joinPoint.proceed();
         Object savedEntity = result != null ? result : entity;
         Object savedEntityId = entityManager.getEntityManagerFactory().getPersistenceUnitUtil().getIdentifier(savedEntity);
-        String afterData = toJson(savedEntity);
+        String afterData = toJson(toAuditMap(savedEntity));
 
         writeHistoryLog(
                 savedEntity,
@@ -81,7 +87,7 @@ public class EntityChangeAuditAspect {
         }
 
         Object entityId = entityManager.getEntityManagerFactory().getPersistenceUnitUtil().getIdentifier(entity);
-        String beforeData = toJson(entity);
+        String beforeData = toJson(toAuditMap(entity));
         Object result = joinPoint.proceed();
         writeHistoryLog(entity, entityId, "DELETE", beforeData, null);
         return result;
@@ -134,6 +140,44 @@ public class EntityChangeAuditAspect {
                 return "{\"raw\":\"serialization_error\"}";
             }
         }
+    }
+
+    /**
+     * Build a flat map of the entity's field values, honoring {@link TrackField}:
+     * ignored fields are skipped, and a non-blank label is used as the key instead of the field name.
+     * Association fields (entity-typed) are skipped to avoid lazy loading and circular serialization.
+     */
+    private Map<String, Object> toAuditMap(Object entity) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        Class<?> clazz = entity.getClass();
+        while (clazz != null && clazz != Object.class) {
+            for (Field field : clazz.getDeclaredFields()) {
+                if (field.isSynthetic() || Modifier.isStatic(field.getModifiers())) {
+                    continue;
+                }
+                TrackField trackField = field.getAnnotation(TrackField.class);
+                if (trackField != null && trackField.ignore()) {
+                    continue;
+                }
+                field.setAccessible(true);
+                Object value;
+                try {
+                    value = field.get(entity);
+                } catch (IllegalAccessException ex) {
+                    log.warn("Failed to read field {} for change history", field.getName(), ex);
+                    continue;
+                }
+                if (value != null && value.getClass().isAnnotationPresent(Entity.class)) {
+                    continue;
+                }
+                String key = (trackField != null && !trackField.label().isBlank())
+                        ? trackField.label()
+                        : field.getName();
+                map.put(key, value);
+            }
+            clazz = clazz.getSuperclass();
+        }
+        return map;
     }
 
     private String buildChangedFields(String beforeData, String afterData) {
