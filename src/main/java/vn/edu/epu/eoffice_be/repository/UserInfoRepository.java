@@ -8,4 +8,6 @@ import java.util.Optional;
 public interface UserInfoRepository extends JpaRepository<UserInfo, Long> {
 
     Optional<UserInfo> findByUserLoginIdAndDeleteFlgFalse(Long userLoginId);
+
+    Optional<UserInfo> findByUserLoginId(Long userLoginId);
 }

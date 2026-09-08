@@ -1,10 +1,10 @@
 package vn.edu.epu.eoffice_be.audit.aspect;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityManagerFactory;
-import jakarta.persistence.PersistenceUnitUtil;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -12,8 +12,14 @@ import org.springframework.test.util.ReflectionTestUtils;
 import vn.edu.epu.eoffice_be.audit.entity.ChangeHistoryLog;
 import vn.edu.epu.eoffice_be.audit.repository.ChangeHistoryLogRepository;
 import vn.edu.epu.eoffice_be.common.annotation.TrackChange;
+import vn.edu.epu.eoffice_be.common.annotation.TrackField;
+
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -93,6 +99,34 @@ class EntityChangeAuditAspectTest {
         verify(repository).save(any(ChangeHistoryLog.class));
     }
 
+    @Test
+    void shouldSerializeAuditMapWithLabelsIgnoredAndEntitySkipped() throws Throwable {
+        ProceedingJoinPoint joinPoint = mock(ProceedingJoinPoint.class);
+        RichDemo entity = new RichDemo();
+        entity.id = 1L;
+        entity.name = "alice";
+        entity.secret = "topsecret";
+        entity.related = new RelatedEntity();
+        entity.count = 3;
+
+        when(putil.getIdentifier(entity)).thenReturn(null, 1L);
+        when(joinPoint.proceed()).thenReturn(entity);
+
+        aspect.auditSave(joinPoint, entity);
+
+        var captor = forClass(ChangeHistoryLog.class);
+        verify(repository).save(captor.capture());
+        JsonNode afterData = new ObjectMapper().readTree(captor.getValue().getAfterData());
+
+        assertTrue(afterData.has("Tên"), "label should replace field name");
+        assertEquals("alice", afterData.get("Tên").asText());
+        assertTrue(afterData.has("count"), "field without annotation keeps its name");
+        assertTrue(afterData.has("tenant"), "superclass field should be included");
+        assertFalse(afterData.has("secret"), "ignored field must be excluded");
+        assertFalse(afterData.has("related"), "entity-typed field must be skipped");
+        assertFalse(afterData.has("Liên kết"), "entity-typed field must be skipped even with label");
+    }
+
     @TrackChange
     @Table(name = "demo_table")
     static class TrackableDemo {
@@ -106,4 +140,30 @@ class EntityChangeAuditAspectTest {
             this.name = name;
         }
     }
+
+    static class BaseDemo {
+        public String tenant;
+    }
+
+    @TrackChange
+    @Table(name = "rich_demo")
+    static class RichDemo extends BaseDemo {
+        public Long id;
+        @TrackField(label = "Tên")
+        public String name;
+        @TrackField(ignore = true)
+        public String secret;
+        @TrackField(label = "Liên kết")
+        public RelatedEntity related;
+        public int count;
+    }
+
+    @Setter
+    @Getter
+    @Entity
+    static class RelatedEntity {
+        @Id
+        private Long id;
+
+		}
 }

@@ -22,5 +22,5 @@ public interface UserLoginRepository extends JpaRepository<UserLogin, Long>, Jpa
 
     boolean existsByEmailAndDeleteFlgFalse(String email);
 
-    long countByRoleAndDeleteFlgFalse(Role role, boolean deleteFlg);
+    long countByRoleAndDeleteFlgFalse(Role role);
 }

@@ -148,6 +148,7 @@ public class EntityChangeAuditAspect {
      * Association fields (entity-typed) are skipped to avoid lazy loading and circular serialization.
      */
     private Map<String, Object> toAuditMap(Object entity) {
+        if (entity == null) return null;
         Map<String, Object> map = new LinkedHashMap<>();
         Class<?> clazz = entity.getClass();
         while (clazz != null && clazz != Object.class) {

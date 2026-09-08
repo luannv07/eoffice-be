@@ -86,6 +86,14 @@ class UserManagementServiceTest {
                 .build();
     }
 
+    private UserInfo userInfo(Long id, UserLogin login, String name) {
+        return UserInfo.builder().id(id).userLogin(login).fullName(name).build();
+    }
+
+    private void stubUserInfoSave() {
+        when(userInfoRepository.save(any(UserInfo.class))).thenAnswer(i -> i.getArgument(0));
+    }
+
     @Test
     void listShouldReturnPageOfSummaries() {
         setActor(Role.ADMIN);
@@ -141,7 +149,7 @@ class UserManagementServiceTest {
         setActor(Role.SYSTEM_ADMIN);
         UserLogin sysAdmin = user(2L, "root", Role.SYSTEM_ADMIN, UserStatusCd.ACTIVE.name());
         when(userLoginRepository.findByIdAndDeleteFlgFalse(2L)).thenReturn(Optional.of(sysAdmin));
-        when(userLoginRepository.countByRoleAndDeleteFlgFalse(Role.SYSTEM_ADMIN, false)).thenReturn(1L);
+        when(userLoginRepository.countByRoleAndDeleteFlgFalse(Role.SYSTEM_ADMIN)).thenReturn(1L);
         BusinessException ex = assertThrows(BusinessException.class, () -> service.delete(2L));
         assertEquals(ErrorCode.BUSINESS_ERROR, ex.getErrorCode());
         verify(userLoginRepository, never()).save(any());
@@ -179,14 +187,65 @@ class UserManagementServiceTest {
     }
 
     @Test
+    void deleteShouldNotFailWhenNoProfileExists() {
+        setActor(Role.ADMIN);
+        UserLogin u = user(6L, "frank", Role.USER, UserStatusCd.ACTIVE.name());
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(6L)).thenReturn(Optional.of(u));
+        when(userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(6L)).thenReturn(Optional.empty());
+        when(userLoginRepository.save(any(UserLogin.class))).thenAnswer(i -> i.getArgument(0));
+
+        service.delete(6L);
+
+        assertEquals(true, u.isDeleteFlg());
+        verify(userInfoRepository, never()).save(any(UserInfo.class));
+    }
+
+    @Test
     void restoreShouldUnsetDeleteFlag() {
         setActor(Role.ADMIN);
         UserLogin u = user(5L, "eve", Role.USER, UserStatusCd.ACTIVE.name());
         u.setDeleteFlg(true);
         when(userLoginRepository.findById(5L)).thenReturn(Optional.of(u));
+        when(userInfoRepository.findByUserLoginId(5L)).thenReturn(Optional.empty());
         when(userLoginRepository.save(any(UserLogin.class))).thenAnswer(i -> i.getArgument(0));
         service.restore(5L);
         assertEquals(false, u.isDeleteFlg());
         verify(userLoginRepository, times(1)).save(u);
+    }
+
+    @Test
+    void deleteShouldCascadeSoftDeleteUserInfo() {
+        setActor(Role.ADMIN);
+        UserLogin u = user(5L, "eve", Role.USER, UserStatusCd.ACTIVE.name());
+        UserInfo info = userInfo(10L, u, "Eve");
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(5L)).thenReturn(Optional.of(u));
+        when(userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(5L)).thenReturn(Optional.of(info));
+        when(userLoginRepository.save(any(UserLogin.class))).thenAnswer(i -> i.getArgument(0));
+        stubUserInfoSave();
+
+        service.delete(5L);
+
+        assertEquals(true, u.isDeleteFlg());
+        assertEquals(true, info.isDeleteFlg());
+        verify(userInfoRepository, times(1)).save(info);
+    }
+
+    @Test
+    void restoreShouldCascadeUnsetUserInfoDeleteFlag() {
+        setActor(Role.ADMIN);
+        UserLogin u = user(5L, "eve", Role.USER, UserStatusCd.ACTIVE.name());
+        u.setDeleteFlg(true);
+        UserInfo info = userInfo(10L, u, "Eve");
+        info.setDeleteFlg(true);
+        when(userLoginRepository.findById(5L)).thenReturn(Optional.of(u));
+        when(userInfoRepository.findByUserLoginId(5L)).thenReturn(Optional.of(info));
+        when(userLoginRepository.save(any(UserLogin.class))).thenAnswer(i -> i.getArgument(0));
+        stubUserInfoSave();
+
+        service.restore(5L);
+
+        assertEquals(false, u.isDeleteFlg());
+        assertEquals(false, info.isDeleteFlg());
+        verify(userInfoRepository, times(1)).save(info);
     }
 }

@@ -60,8 +60,8 @@ public class UserManagementService {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
-        String username = request.getUsername().trim();
-        String email = request.getEmail().trim();
+        String username = request.getUsername().trim().toLowerCase();
+        String email = request.getEmail().trim().toLowerCase();
         ensureUnique(username, email);
 
         UserLogin user = UserLogin.builder()
@@ -99,6 +99,9 @@ public class UserManagementService {
             user.setEmail(request.getEmail().trim());
         }
         if (request.getRole() != null) {
+            if (user.getRole() == Role.SYSTEM_ADMIN && request.getRole() != Role.SYSTEM_ADMIN) {
+                assertNotLastSystemAdmin(user);
+            }
             user.setRole(request.getRole());
         }
         if (request.getMustChangePassword() != null) {
@@ -119,6 +122,10 @@ public class UserManagementService {
 
         user.setDeleteFlg(true);
         userLoginRepository.save(user);
+        userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(user.getId()).ifPresent(info -> {
+            info.setDeleteFlg(true);
+            userInfoRepository.save(info);
+        });
         refreshTokenService.revokeAllActive(user.getId());
     }
 
@@ -131,6 +138,10 @@ public class UserManagementService {
 
         user.setDeleteFlg(false);
         userLoginRepository.save(user);
+        userInfoRepository.findByUserLoginId(user.getId()).ifPresent(info -> {
+            info.setDeleteFlg(false);
+            userInfoRepository.save(info);
+        });
     }
 
     @Transactional
@@ -214,7 +225,7 @@ public class UserManagementService {
 
     private void assertNotLastSystemAdmin(UserLogin target) {
         if (target.getRole() == Role.SYSTEM_ADMIN
-                && userLoginRepository.countByRoleAndDeleteFlgFalse(Role.SYSTEM_ADMIN, false) <= 1) {
+                && userLoginRepository.countByRoleAndDeleteFlgFalse(Role.SYSTEM_ADMIN) <= 1) {
             throw new BusinessException(ErrorCode.BUSINESS_ERROR);
         }
     }
@@ -226,7 +237,7 @@ public class UserManagementService {
 
     private void ensureUniqueUsername(String username, Long exceptId) {
         userLoginRepository.findByUsernameAndDeleteFlgFalse(username).ifPresent(existing -> {
-            if (exceptId == null || !existing.getId().equals(exceptId)) {
+            if (!existing.getId().equals(exceptId)) {
                 throw new BusinessException(ErrorCode.USERNAME_ALREADY_EXISTS);
             }
         });
@@ -234,7 +245,7 @@ public class UserManagementService {
 
     private void ensureUniqueEmail(String email, Long exceptId) {
         userLoginRepository.findByEmailAndDeleteFlgFalse(email).ifPresent(existing -> {
-            if (exceptId == null || !existing.getId().equals(exceptId)) {
+            if (!existing.getId().equals(exceptId)) {
                 throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS);
             }
         });

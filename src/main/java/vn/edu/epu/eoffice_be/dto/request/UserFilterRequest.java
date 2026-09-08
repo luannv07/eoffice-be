@@ -12,9 +12,7 @@ import org.springframework.data.jpa.domain.Specification;
 import vn.edu.epu.eoffice_be.common.enums.Role;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @Getter
 @Setter
@@ -48,20 +46,17 @@ public class UserFilterRequest extends BaseFilterRequest {
             if (keyword != null && !keyword.isBlank()) {
                 String like = "%" + keyword.trim().toLowerCase() + "%";
                 predicates.add(cb.or(
-                        cb.like(cb.lower(root.get("username")), like),
-                        cb.like(cb.lower(root.get("email")), like)));
+                        cb.like(root.get("username"), like),
+                        cb.like(root.get("email"), like)));
             }
             if (role != null) {
                 predicates.add(cb.equal(root.get("role"), role));
             }
             if (userStatusCd != null && !userStatusCd.isBlank()) {
-                predicates.add(cb.equal(cb.lower(root.get("userStatusCd")), userStatusCd.trim().toLowerCase()));
+                String uppercaseField = userStatusCd.trim().toUpperCase(Locale.ROOT);
+                predicates.add(cb.equal(root.get("userStatusCd"), uppercaseField));
             }
-            if (deleted != null) {
-                predicates.add(cb.equal(root.get("deleteFlg"), deleted));
-            } else {
-                predicates.add(cb.equal(root.get("deleteFlg"), false));
-            }
+					predicates.add(cb.equal(root.get("deleteFlg"), Objects.requireNonNullElse(deleted, false)));
             return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
         };
     }
