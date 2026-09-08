@@ -27,14 +27,14 @@ databaseChangeLog:
                   constraints:
                     nullable: false
               - column:
-                  name: year
+                  name: book_year
                   type: INT
                   remarks: Năm của sổ văn bản
                   constraints:
                     nullable: false
               - column:
                   name: book_level
-                  type: SMALLINT
+                  type: INT
                   remarks: 1 - Cấp Đơn vị/Trường, 2 - Cấp Phòng/Ban
                   constraints:
                     nullable: false
@@ -121,7 +121,7 @@ databaseChangeLog:
             tableName: document_books
             columns:
               - column:
-                  name: year
+                  name: book_year
               - column:
                   name: org_node_id
               - column:
