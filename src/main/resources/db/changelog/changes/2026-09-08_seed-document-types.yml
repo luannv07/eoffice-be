@@ -1,0 +1,54 @@
+databaseChangeLog:
+  - changeSet:
+      id: f2b3c4d5-e6a7-4b8c-9d0e-1f2a3b4c5d61
+      author: luannv
+      changes:
+        - sql:
+            sql: |-
+              INSERT INTO dictionary_items (id, group_cd, item_cd, name_vn, name_en, display_order, active_flg, delete_flg) VALUES
+              (3001, 'DOCUMENT_TYPE', 'QD', 'Quyết định',  'Decision',        0, true, false),
+              (3002, 'DOCUMENT_TYPE', 'NQ', 'Nghị quyết',  'Resolution',      1, true, false),
+              (3003, 'DOCUMENT_TYPE', 'TB', 'Thông báo',   'Notice',          2, true, false),
+              (3004, 'DOCUMENT_TYPE', 'CT', 'Chỉ thị',     'Directive',       3, true, false),
+              (3005, 'DOCUMENT_TYPE', 'CV', 'Công văn',    'Official Letter', 4, true, false)
+      rollback:
+        - sql:
+            sql: DELETE FROM dictionary_items WHERE group_cd = 'DOCUMENT_TYPE'
+
+  - changeSet:
+      id: f2b3c4d5-e6a7-4b8c-9d0e-1f2a3b4c5d62
+      author: luannv
+      changes:
+        - sql:
+            sql: |-
+              INSERT INTO dictionary_items (id, group_cd, item_cd, name_vn, name_en, display_order, active_flg, delete_flg) VALUES
+              (2106, 'PERMISSION_CD', 'DOCUMENT_BOOK_MANAGE', 'Quản lý sổ văn bản', 'Manage document books', 5, true, false)
+      rollback:
+        - sql:
+            sql: DELETE FROM dictionary_items WHERE group_cd = 'PERMISSION_CD' AND item_cd = 'DOCUMENT_BOOK_MANAGE'
+
+  - changeSet:
+      id: f2b3c4d5-e6a7-4b8c-9d0e-1f2a3b4c5d63
+      author: luannv
+      changes:
+        - sql:
+            sql: |-
+              INSERT INTO role_permissions (id, role, permission_cd, delete_flg) VALUES
+              (7, 'SYSTEM_ADMIN', 'DOCUMENT_BOOK_MANAGE', false),
+              (8, 'ADMIN',        'DOCUMENT_BOOK_MANAGE', false)
+      rollback:
+        - sql:
+            sql: DELETE FROM role_permissions WHERE id IN (7, 8)
+
+  - changeSet:
+      id: f2b3c4d5-e6a7-4b8c-9d0e-1f2a3b4c5d64
+      author: luannv
+      changes:
+        - sql:
+            sql: |-
+              INSERT INTO position_permissions (id, position_cd, permission_cd, inherit_to_children, delete_flg) VALUES
+              (16, 'BT',  'DOCUMENT_BOOK_MANAGE', false, false),
+              (17, 'PBT', 'DOCUMENT_BOOK_MANAGE', false, false)
+      rollback:
+        - sql:
+            sql: DELETE FROM position_permissions WHERE id IN (16, 17)

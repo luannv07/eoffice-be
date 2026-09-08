@@ -1,0 +1,140 @@
+databaseChangeLog:
+  - changeSet:
+      id: f1a2b3c4-d5e6-4a7b-8c9d-0e1f2a3b4c50
+      author: luannv
+      changes:
+        - createTable:
+            tableName: document_books
+            remarks: Sổ văn bản 2 cấp (Cấp 1 Đơn vị/Trường, Cấp 2 Phòng/Ban)
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  defaultValueComputed: nextval('hibernate_sequence')
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: book_code
+                  type: VARCHAR(50)
+                  remarks: Mã sổ văn bản (duy nhất)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: book_name
+                  type: VARCHAR(255)
+                  remarks: Tên sổ văn bản
+                  constraints:
+                    nullable: false
+              - column:
+                  name: year
+                  type: INT
+                  remarks: Năm của sổ văn bản
+                  constraints:
+                    nullable: false
+              - column:
+                  name: book_level
+                  type: SMALLINT
+                  remarks: 1 - Cấp Đơn vị/Trường, 2 - Cấp Phòng/Ban
+                  constraints:
+                    nullable: false
+              - column:
+                  name: document_type_id
+                  type: BIGINT
+                  remarks: FK tới dictionary_items (loại văn bản)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: org_node_id
+                  type: BIGINT
+                  remarks: FK tới org_nodes (đơn vị/phòng ban sở hữu sổ)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: current_number
+                  type: INT
+                  defaultValueNumeric: 0
+                  remarks: Số văn bản hiện tại đã cấp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: number_pattern
+                  type: VARCHAR(100)
+                  remarks: Mẫu sinh số văn bản ví dụ {NUM}/QD-DHEPU
+                  constraints:
+                    nullable: false
+              - column:
+                  name: is_closed
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  remarks: Cờ đóng sổ cuối năm
+                  constraints:
+                    nullable: false
+              - column:
+                  name: delete_flg
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  remarks: Cờ xóa mềm
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+                  remarks: Người tạo (audit)
+              - column:
+                  name: created_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  remarks: Thời điểm tạo (audit)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+                  remarks: Người cập nhật (audit)
+              - column:
+                  name: updated_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  remarks: Thời điểm cập nhật (audit)
+
+        - addUniqueConstraint:
+            constraintName: uq_document_books_code
+            tableName: document_books
+            columnNames: book_code
+
+        - addForeignKeyConstraint:
+            baseTableName: document_books
+            baseColumnNames: document_type_id
+            constraintName: fk_document_books_doc_type
+            referencedTableName: dictionary_items
+            referencedColumnNames: id
+
+        - addForeignKeyConstraint:
+            baseTableName: document_books
+            baseColumnNames: org_node_id
+            constraintName: fk_document_books_org_node
+            referencedTableName: org_nodes
+            referencedColumnNames: id
+
+        - createIndex:
+            indexName: idx_document_books_lookup
+            tableName: document_books
+            columns:
+              - column:
+                  name: year
+              - column:
+                  name: org_node_id
+              - column:
+                  name: document_type_id
+
+        - createIndex:
+            indexName: idx_document_books_active
+            tableName: document_books
+            columns:
+              - column:
+                  name: is_closed
+              - column:
+                  name: delete_flg
+      rollback:
+        - dropTable:
+            tableName: document_books

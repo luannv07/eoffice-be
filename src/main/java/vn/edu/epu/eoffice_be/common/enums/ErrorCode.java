@@ -33,7 +33,12 @@ public enum ErrorCode {
 	ORG_NODE_HAS_CHILDREN("ORG_NODE_HAS_CHILDREN", "Đơn vị còn đơn vị con, không thể xóa", HttpStatus.BAD_REQUEST),
 	ORG_NODE_CYCLE("ORG_NODE_CYCLE", "Không thể chuyển đơn vị vào chính nó hoặc đơn vị con", HttpStatus.BAD_REQUEST),
 	ORG_NODE_TYPE_INVALID("ORG_NODE_TYPE_INVALID", "Loại đơn vị không hợp lệ", HttpStatus.BAD_REQUEST),
-	DICTIONARY_ITEM_ALREADY_EXISTS("DICTIONARY_ITEM_ALREADY_EXISTS", "Mục từ điển đã tồn tại trong nhóm", HttpStatus.CONFLICT);
+	DICTIONARY_ITEM_ALREADY_EXISTS("DICTIONARY_ITEM_ALREADY_EXISTS", "Mục từ điển đã tồn tại trong nhóm", HttpStatus.CONFLICT),
+	DOCUMENT_BOOK_NOT_FOUND("DOCUMENT_BOOK_NOT_FOUND", "Sổ văn bản không tồn tại", HttpStatus.NOT_FOUND),
+	DOCUMENT_BOOK_CODE_EXISTS("DOCUMENT_BOOK_CODE_EXISTS", "Mã sổ văn bản đã tồn tại", HttpStatus.CONFLICT),
+	DOCUMENT_BOOK_CLOSED("DOCUMENT_BOOK_CLOSED", "Sổ văn bản đã đóng, không thể cấp số", HttpStatus.BAD_REQUEST),
+	DOCUMENT_BOOK_DUPLICATE("DOCUMENT_BOOK_DUPLICATE", "Đã tồn tại sổ văn bản cho năm, đơn vị và loại văn bản này", HttpStatus.CONFLICT),
+	INVALID_NUMBER_PATTERN("INVALID_NUMBER_PATTERN", "Định dạng mẫu số văn bản không hợp lệ", HttpStatus.BAD_REQUEST);
 
 	private final String code;
 	private final String message;
