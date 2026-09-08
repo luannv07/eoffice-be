@@ -127,8 +127,8 @@ class UserManagementServiceTest {
         req.setEmail("bob@epu.edu.vn");
         req.setPassword("MatKhau@2026");
         req.setRole(Role.USER);
-        when(userLoginRepository.existsByUsernameAndDeleteFlgFalse("bob")).thenReturn(false);
-        when(userLoginRepository.existsByEmailAndDeleteFlgFalse("bob@epu.edu.vn")).thenReturn(false);
+        when(userLoginRepository.findByUsernameAndDeleteFlgFalse("bob")).thenReturn(Optional.empty());
+        when(userLoginRepository.findByEmailAndDeleteFlgFalse("bob@epu.edu.vn")).thenReturn(Optional.empty());
         when(passwordEncoder.encode("MatKhau@2026")).thenReturn("encoded");
         when(userLoginRepository.save(any(UserLogin.class))).thenAnswer(i -> i.getArgument(0));
         UserDetailResponse result = service.create(req);
