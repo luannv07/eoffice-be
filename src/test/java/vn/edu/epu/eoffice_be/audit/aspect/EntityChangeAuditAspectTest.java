@@ -3,8 +3,6 @@ package vn.edu.epu.eoffice_be.audit.aspect;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -13,6 +11,7 @@ import vn.edu.epu.eoffice_be.audit.entity.ChangeHistoryLog;
 import vn.edu.epu.eoffice_be.audit.repository.ChangeHistoryLogRepository;
 import vn.edu.epu.eoffice_be.common.annotation.TrackChange;
 import vn.edu.epu.eoffice_be.common.annotation.TrackField;
+import vn.edu.epu.eoffice_be.entity.UserInfo;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentCaptor.forClass;
@@ -99,7 +98,7 @@ class EntityChangeAuditAspectTest {
 		entity.id = 1L;
 		entity.name = "alice";
 		entity.secret = "topsecret";
-		entity.related = new RelatedEntity();
+		entity.related = UserInfo.builder().id(99L).build();
 		entity.count = 3;
 
 		when(putil.getIdentifier(entity)).thenReturn(null, 1L);
@@ -147,16 +146,7 @@ class EntityChangeAuditAspectTest {
 		@TrackField(ignore = true)
 		public String secret;
 		@TrackField(label = "Liên kết")
-		public RelatedEntity related;
+		public UserInfo related;
 		public int count;
-	}
-
-	@Setter
-	@Getter
-	@Entity
-	static class RelatedEntity {
-		@Id
-		private Long id;
-
 	}
 }
