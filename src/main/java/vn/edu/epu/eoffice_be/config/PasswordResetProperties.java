@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class PasswordResetProperties {
 
-    int tokenTtlMinutes = 15;
+	int tokenTtlMinutes = 15;
 
-    String resetPasswordUrl = "http://localhost:5173/reset-password";
+	String resetPasswordUrl = "http://localhost:5173/reset-password";
 }

@@ -29,89 +29,89 @@ import java.util.concurrent.atomic.AtomicInteger;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    RateLimitProperties properties;
-    ObjectMapper objectMapper;
-    Cache<String, Bucket> buckets;
+	RateLimitProperties properties;
+	ObjectMapper objectMapper;
+	Cache<String, Bucket> buckets;
 
-    public RateLimitFilter(RateLimitProperties properties,
-                           ObjectMapper objectMapper,
-                           @Qualifier("rateLimitCacheBuilder") Caffeine<Object, Object> cacheBuilder) {
-        this.properties = properties;
-        this.objectMapper = objectMapper;
-        this.buckets = cacheBuilder.build();
-    }
+	public RateLimitFilter(RateLimitProperties properties,
+	                       ObjectMapper objectMapper,
+	                       @Qualifier("rateLimitCacheBuilder") Caffeine<Object, Object> cacheBuilder) {
+		this.properties = properties;
+		this.objectMapper = objectMapper;
+		this.buckets = cacheBuilder.build();
+	}
 
-    private static final class Bucket {
-        final Duration window;
-        final int limit;
-        Instant windowStart;
-        AtomicInteger count;
+	@Override
+	protected boolean shouldNotFilter(HttpServletRequest request) {
+		return !SecurityWhitelist.isRateLimited(requestPath(request));
+	}
 
-        Bucket(Duration window, int limit) {
-            this.window = window;
-            this.limit = limit;
-            this.windowStart = Instant.now();
-            this.count = new AtomicInteger(0);
-        }
+	@Override
+	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+					throws ServletException, IOException {
+		String clientKey = AuthHttpUtils.clientIp(request) + ":" + request.getMethod() + ":" + requestPath(request);
+		if (!tryAcquire(clientKey)) {
+			writeRateLimitedResponse(response);
+			return;
+		}
+		filterChain.doFilter(request, response);
+	}
 
-        synchronized boolean allow() {
-            Instant now = Instant.now();
-            if (now.isBefore(windowStart.plus(window))) {
-                return count.incrementAndGet() <= limit;
-            }
-            windowStart = now;
-            count.set(1);
-            return true;
-        }
-    }
+	private boolean tryAcquire(String clientKey) {
+		return buckets.get(clientKey,
+										key -> new Bucket(getWindow(), getLimit()))
+						.allow();
+	}
 
-    @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !SecurityWhitelist.isRateLimited(requestPath(request));
-    }
+	private Duration getWindow() {
+		return Duration.ofSeconds(properties.getEndpointWindowSeconds());
+	}
 
-    @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
-        String clientKey = AuthHttpUtils.clientIp(request) + ":" + request.getMethod() + ":" + requestPath(request);
-        if (!tryAcquire(clientKey)) {
-            writeRateLimitedResponse(response);
-            return;
-        }
-        filterChain.doFilter(request, response);
-    }
+	private int getLimit() {
+		return properties.getEndpointLimit();
+	}
 
-    private boolean tryAcquire(String clientKey) {
-        return buckets.get(clientKey,
-                key -> new Bucket(getWindow(), getLimit()))
-                .allow();
-    }
+	private String requestPath(HttpServletRequest request) {
+		String path = request.getServletPath();
+		if (path == null || path.isBlank()) {
+			path = request.getRequestURI();
+			String contextPath = request.getContextPath();
+			if (contextPath != null && !contextPath.isBlank() && path.startsWith(contextPath)) {
+				path = path.substring(contextPath.length());
+			}
+		}
+		return path;
+	}
 
-    private Duration getWindow() {
-        return Duration.ofSeconds(properties.getEndpointWindowSeconds());
-    }
+	private void writeRateLimitedResponse(HttpServletResponse response) throws IOException {
+		ErrorCode errorCode = ErrorCode.RATE_LIMITED;
+		response.setStatus(errorCode.getStatus().value());
+		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+		response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+		objectMapper.writeValue(response.getWriter(), BaseResponse.error(errorCode.getMessage(), errorCode.getCode()));
+	}
 
-    private int getLimit() {
-        return properties.getEndpointLimit();
-    }
+	private static final class Bucket {
+		final Duration window;
+		final int limit;
+		Instant windowStart;
+		AtomicInteger count;
 
-    private String requestPath(HttpServletRequest request) {
-        String path = request.getServletPath();
-        if (path == null || path.isBlank()) {
-            path = request.getRequestURI();
-            String contextPath = request.getContextPath();
-            if (contextPath != null && !contextPath.isBlank() && path.startsWith(contextPath)) {
-                path = path.substring(contextPath.length());
-            }
-        }
-        return path;
-    }
+		Bucket(Duration window, int limit) {
+			this.window = window;
+			this.limit = limit;
+			this.windowStart = Instant.now();
+			this.count = new AtomicInteger(0);
+		}
 
-    private void writeRateLimitedResponse(HttpServletResponse response) throws IOException {
-        ErrorCode errorCode = ErrorCode.RATE_LIMITED;
-        response.setStatus(errorCode.getStatus().value());
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        objectMapper.writeValue(response.getWriter(), BaseResponse.error(errorCode.getMessage(), errorCode.getCode()));
-    }
+		synchronized boolean allow() {
+			Instant now = Instant.now();
+			if (now.isBefore(windowStart.plus(window))) {
+				return count.incrementAndGet() <= limit;
+			}
+			windowStart = now;
+			count.set(1);
+			return true;
+		}
+	}
 }

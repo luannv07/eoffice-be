@@ -14,49 +14,47 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
 class ProfileCompletedFilterTest {
 
-    final ProfileCompletedFilter filter = new ProfileCompletedFilter(new ObjectMapper().findAndRegisterModules());
+	final ProfileCompletedFilter filter = new ProfileCompletedFilter(new ObjectMapper().findAndRegisterModules());
 
-    @AfterEach
-    void tearDown() {
-        SecurityContextHolder.clearContext();
-    }
+	@AfterEach
+	void tearDown() {
+		SecurityContextHolder.clearContext();
+	}
 
-    @Test
-    void shouldReturnForbiddenWhenProfileIsIncompleteForProtectedEndpoint() throws Exception {
-        JwtUserPrincipal principal = new JwtUserPrincipal(10L, "alice", "USER", false, List.of());
-        SecurityContextHolder.getContext().setAuthentication(
-                UsernamePasswordAuthenticationToken.authenticated(principal, null, List.of())
-        );
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/org-nodes");
-        MockHttpServletResponse response = new MockHttpServletResponse();
-        FilterChain chain = mock(FilterChain.class);
+	@Test
+	void shouldReturnForbiddenWhenProfileIsIncompleteForProtectedEndpoint() throws Exception {
+		JwtUserPrincipal principal = new JwtUserPrincipal(10L, "alice", "USER", false, List.of());
+		SecurityContextHolder.getContext().setAuthentication(
+						UsernamePasswordAuthenticationToken.authenticated(principal, null, List.of())
+		);
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/org-nodes");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain chain = mock(FilterChain.class);
 
-        filter.doFilter(request, response, chain);
+		filter.doFilter(request, response, chain);
 
-        assertEquals(403, response.getStatus());
-        assertTrue(response.getContentAsString().contains(ErrorCode.PROFILE_INCOMPLETE.getCode()));
-        assertTrue(response.getContentAsString().contains(ErrorCode.PROFILE_INCOMPLETE.getMessage()));
-        verify(chain, never()).doFilter(request, response);
-    }
+		assertEquals(403, response.getStatus());
+		assertTrue(response.getContentAsString().contains(ErrorCode.PROFILE_INCOMPLETE.getCode()));
+		assertTrue(response.getContentAsString().contains(ErrorCode.PROFILE_INCOMPLETE.getMessage()));
+		verify(chain, never()).doFilter(request, response);
+	}
 
-    @Test
-    void shouldAllowAuthMeWhenProfileIsIncomplete() throws Exception {
-        JwtUserPrincipal principal = new JwtUserPrincipal(10L, "alice", "USER", false, List.of());
-        SecurityContextHolder.getContext().setAuthentication(
-                UsernamePasswordAuthenticationToken.authenticated(principal, null, List.of())
-        );
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/auth/me");
-        MockHttpServletResponse response = new MockHttpServletResponse();
-        FilterChain chain = mock(FilterChain.class);
+	@Test
+	void shouldAllowAuthMeWhenProfileIsIncomplete() throws Exception {
+		JwtUserPrincipal principal = new JwtUserPrincipal(10L, "alice", "USER", false, List.of());
+		SecurityContextHolder.getContext().setAuthentication(
+						UsernamePasswordAuthenticationToken.authenticated(principal, null, List.of())
+		);
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/auth/me");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		FilterChain chain = mock(FilterChain.class);
 
-        filter.doFilter(request, response, chain);
+		filter.doFilter(request, response, chain);
 
-        verify(chain).doFilter(request, response);
-    }
+		verify(chain).doFilter(request, response);
+	}
 }

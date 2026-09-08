@@ -1,15 +1,18 @@
 # eoffice-be
 
-Backend Spring Boot cho hệ thống Văn phòng điện tử (e-Office) - Trường Đại học Điện Lực (Java 21 / Spring Boot 4 / PostgreSQL / JWT / RBAC).
+Backend Spring Boot cho hệ thống Văn phòng điện tử (e-Office) - Trường Đại học Điện Lực (Java 21 / Spring Boot 4 /
+PostgreSQL / JWT / RBAC).
 
 ---
 
 ## 🚀 Bắt Đầu Nhanh (Dành cho người mới)
 
-Tất cả hướng dẫn cài đặt môi trường, cấu hình và chạy dự án từ A-Z được đặt trong thư mục **[`starter/`](./starter/README.md)**:
+Tất cả hướng dẫn cài đặt môi trường, cấu hình và chạy dự án từ A-Z được đặt trong thư mục *
+*[`starter/`](./starter/README.md)**:
 
 - 🛠️ [**01. Cài Đặt Môi Trường**](./starter/01_cai-dat-moi-truong.md): Java 21, PostgreSQL, Docker, IDE.
-- ⚙️ [**02. Cấu Hình & Khởi Chạy**](./starter/02_cau-hinh-va-khoi-chay.md): Thiết lập `.env.staging`, chạy Maven Wrapper và Swagger UI.
+- ⚙️ [**02. Cấu Hình & Khởi Chạy**](./starter/02_cau-hinh-va-khoi-chay.md): Thiết lập `.env.staging`, chạy Maven Wrapper
+  và Swagger UI.
 - 🗄️ [**03. Cơ Sở Dữ Liệu & Liquibase**](./starter/03_quan-ly-database-liquibase.md): Cơ chế migration tự động.
 - ❓ [**04. Khắc Phục Sự Cố (FAQ)**](./starter/04_khac-phuc-su-co-faq.md): Sửa các lỗi thường gặp khi chạy lần đầu.
 

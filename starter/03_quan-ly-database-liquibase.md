@@ -1,15 +1,21 @@
 # 🗄️ 03. Cơ Sở Dữ Liệu & Liquibase Migration
 
-Tài liệu này giải thích cách quản lý cấu trúc bảng (schema) và dữ liệu khởi tạo (seed data) trong dự án **eoffice-be** thông qua công cụ **Liquibase**.
+Tài liệu này giải thích cách quản lý cấu trúc bảng (schema) và dữ liệu khởi tạo (seed data) trong dự án **eoffice-be**
+thông qua công cụ **Liquibase**.
 
 ---
 
 ## 1. Tại Sao Sử Dụng Liquibase?
 
 Trong dự án `eoffice-be`:
-- `spring.jpa.hibernate.ddl-auto` luôn được đặt là **`none`** (không để Hibernate tự động sinh hoặc sửa bảng để tránh mất mát dữ liệu sản xuất).
-- Mọi thay đổi về bảng, cột, index, sequence, dữ liệu mẫu đều được định nghĩa bằng file YAML và kiểm soát phiên bản qua Git với **Liquibase**.
-- **Tự động 100% khi khởi động:** Khi ứng dụng chạy, Liquibase tự động kết nối tới Database (dù là **AWS RDS Cloud** hay **Local PostgreSQL** được cấu hình trong `.env.staging`), so sánh trạng thái và tự động thực thi các thay đổi chưa chạy.
+
+- `spring.jpa.hibernate.ddl-auto` luôn được đặt là **`none`** (không để Hibernate tự động sinh hoặc sửa bảng để tránh
+  mất mát dữ liệu sản xuất).
+- Mọi thay đổi về bảng, cột, index, sequence, dữ liệu mẫu đều được định nghĩa bằng file YAML và kiểm soát phiên bản qua
+  Git với **Liquibase**.
+- **Tự động 100% khi khởi động:** Khi ứng dụng chạy, Liquibase tự động kết nối tới Database (dù là **AWS RDS Cloud** hay
+  **Local PostgreSQL** được cấu hình trong `.env.staging`), so sánh trạng thái và tự động thực thi các thay đổi chưa
+  chạy.
 - **Lập trình viên không cần:** Mở tool pgAdmin/DBeaver để chạy script `.sql` thủ công khi cài đặt ban đầu.
 
 ---
@@ -37,8 +43,10 @@ src/main/resources/db/changelog/
 ## 3. Các Bảng Đặc Biệt Của Liquibase
 
 Khi chạy lần đầu, Liquibase sẽ tự động tạo 2 bảng nội bộ trong PostgreSQL:
+
 - **`databasechangelog`**: Ghi lại lịch sử từng changeset đã chạy thành công (kèm checksum, thời gian thực thi).
-- **`databasechangeloglock`**: Cơ chế khóa phân tán, đảm bảo khi có nhiều server chạy đồng thời thì chỉ có 1 instance thực hiện migrate DB.
+- **`databasechangeloglock`**: Cơ chế khóa phân tán, đảm bảo khi có nhiều server chạy đồng thời thì chỉ có 1 instance
+  thực hiện migrate DB.
 
 ---
 
@@ -47,9 +55,11 @@ Khi chạy lần đầu, Liquibase sẽ tự động tạo 2 bảng nội bộ t
 Giả sử bạn cần tạo thêm bảng mới `documents` (Quản lý văn bản):
 
 ### Bước 1: Tạo file changelog mới trong `src/main/resources/db/changelog/changes/`
+
 Đặt tên file theo định dạng: `YYYY-MM-DD_mo-ta-ngan.yml` (ví dụ: `2026-08-24_create-documents-table.yml`).
 
 Nội dung mẫu:
+
 ```yaml
 databaseChangeLog:
   - changeSet:
@@ -91,6 +101,7 @@ databaseChangeLog:
 ```
 
 ### Bước 2: Khai báo file mới vào `master.yml`
+
 Mở file `src/main/resources/db/changelog/master.yml` và thêm dòng mới vào cuối danh sách:
 
 ```yaml
@@ -103,6 +114,7 @@ databaseChangeLog:
 ```
 
 ### Bước 3: Khởi động lại ứng dụng
+
 Chạy `.\mvnw.cmd spring-boot:run`. Liquibase sẽ đọc file mới và áp dụng vào cơ sở dữ liệu.
 
 ---
@@ -110,9 +122,12 @@ Chạy `.\mvnw.cmd spring-boot:run`. Liquibase sẽ đọc file mới và áp d�
 ## 5. Nguyên Tắc Vàng Khi Làm Việc Với Liquibase
 
 > [!CAUTION]
-> 1. **KHÔNG BAO GIỜ sửa trực tiếp nội dung của một changeset đã được commit lên Git hoặc đã chạy trên máy của người khác.** (Nếu sửa, Liquibase sẽ báo lỗi sai `Checksum Validation Failed`).
-> 2. Nếu cần sửa cấu trúc bảng đã tạo trước đó, hãy **tạo một file changeset mới** để sửa cột/thêm cột (ví dụ: `addColumn`, `modifyDataType`, `dropColumn`).
-> 3. Luôn chỉ định kiểu dữ liệu tương thích với PostgreSQL (ví dụ: `TIMESTAMP WITH TIME ZONE`, `BIGINT`, `BOOLEAN`, `JSONB`).
+> 1. **KHÔNG BAO GIỜ sửa trực tiếp nội dung của một changeset đã được commit lên Git hoặc đã chạy trên máy của người
+     khác.** (Nếu sửa, Liquibase sẽ báo lỗi sai `Checksum Validation Failed`).
+> 2. Nếu cần sửa cấu trúc bảng đã tạo trước đó, hãy **tạo một file changeset mới** để sửa cột/thêm cột (ví dụ:
+     `addColumn`, `modifyDataType`, `dropColumn`).
+> 3. Luôn chỉ định kiểu dữ liệu tương thích với PostgreSQL (ví dụ: `TIMESTAMP WITH TIME ZONE`, `BIGINT`, `BOOLEAN`,
+     `JSONB`).
 > 4. Tất cả các bảng nghiệp vụ chính cần có sequence ID chung `hibernate_sequence` và cờ xóa mềm `delete_flg`.
 
 ---

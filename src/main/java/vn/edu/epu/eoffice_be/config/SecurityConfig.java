@@ -23,7 +23,6 @@ import vn.edu.epu.eoffice_be.security.JwtAuthenticationFilter;
 import vn.edu.epu.eoffice_be.security.ProfileCompletedFilter;
 import vn.edu.epu.eoffice_be.security.RateLimitFilter;
 import vn.edu.epu.eoffice_be.security.RbacPermissionEvaluator;
-import vn.edu.epu.eoffice_be.config.SecurityWhitelist;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -32,74 +31,74 @@ import java.nio.charset.StandardCharsets;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    // Whitelists centralized in SecurityWhitelist
+	// Whitelists centralized in SecurityWhitelist
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final RateLimitFilter rateLimitFilter;
-    private final ProfileCompletedFilter profileCompletedFilter;
-    private final ObjectMapper objectMapper;
+	private final JwtAuthenticationFilter jwtAuthenticationFilter;
+	private final RateLimitFilter rateLimitFilter;
+	private final ProfileCompletedFilter profileCompletedFilter;
+	private final ObjectMapper objectMapper;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
-                          RateLimitFilter rateLimitFilter,
-                          ProfileCompletedFilter profileCompletedFilter,
-                          ObjectMapper objectMapper) {
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
-        this.rateLimitFilter = rateLimitFilter;
-        this.profileCompletedFilter = profileCompletedFilter;
-        this.objectMapper = objectMapper;
-    }
+	public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+	                      RateLimitFilter rateLimitFilter,
+	                      ProfileCompletedFilter profileCompletedFilter,
+	                      ObjectMapper objectMapper) {
+		this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+		this.rateLimitFilter = rateLimitFilter;
+		this.profileCompletedFilter = profileCompletedFilter;
+		this.objectMapper = objectMapper;
+	}
 
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+	@Bean
+	public PasswordEncoder passwordEncoder() {
+		return new BCryptPasswordEncoder();
+	}
 
-    @Bean
-    public MethodSecurityExpressionHandler methodSecurityExpressionHandler(
-            RbacPermissionEvaluator permissionEvaluator) {
-        DefaultMethodSecurityExpressionHandler handler = new DefaultMethodSecurityExpressionHandler();
-        handler.setPermissionEvaluator(permissionEvaluator);
-        return handler;
-    }
+	@Bean
+	public MethodSecurityExpressionHandler methodSecurityExpressionHandler(
+					RbacPermissionEvaluator permissionEvaluator) {
+		DefaultMethodSecurityExpressionHandler handler = new DefaultMethodSecurityExpressionHandler();
+		handler.setPermissionEvaluator(permissionEvaluator);
+		return handler;
+	}
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) {
-        try {
-            http
-                    // JWT stateless APIs do not rely on cookie-based authentication.
-                    .csrf(AbstractHttpConfigurer::disable)
-                    .cors(Customizer.withDefaults())
-                    .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                    .authorizeHttpRequests(auth -> auth
-                            .requestMatchers(SecurityWhitelist.HEALTH_WHITELIST).permitAll()
-                            .requestMatchers(SecurityWhitelist.SWAGGER_WHITELIST).permitAll()
-                            .requestMatchers(SecurityWhitelist.PUBLIC_ENDPOINTS).permitAll()
-                            .requestMatchers(SecurityWhitelist.REFRESH_TOKEN_ONLY_ENDPOINTS).permitAll()
-                            .anyRequest().authenticated()
-                    )
-                    .exceptionHandling(exception -> exception
-                            .authenticationEntryPoint((request, response, authException) ->
-                                    writeErrorResponse(response, HttpStatus.UNAUTHORIZED, ErrorCode.UNAUTHORIZED))
-                            .accessDeniedHandler((request, response, accessDeniedException) ->
-                                    writeErrorResponse(response, HttpStatus.FORBIDDEN, ErrorCode.FORBIDDEN))
-                    )
-                    .httpBasic(AbstractHttpConfigurer::disable)
-                    .formLogin(AbstractHttpConfigurer::disable)
-                    .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
-                    .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                    .addFilterBefore(profileCompletedFilter, UsernamePasswordAuthenticationFilter.class);
+	@Bean
+	public SecurityFilterChain securityFilterChain(HttpSecurity http) {
+		try {
+			http
+							// JWT stateless APIs do not rely on cookie-based authentication.
+							.csrf(AbstractHttpConfigurer::disable)
+							.cors(Customizer.withDefaults())
+							.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+							.authorizeHttpRequests(auth -> auth
+											.requestMatchers(SecurityWhitelist.HEALTH_WHITELIST).permitAll()
+											.requestMatchers(SecurityWhitelist.SWAGGER_WHITELIST).permitAll()
+											.requestMatchers(SecurityWhitelist.PUBLIC_ENDPOINTS).permitAll()
+											.requestMatchers(SecurityWhitelist.REFRESH_TOKEN_ONLY_ENDPOINTS).permitAll()
+											.anyRequest().authenticated()
+							)
+							.exceptionHandling(exception -> exception
+											.authenticationEntryPoint((request, response, authException) ->
+															writeErrorResponse(response, HttpStatus.UNAUTHORIZED, ErrorCode.UNAUTHORIZED))
+											.accessDeniedHandler((request, response, accessDeniedException) ->
+															writeErrorResponse(response, HttpStatus.FORBIDDEN, ErrorCode.FORBIDDEN))
+							)
+							.httpBasic(AbstractHttpConfigurer::disable)
+							.formLogin(AbstractHttpConfigurer::disable)
+							.addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
+							.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+							.addFilterBefore(profileCompletedFilter, UsernamePasswordAuthenticationFilter.class);
 
-            return http.build();
-        } catch (Exception ex) {
-            throw new IllegalStateException("Failed to initialize Spring Security filter chain", ex);
-        }
-    }
+			return http.build();
+		} catch (Exception ex) {
+			throw new IllegalStateException("Failed to initialize Spring Security filter chain", ex);
+		}
+	}
 
-    private void writeErrorResponse(HttpServletResponse response, HttpStatus status, ErrorCode errorCode) throws IOException {
-        response.setStatus(status.value());
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        objectMapper.writeValue(response.getWriter(),
-                BaseResponse.error(errorCode.getMessage(), errorCode.getCode()));
-    }
+	private void writeErrorResponse(HttpServletResponse response, HttpStatus status, ErrorCode errorCode) throws IOException {
+		response.setStatus(status.value());
+		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+		response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+		objectMapper.writeValue(response.getWriter(),
+						BaseResponse.error(errorCode.getMessage(), errorCode.getCode()));
+	}
 }

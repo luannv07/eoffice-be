@@ -13,47 +13,47 @@ import java.util.TimeZone;
 @SpringBootApplication
 public class EofficeBeApplication {
 
-    private static final Logger log = LoggerFactory.getLogger(EofficeBeApplication.class);
+	private static final Logger log = LoggerFactory.getLogger(EofficeBeApplication.class);
 
-    public static void main(String[] args) {
-        TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
-        SpringApplication app = new SpringApplication(EofficeBeApplication.class);
-        Environment env = app.run(args).getEnvironment();
-        logApplicationStartup(env);
-    }
+	public static void main(String[] args) {
+		TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+		SpringApplication app = new SpringApplication(EofficeBeApplication.class);
+		Environment env = app.run(args).getEnvironment();
+		logApplicationStartup(env);
+	}
 
-    private static void logApplicationStartup(Environment env) {
-        String protocol = env.getProperty("server.ssl.key-store") != null ? "https" : "http";
-        String serverPort = env.getProperty("server.port");
-        String contextPath = env.getProperty("server.servlet.context-path");
-        if (contextPath == null || contextPath.isEmpty()) {
-            contextPath = "/";
-        }
-        String hostAddress = "localhost";
-        try {
-            hostAddress = InetAddress.getLocalHost().getHostAddress();
-        } catch (UnknownHostException e) {
-            log.warn("The host name could not be determined, using `localhost` as fallback");
-        }
-        String version = env.getProperty("spring.application.version");
-        String swaggerPath = env.getProperty("springdoc.swagger-ui.path", "/swagger-ui.html");
-        String swaggerPrefix = "/".equals(contextPath) ? "" : contextPath;
-        log.info("""
-
-                ----------------------------------------------------------
-                \tApplication '{}' is running! Access URLs:
-                \tLocal: \t\t{}://localhost:{}{}
-                \tExternal: \t{}://{}:{}{}
-                \tSwagger: \t{}://localhost:{}{}{}
-                \tProfile(s): \t{}
-                \tVersion: \t{}
-                ----------------------------------------------------------
-                """,
-                env.getProperty("spring.application.name"),
-                protocol, serverPort, contextPath,
-                protocol, hostAddress, serverPort, contextPath,
-                protocol, serverPort, swaggerPrefix, swaggerPath,
-                env.getActiveProfiles(),
-                version != null ? version : "unknown");
-    }
+	private static void logApplicationStartup(Environment env) {
+		String protocol = env.getProperty("server.ssl.key-store") != null ? "https" : "http";
+		String serverPort = env.getProperty("server.port");
+		String contextPath = env.getProperty("server.servlet.context-path");
+		if (contextPath == null || contextPath.isEmpty()) {
+			contextPath = "/";
+		}
+		String hostAddress = "localhost";
+		try {
+			hostAddress = InetAddress.getLocalHost().getHostAddress();
+		} catch (UnknownHostException e) {
+			log.warn("The host name could not be determined, using `localhost` as fallback");
+		}
+		String version = env.getProperty("spring.application.version");
+		String swaggerPath = env.getProperty("springdoc.swagger-ui.path", "/swagger-ui.html");
+		String swaggerPrefix = "/".equals(contextPath) ? "" : contextPath;
+		log.info("""
+										
+										----------------------------------------------------------
+										\tApplication '{}' is running! Access URLs:
+										\tLocal: \t\t{}://localhost:{}{}
+										\tExternal: \t{}://{}:{}{}
+										\tSwagger: \t{}://localhost:{}{}{}
+										\tProfile(s): \t{}
+										\tVersion: \t{}
+										----------------------------------------------------------
+										""",
+						env.getProperty("spring.application.name"),
+						protocol, serverPort, contextPath,
+						protocol, hostAddress, serverPort, contextPath,
+						protocol, serverPort, swaggerPrefix, swaggerPath,
+						env.getActiveProfiles(),
+						version != null ? version : "unknown");
+	}
 }

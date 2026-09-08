@@ -15,9 +15,9 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class ForgotPasswordRequest {
 
-    @Schema(description = "Email đăng nhập đã đăng ký trong hệ thống", example = "nguyen.van.a@epu.edu.vn", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "email không được để trống")
-    @Email(message = "email không hợp lệ")
-    @Size(max = 255, message = "email tối đa 255 ký tự")
-    String email;
+	@Schema(description = "Email đăng nhập đã đăng ký trong hệ thống", example = "nguyen.van.a@epu.edu.vn", requiredMode = Schema.RequiredMode.REQUIRED)
+	@NotBlank(message = "email không được để trống")
+	@Email(message = "email không hợp lệ")
+	@Size(max = 255, message = "email tối đa 255 ký tự")
+	String email;
 }

@@ -17,20 +17,20 @@ import java.util.UUID;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class CorrelationIdFilter extends OncePerRequestFilter {
 
-    public static final String CORRELATION_ID = "correlationId";
-    private static final String HEADER_NAME = "X-Correlation-Id";
+	public static final String CORRELATION_ID = "correlationId";
+	private static final String HEADER_NAME = "X-Correlation-Id";
 
-    @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
-        try {
-            String incoming = request.getHeader(HEADER_NAME);
-            String correlationId = (incoming != null && !incoming.isBlank()) ? incoming : UUID.randomUUID().toString();
-            MDC.put(CORRELATION_ID, correlationId);
-            response.setHeader(HEADER_NAME, correlationId);
-            filterChain.doFilter(request, response);
-        } finally {
-            MDC.remove(CORRELATION_ID);
-        }
-    }
+	@Override
+	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+					throws ServletException, IOException {
+		try {
+			String incoming = request.getHeader(HEADER_NAME);
+			String correlationId = (incoming != null && !incoming.isBlank()) ? incoming : UUID.randomUUID().toString();
+			MDC.put(CORRELATION_ID, correlationId);
+			response.setHeader(HEADER_NAME, correlationId);
+			filterChain.doFilter(request, response);
+		} finally {
+			MDC.remove(CORRELATION_ID);
+		}
+	}
 }

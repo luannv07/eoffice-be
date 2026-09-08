@@ -1,15 +1,20 @@
 # 📋 05. Hệ Thống Audit & Nhật Ký Biến Động (Auditing & History Logs)
 
-Tài liệu này hướng dẫn cách sử dụng và cơ chế hoạt động của hệ thống ghi vết truy cập (User Access Audit) và lịch sử biến động dữ liệu (Entity Change History) trong **`eoffice-be`**.
+Tài liệu này hướng dẫn cách sử dụng và cơ chế hoạt động của hệ thống ghi vết truy cập (User Access Audit) và lịch sử
+biến động dữ liệu (Entity Change History) trong **`eoffice-be`**.
 
 ---
 
 ## 1. Mục Tiêu Của Hệ Thống Audit
 
 Trong các hệ thống hành chính công văn và hồ sơ số:
-1. **Tính bất biến & minh bạch:** Mọi thao tác xem, sửa, tạo, xóa tài liệu quan trọng đều phải được ghi lại vết truy vết rõ ràng.
-2. **Không làm chậm hệ thống:** Quá trình ghi log không được cản trở hoặc làm tăng thời gian phản hồi (latency) của API chính đối với người dùng cuối.
-3. **Lưu trữ dữ liệu dạng cấu trúc:** Sử dụng định dạng `JSONB` của PostgreSQL để lưu ảnh chụp dữ liệu (Before/After Data) phục vụ đối soát và khôi phục khi cần.
+
+1. **Tính bất biến & minh bạch:** Mọi thao tác xem, sửa, tạo, xóa tài liệu quan trọng đều phải được ghi lại vết truy vết
+   rõ ràng.
+2. **Không làm chậm hệ thống:** Quá trình ghi log không được cản trở hoặc làm tăng thời gian phản hồi (latency) của API
+   chính đối với người dùng cuối.
+3. **Lưu trữ dữ liệu dạng cấu trúc:** Sử dụng định dạng `JSONB` của PostgreSQL để lưu ảnh chụp dữ liệu (Before/After
+   Data) phục vụ đối soát và khôi phục khi cần.
 
 ---
 
@@ -44,6 +49,7 @@ graph TD
 ### 3.1 Nhật Ký Truy Cập Người Dùng (`@Auditable` + `UserAuditLog`)
 
 #### Cách sử dụng trong mã nguồn:
+
 Gắn annotation `@Auditable` lên đầu class Controller hoặc từng method cụ thể:
 
 ```java
@@ -56,6 +62,7 @@ public class DocumentController {
 ```
 
 #### Dữ liệu được ghi lại:
+
 - `username`: Tên người thực hiện (hoặc `anonymous` nếu chưa đăng nhập).
 - `client_ip`: IP của client (tự động nhận diện qua reverse proxy `X-Forwarded-For`).
 - `user_agent`: Thông tin trình duyệt/thiết bị của client.
@@ -69,6 +76,7 @@ public class DocumentController {
 ### 3.2 Lịch Sử Biến Động Dữ Liệu (`@TrackChange` + `ChangeHistoryLog`)
 
 #### Cách sử dụng trong mã nguồn:
+
 Gắn annotation `@TrackChange` lên method Service thực hiện thay đổi dữ liệu:
 
 ```java
@@ -84,6 +92,7 @@ public class DocumentService {
 ```
 
 #### Dữ liệu được ghi lại:
+
 - `table_name`: Tên bảng bị tác động (ví dụ: `documents`, `user_infos`).
 - `object_id`: Khóa chính (ID) của bản ghi bị thay đổi.
 - `action`: Hành động (`INSERT`, `UPDATE`, `DELETE`).
@@ -97,10 +106,14 @@ public class DocumentService {
 
 ### 3.3 JPA Auditing Tự Động (BaseEntity)
 
-Được cấu hình thông qua [`JpaAuditingConfig.java`](file:///d:/Visual%20studio%20code/eoffice-be/src/main/java/vn/edu/epu/eoffice_be/common/config/JpaAuditingConfig.java):
-- Bất kỳ thực thể nào kế thừa [`BaseEntity`](file:///d:/Visual%20studio%20code/eoffice-be/src/main/java/vn/edu/epu/eoffice_be/common/entity/BaseEntity.java) khi được gọi qua `.save()` sẽ tự động được Spring Data JPA điền:
-  - `created_by` & `created_date`: Khi tạo mới lần đầu.
-  - `last_modified_by` & `last_modified_date`: Khi cập nhật bản ghi.
+Được cấu hình thông qua [
+`JpaAuditingConfig.java`](file:///d:/Visual%20studio%20code/eoffice-be/src/main/java/vn/edu/epu/eoffice_be/common/config/JpaAuditingConfig.java):
+
+- Bất kỳ thực thể nào kế thừa [
+  `BaseEntity`](file:///d:/Visual%20studio%20code/eoffice-be/src/main/java/vn/edu/epu/eoffice_be/common/entity/BaseEntity.java)
+  khi được gọi qua `.save()` sẽ tự động được Spring Data JPA điền:
+    - `created_by` & `created_date`: Khi tạo mới lần đầu.
+    - `last_modified_by` & `last_modified_date`: Khi cập nhật bản ghi.
 - Người dùng hiện tại được lấy trực tiếp từ `SecurityContextHolder.getContext().getAuthentication().getName()`.
 
 ---
@@ -110,10 +123,12 @@ public class DocumentService {
 Hệ thống đã cung cấp sẵn 2 API kèm phân trang, lọc nâng cao:
 
 ### 4.1 Tra cứu lịch sử truy cập API:
+
 - **Endpoint:** `GET /api/v1/audit-logs`
 - **Bộ lọc:** `username`, `clientIp`, `requestUri`, `fromTime`, `toTime`, `page`, `size`, `sort`.
 
 ### 4.2 Tra cứu lịch sử biến động dữ liệu:
+
 - **Endpoint:** `GET /api/v1/change-history-logs`
 - **Bộ lọc:** `tableName`, `objectId`, `action`, `changedBy`, `fromTime`, `toTime`, `page`, `size`, `sort`.
 

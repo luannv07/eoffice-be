@@ -9,7 +9,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface TrackField {
 
-    String label() default "";
+	String label() default "";
 
-    boolean ignore() default false;
+	boolean ignore() default false;
 }

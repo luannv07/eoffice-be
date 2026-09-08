@@ -14,9 +14,9 @@ import org.springframework.stereotype.Component;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class RateLimitProperties {
 
-    int endpointLimit = 10;
+	int endpointLimit = 10;
 
-    long endpointWindowSeconds = 300;
+	long endpointWindowSeconds = 300;
 
-    long maximumSize = 10_000;
+	long maximumSize = 10_000;
 }
