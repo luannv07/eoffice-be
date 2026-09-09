@@ -40,6 +40,15 @@ public class OrgNodeController {
 		return BaseResponse.success(orgNodeService.getAll(request));
 	}
 
+	@Operation(summary = "Danh sách đơn vị gốc", description = "Trả về các node không có cha (parent_id = null), sắp xếp theo orgOrder. Dùng làm tầng gốc cho tree lazy-load.")
+	@ApiResponses({
+					@ApiResponse(responseCode = "200", description = "Danh sách đơn vị gốc")
+	})
+	@GetMapping("/roots")
+	public BaseResponse<List<OrgNodeResponse>> getRoots() {
+		return BaseResponse.success(orgNodeService.getRoots());
+	}
+
 	@Operation(summary = "Chi tiết đơn vị", description = "Lấy thông tin một node tổ chức theo id (không bao gồm danh sách children).")
 	@ApiResponses({
 					@ApiResponse(responseCode = "200", description = "Tìm thấy đơn vị"),
@@ -48,6 +57,15 @@ public class OrgNodeController {
 	@GetMapping("/{id}")
 	public BaseResponse<OrgNodeResponse> getDetail(@PathVariable Long id) {
 		return BaseResponse.success(orgNodeService.getDetail(id));
+	}
+
+	@Operation(summary = "Danh sách đơn vị con trực tiếp", description = "Trả về các node con cấp 1 của node cha cho trước, sắp xếp theo orgOrder. Dùng cho tree lazy-load theo từng node.")
+	@ApiResponses({
+					@ApiResponse(responseCode = "200", description = "Danh sách con trực tiếp")
+	})
+	@GetMapping("/{id}/children")
+	public BaseResponse<List<OrgNodeResponse>> getChildren(@PathVariable Long id) {
+		return BaseResponse.success(orgNodeService.getChildren(id));
 	}
 
 	@Operation(

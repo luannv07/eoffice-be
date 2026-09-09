@@ -31,4 +31,7 @@ public class OrgNodeUpdateRequest {
 	@NotBlank
 	@Size(max = 255)
 	String nameEn;
+
+	@Schema(description = "Thứ tự sắp xếp mới trong các node cùng cấp. Bỏ trống/null để giữ nguyên thứ tự hiện tại (dùng cho kéo thả đổi vị trí anh em)", example = "3", nullable = true)
+	Integer orgOrder;
 }

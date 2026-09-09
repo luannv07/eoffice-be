@@ -78,4 +78,8 @@ public interface OrgNodeRepository extends JpaRepository<OrgNode, Long> {
 	List<Long> findActiveDescendantIds(@Param("ancestorId") Long ancestorId);
 
 	List<OrgNode> findAllByParentIdAndDeleteFlgFalse(Long parentId);
+
+	List<OrgNode> findAllByParentIdAndDeleteFlgFalseOrderByOrgOrderAsc(Long parentId);
+
+	List<OrgNode> findByParentIdIsNullAndDeleteFlgFalseOrderByOrgOrderAsc();
 }
