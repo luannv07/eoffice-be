@@ -218,8 +218,18 @@ public class DocumentDraftService {
     @Transactional(readOnly = true)
     public Page<DocumentResponse> searchDrafts(DocumentFilterRequest filter, Long userId) {
         Pageable pageable = PageRequest.of(filter.getPage(), filter.getSize(), Sort.by(Sort.Direction.DESC, "createdDate"));
+        String keyword = filter.getKeyword();
+        if (keyword != null) {
+            keyword = keyword.trim();
+            if (keyword.isEmpty()) {
+                keyword = null;
+            } else {
+                // Escape SQL LIKE wildcard characters
+                keyword = keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+            }
+        }
         Page<Document> page = documentRepository.searchDocuments(
-                userId, filter.getStatus(), filter.getOrgNodeId(), filter.getKeyword(), pageable);
+                userId, filter.getStatus(), filter.getOrgNodeId(), keyword, pageable);
         return page.map(this::mapToDocumentResponse);
     }
 

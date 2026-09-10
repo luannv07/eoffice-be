@@ -187,6 +187,11 @@ public class DocumentApprovalService {
         UserLogin approver = userLoginRepository.findByIdAndDeleteFlgFalse(request.getApproverUserId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Không tìm thấy người duyệt được chỉ định"));
 
+        if (!isUserEligibleApprover(approver)) {
+            throw new BusinessException(ErrorCode.APPROVER_NOT_ELIGIBLE,
+                    "Người được chọn không có thẩm quyền duyệt văn bản này");
+        }
+
         Instant now = Instant.now();
 
         // Chuyển trạng thái văn bản sang WAITING_APPROVAL
@@ -303,5 +308,32 @@ public class DocumentApprovalService {
             case "PP" -> "Phó Trưởng phòng";
             default -> positionCd;
         };
+    }
+
+    public boolean isUserEligibleApprover(UserLogin user) {
+        if (user == null || user.isDeleteFlg()) {
+            return false;
+        }
+        if (user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN) {
+            return true;
+        }
+
+        Set<String> approverPositions = new HashSet<>();
+        for (String cd : List.of("HT", "PHT", "TK", "TP", "PK", "PP")) {
+            positionPermissionRepository.findByPositionCdAndDeleteFlgFalse(cd)
+                    .forEach(p -> approverPositions.add(p.getPositionCd()));
+        }
+        if (approverPositions.isEmpty()) {
+            approverPositions.addAll(Set.of("HT", "PHT", "TK", "TP", "PK", "PP"));
+        }
+
+        Instant now = Instant.now();
+        return positionAssignmentRepository.findAll().stream()
+                .filter(pa -> !pa.isDeleteFlg())
+                .filter(pa -> pa.getUserLogin() != null && pa.getUserLogin().getId().equals(user.getId()))
+                .filter(pa -> pa.getActualDismissalDate() == null)
+                .filter(pa -> pa.getEffectiveFrom() == null || !pa.getEffectiveFrom().isAfter(now))
+                .filter(pa -> pa.getEffectiveTo() == null || !pa.getEffectiveTo().isBefore(now))
+                .anyMatch(pa -> approverPositions.contains(pa.getPositionCd()));
     }
 }
