@@ -34,13 +34,13 @@ flowchart TD
 
 ### Bảng So Sánh Các Kịch Bản:
 
-| Tiêu chí | Kịch bản 1: AWS RDS (Online) | Kịch bản 2: Docker DB Local | Kịch bản 3: Docker Compose (Cả 2) |
-| :--- | :--- | :--- | :--- |
-| **Cần cài PostgreSQL trên máy?** | ❌ **Không** | ❌ **Không** (Dùng Docker image) | ❌ **Không** (Docker tự lo) |
-| **Cần bật Docker Desktop?** | ❌ **Không** | ✅ **Có** (để chạy container DB) | ✅ **Có** (để chạy cả hệ thống) |
-| **Yêu cầu mạng Internet?** | ✅ **Có** (để kết nối lên AWS) | ❌ **Không** (Chạy offline hoàn toàn) | ❌ **Không** (sau khi đã tải image) |
-| **File `.env.staging`** | Giữ nguyên Host AWS | Sửa `DB_HOST=localhost` | Đã cấu hình sẵn trong compose |
-| **Lệnh thực thi** | `.\mvnw.cmd spring-boot:run` | 1. Bật Docker DB<br/>2. `.\mvnw.cmd spring-boot:run` | `docker compose up -d --build` |
+| Tiêu chí                         | Kịch bản 1: AWS RDS (Online)  | Kịch bản 2: Docker DB Local                          | Kịch bản 3: Docker Compose (Cả 2)  |
+|:---------------------------------|:------------------------------|:-----------------------------------------------------|:-----------------------------------|
+| **Cần cài PostgreSQL trên máy?** | ❌ **Không**                   | ❌ **Không** (Dùng Docker image)                      | ❌ **Không** (Docker tự lo)         |
+| **Cần bật Docker Desktop?**      | ❌ **Không**                   | ✅ **Có** (để chạy container DB)                      | ✅ **Có** (để chạy cả hệ thống)     |
+| **Yêu cầu mạng Internet?**       | ✅ **Có** (để kết nối lên AWS) | ❌ **Không** (Chạy offline hoàn toàn)                 | ❌ **Không** (sau khi đã tải image) |
+| **File `.env.staging`**          | Giữ nguyên Host AWS           | Sửa `DB_HOST=localhost`                              | Đã cấu hình sẵn trong compose      |
+| **Lệnh thực thi**                | `.\mvnw.cmd spring-boot:run`  | 1. Bật Docker DB<br/>2. `.\mvnw.cmd spring-boot:run` | `docker compose up -d --build`     |
 
 ---
 
@@ -50,8 +50,10 @@ flowchart TD
 
 ### 🌟 KỊCH BẢN 1: Dùng Database AWS RDS Online (Khuyên dùng - Dễ nhất)
 
-* **Khi nào nên dùng:** Bạn vừa clone dự án về, muốn chạy thử nghiệm ngay mà không muốn mất thời gian cài đặt PostgreSQL hay cấu hình Docker.
-* **Cơ chế:** Database PostgreSQL đã được dựng sẵn và mở cổng trên AWS RDS (`us-east-1`). Backend trên máy bạn sẽ kết nối thẳng lên AWS qua Internet.
+* **Khi nào nên dùng:** Bạn vừa clone dự án về, muốn chạy thử nghiệm ngay mà không muốn mất thời gian cài đặt PostgreSQL
+  hay cấu hình Docker.
+* **Cơ chế:** Database PostgreSQL đã được dựng sẵn và mở cổng trên AWS RDS (`us-east-1`). Backend trên máy bạn sẽ kết
+  nối thẳng lên AWS qua Internet.
 
 #### Các bước thực hiện:
 
@@ -81,7 +83,8 @@ flowchart TD
 
 ### 💻 KỊCH BẢN 2: Chạy Database PostgreSQL Trên Máy Bằng Docker (Localhost)
 
-* **Khi nào nên dùng:** Bạn làm việc ở nơi không có Internet, hoặc bạn muốn toàn bộ dữ liệu nằm cục bộ trên máy tính của mình.
+* **Khi nào nên dùng:** Bạn làm việc ở nơi không có Internet, hoặc bạn muốn toàn bộ dữ liệu nằm cục bộ trên máy tính của
+  mình.
 
 #### Các bước thực hiện:
 
@@ -100,7 +103,8 @@ flowchart TD
      -d postgres:16-alpine
    ```
 
-2. **Bước 2: Sửa file [`.env.staging`](file:///d:/Visual%20studio%20code/eoffice-be/.env.staging) trỏ về máy bạn (`localhost`):**
+2. **Bước 2: Sửa file [`.env.staging`](file:///d:/Visual%20studio%20code/eoffice-be/.env.staging) trỏ về máy
+   bạn (`localhost`):**
    ```properties
    SPRING_PROFILES_ACTIVE=staging
    DB_HOST=localhost
@@ -121,19 +125,23 @@ flowchart TD
 
 ### 🚀 KỊCH BẢN 3: Chạy Toàn Bộ Hệ Thống Bằng `docker compose` (1 Lệnh Duy Nhất)
 
-* **Khi nào nên dùng:** Bạn đã cài **Docker Desktop** và muốn Docker tự quản lý cả Database lẫn Backend cùng lúc mà không cần cài đặt Java 21 trên máy.
+* **Khi nào nên dùng:** Bạn đã cài **Docker Desktop** và muốn Docker tự quản lý cả Database lẫn Backend cùng lúc mà
+  không cần cài đặt Java 21 trên máy.
 
 #### Các bước thực hiện:
 
-Dự án đã tạo sẵn file [**`docker-compose.yml`**](file:///d:/Visual%20studio%20code/eoffice-be/docker-compose.yml) tại thư mục gốc. Bạn chỉ cần mở Terminal gõ:
+Dự án đã tạo sẵn file [**`docker-compose.yml`**](file:///d:/Visual%20studio%20code/eoffice-be/docker-compose.yml) tại
+thư mục gốc. Bạn chỉ cần mở Terminal gõ:
 
 ```powershell
 docker compose up -d --build
 ```
 
 **Quá trình tự động diễn ra:**
+
 1. Docker kéo image `postgres:16-alpine` và khởi tạo container database `eoffice-postgres`.
-2. Docker build mã nguồn Java từ file [Dockerfile](file:///d:/Visual%20studio%20code/eoffice-be/Dockerfile) và khởi tạo container `eoffice-be`.
+2. Docker build mã nguồn Java từ file [Dockerfile](file:///d:/Visual%20studio%20code/eoffice-be/Dockerfile) và khởi tạo
+   container `eoffice-be`.
 3. Tự động kết nối 2 container qua mạng `eoffice-net` và Liquibase tự chạy migration.
 4. Để tắt toàn bộ hệ thống khi không dùng nữa:
    ```powershell
@@ -175,11 +183,15 @@ Khi khởi động thành công, bạn sẽ thấy banner và log tương tự n
 ```
 
 ### 4.1 Kiểm tra Endpoint Sức Khỏe (Health Check)
+
 Mở trình duyệt hoặc dùng `curl`:
+
 ```bash
 curl http://localhost:8080/api/v1/public/health
 ```
+
 **Kết quả mong đợi:**
+
 ```json
 {
   "code": "OK",
@@ -190,6 +202,7 @@ curl http://localhost:8080/api/v1/public/health
 ```
 
 ### 4.2 Truy cập Swagger UI (Tài liệu API tương tác)
+
 Mở trình duyệt truy cập:
 👉 **[http://localhost:8080/api/v1/swagger-ui.html](http://localhost:8080/api/v1/swagger-ui.html)**
 

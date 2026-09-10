@@ -11,11 +11,11 @@ import java.util.Optional;
 
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
 
-    Optional<RefreshToken> findByRt(String rt);
+	Optional<RefreshToken> findByRt(String rt);
 
-    List<RefreshToken> findByUserIdAndRevokedFalse(Long userId);
+	List<RefreshToken> findByUserIdAndRevokedFalse(Long userId);
 
-    @Modifying
-    @Query("update RefreshToken t set t.revoked = true where t.userId = :userId and t.revoked = false")
-    int revokeAllActiveByUserId(@Param("userId") Long userId);
+	@Modifying
+	@Query("update RefreshToken t set t.revoked = true where t.userId = :userId and t.revoked = false")
+	int revokeAllActiveByUserId(@Param("userId") Long userId);
 }

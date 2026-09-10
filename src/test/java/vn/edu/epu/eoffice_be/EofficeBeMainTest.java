@@ -14,23 +14,23 @@ import static org.mockito.Mockito.when;
 
 class EofficeBeMainTest {
 
-    @Test
-    void mainShouldSetDefaultTimezoneUtcAndRunSpringApplication() {
-        TimeZone original = TimeZone.getDefault();
-        try (MockedConstruction<SpringApplication> mocked = org.mockito.Mockito.mockConstruction(
-                SpringApplication.class,
-                (springApplication, context) -> {
-                    ConfigurableApplicationContext appContext = mock(ConfigurableApplicationContext.class);
-                    when(appContext.getEnvironment()).thenReturn(mock(ConfigurableEnvironment.class));
-                    when(springApplication.run(new String[]{})).thenReturn(appContext);
-                }
-        )) {
-            EofficeBeApplication.main(new String[]{});
+	@Test
+	void mainShouldSetDefaultTimezoneUtcAndRunSpringApplication() {
+		TimeZone original = TimeZone.getDefault();
+		try (MockedConstruction<SpringApplication> mocked = org.mockito.Mockito.mockConstruction(
+						SpringApplication.class,
+						(springApplication, context) -> {
+							ConfigurableApplicationContext appContext = mock(ConfigurableApplicationContext.class);
+							when(appContext.getEnvironment()).thenReturn(mock(ConfigurableEnvironment.class));
+							when(springApplication.run(new String[]{})).thenReturn(appContext);
+						}
+		)) {
+			EofficeBeApplication.main(new String[]{});
 
-            assertEquals("UTC", TimeZone.getDefault().getID());
-            assertEquals(1, mocked.constructed().size());
-        } finally {
-            TimeZone.setDefault(original);
-        }
-    }
+			assertEquals("UTC", TimeZone.getDefault().getID());
+			assertEquals(1, mocked.constructed().size());
+		} finally {
+			TimeZone.setDefault(original);
+		}
+	}
 }

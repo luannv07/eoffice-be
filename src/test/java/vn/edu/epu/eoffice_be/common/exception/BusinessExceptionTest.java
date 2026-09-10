@@ -8,25 +8,25 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class BusinessExceptionTest {
 
-    @Test
-    void constructorWithErrorCodeShouldUseDefaultMessage() {
-        BusinessException ex = new BusinessException(ErrorCode.NOT_FOUND);
-        assertEquals(ErrorCode.NOT_FOUND, ex.getErrorCode());
-        assertEquals(ErrorCode.NOT_FOUND.getMessage(), ex.getMessage());
-    }
+	@Test
+	void constructorWithErrorCodeShouldUseDefaultMessage() {
+		BusinessException ex = new BusinessException(ErrorCode.NOT_FOUND);
+		assertEquals(ErrorCode.NOT_FOUND, ex.getErrorCode());
+		assertEquals(ErrorCode.NOT_FOUND.getMessage(), ex.getMessage());
+	}
 
-    @Test
-    void constructorWithCustomMessageShouldOverrideMessage() {
-        BusinessException ex = new BusinessException(ErrorCode.BAD_REQUEST, "custom");
-        assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
-        assertEquals("custom", ex.getMessage());
-    }
+	@Test
+	void constructorWithCustomMessageShouldOverrideMessage() {
+		BusinessException ex = new BusinessException(ErrorCode.BAD_REQUEST, "custom");
+		assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
+		assertEquals("custom", ex.getMessage());
+	}
 
-    @Test
-    void exceptionShouldAlwaysContainErrorCode() {
-        for (ErrorCode errorCode : ErrorCode.values()) {
-            BusinessException ex = new BusinessException(errorCode);
-            assertNotNull(ex.getErrorCode());
-        }
-    }
+	@Test
+	void exceptionShouldAlwaysContainErrorCode() {
+		for (ErrorCode errorCode : ErrorCode.values()) {
+			BusinessException ex = new BusinessException(errorCode);
+			assertNotNull(ex.getErrorCode());
+		}
+	}
 }

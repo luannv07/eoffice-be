@@ -10,9 +10,17 @@ import java.util.List;
 public interface OrgNodeService {
 	// hàm lấy danh sách hệ thống phòng/ban theo dạng cây
 	List<OrgNodeResponse> getAll(OrgNodeFilterRequest request);
+
 	// hàm update tree (basic info + tái cấu trúc cây)
 	List<OrgNodeResponse> update(OrgNodeUpdateRequest request);
+
 	OrgNodeResponse getDetail(Long id);
+
+	List<OrgNodeResponse> getChildren(Long parentId);
+
+	List<OrgNodeResponse> getRoots();
+
 	void delete(Long id);
+
 	void create(OrgNodeCreateRequest request);
 }

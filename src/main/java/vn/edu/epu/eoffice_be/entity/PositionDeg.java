@@ -1,21 +1,7 @@
 package vn.edu.epu.eoffice_be.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.SequenceGenerator;
-import jakarta.persistence.Table;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import jakarta.persistence.*;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
 import vn.edu.epu.eoffice_be.common.entity.BaseEntity;
 
@@ -43,42 +29,42 @@ import java.time.Instant;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class PositionDeg extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "eoffice_seq")
-    @SequenceGenerator(name = "eoffice_seq", sequenceName = "hibernate_sequence", allocationSize = 50)
-    Long id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "eoffice_seq")
+	@SequenceGenerator(name = "eoffice_seq", sequenceName = "hibernate_sequence", allocationSize = 50)
+	Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "org_node_id", nullable = false)
-    OrgNode orgNode;
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "org_node_id", nullable = false)
+	OrgNode orgNode;
 
-    @Column(name = "permission_cd", nullable = false, length = 100)
-    String permissionCd;
+	@Column(name = "permission_cd", nullable = false, length = 100)
+	String permissionCd;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "delegator_user_id", nullable = false)
-    UserLogin delegator;
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "delegator_user_id", nullable = false)
+	UserLogin delegator;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "delegatee_user_id", nullable = false)
-    UserLogin delegatee;
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "delegatee_user_id", nullable = false)
+	UserLogin delegatee;
 
-    @Column(name = "effective_from", nullable = false)
-    Instant effectiveFrom;
+	@Column(name = "effective_from", nullable = false)
+	Instant effectiveFrom;
 
-    @Column(name = "effective_to", nullable = false)
-    Instant effectiveTo;
+	@Column(name = "effective_to", nullable = false)
+	Instant effectiveTo;
 
-    @Column(name = "actual_revoked_at")
-    Instant actualRevokedAt;
+	@Column(name = "actual_revoked_at")
+	Instant actualRevokedAt;
 
-    @Column(name = "revoke_reason_cd", length = 50)
-    String revokeReasonCd;
+	@Column(name = "revoke_reason_cd", length = 50)
+	String revokeReasonCd;
 
-    @Column(name = "approval_request_id")
-    Long approvalRequestId;
+	@Column(name = "approval_request_id")
+	Long approvalRequestId;
 
-    @Column(name = "delete_flg", nullable = false)
-    @Builder.Default
-    boolean deleteFlg = false;
+	@Column(name = "delete_flg", nullable = false)
+	@Builder.Default
+	boolean deleteFlg = false;
 }

@@ -11,19 +11,19 @@ import java.util.List;
 
 public interface DictionaryItemService {
 
-    DictionaryItemResponse create(DictionaryItemCreateRequest request);
+	DictionaryItemResponse create(DictionaryItemCreateRequest request);
 
-    DictionaryItemResponse update(Long id, DictionaryItemUpdateRequest request);
+	DictionaryItemResponse update(Long id, DictionaryItemUpdateRequest request);
 
-    void delete(Long id);
+	void delete(Long id);
 
-    long batchDelete(DictionaryItemBatchDeleteRequest request);
+	long batchDelete(DictionaryItemBatchDeleteRequest request);
 
-    org.springframework.data.domain.Page<DictionaryItemResponse> getAll(DictionaryItemFilterRequest request);
+	org.springframework.data.domain.Page<DictionaryItemResponse> getAll(DictionaryItemFilterRequest request);
 
-    DictionaryItemResponse getDetail(Long id);
+	DictionaryItemResponse getDetail(Long id);
 
-    List<DictionaryItemResponse> lookupByGroups(List<String> groups);
+	List<DictionaryItemResponse> lookupByGroups(List<String> groups);
 
-    DictionaryItem getEntityByIdAndGroup(Long id, String groupCd);
+	DictionaryItem getEntityByIdAndGroup(Long id, String groupCd);
 }

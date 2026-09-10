@@ -7,7 +7,11 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      # Liquibase owns the schema (master-test.yml runs all migrations), so Hibernate
+      # must not validate/generate DDL. This also avoids the cross-DB json type mismatch:
+      # @JdbcTypeCode(SqlTypes.JSON) expects jsonb (Types#JSON) while H2 reports its
+      # JSON columns as Types#OTHER, which would fail schema validation.
+      ddl-auto: none
     open-in-view: false
 
     properties:
@@ -32,8 +36,6 @@ eoffice:
     secret-key: eoffice-be-jwt-secret-fixed-for-all-environments-2026
     access-token-ttl: PT15M
     refresh-token-ttl: P30D
-    auth-rate-limit: 100
-    auth-rate-window-seconds: 300
   upload:
     dir: target/test-uploads
     max-file-size-bytes: 26214400
@@ -42,4 +44,8 @@ eoffice:
       - pdf
       - DOCX
       - PDF
+  rate-limit:
+    endpoint-limit: ${RATE_LIMIT_ENDPOINT_LIMIT:10}
+    endpoint-window-seconds: ${RATE_LIMIT_ENDPOINT_WINDOW_SECONDS:300}
+    maximum-size: ${RATE_LIMIT_MAXIMUM_SIZE:10000}
 

@@ -16,26 +16,26 @@ import java.util.Arrays;
 @EnableAsync
 public class AsyncConfig {
 
-    @Bean(name = "auditTaskExecutor")
-    public TaskExecutor auditTaskExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setThreadNamePrefix("audit-log-");
-        executor.setCorePoolSize(4);
-        executor.setMaxPoolSize(16);
-        executor.setQueueCapacity(5000);
-        executor.setWaitForTasksToCompleteOnShutdown(true);
-        executor.setAwaitTerminationSeconds(30);
-        executor.initialize();
-        return executor;
-    }
+	@Bean(name = "auditTaskExecutor")
+	public TaskExecutor auditTaskExecutor() {
+		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+		executor.setThreadNamePrefix("audit-log-");
+		executor.setCorePoolSize(4);
+		executor.setMaxPoolSize(16);
+		executor.setQueueCapacity(5000);
+		executor.setWaitForTasksToCompleteOnShutdown(true);
+		executor.setAwaitTerminationSeconds(30);
+		executor.initialize();
+		return executor;
+	}
 
-    @Bean
-    public AsyncUncaughtExceptionHandler asyncUncaughtExceptionHandler() {
-        return new AsyncUncaughtExceptionHandler() {
-            @Override
-            public void handleUncaughtException(Throwable ex, Method method, Object... params) {
-                log.error("Unhandled async exception in method {} with params {}", method.getName(), Arrays.toString(params), ex);
-            }
-        };
-    }
+	@Bean
+	public AsyncUncaughtExceptionHandler asyncUncaughtExceptionHandler() {
+		return new AsyncUncaughtExceptionHandler() {
+			@Override
+			public void handleUncaughtException(Throwable ex, Method method, Object... params) {
+				log.error("Unhandled async exception in method {} with params {}", method.getName(), Arrays.toString(params), ex);
+			}
+		};
+	}
 }

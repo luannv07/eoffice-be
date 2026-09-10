@@ -25,24 +25,24 @@ import vn.edu.epu.eoffice_be.common.dto.BaseResponse;
 @Tag(name = "Change History Log", description = "Lịch sử thay đổi dữ liệu entity: CREATE/UPDATE/DELETE kèm snapshot trước/sau")
 public class ChangeHistoryLogController {
 
-    private final ChangeHistoryLogQueryService changeHistoryLogQueryService;
+	private final ChangeHistoryLogQueryService changeHistoryLogQueryService;
 
-    @Operation(
-            summary = "Tra cứu lịch sử thay đổi dữ liệu",
-            description = "Phân trang lịch sử CREATE/UPDATE/DELETE của entity có @TrackChange, gồm beforeData/afterData/changedFields. "
-                    + "Filter theo tableName, objectId, changedBy, action, changedFrom/changedTo (ISO 8601). "
-                    + "Mặc định sort changedAt giảm dần."
-    )
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Trả về trang kết quả"),
-            @ApiResponse(responseCode = "400", description = "Tham số filter/pagination không hợp lệ"),
-            @ApiResponse(responseCode = "401", description = "Chưa xác thực (UNAUTHORIZED)"),
-            @ApiResponse(responseCode = "403", description = "Không có quyền xem audit log (FORBIDDEN)")
-    })
-    @GetMapping
-    public BaseResponse<Page<@NonNull ChangeHistoryLogResponse>> filter(
-            @Valid @ModelAttribute ChangeHistoryLogFilterRequest request
-    ) {
-        return BaseResponse.success(changeHistoryLogQueryService.filter(request));
-    }
+	@Operation(
+					summary = "Tra cứu lịch sử thay đổi dữ liệu",
+					description = "Phân trang lịch sử CREATE/UPDATE/DELETE của entity có @TrackChange, gồm beforeData/afterData/changedFields. "
+									+ "Filter theo tableName, objectId, changedBy, action, changedFrom/changedTo (ISO 8601). "
+									+ "Mặc định sort changedAt giảm dần."
+	)
+	@ApiResponses({
+					@ApiResponse(responseCode = "200", description = "Trả về trang kết quả"),
+					@ApiResponse(responseCode = "400", description = "Tham số filter/pagination không hợp lệ"),
+					@ApiResponse(responseCode = "401", description = "Chưa xác thực (UNAUTHORIZED)"),
+					@ApiResponse(responseCode = "403", description = "Không có quyền xem audit log (FORBIDDEN)")
+	})
+	@GetMapping
+	public BaseResponse<Page<@NonNull ChangeHistoryLogResponse>> filter(
+					@Valid @ModelAttribute ChangeHistoryLogFilterRequest request
+	) {
+		return BaseResponse.success(changeHistoryLogQueryService.filter(request));
+	}
 }

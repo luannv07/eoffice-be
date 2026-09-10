@@ -21,23 +21,23 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class UserAuditLogControllerTest {
 
-    @Mock
-    private UserAuditLogQueryService service;
+	@Mock
+	private UserAuditLogQueryService service;
 
-    @InjectMocks
-    private UserAuditLogController controller;
+	@InjectMocks
+	private UserAuditLogController controller;
 
-    @Test
-    void filterShouldReturnSuccessResponse() {
-        Page<UserAuditLogResponse> page = new PageImpl<>(List.of(
-                UserAuditLogResponse.builder().username("admin").build()
-        ));
-        when(service.filter(org.mockito.ArgumentMatchers.any(UserAuditLogFilterRequest.class))).thenReturn(page);
+	@Test
+	void filterShouldReturnSuccessResponse() {
+		Page<UserAuditLogResponse> page = new PageImpl<>(List.of(
+						UserAuditLogResponse.builder().username("admin").build()
+		));
+		when(service.filter(org.mockito.ArgumentMatchers.any(UserAuditLogFilterRequest.class))).thenReturn(page);
 
-        BaseResponse<?> response = controller.filter(new UserAuditLogFilterRequest());
+		BaseResponse<?> response = controller.filter(new UserAuditLogFilterRequest());
 
-        assertTrue(response.isSuccess());
-        Page<?> data = (Page<?>) response.getData();
-        assertEquals(1, data.getTotalElements());
-    }
+		assertTrue(response.isSuccess());
+		Page<?> data = (Page<?>) response.getData();
+		assertEquals(1, data.getTotalElements());
+	}
 }
