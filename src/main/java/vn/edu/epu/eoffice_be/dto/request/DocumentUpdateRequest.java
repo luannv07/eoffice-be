@@ -44,17 +44,14 @@ public class DocumentUpdateRequest {
     Long issuingOrgNodeId;
 
     @Schema(description = "Độ mật (NORMAL, CONFIDENTIAL, SECRET)", example = "NORMAL")
-    @Builder.Default
     DocumentSecurityLevel securityLevel = DocumentSecurityLevel.NORMAL;
 
     @Schema(description = "Độ khẩn (NORMAL, URGENT, TOP_URGENT)", example = "NORMAL")
-    @Builder.Default
     DocumentUrgencyLevel urgencyLevel = DocumentUrgencyLevel.NORMAL;
 
     @Schema(description = "Tóm tắt lý do hoặc nội dung thay đổi của phiên bản mới", example = "Chỉnh sửa điều 5 theo yêu cầu của phòng Đào tạo")
     String changeSummary;
 
     @Schema(description = "Có lưu thành một phiên bản mới hay không (mặc định: true)", example = "true")
-    @Builder.Default
     boolean saveNewVersion = true;
 }

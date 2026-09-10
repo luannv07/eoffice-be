@@ -260,7 +260,7 @@ public class DocumentController {
     @PostMapping("/{id}/recall-approval")
     public BaseResponse<DocumentResponse> recallApproval(
             @PathVariable Long id,
-            @RequestBody(required = false) RecallApprovalRequest request,
+            @Valid @RequestBody(required = false) RecallApprovalRequest request,
             Authentication authentication
     ) {
         Long userId = extractUserId(authentication);

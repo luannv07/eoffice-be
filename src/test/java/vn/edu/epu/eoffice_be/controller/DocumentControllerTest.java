@@ -15,7 +15,9 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import vn.edu.epu.eoffice_be.common.enums.DocumentSecurityLevel;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
+import vn.edu.epu.eoffice_be.common.enums.DocumentUrgencyLevel;
 import vn.edu.epu.eoffice_be.common.exception.GlobalExceptionHandler;
 import vn.edu.epu.eoffice_be.dto.request.DocumentCreateRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentUpdateRequest;
@@ -385,5 +387,45 @@ class DocumentControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.status").value("DRAFT"));
+    }
+
+    @Test
+    @DisplayName("API GET /documents/drafts - Bị từ chối 400 khi từ khóa tìm kiếm vượt quá 255 ký tự")
+    void searchDrafts_KeywordTooLong_ReturnsBadRequest() throws Exception {
+        mockMvc.perform(get("/documents/drafts?keyword=" + "A".repeat(256)).principal(auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("API POST /documents/{id}/recall-approval - Bị từ chối 400 khi lý do thu hồi vượt quá 500 ký tự")
+    void recallApproval_ReasonTooLong_ReturnsBadRequest() throws Exception {
+        mockMvc.perform(post("/documents/1/recall-approval")
+                        .principal(auth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"recallReason\": \"" + "A".repeat(501) + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("Kiểm tra Jackson Deserialization áp dụng đúng giá trị mặc định cho DocumentUpdateRequest khi bỏ trống")
+    void documentUpdateRequest_DeserializationDefaults() throws Exception {
+        String json = "{\"title\":\"Tiêu đề\",\"summary\":\"Trích yếu\",\"documentTypeCd\":\"QD\",\"issuingOrgNodeId\":10}";
+        DocumentUpdateRequest req = objectMapper.readValue(json, DocumentUpdateRequest.class);
+
+        org.junit.jupiter.api.Assertions.assertTrue(req.isSaveNewVersion());
+        org.junit.jupiter.api.Assertions.assertEquals(DocumentSecurityLevel.NORMAL, req.getSecurityLevel());
+        org.junit.jupiter.api.Assertions.assertEquals(DocumentUrgencyLevel.NORMAL, req.getUrgencyLevel());
+    }
+
+    @Test
+    @DisplayName("Kiểm tra Jackson Deserialization áp dụng đúng giá trị mặc định cho DocumentCreateRequest khi bỏ trống")
+    void documentCreateRequest_DeserializationDefaults() throws Exception {
+        String json = "{\"title\":\"Tiêu đề\",\"summary\":\"Trích yếu\",\"documentTypeCd\":\"QD\",\"issuingOrgNodeId\":10}";
+        DocumentCreateRequest req = objectMapper.readValue(json, DocumentCreateRequest.class);
+
+        org.junit.jupiter.api.Assertions.assertEquals(DocumentSecurityLevel.NORMAL, req.getSecurityLevel());
+        org.junit.jupiter.api.Assertions.assertEquals(DocumentUrgencyLevel.NORMAL, req.getUrgencyLevel());
     }
 }

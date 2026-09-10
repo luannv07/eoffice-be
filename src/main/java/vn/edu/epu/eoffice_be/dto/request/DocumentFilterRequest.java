@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -19,6 +20,7 @@ import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class DocumentFilterRequest {
 
+    @Size(max = 255, message = "Từ khóa tìm kiếm không được vượt quá 255 ký tự")
     @Schema(description = "Từ khóa tìm kiếm theo tiêu đề, mã dự thảo hoặc trích yếu", example = "quy chế")
     String keyword;
 

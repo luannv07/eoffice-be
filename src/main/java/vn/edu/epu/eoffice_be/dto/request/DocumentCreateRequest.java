@@ -44,10 +44,8 @@ public class DocumentCreateRequest {
     Long issuingOrgNodeId;
 
     @Schema(description = "Độ mật (NORMAL, CONFIDENTIAL, SECRET)", example = "NORMAL")
-    @Builder.Default
     DocumentSecurityLevel securityLevel = DocumentSecurityLevel.NORMAL;
 
     @Schema(description = "Độ khẩn (NORMAL, URGENT, TOP_URGENT)", example = "NORMAL")
-    @Builder.Default
     DocumentUrgencyLevel urgencyLevel = DocumentUrgencyLevel.NORMAL;
 }
