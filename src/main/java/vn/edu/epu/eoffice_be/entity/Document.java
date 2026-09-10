@@ -19,8 +19,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
-import org.hibernate.annotations.SQLDelete;
-import org.hibernate.annotations.SQLRestriction;
 import vn.edu.epu.eoffice_be.common.entity.BaseEntity;
 import vn.edu.epu.eoffice_be.common.enums.DocumentSecurityLevel;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
@@ -28,10 +26,15 @@ import vn.edu.epu.eoffice_be.common.enums.DocumentUrgencyLevel;
 
 import java.time.Instant;
 
+/**
+ * Quản lý văn bản và dự thảo văn bản với cơ chế xóa mềm (soft-delete).
+ * Sử dụng cơ chế @SoftDelete của Hibernate 6.4+/7+ giúp tương thích đa hệ quản trị cơ sở dữ liệu
+ * mà không cần hardcode literal true/false trong native SQL.
+ * Giới hạn: Điều kiện lọc áp dụng mặc định cho các truy vấn JPA. Khi cần truy vấn văn bản đã xóa
+ * để kiểm toán hoặc phục hồi, sử dụng truy vấn Native SQL hoặc Audit Log.
+ */
 @Entity
 @Table(name = "documents")
-@SQLDelete(sql = "UPDATE documents SET delete_flg = true WHERE id = ?")
-@SQLRestriction("delete_flg = false")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -90,6 +93,7 @@ public class Document extends BaseEntity {
     @Column(name = "submitted_at")
     Instant submittedAt;
 
+    @org.hibernate.annotations.SoftDelete
     @Column(name = "delete_flg", nullable = false)
     @Builder.Default
     boolean deleteFlg = false;

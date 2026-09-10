@@ -17,14 +17,17 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
-import org.hibernate.annotations.SQLDelete;
-import org.hibernate.annotations.SQLRestriction;
 import vn.edu.epu.eoffice_be.common.entity.BaseEntity;
 
+/**
+ * Quản lý tệp đính kèm văn bản với cơ chế xóa mềm (soft-delete).
+ * Sử dụng cơ chế @SoftDelete của Hibernate 6.4+/7+ giúp tương thích đa hệ quản trị cơ sở dữ liệu
+ * mà không cần hardcode literal true/false trong native SQL.
+ * Giới hạn: Điều kiện lọc áp dụng mặc định cho các truy vấn JPA. Khi cần truy vấn tệp đã xóa
+ * để kiểm toán hoặc phục hồi, sử dụng truy vấn Native SQL hoặc Audit Log.
+ */
 @Entity
 @Table(name = "document_attachments")
-@SQLDelete(sql = "UPDATE document_attachments SET delete_flg = true WHERE id = ?")
-@SQLRestriction("delete_flg = false")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -75,6 +78,7 @@ public class DocumentAttachment extends BaseEntity {
     @JoinColumn(name = "uploaded_by_user_id", nullable = false)
     UserLogin uploadedByUser;
 
+    @org.hibernate.annotations.SoftDelete
     @Column(name = "delete_flg", nullable = false)
     @Builder.Default
     boolean deleteFlg = false;

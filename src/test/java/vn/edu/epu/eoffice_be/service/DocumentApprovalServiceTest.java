@@ -276,7 +276,7 @@ class DocumentApprovalServiceTest {
                 .positionCd("TK")
                 .deleteFlg(false)
                 .build();
-        when(positionAssignmentRepository.findAll()).thenReturn(java.util.List.of(activePa));
+        when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(4L)).thenReturn(java.util.List.of(activePa));
         org.junit.jupiter.api.Assertions.assertTrue(documentApprovalService.isUserEligibleApprover(dean));
 
         // User thường có PositionAssignment không phải lãnh đạo
@@ -287,7 +287,7 @@ class DocumentApprovalServiceTest {
                 .positionCd("GV")
                 .deleteFlg(false)
                 .build();
-        when(positionAssignmentRepository.findAll()).thenReturn(java.util.List.of(staffPa));
+        when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(5L)).thenReturn(java.util.List.of(staffPa));
         org.junit.jupiter.api.Assertions.assertFalse(documentApprovalService.isUserEligibleApprover(staff));
     }
 
@@ -422,5 +422,55 @@ class DocumentApprovalServiceTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentApprovalService.recallApproval(docId, req, userId));
         assertEquals(ErrorCode.DOCUMENT_INVALID_STATUS, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Kiểm tra người duyệt đủ điều kiện với phân quyền từ PositionPermission")
+    void isUserEligibleApprover_WithPositionPermission_Success() {
+        Long userId = 77L;
+        UserLogin user = UserLogin.builder().id(userId).role(Role.USER).build();
+
+        vn.edu.epu.eoffice_be.entity.PositionPermission perm =
+                vn.edu.epu.eoffice_be.entity.PositionPermission.builder()
+                        .positionCd("TP")
+                        .permissionCd("DOCUMENT_APPROVE")
+                        .build();
+        when(positionPermissionRepository.findByPositionCdInAndDeleteFlgFalse(any()))
+                .thenReturn(java.util.List.of(perm));
+
+        vn.edu.epu.eoffice_be.entity.PositionAssignment pa =
+                vn.edu.epu.eoffice_be.entity.PositionAssignment.builder()
+                        .id(20L)
+                        .userLogin(user)
+                        .positionCd("TP")
+                        .deleteFlg(false)
+                        .build();
+        when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(userId))
+                .thenReturn(java.util.List.of(pa));
+
+        org.junit.jupiter.api.Assertions.assertTrue(documentApprovalService.isUserEligibleApprover(user));
+    }
+
+    @Test
+    @DisplayName("Kiểm tra người duyệt không đủ điều kiện khi chức vụ đã bị bãi nhiệm (actualDismissalDate != null)")
+    void isUserEligibleApprover_Dismissed_ReturnsFalse() {
+        Long userId = 88L;
+        UserLogin user = UserLogin.builder().id(userId).role(Role.USER).build();
+
+        when(positionPermissionRepository.findByPositionCdInAndDeleteFlgFalse(any()))
+                .thenReturn(java.util.List.of());
+
+        vn.edu.epu.eoffice_be.entity.PositionAssignment pa =
+                vn.edu.epu.eoffice_be.entity.PositionAssignment.builder()
+                        .id(21L)
+                        .userLogin(user)
+                        .positionCd("HT")
+                        .actualDismissalDate(java.time.Instant.now().minusSeconds(3600))
+                        .deleteFlg(false)
+                        .build();
+        when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(userId))
+                .thenReturn(java.util.List.of(pa));
+
+        org.junit.jupiter.api.Assertions.assertFalse(documentApprovalService.isUserEligibleApprover(user));
     }
 }

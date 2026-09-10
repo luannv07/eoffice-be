@@ -213,7 +213,12 @@ public class DocumentDraftService {
     }
 
     /**
-     * Tìm kiếm và phân trang danh sách dự thảo
+     * Tìm kiếm và phân trang danh sách dự thảo văn bản.
+     * Mặc định sắp xếp giảm dần theo thời gian tạo (createdDate DESC) từ BaseEntity.
+     *
+     * @param filter Bộ lọc tìm kiếm và thông tin phân trang
+     * @param userId ID người dùng yêu cầu (dùng để lọc văn bản của chính họ nếu không có quyền xem tất cả)
+     * @return Trang kết quả danh sách dự thảo văn bản đã được sắp xếp
      */
     @Transactional(readOnly = true)
     public Page<DocumentResponse> searchDrafts(DocumentFilterRequest filter, Long userId) {

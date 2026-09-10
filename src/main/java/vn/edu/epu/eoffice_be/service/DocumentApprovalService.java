@@ -20,6 +20,7 @@ import vn.edu.epu.eoffice_be.entity.DocumentApprovalRequest;
 import vn.edu.epu.eoffice_be.entity.DocumentProcessLog;
 import vn.edu.epu.eoffice_be.entity.OrgNode;
 import vn.edu.epu.eoffice_be.entity.PositionAssignment;
+import vn.edu.epu.eoffice_be.entity.PositionPermission;
 import vn.edu.epu.eoffice_be.entity.UserInfo;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
 import vn.edu.epu.eoffice_be.event.DocumentSubmittedEvent;
@@ -38,6 +39,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -66,17 +68,13 @@ public class DocumentApprovalService {
         Long orgNodeId = document.getIssuingOrgNode() != null ? document.getIssuingOrgNode().getId() : null;
 
         // Tìm các position có quyền DOCUMENT_APPROVE hoặc DOCUMENT_SIGN_DRAFT
-        Set<String> approverPositions = new HashSet<>();
-        positionPermissionRepository.findByPositionCdAndDeleteFlgFalse("HT").forEach(p -> approverPositions.add(p.getPositionCd()));
-        positionPermissionRepository.findByPositionCdAndDeleteFlgFalse("PHT").forEach(p -> approverPositions.add(p.getPositionCd()));
-        positionPermissionRepository.findByPositionCdAndDeleteFlgFalse("TK").forEach(p -> approverPositions.add(p.getPositionCd()));
-        positionPermissionRepository.findByPositionCdAndDeleteFlgFalse("TP").forEach(p -> approverPositions.add(p.getPositionCd()));
-        positionPermissionRepository.findByPositionCdAndDeleteFlgFalse("PK").forEach(p -> approverPositions.add(p.getPositionCd()));
-        positionPermissionRepository.findByPositionCdAndDeleteFlgFalse("PP").forEach(p -> approverPositions.add(p.getPositionCd()));
-
-        // Mặc định các chức danh lãnh đạo
+        Set<String> leaderCds = Set.of("HT", "PHT", "TK", "TP", "PK", "PP");
+        Set<String> approverPositions = positionPermissionRepository
+                .findByPositionCdInAndDeleteFlgFalse(leaderCds).stream()
+                .map(PositionPermission::getPositionCd)
+                .collect(Collectors.toSet());
         if (approverPositions.isEmpty()) {
-            approverPositions.addAll(Set.of("HT", "PHT", "TK", "TP", "PK", "PP"));
+            approverPositions.addAll(leaderCds);
         }
 
         // Tìm các phân bổ vị trí còn hiệu lực
@@ -318,19 +316,17 @@ public class DocumentApprovalService {
             return true;
         }
 
-        Set<String> approverPositions = new HashSet<>();
-        for (String cd : List.of("HT", "PHT", "TK", "TP", "PK", "PP")) {
-            positionPermissionRepository.findByPositionCdAndDeleteFlgFalse(cd)
-                    .forEach(p -> approverPositions.add(p.getPositionCd()));
-        }
+        Set<String> leaderCds = Set.of("HT", "PHT", "TK", "TP", "PK", "PP");
+        Set<String> approverPositions = positionPermissionRepository
+                .findByPositionCdInAndDeleteFlgFalse(leaderCds).stream()
+                .map(PositionPermission::getPositionCd)
+                .collect(Collectors.toSet());
         if (approverPositions.isEmpty()) {
-            approverPositions.addAll(Set.of("HT", "PHT", "TK", "TP", "PK", "PP"));
+            approverPositions.addAll(leaderCds);
         }
 
         Instant now = Instant.now();
-        return positionAssignmentRepository.findAll().stream()
-                .filter(pa -> !pa.isDeleteFlg())
-                .filter(pa -> pa.getUserLogin() != null && pa.getUserLogin().getId().equals(user.getId()))
+        return positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(user.getId()).stream()
                 .filter(pa -> pa.getActualDismissalDate() == null)
                 .filter(pa -> pa.getEffectiveFrom() == null || !pa.getEffectiveFrom().isAfter(now))
                 .filter(pa -> pa.getEffectiveTo() == null || !pa.getEffectiveTo().isBefore(now))

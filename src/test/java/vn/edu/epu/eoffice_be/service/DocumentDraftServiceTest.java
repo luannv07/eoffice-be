@@ -391,4 +391,35 @@ class DocumentDraftServiceTest {
         assertNotNull(result);
         assertEquals(0, result.getTotalElements());
     }
+
+    @Test
+    @DisplayName("Tìm kiếm dự thảo mặc định sắp xếp giảm dần theo createdDate (createdDate DESC)")
+    void searchDrafts_DefaultSortOrder_CreatedDateDesc() {
+        Long userId = 100L;
+        vn.edu.epu.eoffice_be.dto.request.DocumentFilterRequest filter =
+                new vn.edu.epu.eoffice_be.dto.request.DocumentFilterRequest();
+        filter.setPage(0);
+        filter.setSize(20);
+
+        org.mockito.ArgumentCaptor<org.springframework.data.domain.Pageable> pageableCaptor =
+                org.mockito.ArgumentCaptor.forClass(org.springframework.data.domain.Pageable.class);
+
+        when(documentRepository.searchDocuments(
+                org.mockito.ArgumentMatchers.eq(userId),
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.isNull(),
+                pageableCaptor.capture()
+        )).thenReturn(new org.springframework.data.domain.PageImpl<>(java.util.List.of()));
+
+        documentDraftService.searchDrafts(filter, userId);
+
+        org.springframework.data.domain.Pageable pageable = pageableCaptor.getValue();
+        assertNotNull(pageable);
+        assertEquals(0, pageable.getPageNumber());
+        assertEquals(20, pageable.getPageSize());
+        org.springframework.data.domain.Sort.Order order = pageable.getSort().getOrderFor("createdDate");
+        assertNotNull(order);
+        assertEquals(org.springframework.data.domain.Sort.Direction.DESC, order.getDirection());
+    }
 }
