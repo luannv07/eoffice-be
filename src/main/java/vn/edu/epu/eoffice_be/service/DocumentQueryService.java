@@ -3,29 +3,35 @@ package vn.edu.epu.eoffice_be.service;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
-import vn.edu.epu.eoffice_be.entity.DocumentDistribution;
 import vn.edu.epu.eoffice_be.repository.DocumentDistributionRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 
+import java.net.MalformedURLException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.LocalDateTime;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class DocumentQueryService {
 
+    static final ZoneId ZONE_VN = ZoneId.of("Asia/Ho_Chi_Minh");
+
     DocumentRepository documentRepository;
     DocumentDistributionRepository distributionRepository;
+
     public Object getDocumentDetails(Long id, Long orgId) {
         var document = documentRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy văn bản với ID: " + id));
@@ -59,6 +65,7 @@ public class DocumentQueryService {
 
         return content.getBytes(java.nio.charset.StandardCharsets.UTF_8);
     }
+
     // 1. Tra cứu danh sách văn bản theo quyền hạn của phòng ban
     public List<DocumentResponse> getPublishedDocuments(Long orgId) {
         return documentRepository.findPublishedDocumentsForUser(orgId).stream()
@@ -78,7 +85,7 @@ public class DocumentQueryService {
     @Transactional
     public DocumentResponse getDocumentDetail(Long documentId, Long orgId) {
         Document doc = documentRepository.findAccessiblePublishedDocument(documentId, orgId)
-                .orElseThrow(() -> new RuntimeException("Bạn không có quyền xem hoặc văn bản không tồn tại"));
+                .orElseThrow(() -> new IllegalArgumentException("Bạn không có quyền xem hoặc văn bản không tồn tại"));
 
         distributionRepository.findByDocumentIdAndTargetId(documentId, orgId).ifPresent(dist -> {
             if (Boolean.FALSE.equals(dist.getIsRead())) {
@@ -102,10 +109,10 @@ public class DocumentQueryService {
     // 3. Tải file PDF chính thức đã ký số kèm ghi nhận Audit Log
     public Resource downloadOfficialFile(Long documentId, Long orgId, String username, String clientIp) {
         Document doc = documentRepository.findAccessiblePublishedDocument(documentId, orgId)
-                .orElseThrow(() -> new RuntimeException("Bạn không có quyền tải văn bản này"));
+                .orElseThrow(() -> new IllegalArgumentException("Bạn không có quyền tải văn bản này"));
 
         if (doc.getOfficialFilePath() == null || doc.getOfficialFilePath().isBlank()) {
-            throw new RuntimeException("Văn bản chưa có tệp đính kèm chính thức");
+            throw new IllegalArgumentException("Không tìm thấy dữ liệu yêu cầu");
         }
 
         try {
@@ -113,16 +120,15 @@ public class DocumentQueryService {
             Resource resource = new UrlResource(filePath.toUri());
 
             if (!resource.exists() || !resource.isReadable()) {
-                throw new RuntimeException("Tệp tin không tồn tại trên hệ thống lưu trữ");
+                throw new IllegalArgumentException("Thông tin yêu cầu không hợp lệ hoặc không tồn tại");
             }
 
-            // Ghi nhận Audit Log tải tệp (In ra console log hệ thống)
-            System.out.printf("[AUDIT LOG] Action: DOWNLOAD | User: %s | IP: %s | DocumentId: %d | Time: %s%n",
-                    username, clientIp, documentId, LocalDateTime.now());
+            log.info("Thực hiện xử lý truy vấn văn bản");
+            log.info("User: {} | IP: {} | DocumentId: {} | Time: {}", username, clientIp, documentId, LocalDate.now(ZONE_VN));
 
             return resource;
-        } catch (Exception ex) {
-            throw new RuntimeException("Lỗi đọc tệp: " + ex.getMessage());
+        } catch (MalformedURLException ex) {
+            throw new IllegalArgumentException("Đường dẫn tệp không hợp lệ", ex);
         }
     }
 }
