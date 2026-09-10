@@ -240,21 +240,18 @@ class DocumentApprovalServiceTest {
     }
 
     @Test
-    @DisplayName("Kiểm tra DocumentApprovalRequest no-args constructor khởi tạo status và submittedAt không null")
+    @DisplayName("Kiểm tra DocumentApprovalRequest no-args constructor khởi tạo status PENDING, submittedAt null trước khi persist")
     void documentApprovalRequest_NoArgsConstructor_InitializesDefaults() {
         DocumentApprovalRequest req = new DocumentApprovalRequest();
         assertNotNull(req.getStatus());
         assertEquals(ApprovalRequestStatus.PENDING, req.getStatus());
-        assertNotNull(req.getSubmittedAt());
+        org.junit.jupiter.api.Assertions.assertNull(req.getSubmittedAt());
         org.junit.jupiter.api.Assertions.assertFalse(req.isDeleteFlg());
 
-        // Kiểm tra @PrePersist
-        DocumentApprovalRequest empty = new DocumentApprovalRequest();
-        empty.setStatus(null);
-        empty.setSubmittedAt(null);
-        empty.prePersist();
-        assertEquals(ApprovalRequestStatus.PENDING, empty.getStatus());
-        assertNotNull(empty.getSubmittedAt());
+        // Kiểm tra @PrePersist gán submittedAt khi persist
+        req.prePersist();
+        assertNotNull(req.getSubmittedAt());
+        assertEquals(ApprovalRequestStatus.PENDING, req.getStatus());
     }
 
     @Test

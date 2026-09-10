@@ -35,7 +35,6 @@ public class DocumentApprovalRequest extends BaseEntity {
 
     public DocumentApprovalRequest() {
         this.status = ApprovalRequestStatus.PENDING;
-        this.submittedAt = Instant.now();
         this.deleteFlg = false;
     }
 
@@ -71,10 +70,10 @@ public class DocumentApprovalRequest extends BaseEntity {
     @Builder.Default
     ApprovalRequestStatus status = ApprovalRequestStatus.PENDING;
 
-    @Column(name = "submit_note", length = 2000)
+    @Column(name = "submit_note", columnDefinition = "TEXT")
     String submitNote;
 
-    @Column(name = "decision_note", length = 2000)
+    @Column(name = "decision_note", columnDefinition = "TEXT")
     String decisionNote;
 
     @Column(name = "submitted_at", nullable = false)

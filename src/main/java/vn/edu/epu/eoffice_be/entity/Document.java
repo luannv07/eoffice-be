@@ -51,10 +51,10 @@ public class Document extends BaseEntity {
     @Column(nullable = false, length = 500)
     String title;
 
-    @Column(nullable = false, length = 1000)
+    @Column(nullable = false, columnDefinition = "TEXT")
     String summary;
 
-    @Column(length = 65535)
+    @Column(columnDefinition = "TEXT")
     String content;
 
     @Column(name = "document_type_cd", nullable = false, length = 50)

@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-09-08-create-documents-sequence
+      author: antigravity
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - sequenceExists:
+                sequenceName: documents_seq
+      changes:
+        - createSequence:
+            sequenceName: documents_seq
+            startValue: 1
+            incrementBy: 50
