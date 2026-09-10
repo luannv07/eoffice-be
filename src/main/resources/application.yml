@@ -51,6 +51,14 @@ eoffice:
     cookie-secure: ${COOKIE_SECURE:false}
     cookie-same-site: Strict
     allowed-origins: ${JWT_ALLOWED_ORIGINS:}
+  upload:
+    dir: ${UPLOAD_DIR:uploads/documents}
+    max-file-size-bytes: 26214400
+    allowed-extensions:
+      - docx
+      - pdf
+      - DOCX
+      - PDF
 
 springdoc:
   api-docs:

@@ -1,0 +1,307 @@
+package vn.edu.epu.eoffice_be.service;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import vn.edu.epu.eoffice_be.common.enums.ApprovalRequestStatus;
+import vn.edu.epu.eoffice_be.common.enums.DocumentProcessAction;
+import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
+import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
+import vn.edu.epu.eoffice_be.common.enums.Role;
+import vn.edu.epu.eoffice_be.common.exception.BusinessException;
+import vn.edu.epu.eoffice_be.dto.request.RecallApprovalRequest;
+import vn.edu.epu.eoffice_be.dto.request.SubmitApprovalRequest;
+import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
+import vn.edu.epu.eoffice_be.dto.response.EligibleApproverResponse;
+import vn.edu.epu.eoffice_be.entity.Document;
+import vn.edu.epu.eoffice_be.entity.DocumentApprovalRequest;
+import vn.edu.epu.eoffice_be.entity.DocumentProcessLog;
+import vn.edu.epu.eoffice_be.entity.OrgNode;
+import vn.edu.epu.eoffice_be.entity.PositionAssignment;
+import vn.edu.epu.eoffice_be.entity.UserInfo;
+import vn.edu.epu.eoffice_be.entity.UserLogin;
+import vn.edu.epu.eoffice_be.event.DocumentSubmittedEvent;
+import vn.edu.epu.eoffice_be.repository.DocumentApprovalRequestRepository;
+import vn.edu.epu.eoffice_be.repository.DocumentAttachmentRepository;
+import vn.edu.epu.eoffice_be.repository.DocumentProcessLogRepository;
+import vn.edu.epu.eoffice_be.repository.DocumentRepository;
+import vn.edu.epu.eoffice_be.repository.PositionAssignmentRepository;
+import vn.edu.epu.eoffice_be.repository.PositionPermissionRepository;
+import vn.edu.epu.eoffice_be.repository.UserInfoRepository;
+import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class DocumentApprovalService {
+
+    private final DocumentRepository documentRepository;
+    private final DocumentAttachmentRepository documentAttachmentRepository;
+    private final DocumentApprovalRequestRepository documentApprovalRequestRepository;
+    private final DocumentProcessLogRepository documentProcessLogRepository;
+    private final UserLoginRepository userLoginRepository;
+    private final UserInfoRepository userInfoRepository;
+    private final PositionAssignmentRepository positionAssignmentRepository;
+    private final PositionPermissionRepository positionPermissionRepository;
+    private final ApplicationEventPublisher eventPublisher;
+    private final DocumentDraftService documentDraftService;
+
+    /**
+     * Lấy danh sách cán bộ có thẩm quyền duyệt văn bản (theo đơn vị hoặc toàn hệ thống)
+     */
+    @Transactional(readOnly = true)
+    public List<EligibleApproverResponse> getEligibleApprovers(Long documentId, Long userId) {
+        Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
+
+        Long orgNodeId = document.getIssuingOrgNode() != null ? document.getIssuingOrgNode().getId() : null;
+
+        // Tìm các position có quyền DOCUMENT_APPROVE hoặc DOCUMENT_SIGN_DRAFT
+        Set<String> approverPositions = new HashSet<>();
+        positionPermissionRepository.findByPositionCdAndDeleteFlgFalse("HT").forEach(p -> approverPositions.add(p.getPositionCd()));
+        positionPermissionRepository.findByPositionCdAndDeleteFlgFalse("PHT").forEach(p -> approverPositions.add(p.getPositionCd()));
+        positionPermissionRepository.findByPositionCdAndDeleteFlgFalse("TK").forEach(p -> approverPositions.add(p.getPositionCd()));
+        positionPermissionRepository.findByPositionCdAndDeleteFlgFalse("TP").forEach(p -> approverPositions.add(p.getPositionCd()));
+        positionPermissionRepository.findByPositionCdAndDeleteFlgFalse("PK").forEach(p -> approverPositions.add(p.getPositionCd()));
+        positionPermissionRepository.findByPositionCdAndDeleteFlgFalse("PP").forEach(p -> approverPositions.add(p.getPositionCd()));
+
+        // Mặc định các chức danh lãnh đạo
+        if (approverPositions.isEmpty()) {
+            approverPositions.addAll(Set.of("HT", "PHT", "TK", "TP", "PK", "PP"));
+        }
+
+        // Tìm các phân bổ vị trí còn hiệu lực
+        Instant now = Instant.now();
+        List<PositionAssignment> assignments = positionAssignmentRepository.findAll().stream()
+                .filter(pa -> !pa.isDeleteFlg())
+                .filter(pa -> pa.getActualDismissalDate() == null)
+                .filter(pa -> pa.getEffectiveFrom() == null || !pa.getEffectiveFrom().isAfter(now))
+                .filter(pa -> pa.getEffectiveTo() == null || !pa.getEffectiveTo().isBefore(now))
+                .filter(pa -> approverPositions.contains(pa.getPositionCd()))
+                .toList();
+
+        List<EligibleApproverResponse> responses = new ArrayList<>();
+        Set<Long> addedUserIds = new HashSet<>();
+
+        for (PositionAssignment pa : assignments) {
+            UserLogin approverUser = pa.getUserLogin();
+            if (approverUser == null || approverUser.isDeleteFlg() || addedUserIds.contains(approverUser.getId())) {
+                continue;
+            }
+
+            // Ưu tiên người duyệt thuộc cùng đơn vị hoặc đơn vị cha / lãnh đạo
+            OrgNode node = pa.getOrgNode();
+            Optional<UserInfo> infoOpt = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(approverUser.getId());
+            String fullName = infoOpt.map(UserInfo::getFullName).orElse(approverUser.getUsername());
+
+            responses.add(EligibleApproverResponse.builder()
+                    .userId(approverUser.getId())
+                    .username(approverUser.getUsername())
+                    .fullName(fullName)
+                    .email(approverUser.getEmail())
+                    .positionCd(pa.getPositionCd())
+                    .positionName(resolvePositionName(pa.getPositionCd()))
+                    .orgNodeId(node != null ? node.getId() : null)
+                    .orgNodeName(node != null ? node.getNameVn() : null)
+                    .build());
+            addedUserIds.add(approverUser.getId());
+        }
+
+        // Bổ sung các tài khoản ADMIN / SYSTEM_ADMIN nếu danh sách trống
+        if (responses.isEmpty()) {
+            List<UserLogin> admins = userLoginRepository.findAll().stream()
+                    .filter(u -> !u.isDeleteFlg() && (u.getRole() == Role.ADMIN || u.getRole() == Role.SYSTEM_ADMIN))
+                    .toList();
+            for (UserLogin admin : admins) {
+                Optional<UserInfo> infoOpt = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(admin.getId());
+                responses.add(EligibleApproverResponse.builder()
+                        .userId(admin.getId())
+                        .username(admin.getUsername())
+                        .fullName(infoOpt.map(UserInfo::getFullName).orElse(admin.getUsername()))
+                        .email(admin.getEmail())
+                        .positionCd("ADMIN")
+                        .positionName("Quản trị viên")
+                        .orgNodeId(orgNodeId)
+                        .orgNodeName(document.getIssuingOrgNode() != null ? document.getIssuingOrgNode().getNameVn() : null)
+                        .build());
+            }
+        }
+
+        return responses;
+    }
+
+    /**
+     * UC11 - Luồng 2.1: Gửi văn bản để duyệt
+     */
+    @Transactional
+    public DocumentResponse submitForApproval(Long documentId, SubmitApprovalRequest request, Long userId) {
+        UserLogin sender = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+
+        Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
+
+        // Kiểm tra quyền: người tạo hoặc quản trị viên
+        boolean isCreator = document.getCreatorUser().getId().equals(userId);
+        boolean isAdmin = sender.getRole() == Role.ADMIN || sender.getRole() == Role.SYSTEM_ADMIN;
+        if (!isCreator && !isAdmin) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền gửi duyệt văn bản này");
+        }
+
+        // Kiểm tra trạng thái: chỉ cho phép gửi khi là DRAFT hoặc REJECTED
+        if (document.getStatus() != DocumentStatus.DRAFT && document.getStatus() != DocumentStatus.REJECTED) {
+            throw new BusinessException(ErrorCode.DOCUMENT_INVALID_STATUS,
+                    "Chỉ có thể gửi duyệt văn bản đang ở trạng thái Dự thảo hoặc Cần chỉnh sửa");
+        }
+
+        // Kiểm tra tính đầy đủ hồ sơ (PDF bước 3, 4):
+        // 1. Phải có tiêu đề và trích yếu
+        if (document.getTitle() == null || document.getTitle().isBlank() ||
+                document.getSummary() == null || document.getSummary().isBlank()) {
+            throw new BusinessException(ErrorCode.DOCUMENT_INCOMPLETE_DOSSIER,
+                    "Hồ sơ chưa đầy đủ: Tiêu đề và trích yếu văn bản không được để trống");
+        }
+
+        // 2. Phải có tệp đính kèm chính (DOCX hoặc PDF) hoặc nội dung chi tiết
+        boolean hasMainAttachment = documentAttachmentRepository
+                .existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(documentId);
+        boolean hasAnyAttachment = documentAttachmentRepository
+                .existsByDocumentIdAndDeleteFlgFalse(documentId);
+        boolean hasContent = document.getContent() != null && !document.getContent().isBlank();
+
+        if (!hasMainAttachment && !hasAnyAttachment && !hasContent) {
+            throw new BusinessException(ErrorCode.DOCUMENT_INCOMPLETE_DOSSIER,
+                    "Hồ sơ chưa đầy đủ: Bắt buộc phải đính kèm tệp văn bản (DOCX hoặc PDF) hoặc nội dung chi tiết trước khi gửi duyệt");
+        }
+
+        // Kiểm tra người nhận duyệt
+        UserLogin approver = userLoginRepository.findByIdAndDeleteFlgFalse(request.getApproverUserId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Không tìm thấy người duyệt được chỉ định"));
+
+        Instant now = Instant.now();
+
+        // Chuyển trạng thái văn bản sang WAITING_APPROVAL
+        document.setStatus(DocumentStatus.WAITING_APPROVAL);
+        document.setSubmittedAt(now);
+        Document savedDocument = documentRepository.save(document);
+
+        // Tạo bản ghi yêu cầu duyệt
+        DocumentApprovalRequest approvalRequest = DocumentApprovalRequest.builder()
+                .document(savedDocument)
+                .senderUser(sender)
+                .approverUser(approver)
+                .status(ApprovalRequestStatus.PENDING)
+                .submitNote(request.getSubmitNote())
+                .submittedAt(now)
+                .build();
+        documentApprovalRequestRepository.save(approvalRequest);
+
+        // Ghi nhật ký tiến trình
+        DocumentProcessLog processLog = DocumentProcessLog.builder()
+                .document(savedDocument)
+                .actorUser(sender)
+                .action(DocumentProcessAction.SUBMIT_APPROVAL)
+                .fromStatus(DocumentStatus.DRAFT.name())
+                .toStatus(DocumentStatus.WAITING_APPROVAL.name())
+                .note("Gửi văn bản tới cán bộ duyệt: " + approver.getUsername() +
+                        (request.getSubmitNote() != null ? ". Ghi chú: " + request.getSubmitNote() : ""))
+                .build();
+        documentProcessLogRepository.save(processLog);
+
+        // Bắn sự kiện gửi thông báo cho người duyệt
+        eventPublisher.publishEvent(new DocumentSubmittedEvent(
+                this, savedDocument.getId(), sender.getId(), approver.getId(),
+                savedDocument.getTitle(), request.getSubmitNote()));
+
+        log.info("Người dùng {} đã gửi duyệt văn bản {} tới {}",
+                sender.getUsername(), savedDocument.getDraftCode(), approver.getUsername());
+
+        return documentDraftService.mapToDocumentResponse(savedDocument);
+    }
+
+    /**
+     * UC11 - Luồng 2.2: Thu hồi yêu cầu duyệt
+     */
+    @Transactional
+    public DocumentResponse recallApproval(Long documentId, RecallApprovalRequest request, Long userId) {
+        UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+
+        Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
+
+        // Kiểm tra quyền: người tạo hoặc quản trị viên
+        boolean isCreator = document.getCreatorUser().getId().equals(userId);
+        boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
+        if (!isCreator && !isAdmin) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền thu hồi yêu cầu duyệt của văn bản này");
+        }
+
+        // Kiểm tra trạng thái: văn bản phải đang ở trạng thái WAITING_APPROVAL
+        if (document.getStatus() != DocumentStatus.WAITING_APPROVAL) {
+            throw new BusinessException(ErrorCode.DOCUMENT_INVALID_STATUS,
+                    "Chỉ có thể thu hồi văn bản đang ở trạng thái Chờ duyệt");
+        }
+
+        // Kiểm tra người duyệt đã xử lý chưa (PDF bước 2, 3)
+        Optional<DocumentApprovalRequest> latestRequestOpt = documentApprovalRequestRepository
+                .findTopByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(documentId);
+
+        if (latestRequestOpt.isPresent()) {
+            DocumentApprovalRequest latestRequest = latestRequestOpt.get();
+            if (latestRequest.getStatus() != ApprovalRequestStatus.PENDING) {
+                throw new BusinessException(ErrorCode.DOCUMENT_CANNOT_RECALL,
+                        "Không thể thu hồi văn bản do người duyệt đã xử lý yêu cầu (" + latestRequest.getStatus().getDescription() + ")");
+            }
+
+            // Đánh dấu yêu cầu duyệt đã bị thu hồi
+            latestRequest.setStatus(ApprovalRequestStatus.RECALLED);
+            latestRequest.setProcessedAt(Instant.now());
+            documentApprovalRequestRepository.save(latestRequest);
+        }
+
+        // Chuyển trạng thái văn bản về lại DRAFT (PDF bước 4)
+        document.setStatus(DocumentStatus.DRAFT);
+        Document savedDocument = documentRepository.save(document);
+
+        // Ghi nhật ký thu hồi (PDF bước 5)
+        String recallReason = request != null && request.getRecallReason() != null && !request.getRecallReason().isBlank()
+                ? request.getRecallReason() : "Thu hồi để chỉnh sửa lại";
+
+        DocumentProcessLog processLog = DocumentProcessLog.builder()
+                .document(savedDocument)
+                .actorUser(user)
+                .action(DocumentProcessAction.RECALL_APPROVAL)
+                .fromStatus(DocumentStatus.WAITING_APPROVAL.name())
+                .toStatus(DocumentStatus.DRAFT.name())
+                .note("Thu hồi yêu cầu duyệt. Lý do: " + recallReason)
+                .build();
+        documentProcessLogRepository.save(processLog);
+
+        log.info("Người dùng {} đã thu hồi yêu cầu duyệt văn bản {}", user.getUsername(), savedDocument.getDraftCode());
+
+        return documentDraftService.mapToDocumentResponse(savedDocument);
+    }
+
+    private String resolvePositionName(String positionCd) {
+        if (positionCd == null) return null;
+        return switch (positionCd) {
+            case "HT" -> "Hiệu trưởng";
+            case "PHT" -> "Phó Hiệu trưởng";
+            case "TK" -> "Trưởng khoa";
+            case "PK" -> "Phó Trưởng khoa";
+            case "TP" -> "Trưởng phòng";
+            case "PP" -> "Phó Trưởng phòng";
+            default -> positionCd;
+        };
+    }
+}
