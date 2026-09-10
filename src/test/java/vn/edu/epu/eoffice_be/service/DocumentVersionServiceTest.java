@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -210,6 +211,10 @@ class DocumentVersionServiceTest {
         UserLogin creator = UserLogin.builder().id(100L).username("creator").role(Role.USER).build();
         Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
 
+        DocumentVersion v1 = DocumentVersion.builder().id(1L).document(doc).versionNumber(1).title("V1").build();
+        lenient().when(documentVersionRepository.findByDocumentIdAndVersionNumberAndDeleteFlgFalse(docId, 1))
+                .thenReturn(Optional.of(v1));
+
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(otherUser));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
 
@@ -225,6 +230,10 @@ class DocumentVersionServiceTest {
         Long userId = 100L;
         UserLogin creator = UserLogin.builder().id(userId).username("creator").role(Role.USER).build();
         Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.WAITING_APPROVAL).build();
+
+        DocumentVersion v1 = DocumentVersion.builder().id(1L).document(doc).versionNumber(1).title("V1").build();
+        lenient().when(documentVersionRepository.findByDocumentIdAndVersionNumberAndDeleteFlgFalse(docId, 1))
+                .thenReturn(Optional.of(v1));
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
@@ -253,6 +262,13 @@ class DocumentVersionServiceTest {
 
         DocumentResponse response = documentVersionService.restoreVersion(docId, 1, adminId);
         assertNotNull(response);
+        assertEquals(3, doc.getCurrentVersion());
+        assertEquals("T1", doc.getTitle());
+        assertEquals("S1", doc.getSummary());
+        assertEquals("C1", doc.getContent());
+        verify(documentRepository).save(doc);
+        verify(documentVersionRepository).save(any(DocumentVersion.class));
+        verify(documentProcessLogRepository).save(any(DocumentProcessLog.class));
     }
 
     @Test

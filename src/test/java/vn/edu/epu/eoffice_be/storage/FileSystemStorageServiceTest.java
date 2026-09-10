@@ -17,6 +17,8 @@ import vn.edu.epu.eoffice_be.storage.dto.StoredFileInfo;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -24,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -47,8 +50,9 @@ class FileSystemStorageServiceTest {
 
     @Test
     @DisplayName("Luu tep thanh cong va tinh ma bam SHA-256")
-    void storeFile_Success() {
+    void storeFile_Success() throws Exception {
         byte[] content = "Test file content for storage".getBytes();
+        String expectedSha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
         MockMultipartFile file = new MockMultipartFile(
                 "file",
                 "test-document.pdf",
@@ -61,12 +65,13 @@ class FileSystemStorageServiceTest {
 
         StoredFileInfo info = storageService.storeFile(file, 100L);
 
+        verify(securityValidator).validateFile(file);
         assertNotNull(info);
         assertEquals("test-document.pdf", info.getOriginalFileName());
         assertEquals("PDF", info.getFileExtension());
         assertEquals("application/pdf", info.getMimeType());
         assertEquals(content.length, info.getFileSizeBytes());
-        assertNotNull(info.getSha256Checksum());
+        assertEquals(expectedSha256, info.getSha256Checksum());
         assertNotNull(info.getStorageFileName());
         assertTrue(info.getStorageFileName().endsWith(".pdf"));
 
@@ -92,6 +97,7 @@ class FileSystemStorageServiceTest {
 
         StoredFileInfo info = storageService.storeFile(file, 101L);
 
+        verify(securityValidator).validateFile(file);
         assertNotNull(info);
         assertEquals("sample.docx", info.getOriginalFileName());
         assertEquals("DOCX", info.getFileExtension());
@@ -134,5 +140,6 @@ class FileSystemStorageServiceTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> storageService.storeFile(badFile, 102L));
         assertEquals(ErrorCode.FILE_STORAGE_ERROR, ex.getErrorCode());
+        verify(securityValidator).validateFile(badFile);
     }
 }

@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -139,6 +140,10 @@ class DocumentApprovalServiceTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentApprovalService.submitForApproval(docId, request, senderId));
         assertEquals(ErrorCode.APPROVER_NOT_ELIGIBLE, ex.getErrorCode());
+
+        verify(eventPublisher, never()).publishEvent(any());
+        verify(documentRepository, never()).save(any());
+        assertEquals(DocumentStatus.DRAFT, doc.getStatus());
     }
 
     @Test
