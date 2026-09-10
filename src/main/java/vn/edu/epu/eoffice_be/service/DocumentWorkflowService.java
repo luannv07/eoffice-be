@@ -24,7 +24,6 @@ public class DocumentWorkflowService {
     DocumentWorkflowLogRepository workflowLogRepository;
     DocumentRepository documentRepository;
 
-    // 1. Lấy chi tiết timeline và ý kiến/bút phê lãnh đạo
     public List<WorkflowTimelineResponse> getDocumentTimeline(Long documentId) {
         return workflowLogRepository.findByDocumentIdOrderByCreatedAtAsc(documentId).stream()
                 .map(log -> WorkflowTimelineResponse.builder()
@@ -39,7 +38,6 @@ public class DocumentWorkflowService {
                 .toList();
     }
 
-    // 2. Tra cứu văn bản chờ xử lý kèm số ngày tồn đọng SLA (> 3 ngày là quá hạn)
     public List<PendingDocumentResponse> getPendingDocuments() {
         Instant now = Instant.now();
         List<Document> list = documentRepository.findAll();
@@ -62,7 +60,6 @@ public class DocumentWorkflowService {
                 .toList();
     }
 
-    // 3. Hàm tiện ích ghi log chuyển trạng thái
     public void logAction(Long documentId, String username, String role, String action, String comment) {
         DocumentWorkflowLog log = DocumentWorkflowLog.builder()
                 .documentId(documentId)
