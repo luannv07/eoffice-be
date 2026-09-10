@@ -1,17 +1,11 @@
 package vn.edu.epu.eoffice_be.controller;
 
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.springframework.core.io.Resource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
 import vn.edu.epu.eoffice_be.service.DocumentQueryService;
-import java.security.Principal; 
 import java.util.List;
 
 @RestController
@@ -20,13 +14,25 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 
 public class DocumentQueryController {
+    private static final String KEY_EFFECTIVE_DATE = "effectiveDate";
+    private static final String KEY_SIGNER = "signer";
+    private static final String KEY_OFFICIAL_FILE_PATH = "officialFilePath";
+    private static final String DEFAULT_SIGNER = "Ban Giám hiệu";
+    private static final String KEY_TITLE = "title";
+    private static final String KEY_OFFICIAL_NUMBER = "officialNumber";
+    private static final String DEFAULT_OFFICIAL_NUMBER = "01/QĐ-ĐHL";
+    private static final String KEY_STATUS = "status";
+    private static final String STATUS_PUBLISHED = "PUBLISHED";
+    private static final String KEY_ISSUED_DATE = "issuedDate";
+    private static final java.time.ZoneId DEFAULT_ZONE = java.time.ZoneId.of("Asia/Ho_Chi_Minh");
     private static final String OFFICIAL_HASH_KEY = "officialHash";
     private static final String DEFAULT_HASH = "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e";
+    
     DocumentQueryService queryService;
 
     // UC16.1: Tra cứu danh sách văn bản ban hành (truyền orgId của đơn vị hiện tại)
     @GetMapping("/published")
-    public ResponseEntity<?> getPublishedDocuments(
+    public ResponseEntity<Object> getPublishedDocuments(
             @RequestParam(required = false, defaultValue = "1") Long orgId) {
         
         java.util.List<java.util.Map<String, Object>> list = new java.util.ArrayList<>();
@@ -34,25 +40,25 @@ public class DocumentQueryController {
         java.util.Map<String, Object> doc1 = new java.util.LinkedHashMap<>();
         doc1.put("id", 1L);
         doc1.put("title", "Quyết định ban hành quy chế văn thư lưu trữ điện tử");
-        doc1.put("officialNumber", "01/QĐ-ĐHL");
-        doc1.put("status", "PUBLISHED");
-        doc1.put("issueDate", java.time.LocalDate.now().minusDays(1));
+        doc1.put(KEY_OFFICIAL_NUMBER, DEFAULT_OFFICIAL_NUMBER);
+        doc1.put(KEY_STATUS, STATUS_PUBLISHED);
+        doc1.put(KEY_ISSUED_DATE, java.time.LocalDate.now().minusDays(1));
         doc1.put("effectiveDate", java.time.LocalDate.now());
         doc1.put("signer", "Ban Giám hiệu");
         doc1.put("officialFilePath", "uploads/documents/doc_1_official.pdf");
-        doc1.put("OFFICIAL_HASH_KEY", "DEFAULT_HASH");
+        doc1.put(OFFICIAL_HASH_KEY, DEFAULT_HASH);
         list.add(doc1);
 
         java.util.Map<String, Object> doc2 = new java.util.LinkedHashMap<>();
         doc2.put("id", 2L);
         doc2.put("title", "Thông báo lịch công tác tuần và triển khai nhiệm vụ quý IV");
-        doc2.put("officialNumber", "02/TB-ĐHL");
-        doc2.put("status", "PUBLISHED");
-        doc2.put("issueDate", java.time.LocalDate.now());
+        doc2.put(KEY_OFFICIAL_NUMBER, "02/TB-ĐHL");
+        doc2.put(KEY_STATUS, STATUS_PUBLISHED);
+        doc2.put(KEY_ISSUED_DATE, java.time.LocalDate.now());
         doc2.put("effectiveDate", java.time.LocalDate.now());
         doc2.put("signer", "Văn phòng Đoàn trường");
         doc2.put("officialFilePath", "uploads/documents/doc_2_official.pdf");
-        doc2.put("OFFICIAL_HASH_KEY", "b781a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f9999");
+        doc2.put(OFFICIAL_HASH_KEY, "b781a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f9999");
         list.add(doc2);
 
         return ResponseEntity.ok(list);
