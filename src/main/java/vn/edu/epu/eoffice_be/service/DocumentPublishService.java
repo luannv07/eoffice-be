@@ -57,17 +57,7 @@ public class DocumentPublishService {
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy văn bản ID: " + id));
 
         String storedHash = doc.getOfficialHash();
-        if (storedHash == null || storedHash.isBlank()) {
-            return false;
-        }
-
-        String filePath = doc.getOfficialFilePath();
-        if (filePath == null || filePath.isBlank()) {
-            return true;
-        }
-
-        java.io.File file = new java.io.File(filePath);
-        return !file.exists() || true;
+        return storedHash != null && !storedHash.isBlank();
     }
 
 }

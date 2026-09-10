@@ -39,11 +39,16 @@ public class DocumentQueryController {
     }
 
     // UC16.3: Tải file PDF chính thức đã ký số
+    // UC16.3: Tải file PDF chính thức đã ký số
     @GetMapping("/{id}/download")
     public ResponseEntity<byte[]> downloadDocument(
-            @PathVariable Long id,
-            @RequestParam(required = false, defaultValue = "1") Long orgId) {
+            @PathVariable("id") Long id,
+            @RequestParam(name = "orgId", required = false, defaultValue = "1") Long orgId) {
         byte[] pdfBytes = queryService.downloadDocument(id, orgId);
+
+        if (pdfBytes == null || pdfBytes.length == 0) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_PDF);
