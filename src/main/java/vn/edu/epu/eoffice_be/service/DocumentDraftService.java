@@ -227,9 +227,11 @@ public class DocumentDraftService {
         if (keyword != null) {
             keyword = keyword.trim();
             if (keyword.isEmpty()) {
+                // Chuẩn hóa chuỗi rỗng hoặc chỉ chứa khoảng trắng về null.
+                // DocumentRepository.searchDocuments hỗ trợ cả (:keyword IS NULL OR :keyword = '')
                 keyword = null;
             } else {
-                // Escape SQL LIKE wildcard characters
+                // Thoát các ký tự đại diện SQL LIKE ('\', '%', '_') để khớp chính xác với mệnh đề ESCAPE '\' trong DocumentRepository
                 keyword = keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
             }
         }

@@ -92,24 +92,26 @@ class DocumentVersionServiceTest {
     }
 
     @Test
-    @DisplayName("Lấy danh sách các phiên bản (UC10)")
-    void getVersions_Success() {
+    @DisplayName("Lấy danh sách các phiên bản thất bại khi userId null (UNAUTHORIZED)")
+    void getVersions_NullUserId_ThrowsUnauthorized() {
         Long docId = 1L;
-        UserLogin creator = UserLogin.builder().id(100L).username("author").build();
         Document doc = Document.builder().id(docId).build();
-
-        DocumentVersion v1 = DocumentVersion.builder().id(1L).document(doc).versionNumber(1).title("V1").summary("S1").createdByUser(creator).build();
-        DocumentVersion v2 = DocumentVersion.builder().id(2L).document(doc).versionNumber(2).title("V2").summary("S2").createdByUser(creator).build();
-
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-        when(documentVersionRepository.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(docId))
-                .thenReturn(List.of(v2, v1));
 
-        List<DocumentVersionResponse> versions = documentVersionService.getVersions(docId);
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                documentVersionService.getVersions(docId, null));
+        assertEquals(ErrorCode.UNAUTHORIZED, ex.getErrorCode());
+    }
 
-        assertEquals(2, versions.size());
-        assertEquals(2, versions.get(0).getVersionNumber());
-        assertEquals(1, versions.get(1).getVersionNumber());
+    @Test
+    @DisplayName("Lấy danh sách các phiên bản thất bại khi văn bản không tồn tại (DOCUMENT_NOT_FOUND)")
+    void getVersions_DocumentNotFound_ThrowsNotFound() {
+        Long docId = 1L;
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.empty());
+
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                documentVersionService.getVersions(docId, 100L));
+        assertEquals(ErrorCode.DOCUMENT_NOT_FOUND, ex.getErrorCode());
     }
 
     @Test
@@ -254,18 +256,78 @@ class DocumentVersionServiceTest {
     }
 
     @Test
-    @DisplayName("So sánh phiên bản không truyền userId thành công")
-    void compareVersions_WithoutUserId_Success() {
+    @DisplayName("So sánh phiên bản thất bại khi userId null (UNAUTHORIZED)")
+    void compareVersions_NullUserId_ThrowsUnauthorized() {
         Long docId = 1L;
-        DocumentVersion v1 = DocumentVersion.builder().versionNumber(1).title("A").summary("B").content("C").build();
-        DocumentVersion v2 = DocumentVersion.builder().versionNumber(2).title("A2").summary("B").content("C2").build();
+        Document doc = Document.builder().id(docId).build();
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
 
-        when(documentVersionRepository.findByDocumentIdAndVersionNumberAndDeleteFlgFalse(docId, 1)).thenReturn(Optional.of(v1));
-        when(documentVersionRepository.findByDocumentIdAndVersionNumberAndDeleteFlgFalse(docId, 2)).thenReturn(Optional.of(v2));
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                documentVersionService.compareVersions(docId, 1, 2, null));
+        assertEquals(ErrorCode.UNAUTHORIZED, ex.getErrorCode());
+    }
 
-        VersionCompareResponse diff = documentVersionService.compareVersions(docId, 1, 2);
-        assertNotNull(diff);
-        assertTrue(diff.isTitleChanged());
-        assertTrue(diff.isContentChanged());
+    @Test
+    @DisplayName("So sánh phiên bản thất bại khi văn bản không tồn tại (DOCUMENT_NOT_FOUND)")
+    void compareVersions_DocumentNotFound_ThrowsNotFound() {
+        Long docId = 1L;
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.empty());
+
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                documentVersionService.compareVersions(docId, 1, 2, 100L));
+        assertEquals(ErrorCode.DOCUMENT_NOT_FOUND, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("So sánh phiên bản thất bại khi không phải người tạo và không phải admin (FORBIDDEN)")
+    void compareVersions_Forbidden_ThrowsForbidden() {
+        Long docId = 1L;
+        Long ownerId = 100L;
+        Long otherId = 200L;
+        UserLogin other = UserLogin.builder().id(otherId).role(Role.USER).build();
+        Document doc = Document.builder().id(docId).creatorUser(UserLogin.builder().id(ownerId).build()).build();
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(otherId)).thenReturn(Optional.of(other));
+
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                documentVersionService.compareVersions(docId, 1, 2, otherId));
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("assertCanViewDocumentVersions cho phép ADMIN và SYSTEM_ADMIN")
+    void assertCanViewDocumentVersions_Admin_Success() {
+        Long adminId = 999L;
+        UserLogin admin = UserLogin.builder().id(adminId).role(Role.ADMIN).build();
+        Document doc = Document.builder().id(1L).creatorUser(UserLogin.builder().id(100L).build()).build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(adminId)).thenReturn(Optional.of(admin));
+
+        UserLogin result = documentVersionService.assertCanViewDocumentVersions(doc, adminId);
+        assertNotNull(result);
+        assertEquals(adminId, result.getId());
+
+        // SYSTEM_ADMIN
+        Long sysAdminId = 888L;
+        UserLogin sysAdmin = UserLogin.builder().id(sysAdminId).role(Role.SYSTEM_ADMIN).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(sysAdminId)).thenReturn(Optional.of(sysAdmin));
+
+        UserLogin sysResult = documentVersionService.assertCanViewDocumentVersions(doc, sysAdminId);
+        assertNotNull(sysResult);
+        assertEquals(sysAdminId, sysResult.getId());
+    }
+
+    @Test
+    @DisplayName("assertCanViewDocumentVersions thất bại khi không tìm thấy người dùng (UNAUTHORIZED)")
+    void assertCanViewDocumentVersions_UserNotFound_ThrowsUnauthorized() {
+        Long userId = 999L;
+        Document doc = Document.builder().id(1L).creatorUser(UserLogin.builder().id(100L).build()).build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.empty());
+
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                documentVersionService.assertCanViewDocumentVersions(doc, userId));
+        assertEquals(ErrorCode.UNAUTHORIZED, ex.getErrorCode());
     }
 }
