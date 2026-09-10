@@ -22,19 +22,19 @@ import java.time.Instant;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public abstract class BaseEntity {
 
-    @CreatedBy
-    @Column(name = "created_by", updatable = false)
-    String createdBy;
+	@CreatedBy
+	@Column(name = "created_by", updatable = false)
+	String createdBy;
 
-    @CreatedDate
-    @Column(name = "created_date", nullable = false, updatable = false)
-    Instant createdDate;
+	@CreatedDate
+	@Column(name = "created_date", nullable = false, updatable = false)
+	Instant createdDate;
 
-    @LastModifiedBy
-    @Column(name = "updated_by")
-    String updatedBy;
+	@LastModifiedBy
+	@Column(name = "updated_by")
+	String updatedBy;
 
-    @LastModifiedDate
-    @Column(name = "updated_date")
-    Instant updatedDate;
+	@LastModifiedDate
+	@Column(name = "updated_date")
+	Instant updatedDate;
 }

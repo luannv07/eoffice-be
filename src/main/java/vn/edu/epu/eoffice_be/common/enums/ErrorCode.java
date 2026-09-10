@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 @Getter
 @RequiredArgsConstructor
 public enum ErrorCode {
+
     INTERNAL_SERVER_ERROR("INTERNAL_SERVER_ERROR", "Lỗi hệ thống", HttpStatus.INTERNAL_SERVER_ERROR),
     BAD_REQUEST("BAD_REQUEST", "Dữ liệu không hợp lệ", HttpStatus.BAD_REQUEST),
     UNAUTHORIZED("UNAUTHORIZED", "Chưa xác thực", HttpStatus.UNAUTHORIZED),
@@ -20,6 +21,10 @@ public enum ErrorCode {
     RATE_LIMITED("RATE_LIMITED", "Quá nhiều lần thử đăng nhập, vui lòng thử lại sau", HttpStatus.TOO_MANY_REQUESTS),
     INVALID_TOKEN("INVALID_TOKEN", "Token không hợp lệ hoặc đã hết hạn", HttpStatus.UNAUTHORIZED),
     SESSION_EXPIRED("SESSION_EXPIRED", "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại", HttpStatus.UNAUTHORIZED),
+    PROFILE_INCOMPLETE("PROFILE_INCOMPLETE", "Bạn cần hoàn thiện profile trước", HttpStatus.FORBIDDEN),
+	  PASSWORD_RESET_TOKEN_INVALID("PASSWORD_RESET_TOKEN_INVALID", "Link đặt lại mật khẩu không hợp lệ", HttpStatus.BAD_REQUEST),
+	  PASSWORD_RESET_TOKEN_EXPIRED("PASSWORD_RESET_TOKEN_EXPIRED", "Link đặt lại mật khẩu đã hết hạn", HttpStatus.BAD_REQUEST),
+	  MAIL_SEND_FAILED("MAIL_SEND_FAILED", "Không gửi được email", HttpStatus.INTERNAL_SERVER_ERROR),
     PASSWORD_EXPIRED("PASSWORD_EXPIRED", "Mật khẩu đã hết hạn, vui lòng đổi mật khẩu", HttpStatus.UNAUTHORIZED),
     USERNAME_ALREADY_EXISTS("USERNAME_ALREADY_EXISTS", "Tên đăng nhập đã tồn tại", HttpStatus.CONFLICT),
     EMAIL_ALREADY_EXISTS("EMAIL_ALREADY_EXISTS", "Email đã được sử dụng", HttpStatus.CONFLICT),
@@ -39,7 +44,8 @@ public enum ErrorCode {
     DOCUMENT_FILE_MISSING("DOCUMENT_FILE_MISSING", "Văn bản chưa có tệp đính kèm để ký", HttpStatus.BAD_REQUEST),
     DOCUMENT_NOT_READY_FOR_PUBLISH("DOCUMENT_NOT_READY_FOR_PUBLISH", "Văn bản chưa đủ điều kiện để ký phát hành", HttpStatus.BAD_REQUEST);
 
-    private final String code;
-    private final String message;
-    private final HttpStatus status;
+
+	private final String code;
+	private final String message;
+	private final HttpStatus status;
 }

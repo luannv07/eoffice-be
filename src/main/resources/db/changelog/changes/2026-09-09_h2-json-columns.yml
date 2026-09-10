@@ -1,0 +1,26 @@
+databaseChangeLog:
+  # H2 test-profile only (dbms: h2).
+  # The base table defines before_data/after_data/changed_fields as TEXT and
+  # 2026-08-23_h2-compat-text-columns.yml converts them to VARCHAR to match the
+  # previous Hibernate TEXT mapping. The ChangeHistoryLog entity now maps these
+  # columns as JSON (org.hibernate.type.SqlTypes.JSON) so Hibernate binds them as
+  # jsonb on PostgreSQL and as JSON on H2. This changeset converts the columns to
+  # the JSON type so H2 schema validation (ddl-auto: validate) and JSON binding
+  # succeed. Runs after the TEXT->VARCHAR compat changeset above.
+  - changeSet:
+      id: 2026-09-09-h2-json-columns
+      author: luannv
+      dbms: h2
+      changes:
+        - modifyDataType:
+            tableName: change_history_logs
+            columnName: before_data
+            newDataType: json
+        - modifyDataType:
+            tableName: change_history_logs
+            columnName: after_data
+            newDataType: json
+        - modifyDataType:
+            tableName: change_history_logs
+            columnName: changed_fields
+            newDataType: json

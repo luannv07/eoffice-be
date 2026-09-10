@@ -21,23 +21,23 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ChangeHistoryLogControllerTest {
 
-    @Mock
-    private ChangeHistoryLogQueryService service;
+	@Mock
+	private ChangeHistoryLogQueryService service;
 
-    @InjectMocks
-    private ChangeHistoryLogController controller;
+	@InjectMocks
+	private ChangeHistoryLogController controller;
 
-    @Test
-    void filterShouldReturnSuccessResponse() {
-        Page<ChangeHistoryLogResponse> page = new PageImpl<>(List.of(
-                ChangeHistoryLogResponse.builder().tableName("users").build()
-        ));
-        when(service.filter(org.mockito.ArgumentMatchers.any(ChangeHistoryLogFilterRequest.class))).thenReturn(page);
+	@Test
+	void filterShouldReturnSuccessResponse() {
+		Page<ChangeHistoryLogResponse> page = new PageImpl<>(List.of(
+						ChangeHistoryLogResponse.builder().tableName("users").build()
+		));
+		when(service.filter(org.mockito.ArgumentMatchers.any(ChangeHistoryLogFilterRequest.class))).thenReturn(page);
 
-        BaseResponse<?> response = controller.filter(new ChangeHistoryLogFilterRequest());
+		BaseResponse<?> response = controller.filter(new ChangeHistoryLogFilterRequest());
 
-        assertTrue(response.isSuccess());
-        Page<?> data = (Page<?>) response.getData();
-        assertEquals(1, data.getTotalElements());
-    }
+		assertTrue(response.isSuccess());
+		Page<?> data = (Page<?>) response.getData();
+		assertEquals(1, data.getTotalElements());
+	}
 }

@@ -18,7 +18,7 @@ public class OrgNodeCreateRequest {
 	String code;
 
 	@Schema(description = "Id của node cha. Bỏ trống/null nếu tạo node gốc (ví dụ: Trường)",
-			example = "1001", nullable = true)
+					example = "1001", nullable = true)
 	Long parentId;
 
 	@Schema(description = "Tên tiếng Việt của đơn vị", example = "Khoa Công nghệ thông tin", requiredMode = Schema.RequiredMode.REQUIRED)
@@ -32,7 +32,7 @@ public class OrgNodeCreateRequest {
 	String nameEn;
 
 	@Schema(description = "Loại đơn vị, phải tồn tại trong dictionary nhóm ORG_NODE_TYPE_CD. Giá trị seed hiện có: UNIVERSITY / FACULTY / DEPARTMENT / CENTER / MAJOR",
-			example = "FACULTY", requiredMode = Schema.RequiredMode.REQUIRED)
+					example = "FACULTY", requiredMode = Schema.RequiredMode.REQUIRED)
 	@NotBlank
 	@Size(max = 50)
 	String typeCd;

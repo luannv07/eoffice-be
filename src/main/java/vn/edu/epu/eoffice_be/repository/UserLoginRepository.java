@@ -1,17 +1,26 @@
 package vn.edu.epu.eoffice_be.repository;
 
-import vn.edu.epu.eoffice_be.entity.UserLogin;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
+import vn.edu.epu.eoffice_be.common.enums.Role;
+import vn.edu.epu.eoffice_be.entity.UserLogin;
 
 import java.util.Optional;
 
-public interface UserLoginRepository extends JpaRepository<UserLogin, Long> {
+public interface UserLoginRepository extends JpaRepository<UserLogin, Long>, JpaSpecificationExecutor<UserLogin> {
 
-    Optional<UserLogin> findByUsernameAndDeleteFlgFalse(String username);
+	Optional<UserLogin> findByUsernameAndDeleteFlgFalse(String username);
 
-    Optional<UserLogin> findByIdAndDeleteFlgFalse(Long id);
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	Optional<UserLogin> findByEmailAndDeleteFlgFalse(String email);
 
-    boolean existsByUsernameAndDeleteFlgFalse(String username);
+	Optional<UserLogin> findByIdAndDeleteFlgFalse(Long id);
 
-    boolean existsByEmailAndDeleteFlgFalse(String email);
+	boolean existsByUsernameAndDeleteFlgFalse(String username);
+
+	boolean existsByEmailAndDeleteFlgFalse(String email);
+
+	long countByRoleAndDeleteFlgFalse(Role role);
 }

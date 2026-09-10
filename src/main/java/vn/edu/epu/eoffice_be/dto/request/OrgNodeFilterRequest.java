@@ -19,6 +19,6 @@ public class OrgNodeFilterRequest extends BaseFilterRequest {
 	String nameVn;
 
 	@Schema(description = "Lọc theo loại đơn vị (khớp chính xác). Giá trị seed hiện có: UNIVERSITY / FACULTY / DEPARTMENT / CENTER / MAJOR",
-			example = "FACULTY")
+					example = "FACULTY")
 	String typeCd;
 }

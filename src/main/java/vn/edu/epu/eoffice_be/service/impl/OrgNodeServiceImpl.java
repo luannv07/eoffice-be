@@ -68,6 +68,9 @@ public class OrgNodeServiceImpl implements OrgNodeService {
 
 		node.setNameVn(request.getNameVn());
 		node.setNameEn(request.getNameEn());
+		if (request.getOrgOrder() != null) {
+			node.setOrgOrder(request.getOrgOrder());
+		}
 		orgNodeRepository.save(node);
 
 		return buildTree(orgNodeRepository.findAllByDeleteFlgFalseOrderByOrgOrderAsc()
@@ -82,6 +85,24 @@ public class OrgNodeServiceImpl implements OrgNodeService {
 		return orgNodeRepository.findByIdAndDeleteFlgFalse(id)
 						.map(this::convertToDto)
 						.orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public List<OrgNodeResponse> getChildren(Long parentId) {
+		return orgNodeRepository.findAllByParentIdAndDeleteFlgFalseOrderByOrgOrderAsc(parentId)
+						.stream()
+						.map(this::convertToDto)
+						.toList();
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public List<OrgNodeResponse> getRoots() {
+		return orgNodeRepository.findByParentIdIsNullAndDeleteFlgFalseOrderByOrgOrderAsc()
+						.stream()
+						.map(this::convertToDto)
+						.toList();
 	}
 
 	@Override

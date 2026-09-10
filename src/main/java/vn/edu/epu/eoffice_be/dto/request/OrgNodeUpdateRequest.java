@@ -2,7 +2,6 @@ package vn.edu.epu.eoffice_be.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AccessLevel;
 import lombok.Data;
@@ -13,13 +12,12 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class OrgNodeUpdateRequest {
 
-	@Schema(description = "Id của node cần cập nhật", example = "1015", requiredMode = Schema.RequiredMode.REQUIRED)
-	@NotNull
+	@Schema(description = "Id của node cần cập nhật (được truyền qua path, controller tự gán; không nằm trong body)", example = "1015", nullable = true)
 	Long id;
 
 	// nullable: null = chuyển thành root; khác null = đổi cha
 	@Schema(description = "Id node cha mới. null = chuyển thành node gốc; khác null = di chuyển sang cha mới",
-			example = "1001", nullable = true)
+					example = "1001", nullable = true)
 	Long parentId;
 
 	@Schema(description = "Tên tiếng Việt mới", example = "Khoa Công nghệ thông tin và Truyền thông", requiredMode = Schema.RequiredMode.REQUIRED)
@@ -31,4 +29,7 @@ public class OrgNodeUpdateRequest {
 	@NotBlank
 	@Size(max = 255)
 	String nameEn;
+
+	@Schema(description = "Thứ tự sắp xếp mới trong các node cùng cấp. Bỏ trống/null để giữ nguyên thứ tự hiện tại (dùng cho kéo thả đổi vị trí anh em)", example = "3", nullable = true)
+	Integer orgOrder;
 }

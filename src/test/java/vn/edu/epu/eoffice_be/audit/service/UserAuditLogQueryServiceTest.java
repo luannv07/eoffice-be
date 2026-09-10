@@ -23,33 +23,33 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class UserAuditLogQueryServiceTest {
 
-    @Mock
-    private UserAuditLogRepository repository;
+	@Mock
+	private UserAuditLogRepository repository;
 
-    @InjectMocks
-    private UserAuditLogQueryService service;
+	@InjectMocks
+	private UserAuditLogQueryService service;
 
-    @Test
-    void filterShouldReturnMappedPage() {
-        UserAuditLog entity = UserAuditLog.builder()
-                .id(UUID.randomUUID())
-                .username("admin")
-                .userAgent("Mozilla")
-                .clientIp("127.0.0.1")
-                .requestUri("/audit-logs")
-                .methodName("filter")
-                .executionTimeMs(25L)
-                .paramContent("{}")
-                .createdDate(Instant.parse("2026-05-30T10:00:00Z"))
-                .build();
+	@Test
+	void filterShouldReturnMappedPage() {
+		UserAuditLog entity = UserAuditLog.builder()
+						.id(UUID.randomUUID())
+						.username("admin")
+						.userAgent("Mozilla")
+						.clientIp("127.0.0.1")
+						.requestUri("/audit-logs")
+						.methodName("filter")
+						.executionTimeMs(25L)
+						.paramContent("{}")
+						.createdDate(Instant.parse("2026-05-30T10:00:00Z"))
+						.build();
 
-        when(repository.findAll(ArgumentMatchers.<org.springframework.data.jpa.domain.Specification<UserAuditLog>>any(), ArgumentMatchers.any(org.springframework.data.domain.Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(entity)));
+		when(repository.findAll(ArgumentMatchers.<org.springframework.data.jpa.domain.Specification<UserAuditLog>>any(), ArgumentMatchers.any(org.springframework.data.domain.Pageable.class)))
+						.thenReturn(new PageImpl<>(List.of(entity)));
 
-        Page<UserAuditLogResponse> result = service.filter(new UserAuditLogFilterRequest());
+		Page<UserAuditLogResponse> result = service.filter(new UserAuditLogFilterRequest());
 
-        assertEquals(1, result.getTotalElements());
-        assertEquals("admin", result.getContent().getFirst().getUsername());
-        assertEquals("/audit-logs", result.getContent().getFirst().getRequestUri());
-    }
+		assertEquals(1, result.getTotalElements());
+		assertEquals("admin", result.getContent().getFirst().getUsername());
+		assertEquals("/audit-logs", result.getContent().getFirst().getRequestUri());
+	}
 }
