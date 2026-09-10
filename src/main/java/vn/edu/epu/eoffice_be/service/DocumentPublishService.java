@@ -15,13 +15,14 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.HexFormat;
 
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class DocumentPublishService {
-
+    private static final java.time.ZoneId ZONE_VN = java.time.ZoneId.of("Asia/Ho_Chi_Minh");
     DocumentRepository documentRepository;
     DocumentDistributionRepository distributionRepository;
 
@@ -38,8 +39,7 @@ public class DocumentPublishService {
         // 1. Cấp số văn bản và thiết lập ngày ban hành
         String docNumber = "01/QĐ-ĐHL";
         doc.setOfficialNumber(docNumber);
-        doc.setIssueDate(request.getIssueDate() != null ? request.getIssueDate() : java.time.LocalDate.now());
-        doc.setEffectiveDate(request.getEffectiveDate());
+        doc.setIssueDate(request.getIssueDate() != null ? request.getIssueDate() : java.time.LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")));        doc.setEffectiveDate(request.getEffectiveDate());
 
         // 2. Thiết lập đường dẫn file và hash SHA-256 mẫu
         String officialPdfPath = "uploads/documents/doc_" + documentId + "_official.pdf";
@@ -79,13 +79,4 @@ public class DocumentPublishService {
     }
 }
 
-    private String computeSha256(String input) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash);
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("Lỗi thuật toán mã băm", e);
-        }
-    }
 }
