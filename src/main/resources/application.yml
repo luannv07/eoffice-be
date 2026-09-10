@@ -39,6 +39,8 @@ management:
       show-details: never
 
 eoffice:
+  storage:
+    base-path: ${STORAGE_BASE_PATH:./uploads}
   jwt:
     issuer: eoffice-be
     secret-key: ${JWT_SECRET}
