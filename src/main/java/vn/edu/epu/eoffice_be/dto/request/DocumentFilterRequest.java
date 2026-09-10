@@ -1,6 +1,9 @@
 package vn.edu.epu.eoffice_be.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -25,10 +28,13 @@ public class DocumentFilterRequest {
     @Schema(description = "Lọc theo đơn vị ban hành", example = "1001")
     Long orgNodeId;
 
+    @PositiveOrZero(message = "Số trang phải lớn hơn hoặc bằng 0")
     @Schema(description = "Số trang (bắt đầu từ 0)", example = "0")
     @Builder.Default
     int page = 0;
 
+    @Min(value = 1, message = "Số bản ghi trên mỗi trang phải tối thiểu là 1")
+    @Max(value = 100, message = "Số bản ghi trên mỗi trang không được vượt quá 100")
     @Schema(description = "Số bản ghi trên mỗi trang", example = "20")
     @Builder.Default
     int size = 20;

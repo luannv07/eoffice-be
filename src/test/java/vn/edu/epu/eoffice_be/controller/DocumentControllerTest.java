@@ -155,6 +155,57 @@ class DocumentControllerTest {
     }
 
     @Test
+    @DisplayName("API GET /documents/drafts - Bị từ chối 400 khi tham số phân trang không hợp lệ")
+    void searchDrafts_InvalidPagination_ReturnsBadRequest() throws Exception {
+        // page < 0
+        mockMvc.perform(get("/documents/drafts?page=-1").principal(auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+
+        // size = 0
+        mockMvc.perform(get("/documents/drafts?size=0").principal(auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+
+        // size > 100
+        mockMvc.perform(get("/documents/drafts?size=101").principal(auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("API POST /documents/drafts - Bị từ chối 400 khi độ dài trường vượt quá giới hạn")
+    void createDraft_ExceededSize_ReturnsBadRequest() throws Exception {
+        DocumentCreateRequest request = DocumentCreateRequest.builder()
+                .title("A".repeat(501)) // vượt quá 500
+                .summary("Trích yếu")
+                .documentTypeCd("QUYET_DINH")
+                .issuingOrgNodeId(10L)
+                .build();
+
+        mockMvc.perform(post("/documents/drafts")
+                        .principal(auth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+
+        DocumentCreateRequest typeTooLong = DocumentCreateRequest.builder()
+                .title("Tiêu đề hợp lệ")
+                .summary("Trích yếu")
+                .documentTypeCd("A".repeat(51)) // vượt quá 50
+                .issuingOrgNodeId(10L)
+                .build();
+
+        mockMvc.perform(post("/documents/drafts")
+                        .principal(auth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(typeTooLong)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
     @DisplayName("API PUT /documents/{id} - Chỉnh sửa dự thảo thành công (UC10)")
     void updateDraft_Success() throws Exception {
         DocumentUpdateRequest request = DocumentUpdateRequest.builder()

@@ -26,13 +26,16 @@ public class DocumentCreateRequest {
     String title;
 
     @NotBlank(message = "Trích yếu không được để trống")
+    @Size(max = 1000, message = "Trích yếu không được vượt quá 1000 ký tự")
     @Schema(description = "Trích yếu tóm tắt nội dung văn bản", example = "Quy định về đào tạo hệ chính quy và xét tốt nghiệp")
     String summary;
 
+    @Size(max = 65535, message = "Nội dung không được vượt quá 65535 ký tự")
     @Schema(description = "Nội dung tóm tắt hoặc nội dung dự thảo", example = "Căn cứ Luật Giáo dục Đại học...")
     String content;
 
     @NotBlank(message = "Loại văn bản không được để trống")
+    @Size(max = 50, message = "Mã loại văn bản không được vượt quá 50 ký tự")
     @Schema(description = "Mã loại văn bản trong từ điển DOCUMENT_TYPE_CD", example = "QUYET_DINH")
     String documentTypeCd;
 
