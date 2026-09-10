@@ -16,13 +16,14 @@ import java.time.Instant;
 @RequestMapping("/documents")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+private static final String DEFAULT_HASH = "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e";
 public class DocumentPublishController {
 
     DocumentPublishService publishService;
 
     // UC15: Phát hành văn bản
     @PostMapping("/{id}/publish")
-    public ResponseEntity<?> publishDocument(
+    public ResponseEntity<Object> publishDocument(
             @PathVariable Long id,
             @RequestBody PublishRequest request) {
         try {
@@ -37,7 +38,7 @@ public class DocumentPublishController {
             result.put("status", "PUBLISHED");
             result.put("issueDate", request.getIssueDate() != null ? request.getIssueDate() : java.time.LocalDate.now());
             result.put("effectiveDate", request.getEffectiveDate());
-            result.put("officialHash", "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e");
+            result.put("officialHash", "DEFAULT_HASH");
             result.put("officialFilePath", "uploads/documents/doc_" + id + "_signed.pdf");
             return ResponseEntity.ok(result);
         }
@@ -52,8 +53,8 @@ public class DocumentPublishController {
                     .valid(isValid)
                     .documentId(id)
                     .officialNumber("01/QĐ-ĐHL")
-                    .hashStored("a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e")
-                    .hashComputed("a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e")
+                    .hashStored("DEFAULT_HASH")
+                    .hashComputed("DEFAULT_HASH")
                     .verifiedAt(Instant.now())
                     .build();
             return ResponseEntity.ok(response);
@@ -62,8 +63,8 @@ public class DocumentPublishController {
                     .valid(true)
                     .documentId(id)
                     .officialNumber("01/QĐ-ĐHL")
-                    .hashStored("a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e")
-                    .hashComputed("a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e")
+                    .hashStored("DEFAULT_HASH")
+                    .hashComputed("DEFAULT_HASH")
                     .verifiedAt(Instant.now())
                     .build();
             return ResponseEntity.ok(fallback);
