@@ -9,20 +9,19 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import vn.edu.epu.eoffice_be.dto.DocumentResponse;
+import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
 import vn.edu.epu.eoffice_be.service.DocumentQueryService;
-
-import java.security.Principal;
+import java.security.Principal; 
 import java.util.List;
 
 @RestController
 @RequestMapping("/documents")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-private static final String OFFICIAL_HASH_KEY = "officialHash";
-private static final String DEFAULT_HASH = "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e";
-public class DocumentQueryController {
 
+public class DocumentQueryController {
+    private static final String OFFICIAL_HASH_KEY = "officialHash";
+    private static final String DEFAULT_HASH = "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e";
     DocumentQueryService queryService;
 
     // UC16.1: Tra cứu danh sách văn bản ban hành (truyền orgId của đơn vị hiện tại)
