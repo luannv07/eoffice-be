@@ -224,7 +224,7 @@ class DocumentControllerTest {
     @DisplayName("API GET /documents/{id}/versions - Lấy danh sách phiên bản (UC10)")
     void getVersions_Success() throws Exception {
         DocumentVersionResponse v1 = DocumentVersionResponse.builder().id(1L).versionNumber(1).build();
-        when(documentVersionService.getVersions(1L)).thenReturn(List.of(v1));
+        when(documentVersionService.getVersions(1L, 100L)).thenReturn(List.of(v1));
 
         mockMvc.perform(get("/documents/1/versions").principal(auth))
                 .andExpect(status().isOk())
@@ -243,13 +243,22 @@ class DocumentControllerTest {
                 .newTitle("New")
                 .build();
 
-        when(documentVersionService.compareVersions(1L, 1, 2)).thenReturn(diff);
+        when(documentVersionService.compareVersions(1L, 1, 2, 100L)).thenReturn(diff);
 
         mockMvc.perform(get("/documents/1/versions/compare?fromVersion=1&toVersion=2").principal(auth))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.titleChanged").value(true))
                 .andExpect(jsonPath("$.data.newTitle").value("New"));
+    }
+
+    @Test
+    @DisplayName("API - Trả về 401 khi không có Authentication hoặc Principal không hợp lệ")
+    void unauthenticatedAccess_ThrowsUnauthorized() throws Exception {
+        mockMvc.perform(get("/documents/1/versions"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value("UNAUTHORIZED"));
     }
 
     @Test

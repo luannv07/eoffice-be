@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -56,8 +57,10 @@ public class FileSecurityValidator {
 
         // 3. Kiểm tra phần mở rộng (Extension Whitelist)
         String extension = extractExtension(originalFileName).toLowerCase();
-        boolean isAllowed = uploadProperties.getAllowedExtensions().stream()
-                .anyMatch(ext -> ext.equalsIgnoreCase(extension));
+        boolean isAllowed = uploadProperties.getAllowedExtensions() != null && uploadProperties.getAllowedExtensions().stream()
+                .filter(Objects::nonNull)
+                .map(String::toLowerCase)
+                .anyMatch(ext -> ext.equals(extension));
         if (!isAllowed) {
             throw new BusinessException(ErrorCode.FILE_INVALID_FORMAT,
                     "Chỉ chấp nhận tệp có định dạng DOCX hoặc PDF");

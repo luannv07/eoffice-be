@@ -5,6 +5,7 @@ import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Configuration
@@ -17,5 +18,5 @@ public class UploadProperties {
 
     private long maxSizeBytes = 26214400L; // 25 MB
 
-    private List<String> allowedExtensions = List.of("docx", "pdf", "DOCX", "PDF");
+    private List<String> allowedExtensions = new ArrayList<>(List.of("docx", "pdf"));
 }

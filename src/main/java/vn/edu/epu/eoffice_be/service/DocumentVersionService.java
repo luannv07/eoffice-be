@@ -36,8 +36,32 @@ public class DocumentVersionService {
     private final DocumentDraftService documentDraftService;
 
     /**
-     * Lấy danh sách lịch sử tất cả phiên bản của văn bản
+     * Lấy danh sách lịch sử tất cả phiên bản của văn bản (có kiểm tra quyền)
      */
+    @Transactional(readOnly = true)
+    public List<DocumentVersionResponse> getVersions(Long documentId, Long userId) {
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "Yêu cầu đăng nhập để xem lịch sử phiên bản");
+        }
+
+        UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+
+        Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
+
+        boolean isCreator = document.getCreatorUser() != null && document.getCreatorUser().getId().equals(userId);
+        boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
+        if (!isCreator && !isAdmin) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền xem lịch sử phiên bản của văn bản này");
+        }
+
+        List<DocumentVersion> versions = documentVersionRepository
+                .findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(documentId);
+
+        return versions.stream().map(this::mapToVersionResponse).toList();
+    }
+
     @Transactional(readOnly = true)
     public List<DocumentVersionResponse> getVersions(Long documentId) {
         documentRepository.findByIdAndDeleteFlgFalse(documentId)
@@ -50,13 +74,57 @@ public class DocumentVersionService {
     }
 
     /**
-     * So sánh khác biệt giữa 2 phiên bản văn bản
+     * So sánh khác biệt giữa 2 phiên bản văn bản (có kiểm tra quyền)
      */
     @Transactional(readOnly = true)
-    public VersionCompareResponse compareVersions(Long documentId, int fromVersionNumber, int toVersionNumber) {
-        documentRepository.findByIdAndDeleteFlgFalse(documentId)
+    public VersionCompareResponse compareVersions(Long documentId, int fromVersionNumber, int toVersionNumber, Long userId) {
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "Yêu cầu đăng nhập để so sánh các phiên bản");
+        }
+
+        UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+
+        Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
+        boolean isCreator = document.getCreatorUser() != null && document.getCreatorUser().getId().equals(userId);
+        boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
+        if (!isCreator && !isAdmin) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền so sánh các phiên bản của văn bản này");
+        }
+
+        DocumentVersion fromVersion = documentVersionRepository
+                .findByDocumentIdAndVersionNumberAndDeleteFlgFalse(documentId, fromVersionNumber)
+                .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_VERSION_NOT_FOUND,
+                        "Không tìm thấy phiên bản gốc: " + fromVersionNumber));
+
+        DocumentVersion toVersion = documentVersionRepository
+                .findByDocumentIdAndVersionNumberAndDeleteFlgFalse(documentId, toVersionNumber)
+                .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_VERSION_NOT_FOUND,
+                        "Không tìm thấy phiên bản đối chiếu: " + toVersionNumber));
+
+        boolean titleChanged = !Objects.equals(fromVersion.getTitle(), toVersion.getTitle());
+        boolean summaryChanged = !Objects.equals(fromVersion.getSummary(), toVersion.getSummary());
+        boolean contentChanged = !Objects.equals(fromVersion.getContent(), toVersion.getContent());
+
+        return VersionCompareResponse.builder()
+                .fromVersionNumber(fromVersionNumber)
+                .toVersionNumber(toVersionNumber)
+                .titleChanged(titleChanged)
+                .oldTitle(fromVersion.getTitle())
+                .newTitle(toVersion.getTitle())
+                .summaryChanged(summaryChanged)
+                .oldSummary(fromVersion.getSummary())
+                .newSummary(toVersion.getSummary())
+                .contentChanged(contentChanged)
+                .oldContent(fromVersion.getContent())
+                .newContent(toVersion.getContent())
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public VersionCompareResponse compareVersions(Long documentId, int fromVersionNumber, int toVersionNumber) {
         DocumentVersion fromVersion = documentVersionRepository
                 .findByDocumentIdAndVersionNumberAndDeleteFlgFalse(documentId, fromVersionNumber)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_VERSION_NOT_FOUND,

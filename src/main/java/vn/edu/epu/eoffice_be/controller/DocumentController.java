@@ -26,6 +26,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import vn.edu.epu.eoffice_be.common.annotation.Auditable;
 import vn.edu.epu.eoffice_be.common.dto.BaseResponse;
+import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
+import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.dto.request.DocumentCreateRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentFilterRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentUpdateRequest;
@@ -131,7 +133,8 @@ public class DocumentController {
             @PathVariable Long id,
             Authentication authentication
     ) {
-        return BaseResponse.success(documentVersionService.getVersions(id));
+        Long userId = extractUserId(authentication);
+        return BaseResponse.success(documentVersionService.getVersions(id, userId));
     }
 
     @Operation(summary = "So sánh 2 phiên bản (UC10)",
@@ -143,7 +146,8 @@ public class DocumentController {
             @RequestParam int toVersion,
             Authentication authentication
     ) {
-        return BaseResponse.success(documentVersionService.compareVersions(id, fromVersion, toVersion));
+        Long userId = extractUserId(authentication);
+        return BaseResponse.success(documentVersionService.compareVersions(id, fromVersion, toVersion, userId));
     }
 
     @Operation(summary = "Khôi phục phiên bản cũ (UC10)",
@@ -265,7 +269,7 @@ public class DocumentController {
 
     private Long extractUserId(Authentication authentication) {
         if (authentication == null || !(authentication.getPrincipal() instanceof JwtUserPrincipal principal)) {
-            return null;
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "Người dùng chưa được xác thực hoặc thông tin phiên đăng nhập không hợp lệ");
         }
         return principal.getUserId();
     }

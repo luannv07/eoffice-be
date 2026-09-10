@@ -51,6 +51,47 @@ class DocumentVersionServiceTest {
     private DocumentVersionService documentVersionService;
 
     @Test
+    @DisplayName("Lấy danh sách các phiên bản với userId hợp lệ (UC10)")
+    void getVersions_WithUserId_Success() {
+        Long docId = 1L;
+        Long userId = 100L;
+        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).build();
+
+        DocumentVersion v1 = DocumentVersion.builder().id(1L).document(doc).versionNumber(1).title("V1").summary("S1").createdByUser(creator).build();
+        DocumentVersion v2 = DocumentVersion.builder().id(2L).document(doc).versionNumber(2).title("V2").summary("S2").createdByUser(creator).build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentVersionRepository.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(docId))
+                .thenReturn(List.of(v2, v1));
+
+        List<DocumentVersionResponse> versions = documentVersionService.getVersions(docId, userId);
+
+        assertEquals(2, versions.size());
+        assertEquals(2, versions.get(0).getVersionNumber());
+        assertEquals(1, versions.get(1).getVersionNumber());
+    }
+
+    @Test
+    @DisplayName("Lấy danh sách các phiên bản thất bại khi không có quyền (UC10)")
+    void getVersions_Forbidden() {
+        Long docId = 1L;
+        Long ownerId = 100L;
+        Long otherUserId = 200L;
+        UserLogin owner = UserLogin.builder().id(ownerId).username("author").role(Role.USER).build();
+        UserLogin other = UserLogin.builder().id(otherUserId).username("other").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).creatorUser(owner).build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(otherUserId)).thenReturn(Optional.of(other));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                documentVersionService.getVersions(docId, otherUserId));
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+    }
+
+    @Test
     @DisplayName("Lấy danh sách các phiên bản (UC10)")
     void getVersions_Success() {
         Long docId = 1L;
@@ -75,16 +116,19 @@ class DocumentVersionServiceTest {
     @DisplayName("So sánh 2 phiên bản phát hiện thay đổi tiêu đề và trích yếu (UC10)")
     void compareVersions_Success() {
         Long docId = 1L;
-        Document doc = Document.builder().id(docId).build();
+        Long userId = 100L;
+        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).build();
 
         DocumentVersion v1 = DocumentVersion.builder().document(doc).versionNumber(1).title("Quyết định cũ").summary("Tóm tắt 1").content("ND").build();
         DocumentVersion v2 = DocumentVersion.builder().document(doc).versionNumber(2).title("Quyết định mới").summary("Tóm tắt 2").content("ND").build();
 
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(documentVersionRepository.findByDocumentIdAndVersionNumberAndDeleteFlgFalse(docId, 1)).thenReturn(Optional.of(v1));
         when(documentVersionRepository.findByDocumentIdAndVersionNumberAndDeleteFlgFalse(docId, 2)).thenReturn(Optional.of(v2));
 
-        VersionCompareResponse diff = documentVersionService.compareVersions(docId, 1, 2);
+        VersionCompareResponse diff = documentVersionService.compareVersions(docId, 1, 2, userId);
 
         assertNotNull(diff);
         assertTrue(diff.isTitleChanged());
