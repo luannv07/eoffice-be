@@ -20,7 +20,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class DocumentWorkflowService {
-
+    private static final java.time.ZoneId ZONE_VN = java.time.ZoneId.of("Asia/Ho_Chi_Minh");
     DocumentWorkflowLogRepository workflowLogRepository;
     DocumentRepository documentRepository;
 
@@ -67,7 +67,7 @@ public class DocumentWorkflowService {
                 .actorRole(role)
                 .action(action)
                 .comment(comment)
-                .createdAt(LocalDateTime.now())
+                .createdAt(LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")))
                 .build();
         workflowLogRepository.save(log);
     }
