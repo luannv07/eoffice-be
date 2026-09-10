@@ -81,7 +81,7 @@ class DocumentControllerTest {
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
 
-        JwtUserPrincipal principal = new JwtUserPrincipal(100L, "author", "USER", List.of());
+        JwtUserPrincipal principal = new JwtUserPrincipal(100L, "author", "USER", true, List.of());
         auth = new UsernamePasswordAuthenticationToken(principal, null, List.of());
     }
 
