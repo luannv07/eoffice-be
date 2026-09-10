@@ -1,5 +1,14 @@
 databaseChangeLog:
   - changeSet:
+      id: 2026-09-08-000-create-documents-seq
+      author: antigravity
+      changes:
+        - createSequence:
+            sequenceName: documents_seq
+            startValue: 1
+            incrementBy: 50
+
+  - changeSet:
       id: 2026-09-08-001-create-documents-table
       author: antigravity
       changes:
@@ -10,7 +19,7 @@ databaseChangeLog:
               - column:
                   name: id
                   type: BIGINT
-                  defaultValueComputed: nextval('hibernate_sequence')
+                  defaultValueComputed: nextval('documents_seq')
                   constraints:
                     primaryKey: true
                     nullable: false

@@ -19,6 +19,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 import vn.edu.epu.eoffice_be.common.entity.BaseEntity;
 import vn.edu.epu.eoffice_be.common.enums.DocumentSecurityLevel;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
@@ -28,6 +30,8 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "documents")
+@SQLDelete(sql = "UPDATE documents SET delete_flg = true WHERE id = ?")
+@SQLRestriction("delete_flg = false")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -37,8 +41,8 @@ import java.time.Instant;
 public class Document extends BaseEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "eoffice_seq")
-    @SequenceGenerator(name = "eoffice_seq", sequenceName = "hibernate_sequence", allocationSize = 50)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "documents_seq_gen")
+    @SequenceGenerator(name = "documents_seq_gen", sequenceName = "documents_seq", allocationSize = 50)
     Long id;
 
     @Column(name = "draft_code", nullable = false, unique = true, length = 50)
@@ -47,10 +51,10 @@ public class Document extends BaseEntity {
     @Column(nullable = false, length = 500)
     String title;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column(nullable = false, length = 1000)
     String summary;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(length = 65535)
     String content;
 
     @Column(name = "document_type_cd", nullable = false, length = 50)

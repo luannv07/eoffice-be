@@ -47,10 +47,10 @@ public class DocumentVersion extends BaseEntity {
     @Column(nullable = false, length = 500)
     String title;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column(nullable = false, length = 1000)
     String summary;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(length = 65535)
     String content;
 
     @Column(name = "change_summary", length = 500)
