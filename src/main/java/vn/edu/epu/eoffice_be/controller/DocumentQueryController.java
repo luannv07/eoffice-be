@@ -19,6 +19,7 @@ import java.util.List;
 @RequestMapping("/documents")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+private static final String OFFICIAL_HASH_KEY = "officialHash";
 public class DocumentQueryController {
 
     DocumentQueryService queryService;
@@ -39,7 +40,7 @@ public class DocumentQueryController {
         doc1.put("effectiveDate", java.time.LocalDate.now());
         doc1.put("signer", "Ban Giám hiệu");
         doc1.put("officialFilePath", "uploads/documents/doc_1_official.pdf");
-        doc1.put("officialHash", "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e");
+        doc1.put("OFFICIAL_HASH_KEY", "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e");
         list.add(doc1);
 
         java.util.Map<String, Object> doc2 = new java.util.LinkedHashMap<>();
@@ -51,7 +52,7 @@ public class DocumentQueryController {
         doc2.put("effectiveDate", java.time.LocalDate.now());
         doc2.put("signer", "Văn phòng Đoàn trường");
         doc2.put("officialFilePath", "uploads/documents/doc_2_official.pdf");
-        doc2.put("officialHash", "b781a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f9999");
+        doc2.put("OFFICIAL_HASH_KEY", "b781a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f9999");
         list.add(doc2);
 
         return ResponseEntity.ok(list);
@@ -59,26 +60,26 @@ public class DocumentQueryController {
 
     // UC16.2: Xem chi tiết trích yếu, số hiệu, ngày ban hành
     @GetMapping("/{id}/details")
-public ResponseEntity<?> getDocumentDetails(
-        @PathVariable Long id,
-        @RequestParam(required = false, defaultValue = "1") Long orgId) {
-    
-    java.util.Map<String, Object> details = new java.util.LinkedHashMap<>();
-    details.put("id", id);
-    details.put("title", "Quy chế văn thư lưu trữ điện tử");
-    details.put("officialNumber", "0" + id + "/QĐ-ĐHL");
-    details.put("status", "PUBLISHED");
-    details.put("issueDate", java.time.LocalDate.now());
-    details.put("effectiveDate", java.time.LocalDate.now().plusDays(1));
-    details.put("signer", "Ban Giám hiệu");
-    details.put("summary", "Quy định về việc tạo lập, phát hành, lưu trữ và theo dõi văn bản điện tử tại cơ quan.");
-    details.put("officialFilePath", "uploads/documents/doc_" + id + "_official.pdf");
-    details.put("officialHash", "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e");
-    details.put("isRead", true);
-    details.put("readAt", java.time.Instant.now());
+    public ResponseEntity<Object> getDocumentDetails(
+            @PathVariable Long id,
+            @RequestParam(required = false, defaultValue = "1") Long orgId) {
+        
+        java.util.Map<String, Object> details = new java.util.LinkedHashMap<>();
+        details.put("id", id);
+        details.put("title", "Quy chế văn thư lưu trữ điện tử");
+        details.put("officialNumber", "0" + id + "/QĐ-ĐHL");
+        details.put("status", "PUBLISHED");
+        details.put("issueDate", java.time.LocalDate.now());
+        details.put("effectiveDate", java.time.LocalDate.now().plusDays(1));
+        details.put("signer", "Ban Giám hiệu");
+        details.put("summary", "Quy định về việc tạo lập, phát hành, lưu trữ và theo dõi văn bản điện tử tại cơ quan.");
+        details.put("officialFilePath", "uploads/documents/doc_" + id + "_official.pdf");
+        details.put("OFFICIAL_HASH_KEY", "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e");
+        details.put("isRead", true);
+        details.put("readAt", java.time.Instant.now());
 
-    return ResponseEntity.ok(details);
-}
+        return ResponseEntity.ok(details);
+    }
 
     // UC16.3: Tải file PDF chính thức đã ký số
     @GetMapping("/{id}/download")

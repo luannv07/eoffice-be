@@ -1,4 +1,4 @@
-package vn.edu.epu.eoffice_be.dto;
+package vn.edu.epu.eoffice_be.dto.response;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;
