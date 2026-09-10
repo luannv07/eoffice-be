@@ -79,7 +79,7 @@ class DocumentControllerTest {
         converter.setObjectMapper(objectMapper);
 
         mockMvc = MockMvcBuilders.standaloneSetup(documentController)
-                .setMessageConverters(converter)
+                .setMessageConverters(converter, new org.springframework.http.converter.ResourceHttpMessageConverter())
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
 
@@ -427,5 +427,37 @@ class DocumentControllerTest {
 
         org.junit.jupiter.api.Assertions.assertEquals(DocumentSecurityLevel.NORMAL, req.getSecurityLevel());
         org.junit.jupiter.api.Assertions.assertEquals(DocumentUrgencyLevel.NORMAL, req.getUrgencyLevel());
+    }
+
+    @Test
+    @DisplayName("API GET /documents/{id}/attachments/{attachmentId}/download - Tải tệp thành công")
+    void downloadAttachment_Success() throws Exception {
+        Long docId = 1L;
+        Long attId = 10L;
+
+        org.springframework.core.io.Resource mockResource =
+                new org.springframework.core.io.ByteArrayResource("dummy file content".getBytes());
+        vn.edu.epu.eoffice_be.entity.DocumentAttachment meta =
+                vn.edu.epu.eoffice_be.entity.DocumentAttachment.builder()
+                        .originalFileName("kehoach.docx")
+                        .mimeType("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                        .build();
+
+        when(documentAttachmentService.downloadAttachment(docId, attId, 100L)).thenReturn(mockResource);
+        when(documentAttachmentService.getAttachmentMetadata(docId, attId)).thenReturn(meta);
+
+        mockMvc.perform(get("/documents/1/attachments/10/download").principal(auth))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string(
+                        org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        org.hamcrest.Matchers.containsString("kehoach.docx")));
+    }
+
+    @Test
+    @DisplayName("API Bị từ chối 401 khi không có thông tin Authentication")
+    void api_Unauthorized_WhenNoAuth() throws Exception {
+        mockMvc.perform(get("/documents/1/versions"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false));
     }
 }

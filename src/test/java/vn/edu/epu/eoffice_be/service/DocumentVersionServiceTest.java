@@ -198,4 +198,74 @@ class DocumentVersionServiceTest {
                 () -> documentVersionService.restoreVersion(docId, targetVer, userId));
         assertEquals(ErrorCode.DOCUMENT_VERSION_NOT_FOUND, ex.getErrorCode());
     }
+
+    @Test
+    @DisplayName("Khôi phục phiên bản thất bại khi người dùng không có quyền (FORBIDDEN)")
+    void restoreVersion_Forbidden_ShouldThrowForbidden() {
+        Long docId = 1L;
+        Long userId = 200L;
+        UserLogin otherUser = UserLogin.builder().id(userId).username("other").role(Role.USER).build();
+        UserLogin creator = UserLogin.builder().id(100L).username("creator").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(otherUser));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentVersionService.restoreVersion(docId, 1, userId));
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Khôi phục phiên bản thất bại khi trạng thái văn bản không hợp lệ (DOCUMENT_INVALID_STATUS)")
+    void restoreVersion_InvalidStatus_ShouldThrowInvalidStatus() {
+        Long docId = 1L;
+        Long userId = 100L;
+        UserLogin creator = UserLogin.builder().id(userId).username("creator").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.WAITING_APPROVAL).build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentVersionService.restoreVersion(docId, 1, userId));
+        assertEquals(ErrorCode.DOCUMENT_INVALID_STATUS, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Admin có thể khôi phục phiên bản dù không phải người tạo")
+    void restoreVersion_Admin_Success() {
+        Long docId = 1L;
+        Long adminId = 999L;
+        UserLogin admin = UserLogin.builder().id(adminId).username("admin").role(Role.ADMIN).build();
+        UserLogin creator = UserLogin.builder().id(100L).username("creator").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).currentVersion(2).build();
+
+        DocumentVersion v1 = DocumentVersion.builder().id(1L).document(doc).versionNumber(1).title("T1").summary("S1").content("C1").build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(adminId)).thenReturn(Optional.of(admin));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentVersionRepository.findByDocumentIdAndVersionNumberAndDeleteFlgFalse(docId, 1)).thenReturn(Optional.of(v1));
+        when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(documentDraftService.mapToDocumentResponse(any())).thenReturn(DocumentResponse.builder().id(docId).build());
+
+        DocumentResponse response = documentVersionService.restoreVersion(docId, 1, adminId);
+        assertNotNull(response);
+    }
+
+    @Test
+    @DisplayName("So sánh phiên bản không truyền userId thành công")
+    void compareVersions_WithoutUserId_Success() {
+        Long docId = 1L;
+        DocumentVersion v1 = DocumentVersion.builder().versionNumber(1).title("A").summary("B").content("C").build();
+        DocumentVersion v2 = DocumentVersion.builder().versionNumber(2).title("A2").summary("B").content("C2").build();
+
+        when(documentVersionRepository.findByDocumentIdAndVersionNumberAndDeleteFlgFalse(docId, 1)).thenReturn(Optional.of(v1));
+        when(documentVersionRepository.findByDocumentIdAndVersionNumberAndDeleteFlgFalse(docId, 2)).thenReturn(Optional.of(v2));
+
+        VersionCompareResponse diff = documentVersionService.compareVersions(docId, 1, 2);
+        assertNotNull(diff);
+        assertTrue(diff.isTitleChanged());
+        assertTrue(diff.isContentChanged());
+    }
 }

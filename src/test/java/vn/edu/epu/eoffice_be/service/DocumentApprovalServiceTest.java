@@ -318,4 +318,112 @@ class DocumentApprovalServiceTest {
         assertEquals("leader", result.get(0).getUsername());
         assertEquals("Hiệu trưởng", result.get(0).getPositionName());
     }
+
+    @Test
+    @DisplayName("Lấy danh sách người duyệt fallback về admin khi không có cán bộ nào")
+    void getEligibleApprovers_FallbackAdmin_Success() {
+        Long docId = 1L;
+        Long userId = 100L;
+        Document doc = Document.builder().id(docId).build();
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+
+        when(positionAssignmentRepository.findAll()).thenReturn(java.util.List.of());
+        UserLogin admin = UserLogin.builder().id(999L).username("admin").role(Role.ADMIN).build();
+        when(userLoginRepository.findAll()).thenReturn(java.util.List.of(admin));
+
+        var result = documentApprovalService.getEligibleApprovers(docId, userId);
+        org.junit.jupiter.api.Assertions.assertFalse(result.isEmpty());
+        assertEquals("admin", result.get(0).getUsername());
+        assertEquals("Quản trị viên", result.get(0).getPositionName());
+    }
+
+    @Test
+    @DisplayName("Gửi duyệt thất bại khi người gửi không phải người tạo và không phải admin (FORBIDDEN)")
+    void submitForApproval_Forbidden_ThrowsForbidden() {
+        Long docId = 1L;
+        Long senderId = 200L;
+        UserLogin sender = UserLogin.builder().id(senderId).role(Role.USER).build();
+        UserLogin creator = UserLogin.builder().id(100L).role(Role.USER).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(sender));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+
+        SubmitApprovalRequest req = SubmitApprovalRequest.builder().approverUserId(300L).build();
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentApprovalService.submitForApproval(docId, req, senderId));
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Gửi duyệt thất bại khi trạng thái văn bản không hợp lệ (DOCUMENT_INVALID_STATUS)")
+    void submitForApproval_InvalidStatus_ThrowsInvalidStatus() {
+        Long docId = 1L;
+        Long senderId = 100L;
+        UserLogin creator = UserLogin.builder().id(senderId).role(Role.USER).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.WAITING_APPROVAL).build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(creator));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+
+        SubmitApprovalRequest req = SubmitApprovalRequest.builder().approverUserId(300L).build();
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentApprovalService.submitForApproval(docId, req, senderId));
+        assertEquals(ErrorCode.DOCUMENT_INVALID_STATUS, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Gửi duyệt thất bại khi không tìm thấy người duyệt (NOT_FOUND)")
+    void submitForApproval_ApproverNotFound_ThrowsNotFound() {
+        Long docId = 1L;
+        Long senderId = 100L;
+        Long approverId = 999L;
+        UserLogin creator = UserLogin.builder().id(senderId).role(Role.USER).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).title("Tiêu đề").summary("Trích yếu").content("ND").build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(creator));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(true);
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.empty());
+
+        SubmitApprovalRequest req = SubmitApprovalRequest.builder().approverUserId(approverId).build();
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentApprovalService.submitForApproval(docId, req, senderId));
+        assertEquals(ErrorCode.NOT_FOUND, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Thu hồi thất bại khi không phải người tạo và không phải admin (FORBIDDEN)")
+    void recallApproval_Forbidden_ThrowsForbidden() {
+        Long docId = 1L;
+        Long userId = 200L;
+        UserLogin user = UserLogin.builder().id(userId).role(Role.USER).build();
+        UserLogin creator = UserLogin.builder().id(100L).role(Role.USER).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.WAITING_APPROVAL).build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(user));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+
+        RecallApprovalRequest req = RecallApprovalRequest.builder().recallReason("reason").build();
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentApprovalService.recallApproval(docId, req, userId));
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Thu hồi thất bại khi trạng thái văn bản không phải WAITING_APPROVAL (DOCUMENT_INVALID_STATUS)")
+    void recallApproval_InvalidStatus_ThrowsInvalidStatus() {
+        Long docId = 1L;
+        Long userId = 100L;
+        UserLogin creator = UserLogin.builder().id(userId).role(Role.USER).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+
+        RecallApprovalRequest req = RecallApprovalRequest.builder().recallReason("reason").build();
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentApprovalService.recallApproval(docId, req, userId));
+        assertEquals(ErrorCode.DOCUMENT_INVALID_STATUS, ex.getErrorCode());
+    }
 }

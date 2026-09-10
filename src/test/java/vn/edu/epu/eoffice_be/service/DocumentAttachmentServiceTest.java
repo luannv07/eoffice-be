@@ -158,4 +158,83 @@ class DocumentAttachmentServiceTest {
                 () -> documentAttachmentService.downloadAttachment(docId, attId, userId));
         assertEquals(ErrorCode.DOCUMENT_ATTACHMENT_NOT_FOUND, ex.getErrorCode());
     }
+
+    @Test
+    @DisplayName("Tải xuống thành công khi tệp tồn tại")
+    void downloadAttachment_Success() {
+        Long docId = 1L;
+        Long attId = 10L;
+        Long userId = 100L;
+
+        Document doc = Document.builder().id(docId).status(DocumentStatus.DRAFT).build();
+        DocumentAttachment att = DocumentAttachment.builder()
+                .id(attId)
+                .document(doc)
+                .storagePath("path/to")
+                .storageFileName("file.pdf")
+                .build();
+
+        org.springframework.core.io.Resource mockResource = org.mockito.Mockito.mock(org.springframework.core.io.Resource.class);
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId, docId)).thenReturn(Optional.of(att));
+        when(fileStorageService.loadAsResource("path/to", "file.pdf")).thenReturn(mockResource);
+
+        org.springframework.core.io.Resource result = documentAttachmentService.downloadAttachment(docId, attId, userId);
+        assertNotNull(result);
+        assertEquals(mockResource, result);
+    }
+
+    @Test
+    @DisplayName("Lấy metadata tệp đính kèm thành công")
+    void getAttachmentMetadata_Success() {
+        Long docId = 1L;
+        Long attId = 10L;
+
+        DocumentAttachment att = DocumentAttachment.builder().id(attId).originalFileName("test.docx").build();
+        when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId, docId)).thenReturn(Optional.of(att));
+
+        DocumentAttachment result = documentAttachmentService.getAttachmentMetadata(docId, attId);
+        assertNotNull(result);
+        assertEquals("test.docx", result.getOriginalFileName());
+    }
+
+    @Test
+    @DisplayName("Tải tệp bị từ chối khi không phải người tạo và không phải admin (FORBIDDEN)")
+    void uploadAttachment_Forbidden_ShouldThrowForbidden() {
+        Long userId = 100L;
+        Long docId = 1L;
+
+        UserLogin otherUser = UserLogin.builder().id(userId).username("other").role(Role.USER).build();
+        UserLogin creator = UserLogin.builder().id(999L).username("creator").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
+
+        MockMultipartFile file = new MockMultipartFile("file", "doc.pdf", "application/pdf", "dummy".getBytes());
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(otherUser));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentAttachmentService.uploadAttachment(docId, file, false, userId));
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Xóa tệp bị từ chối khi không phải người tạo và không phải admin (FORBIDDEN)")
+    void deleteAttachment_Forbidden_ShouldThrowForbidden() {
+        Long userId = 100L;
+        Long docId = 1L;
+        Long attId = 10L;
+
+        UserLogin otherUser = UserLogin.builder().id(userId).username("other").role(Role.USER).build();
+        UserLogin creator = UserLogin.builder().id(999L).username("creator").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(otherUser));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentAttachmentService.deleteAttachment(docId, attId, userId));
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+    }
 }

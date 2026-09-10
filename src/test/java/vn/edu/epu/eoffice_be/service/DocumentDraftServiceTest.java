@@ -255,4 +255,140 @@ class DocumentDraftServiceTest {
         assertNotNull(detail);
         assertEquals("DT-2026-00001", detail.getDocument().getDraftCode());
     }
+
+    @Test
+    @DisplayName("Cập nhật dự thảo không tạo phiên bản mới (saveNewVersion = false)")
+    void updateDraft_WithoutNewVersion() {
+        Long userId = 100L;
+        Long docId = 1L;
+        Long orgNodeId = 10L;
+
+        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        OrgNode orgNode = OrgNode.builder().id(orgNodeId).nameVn("Khoa CNTT").build();
+        Document doc = Document.builder()
+                .id(docId)
+                .title("Tiêu đề cũ")
+                .summary("Trích yếu cũ")
+                .content("Nội dung cũ")
+                .creatorUser(creator)
+                .status(DocumentStatus.DRAFT)
+                .currentVersion(1)
+                .build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(orgNodeRepository.findByIdAndDeleteFlgFalse(orgNodeId)).thenReturn(Optional.of(orgNode));
+        when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DocumentUpdateRequest request = DocumentUpdateRequest.builder()
+                .title("Tiêu đề cập nhật nhẹ")
+                .summary("Trích yếu cập nhật")
+                .content("Nội dung mới")
+                .issuingOrgNodeId(orgNodeId)
+                .documentTypeCd("CONG_VAN")
+                .saveNewVersion(false)
+                .build();
+
+        DocumentResponse response = documentDraftService.updateDraft(docId, request, userId);
+
+        assertNotNull(response);
+        assertEquals("Tiêu đề cập nhật nhẹ", response.getTitle());
+        assertEquals(1, doc.getCurrentVersion()); // Version không tăng
+    }
+
+    @Test
+    @DisplayName("Admin có thể cập nhật dự thảo của người khác")
+    void updateDraft_Admin_Success() {
+        Long adminId = 999L;
+        Long docId = 1L;
+        Long orgNodeId = 10L;
+
+        UserLogin admin = UserLogin.builder().id(adminId).username("admin").role(Role.ADMIN).build();
+        UserLogin creator = UserLogin.builder().id(100L).username("author").role(Role.USER).build();
+        OrgNode orgNode = OrgNode.builder().id(orgNodeId).nameVn("Khoa CNTT").build();
+        Document doc = Document.builder()
+                .id(docId)
+                .creatorUser(creator)
+                .status(DocumentStatus.DRAFT)
+                .currentVersion(1)
+                .build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(adminId)).thenReturn(Optional.of(admin));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(orgNodeRepository.findByIdAndDeleteFlgFalse(orgNodeId)).thenReturn(Optional.of(orgNode));
+        when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DocumentUpdateRequest request = DocumentUpdateRequest.builder()
+                .title("Admin sửa")
+                .summary("Summary")
+                .issuingOrgNodeId(orgNodeId)
+                .documentTypeCd("CONG_VAN")
+                .saveNewVersion(false)
+                .build();
+
+        DocumentResponse response = documentDraftService.updateDraft(docId, request, adminId);
+        assertNotNull(response);
+        assertEquals("Admin sửa", response.getTitle());
+    }
+
+    @Test
+    @DisplayName("Tìm kiếm dự thảo với từ khóa có ký tự đặc biệt (searchDrafts)")
+    void searchDrafts_WithSpecialCharacters() {
+        Long userId = 100L;
+        vn.edu.epu.eoffice_be.dto.request.DocumentFilterRequest filter =
+                new vn.edu.epu.eoffice_be.dto.request.DocumentFilterRequest();
+        filter.setKeyword("test%_\\");
+        filter.setStatus(DocumentStatus.DRAFT);
+        filter.setPage(0);
+        filter.setSize(10);
+
+        Document doc = Document.builder()
+                .id(1L)
+                .draftCode("DT-2026-00001")
+                .title("Tài liệu test%_\\")
+                .creatorUser(UserLogin.builder().id(userId).username("author").build())
+                .status(DocumentStatus.DRAFT)
+                .build();
+
+        org.springframework.data.domain.Page<Document> mockPage =
+                new org.springframework.data.domain.PageImpl<>(java.util.List.of(doc));
+
+        when(documentRepository.searchDocuments(
+                org.mockito.ArgumentMatchers.eq(userId),
+                org.mockito.ArgumentMatchers.eq(DocumentStatus.DRAFT),
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.eq("test\\%\\_\\\\"),
+                any(org.springframework.data.domain.Pageable.class)
+        )).thenReturn(mockPage);
+
+        var result = documentDraftService.searchDrafts(filter, userId);
+        assertNotNull(result);
+        assertEquals(1, result.getTotalElements());
+    }
+
+    @Test
+    @DisplayName("Tìm kiếm dự thảo với từ khóa rỗng được chuẩn hóa về null")
+    void searchDrafts_WithEmptyKeyword() {
+        Long userId = 100L;
+        vn.edu.epu.eoffice_be.dto.request.DocumentFilterRequest filter =
+                new vn.edu.epu.eoffice_be.dto.request.DocumentFilterRequest();
+        filter.setKeyword("   ");
+        filter.setPage(0);
+        filter.setSize(10);
+
+        org.springframework.data.domain.Page<Document> mockPage =
+                new org.springframework.data.domain.PageImpl<>(java.util.List.of());
+
+        when(documentRepository.searchDocuments(
+                org.mockito.ArgumentMatchers.eq(userId),
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.isNull(),
+                any(org.springframework.data.domain.Pageable.class)
+        )).thenReturn(mockPage);
+
+        var result = documentDraftService.searchDrafts(filter, userId);
+        assertNotNull(result);
+        assertEquals(0, result.getTotalElements());
+    }
 }
