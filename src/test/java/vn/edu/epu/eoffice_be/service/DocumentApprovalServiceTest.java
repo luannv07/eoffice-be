@@ -205,4 +205,22 @@ class DocumentApprovalServiceTest {
                 () -> documentApprovalService.recallApproval(docId, request, userId));
         assertEquals(ErrorCode.DOCUMENT_CANNOT_RECALL, ex.getErrorCode());
     }
+
+    @Test
+    @DisplayName("Kiểm tra DocumentApprovalRequest no-args constructor khởi tạo status và submittedAt không null")
+    void documentApprovalRequest_NoArgsConstructor_InitializesDefaults() {
+        DocumentApprovalRequest req = new DocumentApprovalRequest();
+        assertNotNull(req.getStatus());
+        assertEquals(ApprovalRequestStatus.PENDING, req.getStatus());
+        assertNotNull(req.getSubmittedAt());
+        org.junit.jupiter.api.Assertions.assertFalse(req.isDeleteFlg());
+
+        // Kiểm tra @PrePersist
+        DocumentApprovalRequest empty = new DocumentApprovalRequest();
+        empty.setStatus(null);
+        empty.setSubmittedAt(null);
+        empty.prePersist();
+        assertEquals(ApprovalRequestStatus.PENDING, empty.getStatus());
+        assertNotNull(empty.getSubmittedAt());
+    }
 }

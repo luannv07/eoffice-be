@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.epu.eoffice_be.common.enums.DocumentProcessAction;
@@ -216,7 +217,7 @@ public class DocumentDraftService {
      */
     @Transactional(readOnly = true)
     public Page<DocumentResponse> searchDrafts(DocumentFilterRequest filter, Long userId) {
-        Pageable pageable = PageRequest.of(filter.getPage(), filter.getSize());
+        Pageable pageable = PageRequest.of(filter.getPage(), filter.getSize(), Sort.by(Sort.Direction.DESC, "createdDate"));
         Page<Document> page = documentRepository.searchDocuments(
                 userId, filter.getStatus(), filter.getOrgNodeId(), filter.getKeyword(), pageable);
         return page.map(this::mapToDocumentResponse);

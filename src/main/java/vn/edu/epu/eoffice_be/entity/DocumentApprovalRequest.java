@@ -10,13 +10,13 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
 import vn.edu.epu.eoffice_be.common.entity.BaseEntity;
@@ -28,11 +28,26 @@ import java.time.Instant;
 @Table(name = "document_approval_requests")
 @Getter
 @Setter
-@NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class DocumentApprovalRequest extends BaseEntity {
+
+    public DocumentApprovalRequest() {
+        this.status = ApprovalRequestStatus.PENDING;
+        this.submittedAt = Instant.now();
+        this.deleteFlg = false;
+    }
+
+    @PrePersist
+    public void prePersist() {
+        if (this.status == null) {
+            this.status = ApprovalRequestStatus.PENDING;
+        }
+        if (this.submittedAt == null) {
+            this.submittedAt = Instant.now();
+        }
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "eoffice_seq")
@@ -56,10 +71,10 @@ public class DocumentApprovalRequest extends BaseEntity {
     @Builder.Default
     ApprovalRequestStatus status = ApprovalRequestStatus.PENDING;
 
-    @Column(name = "submit_note", columnDefinition = "TEXT")
+    @Column(name = "submit_note", length = 2000)
     String submitNote;
 
-    @Column(name = "decision_note", columnDefinition = "TEXT")
+    @Column(name = "decision_note", length = 2000)
     String decisionNote;
 
     @Column(name = "submitted_at", nullable = false)
