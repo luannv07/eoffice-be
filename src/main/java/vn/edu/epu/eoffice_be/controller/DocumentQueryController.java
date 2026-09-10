@@ -20,6 +20,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 private static final String OFFICIAL_HASH_KEY = "officialHash";
+private static final String DEFAULT_HASH = "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e";
 public class DocumentQueryController {
 
     DocumentQueryService queryService;
@@ -40,7 +41,7 @@ public class DocumentQueryController {
         doc1.put("effectiveDate", java.time.LocalDate.now());
         doc1.put("signer", "Ban Giám hiệu");
         doc1.put("officialFilePath", "uploads/documents/doc_1_official.pdf");
-        doc1.put("OFFICIAL_HASH_KEY", "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e");
+        doc1.put("OFFICIAL_HASH_KEY", "DEFAULT_HASH");
         list.add(doc1);
 
         java.util.Map<String, Object> doc2 = new java.util.LinkedHashMap<>();
@@ -74,7 +75,7 @@ public class DocumentQueryController {
         details.put("signer", "Ban Giám hiệu");
         details.put("summary", "Quy định về việc tạo lập, phát hành, lưu trữ và theo dõi văn bản điện tử tại cơ quan.");
         details.put("officialFilePath", "uploads/documents/doc_" + id + "_official.pdf");
-        details.put("OFFICIAL_HASH_KEY", "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e");
+        details.put("OFFICIAL_HASH_KEY", "DEFAULT_HASH");
         details.put("isRead", true);
         details.put("readAt", java.time.Instant.now());
 
