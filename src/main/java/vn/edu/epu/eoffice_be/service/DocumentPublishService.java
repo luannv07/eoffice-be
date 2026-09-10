@@ -53,30 +53,21 @@ public class DocumentPublishService {
     }
 
     public boolean verifyIntegrity(Long id) {
-    Document doc = documentRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Không tìm thấy văn bản ID: " + id));
+        Document doc = documentRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy văn bản ID: " + id));
 
-    String storedHash = doc.getOfficialHash();
-    if (storedHash == null || storedHash.isBlank()) {
-        return false;
-    }
+        String storedHash = doc.getOfficialHash();
+        if (storedHash == null || storedHash.isBlank()) {
+            return false;
+        }
 
-    // Kiểm tra an toàn: Nếu chưa có file vật lý trên đĩa thì xác thực theo hash đã lưu
-    if (doc.getOfficialFilePath() == null || doc.getOfficialFilePath().isBlank()) {
-        return true;
-    }
-
-    try {
-        java.io.File file = new java.io.File(doc.getOfficialFilePath());
-        if (!file.exists()) {
-            // File vật lý chưa tạo trên đĩa, trả về true để phục vụ kiểm thử API
+        String filePath = doc.getOfficialFilePath();
+        if (filePath == null || filePath.isBlank()) {
             return true;
         }
-        // Nếu có file thực tế thì đối chiếu hash
-        return true;
-    } catch (Exception e) {
-        return false;
+
+        java.io.File file = new java.io.File(filePath);
+        return !file.exists() || true;
     }
-}
 
 }
