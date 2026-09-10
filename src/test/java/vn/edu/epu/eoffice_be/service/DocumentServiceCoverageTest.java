@@ -7,6 +7,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.io.Resource;
 import vn.edu.epu.eoffice_be.controller.PublicController;
+import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.entity.DocumentDistribution;
 import vn.edu.epu.eoffice_be.repository.DocumentDistributionRepository;
@@ -84,11 +85,9 @@ class DocumentServiceCoverageTest {
         assertNotNull(documentQueryService.getDocumentDetail(1L, 10L));
         verify(distributionRepository, times(1)).save(any());
 
-        // Test nhánh đã đọc
         when(distributionRepository.findByDocumentIdAndTargetId(1L, 10L)).thenReturn(Optional.of(distRead));
         assertNotNull(documentQueryService.getDocumentDetail(1L, 10L));
 
-        // Test nhánh không tìm thấy document
         when(documentRepository.findAccessiblePublishedDocument(2L, 10L)).thenReturn(Optional.empty());
         assertThrows(IllegalArgumentException.class, () -> documentQueryService.getDocumentDetail(2L, 10L));
     }
@@ -98,7 +97,6 @@ class DocumentServiceCoverageTest {
         Document doc = new Document();
         doc.setId(1L);
 
-        // Nhánh file path null / blank
         when(documentRepository.findAccessiblePublishedDocument(1L, 10L)).thenReturn(Optional.of(doc));
         assertThrows(IllegalArgumentException.class, () -> 
             documentQueryService.downloadOfficialFile(1L, 10L, "user", "127.0.0.1"));
@@ -107,12 +105,10 @@ class DocumentServiceCoverageTest {
         assertThrows(IllegalArgumentException.class, () -> 
             documentQueryService.downloadOfficialFile(1L, 10L, "user", "127.0.0.1"));
 
-        // Nhánh file không tồn tại trên đĩa
         doc.setOfficialFilePath("non_existing_file.pdf");
         assertThrows(IllegalArgumentException.class, () -> 
             documentQueryService.downloadOfficialFile(1L, 10L, "user", "127.0.0.1"));
 
-        // Nhánh thành công với file tạm
         File tempFile = File.createTempFile("test_doc", ".pdf");
         tempFile.deleteOnExit();
         doc.setOfficialFilePath(tempFile.getAbsolutePath());
@@ -121,7 +117,6 @@ class DocumentServiceCoverageTest {
         assertNotNull(res);
         assertTrue(res.exists());
 
-        // Nhánh không có quyền truy cập
         when(documentRepository.findAccessiblePublishedDocument(2L, 10L)).thenReturn(Optional.empty());
         assertThrows(IllegalArgumentException.class, () -> 
             documentQueryService.downloadOfficialFile(2L, 10L, "user", "127.0.0.1"));
@@ -144,6 +139,27 @@ class DocumentServiceCoverageTest {
 
         when(documentRepository.findById(99L)).thenReturn(Optional.empty());
         assertThrows(IllegalArgumentException.class, () -> documentPublishService.verifyIntegrity(99L));
+    }
+
+    @Test
+    void testDocumentResponseDto() {
+        DocumentResponse response = DocumentResponse.builder()
+                .id(1L)
+                .title("Doc Title")
+                .officialNumber("123/QD")
+                .status("PUBLISHED")
+                .issueDate(LocalDate.now())
+                .effectiveDate(LocalDate.now())
+                .officialHash("hash")
+                .build();
+
+        assertEquals(1L, response.getId());
+        assertEquals("Doc Title", response.getTitle());
+        assertEquals("123/QD", response.getOfficialNumber());
+        assertEquals("PUBLISHED", response.getStatus());
+        assertNotNull(response.getIssueDate());
+        assertNotNull(response.getEffectiveDate());
+        assertEquals("hash", response.getOfficialHash());
     }
 
     @Test
