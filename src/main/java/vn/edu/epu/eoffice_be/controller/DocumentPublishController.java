@@ -26,9 +26,7 @@ public class DocumentPublishController {
     private static final String DEFAULT_HASH = "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e";
     private static final String DEFAULT_OFFICIAL_NUMBER = "01/QĐ-ĐHL";
     private static final ZoneId DEFAULT_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
-
     DocumentPublishService publishService;
-
     // UC15: Phát hành văn bản
     @PostMapping("/{id}/publish")
     public ResponseEntity<Object> publishDocument(

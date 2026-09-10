@@ -80,7 +80,7 @@ public class DocumentQueryController {
         details.put("signer", "Ban Giám hiệu");
         details.put("summary", "Quy định về việc tạo lập, phát hành, lưu trữ và theo dõi văn bản điện tử tại cơ quan.");
         details.put("officialFilePath", "uploads/documents/doc_" + id + "_official.pdf");
-        details.put("OFFICIAL_HASH_KEY", "DEFAULT_HASH");
+        details.put("OFFICIAL_HASH_KEY", DEFAULT_HASH);
         details.put("isRead", true);
         details.put("readAt", java.time.Instant.now());
 
