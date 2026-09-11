@@ -26,6 +26,11 @@ import vn.edu.epu.eoffice_be.repository.DocumentWorkflowLogRepository;
 import vn.edu.epu.eoffice_be.repository.OrgNodeRepository;
 import vn.edu.epu.eoffice_be.repository.UserInfoRepository;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import vn.edu.epu.eoffice_be.service.impl.DocumentWorkflowServiceImpl;
 import vn.edu.epu.eoffice_be.workflow.WorkflowEngine;
 
@@ -37,6 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -206,7 +212,7 @@ class DocumentWorkflowServiceTest {
     }
 
     @Test
-    @DisplayName("Lấy lịch sử luồng duyệt theo timeline")
+    @DisplayName("Lấy lịch sử luồng duyệt theo timeline có phân trang")
     void getWorkflowHistory_success() {
         DocumentWorkflowLog log = DocumentWorkflowLog.builder()
                 .id(1L)
@@ -218,14 +224,18 @@ class DocumentWorkflowServiceTest {
                 .comment("Gui duyet")
                 .build();
 
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
-        when(documentWorkflowLogRepository.findByDocumentIdAndDeleteFlgFalseOrderByCreatedDateAsc(5001L))
-                .thenReturn(List.of(log));
+        Pageable pageable = PageRequest.of(0, 10, Sort.by("createdDate").ascending());
+        Page<DocumentWorkflowLog> logPage = new PageImpl<>(List.of(log), pageable, 1);
 
-        List<DocumentWorkflowLogResponse> history = documentWorkflowService.getWorkflowHistory(5001L);
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentWorkflowLogRepository.findByDocumentIdAndDeleteFlgFalse(eq(5001L), any(Pageable.class)))
+                .thenReturn(logPage);
+
+        Page<DocumentWorkflowLogResponse> history = documentWorkflowService.getWorkflowHistory(5001L, pageable);
 
         assertNotNull(history);
-        assertEquals(1, history.size());
-        assertEquals(WorkflowAction.SUBMIT, history.get(0).getAction());
+        assertEquals(1, history.getTotalElements());
+        assertEquals(1, history.getContent().size());
+        assertEquals(WorkflowAction.SUBMIT, history.getContent().get(0).getAction());
     }
 }

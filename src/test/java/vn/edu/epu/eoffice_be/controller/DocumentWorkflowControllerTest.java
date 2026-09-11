@@ -8,6 +8,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -58,6 +63,7 @@ class DocumentWorkflowControllerTest {
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(documentWorkflowController)
                 .setControllerAdvice(new GlobalExceptionHandler())
+                .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
                 .build();
 
         JwtUserPrincipal principal = new JwtUserPrincipal(1001L, "testuser", "SPECIALIST", true, List.of());
@@ -221,8 +227,8 @@ class DocumentWorkflowControllerTest {
     }
 
     @Test
-    @DisplayName("GET /documents/{id}/workflow-logs - Lịch sử luồng duyệt timeline")
-    void getWorkflowLogs_shouldReturnList() throws Exception {
+    @DisplayName("GET /documents/{id}/workflow-logs - Lịch sử luồng duyệt timeline có phân trang")
+    void getWorkflowLogs_shouldReturnPage() throws Exception {
         DocumentWorkflowLogResponse log = DocumentWorkflowLogResponse.builder()
                 .id(1L)
                 .documentId(100L)
@@ -234,11 +240,13 @@ class DocumentWorkflowControllerTest {
                 .createdDate(Instant.now())
                 .build();
 
-        when(documentWorkflowService.getWorkflowHistory(100L)).thenReturn(List.of(log));
+        Page<DocumentWorkflowLogResponse> page = new PageImpl<>(List.of(log), PageRequest.of(0, 10), 1);
+        when(documentWorkflowService.getWorkflowHistory(eq(100L), any(Pageable.class))).thenReturn(page);
 
-        mockMvc.perform(get("/documents/100/workflow-logs"))
+        mockMvc.perform(get("/documents/100/workflow-logs?page=0&size=10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data[0].action").value("SUBMIT"));
+                .andExpect(jsonPath("$.data.content[0].action").value("SUBMIT"))
+                .andExpect(jsonPath("$.data.totalElements").value(1));
     }
 }

@@ -5,6 +5,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -49,14 +53,16 @@ public class DocumentWorkflowController {
 
     @Operation(
             summary = "Lịch sử luồng duyệt (Timeline)",
-            description = "Xem toàn bộ quá trình luân chuyển, phê duyệt, ký nháy, nhận xét và bút phê lãnh đạo của văn bản theo thứ tự thời gian."
+            description = "Xem toàn bộ quá trình luân chuyển, phê duyệt, ký nháy, nhận xét và bút phê lãnh đạo của văn bản theo thứ tự thời gian có hỗ trợ phân trang."
     )
-    
-        @ApiResponse(responseCode = "200", description = "Lấy lịch sử thành công")
-        @ApiResponse(responseCode = "404", description = "Không tìm thấy văn bản (DOCUMENT_NOT_FOUND)")
+    @ApiResponse(responseCode = "200", description = "Lấy lịch sử thành công")
+    @ApiResponse(responseCode = "404", description = "Không tìm thấy văn bản (DOCUMENT_NOT_FOUND)")
     @GetMapping("/{id}/workflow-logs")
-    public BaseResponse<List<DocumentWorkflowLogResponse>> getWorkflowLogs(@PathVariable Long id) {
-        return BaseResponse.success(documentWorkflowService.getWorkflowHistory(id));
+    public BaseResponse<Page<DocumentWorkflowLogResponse>> getWorkflowLogs(
+            @PathVariable Long id,
+            @PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable
+    ) {
+        return BaseResponse.success(documentWorkflowService.getWorkflowHistory(id, pageable));
     }
 
     @Operation(

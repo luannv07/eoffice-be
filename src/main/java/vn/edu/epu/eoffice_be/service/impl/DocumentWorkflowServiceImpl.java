@@ -2,6 +2,10 @@ package vn.edu.epu.eoffice_be.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
@@ -232,12 +236,22 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<DocumentWorkflowLogResponse> getWorkflowHistory(Long documentId) {
+    public Page<DocumentWorkflowLogResponse> getWorkflowHistory(Long documentId, Pageable pageable) {
         findDocumentOrThrow(documentId);
-        List<DocumentWorkflowLog> logs =
-                documentWorkflowLogRepository.findByDocumentIdAndDeleteFlgFalseOrderByCreatedDateAsc(documentId);
+        Pageable effectivePageable = (pageable == null || pageable.isUnpaged())
+                ? PageRequest.of(0, 20, Sort.by("createdDate").ascending())
+                : pageable;
+        if (effectivePageable.getSort().isUnsorted()) {
+            effectivePageable = PageRequest.of(
+                    effectivePageable.getPageNumber(),
+                    effectivePageable.getPageSize(),
+                    Sort.by("createdDate").ascending()
+            );
+        }
+        Page<DocumentWorkflowLog> logs =
+                documentWorkflowLogRepository.findByDocumentIdAndDeleteFlgFalse(documentId, effectivePageable);
 
-        return logs.stream().map(this::mapToLogResponse).toList();
+        return logs.map(this::mapToLogResponse);
     }
 
     @Override

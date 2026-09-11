@@ -1,5 +1,7 @@
 package vn.edu.epu.eoffice_be.service;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import vn.edu.epu.eoffice_be.dto.request.DocumentApproveRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentInitialSignRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentPublishRequest;
@@ -39,9 +41,13 @@ public interface DocumentWorkflowService {
     DocumentDetailResponse reject(Long documentId, DocumentRejectRequest request, Long actorId);
 
     /**
-     * Lấy toàn bộ timeline lịch sử luồng duyệt của một văn bản.
+     * Lấy timeline lịch sử luồng duyệt của một văn bản (hỗ trợ phân trang).
+     *
+     * @param documentId ID của văn bản
+     * @param pageable   Thông tin phân trang và sắp xếp
+     * @return Trang danh sách các log lịch sử luồng duyệt
      */
-    List<DocumentWorkflowLogResponse> getWorkflowHistory(Long documentId);
+    Page<DocumentWorkflowLogResponse> getWorkflowHistory(Long documentId, Pageable pageable);
 
     /**
      * Lấy thông tin chi tiết một văn bản.
