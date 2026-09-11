@@ -3,6 +3,7 @@ package vn.edu.epu.eoffice_be.dto.request;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -40,12 +41,20 @@ public class DocumentCreateRequest {
     String documentTypeCd;
 
     @NotNull(message = "Đơn vị ban hành không được để trống")
+    @Positive(message = "ID đơn vị ban hành phải lớn hơn 0")
     @Schema(description = "ID đơn vị ban hành / chủ trì soạn thảo", example = "1001")
     Long issuingOrgNodeId;
 
+    @NotNull(message = "Độ mật không được để trống")
     @Schema(description = "Độ mật (NORMAL, CONFIDENTIAL, SECRET)", example = "NORMAL")
     DocumentSecurityLevel securityLevel = DocumentSecurityLevel.NORMAL;
 
+    @NotNull(message = "Độ khẩn không được để trống")
     @Schema(description = "Độ khẩn (NORMAL, URGENT, TOP_URGENT)", example = "NORMAL")
     DocumentUrgencyLevel urgencyLevel = DocumentUrgencyLevel.NORMAL;
+
+    public static class DocumentCreateRequestBuilder {
+        private DocumentSecurityLevel securityLevel = DocumentSecurityLevel.NORMAL;
+        private DocumentUrgencyLevel urgencyLevel = DocumentUrgencyLevel.NORMAL;
+    }
 }

@@ -130,6 +130,11 @@ public class DocumentAttachmentService {
     }
 
     @Transactional(readOnly = true)
+    public DocumentAttachment getAttachmentMetadata(Long documentId, Long attachmentId, Long userId) {
+        return getAttachmentMetadata(documentId, attachmentId);
+    }
+
+    @Transactional(readOnly = true)
     public DocumentAttachment getAttachmentMetadata(Long documentId, Long attachmentId) {
         return documentAttachmentRepository
                 .findByIdAndDocumentIdAndDeleteFlgFalse(attachmentId, documentId)

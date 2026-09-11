@@ -61,7 +61,7 @@ eoffice:
     cookie-same-site: Strict
     allowed-origins: ${JWT_ALLOWED_ORIGINS:}
   upload:
-    dir: ${UPLOAD_DIR:uploads/documents}
+    dir: ${UPLOAD_DIR:/var/eoffice/uploads/documents}
     max-file-size-bytes: 26214400
     allowed-extensions:
       - docx

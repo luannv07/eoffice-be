@@ -13,8 +13,10 @@ import java.util.List;
 @Getter
 @Setter
 public class UploadProperties {
-
-    private String dir = "uploads/documents";
+    /**
+     * Đường dẫn tuyệt đối thư mục lưu trữ tài liệu, đảm bảo không ghi vào thư mục làm việc của JVM trong production.
+     */
+    private String dir = "/var/eoffice/uploads/documents";
 
     private long maxSizeBytes = 26214400L; // 25 MB
 

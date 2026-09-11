@@ -208,6 +208,46 @@ class DocumentControllerTest {
     }
 
     @Test
+    @DisplayName("API POST /documents/drafts - Bị từ chối 400 khi issuingOrgNodeId <= 0")
+    void createDraft_NonPositiveIssuingOrgNodeId_ReturnsBadRequest() throws Exception {
+        String jsonZero = "{\"title\":\"Tiêu đề\",\"summary\":\"Trích yếu\",\"documentTypeCd\":\"QD\",\"issuingOrgNodeId\":0}";
+        mockMvc.perform(post("/documents/drafts")
+                        .principal(auth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonZero))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+
+        String jsonNegative = "{\"title\":\"Tiêu đề\",\"summary\":\"Trích yếu\",\"documentTypeCd\":\"QD\",\"issuingOrgNodeId\":-5}";
+        mockMvc.perform(post("/documents/drafts")
+                        .principal(auth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonNegative))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("API POST /documents/drafts - Bị từ chối 400 khi gửi securityLevel hoặc urgencyLevel là null")
+    void createDraft_NullSecurityOrUrgencyLevel_ReturnsBadRequest() throws Exception {
+        String jsonNullSecurity = "{\"title\":\"Tiêu đề\",\"summary\":\"Trích yếu\",\"documentTypeCd\":\"QD\",\"issuingOrgNodeId\":10,\"securityLevel\":null}";
+        mockMvc.perform(post("/documents/drafts")
+                        .principal(auth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonNullSecurity))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+
+        String jsonNullUrgency = "{\"title\":\"Tiêu đề\",\"summary\":\"Trích yếu\",\"documentTypeCd\":\"QD\",\"issuingOrgNodeId\":10,\"urgencyLevel\":null}";
+        mockMvc.perform(post("/documents/drafts")
+                        .principal(auth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonNullUrgency))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
     @DisplayName("API PUT /documents/{id} - Chỉnh sửa dự thảo thành công (UC10)")
     void updateDraft_Success() throws Exception {
         DocumentUpdateRequest request = DocumentUpdateRequest.builder()
@@ -444,13 +484,38 @@ class DocumentControllerTest {
                         .build();
 
         when(documentAttachmentService.downloadAttachment(docId, attId, 100L)).thenReturn(mockResource);
-        when(documentAttachmentService.getAttachmentMetadata(docId, attId)).thenReturn(meta);
+        when(documentAttachmentService.getAttachmentMetadata(docId, attId, 100L)).thenReturn(meta);
 
         mockMvc.perform(get("/documents/1/attachments/10/download").principal(auth))
                 .andExpect(status().isOk())
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string(
                         org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
                         org.hamcrest.Matchers.containsString("kehoach.docx")));
+    }
+
+    @Test
+    @DisplayName("API GET download attachment - Fallback khi originalFileName null và mimeType không hợp lệ")
+    void downloadAttachment_FallbackWhenInvalidMimeOrNullName() throws Exception {
+        Long docId = 1L;
+        Long attId = 10L;
+
+        org.springframework.core.io.Resource mockResource =
+                new org.springframework.core.io.ByteArrayResource("dummy file content".getBytes());
+        vn.edu.epu.eoffice_be.entity.DocumentAttachment meta =
+                vn.edu.epu.eoffice_be.entity.DocumentAttachment.builder()
+                        .originalFileName(null)
+                        .mimeType("invalid/mime type with spaces")
+                        .build();
+
+        when(documentAttachmentService.downloadAttachment(docId, attId, 100L)).thenReturn(mockResource);
+        when(documentAttachmentService.getAttachmentMetadata(docId, attId, 100L)).thenReturn(meta);
+
+        mockMvc.perform(get("/documents/1/attachments/10/download").principal(auth))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().contentType(MediaType.APPLICATION_OCTET_STREAM))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string(
+                        org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        org.hamcrest.Matchers.containsString("file")));
     }
 
     @Test

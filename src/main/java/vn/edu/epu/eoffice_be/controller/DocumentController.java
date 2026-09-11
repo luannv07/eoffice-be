@@ -46,10 +46,13 @@ import vn.edu.epu.eoffice_be.service.DocumentAttachmentService;
 import vn.edu.epu.eoffice_be.service.DocumentDraftService;
 import vn.edu.epu.eoffice_be.service.DocumentVersionService;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("/documents")
 @RequiredArgsConstructor
@@ -196,13 +199,27 @@ public class DocumentController {
     ) {
         Long userId = extractUserId(authentication);
         Resource resource = documentAttachmentService.downloadAttachment(id, attachmentId, userId);
-        DocumentAttachment metadata = documentAttachmentService.getAttachmentMetadata(id, attachmentId);
+        DocumentAttachment metadata = documentAttachmentService.getAttachmentMetadata(id, attachmentId, userId);
 
-        String encodedFileName = URLEncoder.encode(metadata.getOriginalFileName(), StandardCharsets.UTF_8)
+        String rawFileName = metadata.getOriginalFileName();
+        String safeFileName = (rawFileName != null && !rawFileName.isBlank()) ? rawFileName : "file";
+        String encodedFileName = URLEncoder.encode(safeFileName, StandardCharsets.UTF_8)
                 .replace("+", "%20");
 
+        MediaType mediaType = MediaType.APPLICATION_OCTET_STREAM;
+        String mimeTypeStr = metadata.getMimeType();
+        if (mimeTypeStr != null && !mimeTypeStr.isBlank()) {
+            try {
+                mediaType = MediaType.parseMediaType(mimeTypeStr);
+            } catch (IllegalArgumentException e) {
+                log.warn("MIME type không hợp lệ '{}' cho tệp đính kèm id={}, fallback về APPLICATION_OCTET_STREAM",
+                        mimeTypeStr, attachmentId);
+                mediaType = MediaType.APPLICATION_OCTET_STREAM;
+            }
+        }
+
         return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(metadata.getMimeType()))
+                .contentType(mediaType)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + encodedFileName)
                 .body(resource);
     }
