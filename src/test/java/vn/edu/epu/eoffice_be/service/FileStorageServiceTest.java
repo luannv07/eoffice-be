@@ -41,6 +41,32 @@ class FileStorageServiceTest {
     }
 
     @Test
+    @DisplayName("Lưu file an toàn không bị NPE khi originalFilename là chuỗi rỗng hoặc dấu gạch chéo")
+    void storeFile_emptyOrSlashOriginalFilename_shouldNotThrowNPE() {
+        byte[] content = "Safe Content".getBytes();
+
+        // Chuỗi rỗng ""
+        String pathEmpty = fileStorageService.storeFile(content, "", "drafts");
+        assertNotNull(pathEmpty);
+        assertTrue(pathEmpty.endsWith("_file.pdf"));
+
+        // Dấu gạch chéo "/"
+        String pathSlash = fileStorageService.storeFile(content, "/", "drafts");
+        assertNotNull(pathSlash);
+        assertTrue(pathSlash.endsWith("_file.pdf"));
+
+        // Dấu gạch chéo ngược "\"
+        String pathBackslash = fileStorageService.storeFile(content, "\\", "drafts");
+        assertNotNull(pathBackslash);
+        assertTrue(pathBackslash.endsWith("_file.pdf"));
+
+        // Null
+        String pathNull = fileStorageService.storeFile(content, null, "drafts");
+        assertNotNull(pathNull);
+        assertTrue(pathNull.endsWith("_file.pdf"));
+    }
+
+    @Test
     @DisplayName("Chống tấn công Path Traversal khi lưu file")
     void storeFile_pathTraversalAttack_shouldThrowStorageError() {
         byte[] content = "Attack Content".getBytes();

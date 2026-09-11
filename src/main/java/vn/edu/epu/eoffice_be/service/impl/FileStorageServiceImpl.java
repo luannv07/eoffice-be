@@ -44,7 +44,17 @@ public class FileStorageServiceImpl implements FileStorageService {
             throw new BusinessException(ErrorCode.BAD_REQUEST);
         }
 
-        String safeFileName = originalFilename == null ? "file.pdf" : Paths.get(originalFilename).getFileName().toString();
+        String safeFileName = "file.pdf";
+        if (originalFilename != null && !originalFilename.isBlank()) {
+            try {
+                Path fileNamePath = Paths.get(originalFilename).getFileName();
+                if (fileNamePath != null && !fileNamePath.toString().isBlank()) {
+                    safeFileName = fileNamePath.toString();
+                }
+            } catch (Exception ignored) {
+                // fallback to default "file.pdf"
+            }
+        }
         String storedFileName = UUID.randomUUID() + "_" + safeFileName;
 
         Path subDirTarget = this.rootStoragePath.resolve(subDirectory == null ? "" : subDirectory).normalize();
