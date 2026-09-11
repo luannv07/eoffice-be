@@ -18,6 +18,8 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import vn.edu.epu.eoffice_be.common.enums.DocumentSecurityLevel;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.common.enums.DocumentUrgencyLevel;
+import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
+import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.common.exception.GlobalExceptionHandler;
 import vn.edu.epu.eoffice_be.dto.request.DocumentCreateRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentUpdateRequest;
@@ -537,7 +539,7 @@ class DocumentControllerTest {
                         .build();
 
         when(documentAttachmentService.downloadAttachment(docId, attId, 100L)).thenReturn(mockResource);
-        when(documentAttachmentService.getAttachmentMetadata(docId, attId)).thenReturn(meta);
+        when(documentAttachmentService.getAttachmentMetadata(docId, attId, 100L)).thenReturn(meta);
 
         mockMvc.perform(get("/documents/1/attachments/10/download").principal(auth))
                 .andExpect(status().isOk())
@@ -561,7 +563,7 @@ class DocumentControllerTest {
                         .build();
 
         when(documentAttachmentService.downloadAttachment(docId, attId, 100L)).thenReturn(mockResource);
-        when(documentAttachmentService.getAttachmentMetadata(docId, attId)).thenReturn(meta);
+        when(documentAttachmentService.getAttachmentMetadata(docId, attId, 100L)).thenReturn(meta);
 
         mockMvc.perform(get("/documents/1/attachments/10/download").principal(auth))
                 .andExpect(status().isOk())
@@ -569,6 +571,37 @@ class DocumentControllerTest {
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string(
                         org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
                         org.hamcrest.Matchers.containsString("file")));
+    }
+
+    @Test
+    @DisplayName("API GET download attachment - Bị từ chối 403 khi truy cập tệp chéo không có quyền")
+    void downloadAttachment_Forbidden_WhenCrossUserAccess() throws Exception {
+        Long docId = 1L;
+        Long attId = 10L;
+
+        when(documentAttachmentService.downloadAttachment(docId, attId, 100L))
+                .thenThrow(new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền truy cập tệp đính kèm của văn bản này"));
+
+        mockMvc.perform(get("/documents/1/attachments/10/download").principal(auth))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.FORBIDDEN.getCode()));
+    }
+
+    @Test
+    @DisplayName("API GET download attachment - Bị từ chối 403 khi lấy metadata tệp chéo không có quyền")
+    void downloadAttachment_Forbidden_WhenCrossUserMetadataAccess() throws Exception {
+        Long docId = 1L;
+        Long attId = 10L;
+
+        org.springframework.core.io.Resource mockResource =
+                new org.springframework.core.io.ByteArrayResource("dummy file content".getBytes());
+        when(documentAttachmentService.downloadAttachment(docId, attId, 100L)).thenReturn(mockResource);
+        when(documentAttachmentService.getAttachmentMetadata(docId, attId, 100L))
+                .thenThrow(new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền truy cập tệp đính kèm của văn bản này"));
+
+        mockMvc.perform(get("/documents/1/attachments/10/download").principal(auth))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.FORBIDDEN.getCode()));
     }
 
     @Test

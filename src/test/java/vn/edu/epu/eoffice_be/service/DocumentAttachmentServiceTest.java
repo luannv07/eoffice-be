@@ -16,6 +16,7 @@ import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.entity.DocumentAttachment;
 import vn.edu.epu.eoffice_be.entity.DocumentProcessLog;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
+import vn.edu.epu.eoffice_be.repository.DocumentApprovalRequestRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentAttachmentRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentProcessLogRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
@@ -49,6 +50,8 @@ class DocumentAttachmentServiceTest {
     private UserLoginRepository userLoginRepository;
     @Mock
     private FileStorageService fileStorageService;
+    @Mock
+    private DocumentApprovalRequestRepository documentApprovalRequestRepository;
 
     @InjectMocks
     private DocumentAttachmentService documentAttachmentService;
@@ -148,8 +151,10 @@ class DocumentAttachmentServiceTest {
         Long attId = 999L;
         Long userId = 100L;
 
-        Document doc = Document.builder().id(docId).status(DocumentStatus.DRAFT).build();
+        UserLogin creator = UserLogin.builder().id(userId).username("creator").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
 
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId, docId))
                 .thenReturn(Optional.empty());
@@ -160,13 +165,14 @@ class DocumentAttachmentServiceTest {
     }
 
     @Test
-    @DisplayName("Tải xuống thành công khi tệp tồn tại")
+    @DisplayName("Tải xuống thành công khi tệp tồn tại và người dùng là người tạo")
     void downloadAttachment_Success() {
         Long docId = 1L;
         Long attId = 10L;
         Long userId = 100L;
 
-        Document doc = Document.builder().id(docId).status(DocumentStatus.DRAFT).build();
+        UserLogin creator = UserLogin.builder().id(userId).username("creator").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
         DocumentAttachment att = DocumentAttachment.builder()
                 .id(attId)
                 .document(doc)
@@ -176,6 +182,7 @@ class DocumentAttachmentServiceTest {
 
         org.springframework.core.io.Resource mockResource = org.mockito.Mockito.mock(org.springframework.core.io.Resource.class);
 
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId, docId)).thenReturn(Optional.of(att));
         when(fileStorageService.loadAsResource("path/to", "file.pdf")).thenReturn(mockResource);
@@ -186,17 +193,107 @@ class DocumentAttachmentServiceTest {
     }
 
     @Test
-    @DisplayName("Lấy metadata tệp đính kèm thành công")
+    @DisplayName("Tải tệp đính kèm bị từ chối khi người dùng khác truy cập chéo (FORBIDDEN)")
+    void downloadAttachment_CrossUser_ThrowsForbidden() {
+        Long docId = 1L;
+        Long attId = 10L;
+        Long crossUserId = 200L;
+        Long creatorId = 100L;
+
+        UserLogin creator = UserLogin.builder().id(creatorId).username("creator").role(Role.USER).build();
+        UserLogin crossUser = UserLogin.builder().id(crossUserId).username("crossUser").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(crossUserId)).thenReturn(Optional.of(crossUser));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentAttachmentService.downloadAttachment(docId, attId, crossUserId));
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Lấy metadata tệp đính kèm thành công khi là người tạo")
     void getAttachmentMetadata_Success() {
         Long docId = 1L;
         Long attId = 10L;
+        Long userId = 100L;
 
-        DocumentAttachment att = DocumentAttachment.builder().id(attId).originalFileName("test.docx").build();
+        UserLogin creator = UserLogin.builder().id(userId).username("creator").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
+        DocumentAttachment att = DocumentAttachment.builder().id(attId).document(doc).originalFileName("test.docx").build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId, docId)).thenReturn(Optional.of(att));
 
-        DocumentAttachment result = documentAttachmentService.getAttachmentMetadata(docId, attId);
+        DocumentAttachment result = documentAttachmentService.getAttachmentMetadata(docId, attId, userId);
         assertNotNull(result);
         assertEquals("test.docx", result.getOriginalFileName());
+    }
+
+    @Test
+    @DisplayName("Lấy metadata tệp đính kèm bị từ chối khi người dùng khác truy cập chéo (FORBIDDEN)")
+    void getAttachmentMetadata_CrossUser_ThrowsForbidden() {
+        Long docId = 1L;
+        Long attId = 10L;
+        Long crossUserId = 200L;
+        Long creatorId = 100L;
+
+        UserLogin creator = UserLogin.builder().id(creatorId).username("creator").role(Role.USER).build();
+        UserLogin crossUser = UserLogin.builder().id(crossUserId).username("crossUser").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(crossUserId)).thenReturn(Optional.of(crossUser));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentAttachmentService.getAttachmentMetadata(docId, attId, crossUserId));
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Lấy metadata tệp đính kèm thành công khi người dùng là Quản trị viên (ADMIN)")
+    void getAttachmentMetadata_Admin_Success() {
+        Long docId = 1L;
+        Long attId = 10L;
+        Long adminId = 999L;
+        Long creatorId = 100L;
+
+        UserLogin creator = UserLogin.builder().id(creatorId).username("creator").role(Role.USER).build();
+        UserLogin admin = UserLogin.builder().id(adminId).username("admin").role(Role.ADMIN).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
+        DocumentAttachment att = DocumentAttachment.builder().id(attId).document(doc).originalFileName("test.docx").build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(adminId)).thenReturn(Optional.of(admin));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId, docId)).thenReturn(Optional.of(att));
+
+        DocumentAttachment result = documentAttachmentService.getAttachmentMetadata(docId, attId, adminId);
+        assertNotNull(result);
+        assertEquals("test.docx", result.getOriginalFileName());
+    }
+
+    @Test
+    @DisplayName("Lấy metadata tệp đính kèm thành công với văn bản đã ban hành (ISSUED)")
+    void getAttachmentMetadata_IssuedDocument_Success() {
+        Long docId = 1L;
+        Long attId = 10L;
+        Long anyUserId = 500L;
+        Long creatorId = 100L;
+
+        UserLogin creator = UserLogin.builder().id(creatorId).username("creator").role(Role.USER).build();
+        UserLogin anyUser = UserLogin.builder().id(anyUserId).username("employee").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.ISSUED).build();
+        DocumentAttachment att = DocumentAttachment.builder().id(attId).document(doc).originalFileName("decision.pdf").build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(anyUserId)).thenReturn(Optional.of(anyUser));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId, docId)).thenReturn(Optional.of(att));
+
+        DocumentAttachment result = documentAttachmentService.getAttachmentMetadata(docId, attId, anyUserId);
+        assertNotNull(result);
+        assertEquals("decision.pdf", result.getOriginalFileName());
     }
 
     @Test

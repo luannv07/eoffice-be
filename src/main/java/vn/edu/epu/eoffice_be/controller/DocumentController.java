@@ -199,7 +199,7 @@ public class DocumentController {
     ) {
         Long userId = extractUserId(authentication);
         Resource resource = documentAttachmentService.downloadAttachment(id, attachmentId, userId);
-        DocumentAttachment metadata = documentAttachmentService.getAttachmentMetadata(id, attachmentId);
+        DocumentAttachment metadata = documentAttachmentService.getAttachmentMetadata(id, attachmentId, userId);
 
         String rawFileName = metadata.getOriginalFileName();
         String safeFileName = (rawFileName != null && !rawFileName.isBlank()) ? rawFileName : "file";

@@ -17,6 +17,7 @@ import vn.edu.epu.eoffice_be.entity.DocumentAttachment;
 import vn.edu.epu.eoffice_be.entity.DocumentProcessLog;
 import vn.edu.epu.eoffice_be.entity.DocumentVersion;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
+import vn.edu.epu.eoffice_be.repository.DocumentApprovalRequestRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentAttachmentRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentProcessLogRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
@@ -39,6 +40,7 @@ public class DocumentAttachmentService {
     private final DocumentProcessLogRepository documentProcessLogRepository;
     private final UserLoginRepository userLoginRepository;
     private final FileStorageService fileStorageService;
+    private final DocumentApprovalRequestRepository documentApprovalRequestRepository;
 
     /**
      * UC09: Tải tệp DOCX/PDF đính kèm lên hệ thống
@@ -115,12 +117,14 @@ public class DocumentAttachmentService {
     }
 
     /**
-     * Tải xuống hoặc xem tệp đính kèm
+     * Tải xuống hoặc xem tệp đính kèm (có kiểm tra quyền người dùng)
      */
     @Transactional(readOnly = true)
     public Resource downloadAttachment(Long documentId, Long attachmentId, Long userId) {
-        documentRepository.findByIdAndDeleteFlgFalse(documentId)
+        Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
+
+        assertCanAccessAttachment(document, userId);
 
         DocumentAttachment attachment = documentAttachmentRepository
                 .findByIdAndDocumentIdAndDeleteFlgFalse(attachmentId, documentId)
@@ -129,11 +133,54 @@ public class DocumentAttachmentService {
         return fileStorageService.loadAsResource(attachment.getStoragePath(), attachment.getStorageFileName());
     }
 
+    /**
+     * Lấy metadata tệp đính kèm (có kiểm tra quyền người dùng)
+     */
+    @Transactional(readOnly = true)
+    public DocumentAttachment getAttachmentMetadata(Long documentId, Long attachmentId, Long userId) {
+        Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
+
+        assertCanAccessAttachment(document, userId);
+
+        return documentAttachmentRepository
+                .findByIdAndDocumentIdAndDeleteFlgFalse(attachmentId, documentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_ATTACHMENT_NOT_FOUND));
+    }
+
     @Transactional(readOnly = true)
     public DocumentAttachment getAttachmentMetadata(Long documentId, Long attachmentId) {
         return documentAttachmentRepository
                 .findByIdAndDocumentIdAndDeleteFlgFalse(attachmentId, documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_ATTACHMENT_NOT_FOUND));
+    }
+
+    /**
+     * Kiểm tra quyền truy cập tệp đính kèm:
+     * - Người tạo văn bản
+     * - Quản trị viên hệ thống (ADMIN, SYSTEM_ADMIN)
+     * - Văn bản đã ban hành hoặc đã được phê duyệt (ISSUED, APPROVED)
+     * - Người duyệt được phân công trong yêu cầu phê duyệt của văn bản
+     */
+    void assertCanAccessAttachment(Document document, Long userId) {
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "Yêu cầu đăng nhập để truy cập tệp đính kèm");
+        }
+
+        UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+
+        boolean isCreator = document.getCreatorUser() != null && document.getCreatorUser().getId().equals(userId);
+        boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
+        boolean isPublished = document.getStatus() == DocumentStatus.ISSUED || document.getStatus() == DocumentStatus.APPROVED;
+
+        boolean isApprover = documentApprovalRequestRepository != null && documentApprovalRequestRepository
+                .findByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(document.getId()).stream()
+                .anyMatch(req -> req.getApproverUser() != null && req.getApproverUser().getId().equals(userId));
+
+        if (!isCreator && !isAdmin && !isPublished && !isApprover) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền truy cập tệp đính kèm của văn bản này");
+        }
     }
 
     /**
