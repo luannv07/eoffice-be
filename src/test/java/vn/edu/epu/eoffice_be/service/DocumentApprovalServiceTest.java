@@ -473,6 +473,7 @@ class DocumentApprovalServiceTest {
                 vn.edu.epu.eoffice_be.entity.PositionPermission.builder()
                         .positionCd("HT")
                         .permissionCd("DOCUMENT_APPROVE")
+                        .deleteFlg(false)
                         .build();
         when(positionPermissionRepository.findByPositionCdInAndDeleteFlgFalse(any()))
                 .thenReturn(java.util.List.of(perm));
