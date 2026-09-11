@@ -43,10 +43,10 @@ class RefreshTokenServiceTest {
 
 	@Test
 	void rotateShouldRevokeOldAndIssueNewToken() {
-		RefreshToken old = activeToken(10L, "old-jti", Instant.parse("2026-09-11T00:00:00Z"));
+		RefreshToken old = activeToken(10L, "old-jti", Instant.now().plusSeconds(3600));
 		when(refreshTokenRepository.findByRt("old-jti")).thenReturn(Optional.of(old));
 
-		refreshTokenService.rotate(10L, "old-jti", "new-jti", Instant.parse("2026-10-11T00:00:00Z"));
+		refreshTokenService.rotate(10L, "old-jti", "new-jti", Instant.now().plusSeconds(7200));
 
 		assertTrue(old.isRevoked());
 		ArgumentCaptor<RefreshToken> captor = ArgumentCaptor.forClass(RefreshToken.class);
