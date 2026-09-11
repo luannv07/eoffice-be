@@ -89,7 +89,7 @@ public class PdfProcessingServiceImpl implements PdfProcessingService {
 
     @Override
     public byte[] applyInitialSignStamp(byte[] pdfBytes, StampInfo stampInfo) {
-        if (pdfBytes == null || pdfBytes.length == 0) {
+        if (pdfBytes == null || pdfBytes.length == 0 || stampInfo == null) {
             throw new BusinessException(ErrorCode.BAD_REQUEST);
         }
 

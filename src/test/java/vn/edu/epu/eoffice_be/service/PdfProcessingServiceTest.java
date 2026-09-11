@@ -9,6 +9,8 @@ import org.bouncycastle.util.Store;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
+import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.dto.StampInfo;
 import vn.edu.epu.eoffice_be.service.impl.PdfProcessingServiceImpl;
 
@@ -55,6 +57,27 @@ class PdfProcessingServiceTest {
 
         assertNotNull(stampedPdf);
         assertTrue(stampedPdf.length > originalPdf.length);
+    }
+
+    @Test
+    @DisplayName("Ném lỗi BAD_REQUEST khi stampInfo null hoặc pdfBytes rỗng")
+    void applyInitialSignStamp_nullInputs_shouldThrowBadRequest() {
+        byte[] originalPdf = pdfProcessingService.createSamplePdf("Du thao", "Noi dung du thao van ban");
+
+        // stampInfo null
+        BusinessException exNullStamp = assertThrows(BusinessException.class, () ->
+                pdfProcessingService.applyInitialSignStamp(originalPdf, null));
+        assertEquals(ErrorCode.BAD_REQUEST, exNullStamp.getErrorCode());
+
+        // pdfBytes null hoặc rỗng
+        StampInfo stampInfo = StampInfo.builder().signerName("Nguyen Van A").build();
+        BusinessException exNullPdf = assertThrows(BusinessException.class, () ->
+                pdfProcessingService.applyInitialSignStamp(null, stampInfo));
+        assertEquals(ErrorCode.BAD_REQUEST, exNullPdf.getErrorCode());
+
+        BusinessException exEmptyPdf = assertThrows(BusinessException.class, () ->
+                pdfProcessingService.applyInitialSignStamp(new byte[0], stampInfo));
+        assertEquals(ErrorCode.BAD_REQUEST, exEmptyPdf.getErrorCode());
     }
 
     @Test
