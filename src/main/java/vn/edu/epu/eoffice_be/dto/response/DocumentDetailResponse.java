@@ -66,11 +66,11 @@ public class DocumentDetailResponse {
     @Schema(description = "Mã băm SHA-256 niêm phong file chính thức")
     private String officialHash;
 
-    @Schema(description = "Đường dẫn file PDF dự thảo hiện tại")
-    private String primaryFilePath;
+    @Schema(description = "URL tải file PDF dự thảo hiện tại", example = "/documents/100/files/primary")
+    private String primaryFileUrl;
 
-    @Schema(description = "Đường dẫn file PDF chính thức sau khi ký phát hành")
-    private String officialFilePath;
+    @Schema(description = "URL tải file PDF chính thức sau khi ký phát hành", example = "/documents/100/files/official")
+    private String officialFileUrl;
 
     @Schema(description = "Nơi nhận và lưu")
     private String recipientsText;

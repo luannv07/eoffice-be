@@ -14,7 +14,6 @@ import vn.edu.epu.eoffice_be.dto.StampInfo;
 import vn.edu.epu.eoffice_be.dto.request.DocumentApproveRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentInitialSignRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentPublishRequest;
-import vn.edu.epu.eoffice_be.dto.request.DocumentRejectRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRevisionRequest;
 import vn.edu.epu.eoffice_be.dto.response.DocumentDetailResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentWorkflowLogResponse;
@@ -30,15 +29,14 @@ import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
 import vn.edu.epu.eoffice_be.service.impl.DocumentWorkflowServiceImpl;
 import vn.edu.epu.eoffice_be.workflow.WorkflowEngine;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -101,13 +99,13 @@ class DocumentWorkflowServiceTest {
 
         assertNotNull(response);
         verify(workflowEngine).executeTransition(
-                eq(document),
-                eq(WorkflowAction.REVIEW_APPROVE),
-                eq(leader),
-                eq("Dong y thong qua"),
-                eq("Giao Khoa CNTT chu tri"),
-                eq(orgNode),
-                eq(null)
+                document,
+                WorkflowAction.REVIEW_APPROVE,
+                leader,
+                "Dong y thong qua",
+                "Giao Khoa CNTT chu tri",
+                orgNode,
+                null
         );
     }
 
@@ -125,13 +123,13 @@ class DocumentWorkflowServiceTest {
 
         assertNotNull(response);
         verify(workflowEngine).executeTransition(
-                eq(document),
-                eq(WorkflowAction.REQUEST_REVISION),
-                eq(leader),
-                eq("Can bo sung phan phan cong nhiem vu"),
-                eq(null),
-                eq(null),
-                eq(null)
+                document,
+                WorkflowAction.REQUEST_REVISION,
+                leader,
+                "Can bo sung phan phan cong nhiem vu",
+                null,
+                null,
+                null
         );
     }
 
@@ -145,7 +143,7 @@ class DocumentWorkflowServiceTest {
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
         when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
         when(pdfProcessingService.applyInitialSignStamp(any(byte[].class), any(StampInfo.class))).thenReturn(mockBytes);
-        when(fileStorageService.storeFile(any(byte[].class), anyString(), eq("drafts"))).thenReturn("drafts/stamped.pdf");
+        when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("drafts/stamped.pdf");
         when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("mock_sha256_hash");
 
         DocumentInitialSignRequest request = DocumentInitialSignRequest.builder()
@@ -156,14 +154,16 @@ class DocumentWorkflowServiceTest {
 
         assertNotNull(response);
         assertEquals("drafts/stamped.pdf", document.getPrimaryFilePath());
+        assertEquals("/documents/5001/files/primary", response.getPrimaryFileUrl());
+        assertNull(response.getOfficialFileUrl());
         verify(workflowEngine).executeTransition(
-                eq(document),
-                eq(WorkflowAction.INITIAL_SIGN),
-                eq(leader),
-                eq("Da ra soat the thuc"),
-                eq(null),
-                eq(null),
-                eq("mock_sha256_hash")
+                document,
+                WorkflowAction.INITIAL_SIGN,
+                leader,
+                "Da ra soat the thuc",
+                null,
+                null,
+                "mock_sha256_hash"
         );
     }
 
@@ -177,7 +177,7 @@ class DocumentWorkflowServiceTest {
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
         when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
         when(pdfProcessingService.signAndCertifyPdf(any(byte[].class), anyString(), anyString())).thenReturn(mockBytes);
-        when(fileStorageService.storeFile(any(byte[].class), anyString(), eq("official"))).thenReturn("official/doc_5001.pdf");
+        when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("official/doc_5001.pdf");
         when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("official_sha256_hash");
 
         DocumentPublishRequest request = DocumentPublishRequest.builder()
@@ -191,15 +191,17 @@ class DocumentWorkflowServiceTest {
         assertEquals("125/QD-DHEPU", document.getOfficialNumber());
         assertEquals("official/doc_5001.pdf", document.getOfficialFilePath());
         assertEquals("official_sha256_hash", document.getOfficialHash());
+        assertEquals("/documents/5001/files/primary", response.getPrimaryFileUrl());
+        assertEquals("/documents/5001/files/official", response.getOfficialFileUrl());
 
         verify(workflowEngine).executeTransition(
-                eq(document),
-                eq(WorkflowAction.SIGN_AND_PUBLISH),
-                eq(leader),
-                eq("Ky ban hanh chinh thuc"),
-                eq(null),
-                eq(null),
-                eq("official_sha256_hash")
+                document,
+                WorkflowAction.SIGN_AND_PUBLISH,
+                leader,
+                "Ky ban hanh chinh thuc",
+                null,
+                null,
+                "official_sha256_hash"
         );
     }
 

@@ -290,10 +290,17 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 .issueDate(doc.getIssueDate())
                 .effectiveDate(doc.getEffectiveDate())
                 .officialHash(doc.getOfficialHash())
-                .primaryFilePath(doc.getPrimaryFilePath())
-                .officialFilePath(doc.getOfficialFilePath())
+                .primaryFileUrl(resolveFileUrl(doc.getId(), "primary", doc.getPrimaryFilePath()))
+                .officialFileUrl(resolveFileUrl(doc.getId(), "official", doc.getOfficialFilePath()))
                 .recipientsText(doc.getRecipientsText())
                 .build();
+    }
+
+    private String resolveFileUrl(Long documentId, String fileType, String filePath) {
+        if (documentId == null || filePath == null || filePath.isBlank()) {
+            return null;
+        }
+        return "/documents/" + documentId + "/files/" + fileType;
     }
 
     private DocumentWorkflowLogResponse mapToLogResponse(DocumentWorkflowLog log) {

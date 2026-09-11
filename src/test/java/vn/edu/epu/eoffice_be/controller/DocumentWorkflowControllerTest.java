@@ -9,6 +9,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
@@ -21,6 +24,7 @@ import vn.edu.epu.eoffice_be.dto.request.DocumentRejectRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRevisionRequest;
 import vn.edu.epu.eoffice_be.dto.response.DocumentDetailResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentWorkflowLogResponse;
+import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
 import vn.edu.epu.eoffice_be.service.DocumentWorkflowService;
 
 import java.time.Instant;
@@ -48,6 +52,7 @@ class DocumentWorkflowControllerTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private DocumentDetailResponse sampleResponse;
+    private Authentication testAuthentication;
 
     @BeforeEach
     void setUp() {
@@ -55,11 +60,16 @@ class DocumentWorkflowControllerTest {
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
 
+        JwtUserPrincipal principal = new JwtUserPrincipal(1001L, "testuser", "SPECIALIST", List.of());
+        testAuthentication = new UsernamePasswordAuthenticationToken(principal, null, List.of());
+
         sampleResponse = DocumentDetailResponse.builder()
                 .id(100L)
                 .title("Ke hoach 2026")
                 .status(DocumentStatus.IN_REVIEW)
                 .officialNumber("125/QD-DHEPU")
+                .primaryFileUrl("/documents/100/files/primary")
+                .officialFileUrl("/documents/100/files/official")
                 .build();
     }
 
@@ -72,7 +82,11 @@ class DocumentWorkflowControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(100))
-                .andExpect(jsonPath("$.data.title").value("Ke hoach 2026"));
+                .andExpect(jsonPath("$.data.title").value("Ke hoach 2026"))
+                .andExpect(jsonPath("$.data.primaryFileUrl").value("/documents/100/files/primary"))
+                .andExpect(jsonPath("$.data.officialFileUrl").value("/documents/100/files/official"))
+                .andExpect(jsonPath("$.data.primaryFilePath").doesNotExist())
+                .andExpect(jsonPath("$.data.officialFilePath").doesNotExist());
     }
 
     @Test
@@ -84,15 +98,53 @@ class DocumentWorkflowControllerTest {
                 .assignedOrgNodeId(1002L)
                 .build();
 
-        when(documentWorkflowService.approve(eq(100L), any(DocumentApproveRequest.class), anyLong()))
+        when(documentWorkflowService.approve(eq(100L), any(DocumentApproveRequest.class), eq(1001L)))
                 .thenReturn(sampleResponse);
 
         mockMvc.perform(post("/documents/100/workflow/approve")
+                        .principal(testAuthentication)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(100));
+    }
+
+    @Test
+    @DisplayName("POST /documents/{id}/workflow/approve - Ném lỗi 403 khi thiếu Authentication")
+    void approve_withoutAuthentication_shouldReturnForbidden() throws Exception {
+        DocumentApproveRequest request = DocumentApproveRequest.builder()
+                .comment("Dong y")
+                .leadershipInstruction("Giao phong dao tao")
+                .assignedOrgNodeId(1002L)
+                .build();
+
+        mockMvc.perform(post("/documents/100/workflow/approve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value("FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("POST /documents/{id}/workflow/approve - Ném lỗi 403 khi Principal không phải JwtUserPrincipal")
+    void approve_withInvalidPrincipal_shouldReturnForbidden() throws Exception {
+        DocumentApproveRequest request = DocumentApproveRequest.builder()
+                .comment("Dong y")
+                .leadershipInstruction("Giao phong dao tao")
+                .assignedOrgNodeId(1002L)
+                .build();
+
+        Authentication invalidAuth = new TestingAuthenticationToken("anonymousUser", "n/a");
+
+        mockMvc.perform(post("/documents/100/workflow/approve")
+                        .principal(invalidAuth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value("FORBIDDEN"));
     }
 
     @Test
@@ -102,10 +154,11 @@ class DocumentWorkflowControllerTest {
                 .comment("Can sua lai phan 2")
                 .build();
 
-        when(documentWorkflowService.requestRevision(eq(100L), any(DocumentRevisionRequest.class), anyLong()))
+        when(documentWorkflowService.requestRevision(eq(100L), any(DocumentRevisionRequest.class), eq(1001L)))
                 .thenReturn(sampleResponse);
 
         mockMvc.perform(post("/documents/100/workflow/request-revision")
+                        .principal(testAuthentication)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -119,10 +172,11 @@ class DocumentWorkflowControllerTest {
                 .comment("Da tham dinh the thuc")
                 .build();
 
-        when(documentWorkflowService.initialSign(eq(100L), any(DocumentInitialSignRequest.class), anyLong()))
+        when(documentWorkflowService.initialSign(eq(100L), any(DocumentInitialSignRequest.class), eq(1001L)))
                 .thenReturn(sampleResponse);
 
         mockMvc.perform(post("/documents/100/workflow/initial-sign")
+                        .principal(testAuthentication)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -137,10 +191,11 @@ class DocumentWorkflowControllerTest {
                 .comment("Ky ban hanh")
                 .build();
 
-        when(documentWorkflowService.signAndPublish(eq(100L), any(DocumentPublishRequest.class), anyLong()))
+        when(documentWorkflowService.signAndPublish(eq(100L), any(DocumentPublishRequest.class), eq(1001L)))
                 .thenReturn(sampleResponse);
 
         mockMvc.perform(post("/documents/100/workflow/sign-and-publish")
+                        .principal(testAuthentication)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -154,10 +209,11 @@ class DocumentWorkflowControllerTest {
                 .comment("Khong phu hop voi chu truong")
                 .build();
 
-        when(documentWorkflowService.reject(eq(100L), any(DocumentRejectRequest.class), anyLong()))
+        when(documentWorkflowService.reject(eq(100L), any(DocumentRejectRequest.class), eq(1001L)))
                 .thenReturn(sampleResponse);
 
         mockMvc.perform(post("/documents/100/workflow/reject")
+                        .principal(testAuthentication)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
