@@ -30,9 +30,16 @@ public class DocumentDistribution extends BaseEntity {
     @Column(name = "target_id")
     Long targetId; // org_node_id hoac user_id (null neu ALL)
 
-    @Builder.Default
     @Column(name = "is_read", nullable = false)
-    Boolean isRead = false;
+    boolean isRead = false;
+
+    public boolean getIsRead() {
+        return this.isRead;
+    }
+
+    public void setIsRead(boolean isRead) {
+        this.isRead = isRead;
+    }
 
     @Column(name = "read_at")
     Instant readAt;

@@ -6,6 +6,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.io.Resource;
+import org.springframework.data.domain.PageRequest;
 import vn.edu.epu.eoffice_be.controller.DocumentWorkflowController;
 import vn.edu.epu.eoffice_be.controller.PublicController;
 import vn.edu.epu.eoffice_be.dto.PublishRequest;
@@ -18,8 +19,11 @@ import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentWorkflowLogRepository;
 
 import java.io.File;
+import java.nio.file.Files;
+import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 
@@ -55,7 +59,9 @@ class DocumentServiceCoverageTest {
         doc.setTitle("Test Doc");
         doc.setStatus("PUBLISHED");
 
-        when(documentRepository.findById(1L)).thenReturn(Optional.of(doc));
+        // Mock method kiểm tra quyền thay cho findById
+        when(documentRepository.findAccessiblePublishedDocument(1L, 10L)).thenReturn(Optional.of(doc));
+        when(documentRepository.findAccessiblePublishedDocument(1L, null)).thenReturn(Optional.of(doc));
 
         assertNotNull(documentQueryService.getDocumentDetails(1L, 10L));
         byte[] bytes = documentQueryService.downloadDocument(1L, 10L);
@@ -67,7 +73,7 @@ class DocumentServiceCoverageTest {
 
     @Test
     void testGetDocumentDetailsAndDownload_NotFound() {
-        when(documentRepository.findById(99L)).thenReturn(Optional.empty());
+        when(documentRepository.findAccessiblePublishedDocument(99L, 10L)).thenReturn(Optional.empty());
 
         assertThrows(IllegalArgumentException.class, () -> documentQueryService.getDocumentDetails(99L, 10L));
         assertThrows(IllegalArgumentException.class, () -> documentQueryService.downloadDocument(99L, 10L));
@@ -109,16 +115,16 @@ class DocumentServiceCoverageTest {
         doc.setId(1L);
 
         when(documentRepository.findAccessiblePublishedDocument(1L, 10L)).thenReturn(Optional.of(doc));
-        assertThrows(IllegalArgumentException.class, () -> 
-            documentQueryService.downloadOfficialFile(1L, 10L, "user", "127.0.0.1"));
+        assertThrows(IllegalArgumentException.class, () ->
+                documentQueryService.downloadOfficialFile(1L, 10L, "user", "127.0.0.1"));
 
         doc.setOfficialFilePath("   ");
-        assertThrows(IllegalArgumentException.class, () -> 
-            documentQueryService.downloadOfficialFile(1L, 10L, "user", "127.0.0.1"));
+        assertThrows(IllegalArgumentException.class, () ->
+                documentQueryService.downloadOfficialFile(1L, 10L, "user", "127.0.0.1"));
 
         doc.setOfficialFilePath("non_existing_file.pdf");
-        assertThrows(IllegalArgumentException.class, () -> 
-            documentQueryService.downloadOfficialFile(1L, 10L, "user", "127.0.0.1"));
+        assertThrows(IllegalArgumentException.class, () ->
+                documentQueryService.downloadOfficialFile(1L, 10L, "user", "127.0.0.1"));
 
         File tempFile = File.createTempFile("test_doc", ".pdf");
         tempFile.deleteOnExit();
@@ -129,15 +135,24 @@ class DocumentServiceCoverageTest {
         assertTrue(res.exists());
 
         when(documentRepository.findAccessiblePublishedDocument(2L, 10L)).thenReturn(Optional.empty());
-        assertThrows(IllegalArgumentException.class, () -> 
-            documentQueryService.downloadOfficialFile(2L, 10L, "user", "127.0.0.1"));
+        assertThrows(IllegalArgumentException.class, () ->
+                documentQueryService.downloadOfficialFile(2L, 10L, "user", "127.0.0.1"));
     }
 
     @Test
-    void testVerifyIntegrity() {
+    void testVerifyIntegrity() throws Exception {
+        File tempFile = File.createTempFile("verify_hash", ".pdf");
+        tempFile.deleteOnExit();
+        byte[] content = "E-Office Integrity Test Content".getBytes();
+        Files.write(tempFile.toPath(), content);
+
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        String expectedHash = HexFormat.of().formatHex(digest.digest(content));
+
         Document doc = new Document();
         doc.setId(1L);
-        doc.setOfficialHash("abc123hash");
+        doc.setOfficialFilePath(tempFile.getAbsolutePath());
+        doc.setOfficialHash(expectedHash);
 
         when(documentRepository.findById(1L)).thenReturn(Optional.of(doc));
         assertTrue(documentPublishService.verifyIntegrity(1L));
@@ -146,6 +161,9 @@ class DocumentServiceCoverageTest {
         assertFalse(documentPublishService.verifyIntegrity(1L));
 
         doc.setOfficialHash("   ");
+        assertFalse(documentPublishService.verifyIntegrity(1L));
+
+        doc.setOfficialHash("wrong_hash_123");
         assertFalse(documentPublishService.verifyIntegrity(1L));
 
         when(documentRepository.findById(99L)).thenReturn(Optional.empty());
@@ -161,14 +179,17 @@ class DocumentServiceCoverageTest {
         when(documentRepository.save(any(Document.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         PublishRequest req = new PublishRequest();
+        req.setIssueDate(LocalDate.now());
+
         Document result = documentPublishService.publishDocument(1L, req);
         assertNotNull(result);
         assertEquals("01/QĐ-ĐHL", result.getOfficialNumber());
         assertEquals("PUBLISHED", result.getStatus());
+        assertNotNull(result.getOfficialHash());
 
+        // Báo lỗi nếu ID tài liệu không tồn tại
         when(documentRepository.findById(2L)).thenReturn(Optional.empty());
-        Document resultNew = documentPublishService.publishDocument(2L, req);
-        assertNotNull(resultNew);
+        assertThrows(IllegalArgumentException.class, () -> documentPublishService.publishDocument(2L, req));
     }
 
     @Test
@@ -190,14 +211,13 @@ class DocumentServiceCoverageTest {
         var pending = documentWorkflowService.getPendingDocuments();
         assertNotNull(pending);
 
-        DocumentWorkflowLog log = new DocumentWorkflowLog();
-        log.setId(10L);
-        log.setAction("SUBMIT");
-        try {
-            log.setCreatedAt(LocalDateTime.now());
-        } catch (Exception ignored) {
-            // bỏ qua nếu entity không có setter này
-        }
+        // Khởi tạo thực thể bất biến bằng Builder
+        DocumentWorkflowLog log = DocumentWorkflowLog.builder()
+                .id(10L)
+                .documentId(1L)
+                .action("SUBMIT")
+                .createdAt(LocalDateTime.now())
+                .build();
 
         when(workflowLogRepository.findByDocumentIdOrderByCreatedAtAsc(1L)).thenReturn(List.of(log));
 
@@ -213,7 +233,7 @@ class DocumentServiceCoverageTest {
         DocumentWorkflowService mockWorkflow = mock(DocumentWorkflowService.class);
         DocumentWorkflowController controller = new DocumentWorkflowController(mockWorkflow);
 
-        assertNotNull(controller.getPendingReviewDocuments());
+        assertNotNull(controller.getPendingReviewDocuments(PageRequest.of(0, 10)));
         assertNotNull(controller.getDocumentTimeline(1L));
     }
 

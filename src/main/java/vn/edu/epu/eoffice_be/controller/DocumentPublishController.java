@@ -10,7 +10,7 @@ import vn.edu.epu.eoffice_be.dto.IntegrityVerifyResponse;
 import vn.edu.epu.eoffice_be.dto.PublishRequest;
 import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.service.DocumentPublishService;
-
+import jakarta.validation.Valid;
 import java.time.Instant;
 
 @RestController
@@ -25,11 +25,11 @@ public class DocumentPublishController {
     @PostMapping("/{id}/publish")
     public ResponseEntity<Document> publishDocument(
             @PathVariable Long id,
-            @RequestBody PublishRequest request) {
-        Document publishedDoc = publishService.publishDocument(id, request);
-        return ResponseEntity.status(HttpStatus.OK).body(publishedDoc);
+            @Valid @RequestBody PublishRequest request) {
+        Document doc = publishService.publishDocument(id, request);
+        return ResponseEntity.ok(doc);
     }
-
+    
     // Trọng tâm DevSecOps: Verify tính toàn vẹn file văn bản
     @GetMapping("/{id}/verify-integrity")
     public ResponseEntity<IntegrityVerifyResponse> verifyIntegrity(@PathVariable Long id) {

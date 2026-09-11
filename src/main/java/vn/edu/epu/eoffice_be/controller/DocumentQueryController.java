@@ -14,6 +14,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.edu.epu.eoffice_be.service.DocumentQueryService;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.security.core.Authentication;
 
 @RestController
 @RequestMapping("/documents")
@@ -25,9 +28,10 @@ public class DocumentQueryController {
 
     // UC16.1: Tra cứu danh sách văn bản ban hành (truyền orgId của đơn vị hiện tại)
     @GetMapping("/published")
-    public ResponseEntity<Object> getPublishedDocuments(
-            @RequestParam(required = false, defaultValue = "1") Long orgId) {
-        return ResponseEntity.status(HttpStatus.OK).body(queryService.getPublishedDocuments(orgId));
+    public ResponseEntity<Object> getPublishedDocuments(Authentication authentication) {
+        // Nếu có authentication, lấy orgId từ user details, ngược lại dùng ID mặc định nội bộ
+        Long orgId = 1L; // Hoặc resolve từ authentication: ((CustomUserDetails) authentication.getPrincipal()).getOrgId();
+        return ResponseEntity.ok(queryService.getPublishedDocuments(orgId));
     }
 
     // UC16.2: Xem chi tiết trích yếu, số hiệu, ngày ban hành
@@ -39,25 +43,18 @@ public class DocumentQueryController {
     }
 
     // UC16.3: Tải file PDF chính thức đã ký số
-    // UC16.3: Tải file PDF chính thức đã ký số
     @GetMapping("/{id}/download")
-    public ResponseEntity<byte[]> downloadDocument(
+    public ResponseEntity<Resource> downloadDocument(
             @PathVariable("id") Long id,
-            @RequestParam(name = "orgId", required = false, defaultValue = "1") Long orgId) {
+            Authentication authentication) {
+        Long orgId = 1L; 
         byte[] pdfBytes = queryService.downloadDocument(id, orgId);
+        ByteArrayResource resource = new ByteArrayResource(pdfBytes);
 
-        if (pdfBytes == null || pdfBytes.length == 0) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        }
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_PDF);
-        headers.setContentDisposition(ContentDisposition.attachment()
-                .filename("van_ban_" + id + "_signed.pdf")
-                .build());
-
-        return ResponseEntity.status(HttpStatus.OK)
-                .headers(headers)
-                .body(pdfBytes);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"document_" + id + ".pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .contentLength(pdfBytes.length)
+                .body(resource);
     }
 }

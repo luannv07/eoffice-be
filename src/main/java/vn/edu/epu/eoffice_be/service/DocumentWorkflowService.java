@@ -26,10 +26,10 @@ public class DocumentWorkflowService {
 
     public List<WorkflowTimelineResponse> getDocumentTimeline(Long documentId) {
         return workflowLogRepository.findByDocumentIdOrderByCreatedAtAsc(documentId).stream()
-                .map(log -> WorkflowTimelineResponse.builder()
+                .<WorkflowTimelineResponse>map(log -> WorkflowTimelineResponse.builder()
                         .id(log.getId())
                         .documentId(log.getDocumentId())
-                        .actorUsername(log.getActorUsername())
+                        .actorUsername(log.getActorUsername() != null ? log.getActorUsername() : log.getActor())
                         .actorRole(log.getActorRole())
                         .action(log.getAction())
                         .comment(log.getComment())

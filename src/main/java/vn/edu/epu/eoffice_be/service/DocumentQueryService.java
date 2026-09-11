@@ -33,8 +33,8 @@ public class DocumentQueryService {
     DocumentDistributionRepository distributionRepository;
 
     public Object getDocumentDetails(Long id, Long orgId) {
-        var document = documentRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy văn bản với ID: " + id));
+        var document = documentRepository.findAccessiblePublishedDocument(id, orgId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền truy cập văn bản với ID: " + id));
 
         java.util.Map<String, Object> details = new java.util.LinkedHashMap<>();
         details.put("id", document.getId());
@@ -46,8 +46,8 @@ public class DocumentQueryService {
     }
 
     public byte[] downloadDocument(Long id, Long orgId) {
-        var document = documentRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy văn bản với ID: " + id));
+        var document = documentRepository.findAccessiblePublishedDocument(id, orgId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền truy cập văn bản với ID: " + id));
 
         String content = String.format(
                 "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM%n"
