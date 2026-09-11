@@ -60,7 +60,7 @@ class DocumentWorkflowControllerTest {
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
 
-        JwtUserPrincipal principal = new JwtUserPrincipal(1001L, "testuser", "SPECIALIST", List.of());
+        JwtUserPrincipal principal = new JwtUserPrincipal(1001L, "testuser", "SPECIALIST", true, List.of());
         testAuthentication = new UsernamePasswordAuthenticationToken(principal, null, List.of());
 
         sampleResponse = DocumentDetailResponse.builder()
