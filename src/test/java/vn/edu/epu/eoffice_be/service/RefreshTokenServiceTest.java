@@ -65,8 +65,9 @@ class RefreshTokenServiceTest {
 	void rotateWithUnknownJtiShouldThrowSessionExpired() {
 		when(refreshTokenRepository.findByRt("unknown-jti")).thenReturn(Optional.empty());
 
+		Instant newExpiry = Instant.now().plus(30, ChronoUnit.DAYS);
 		BusinessException ex = assertThrows(BusinessException.class,
-						() -> refreshTokenService.rotate(10L, "unknown-jti", "new-jti", Instant.now().plus(30, ChronoUnit.DAYS)));
+						() -> refreshTokenService.rotate(10L, "unknown-jti", "new-jti", newExpiry));
 
 		assertEquals(ErrorCode.SESSION_EXPIRED, ex.getErrorCode());
 		verify(refreshTokenRepository, never()).save(any(RefreshToken.class));
@@ -82,8 +83,9 @@ class RefreshTokenServiceTest {
 						.build();
 		when(refreshTokenRepository.findByRt("stolen-jti")).thenReturn(Optional.of(revoked));
 
+		Instant newExpiry = Instant.now().plus(30, ChronoUnit.DAYS);
 		BusinessException ex = assertThrows(BusinessException.class,
-						() -> refreshTokenService.rotate(10L, "stolen-jti", "new-jti", Instant.now().plus(30, ChronoUnit.DAYS)));
+						() -> refreshTokenService.rotate(10L, "stolen-jti", "new-jti", newExpiry));
 
 		assertEquals(ErrorCode.SESSION_EXPIRED, ex.getErrorCode());
 		verify(refreshTokenRepository).revokeAllActiveByUserId(10L);
@@ -94,8 +96,9 @@ class RefreshTokenServiceTest {
 		RefreshToken expired = activeToken(10L, "expired-jti", Instant.now().minus(1, ChronoUnit.DAYS));
 		when(refreshTokenRepository.findByRt("expired-jti")).thenReturn(Optional.of(expired));
 
+		Instant newExpiry = Instant.now().plus(30, ChronoUnit.DAYS);
 		BusinessException ex = assertThrows(BusinessException.class,
-						() -> refreshTokenService.rotate(10L, "expired-jti", "new-jti", Instant.now().plus(30, ChronoUnit.DAYS)));
+						() -> refreshTokenService.rotate(10L, "expired-jti", "new-jti", newExpiry));
 
 		assertEquals(ErrorCode.SESSION_EXPIRED, ex.getErrorCode());
 		verify(refreshTokenRepository, never()).revokeAllActiveByUserId(any());
@@ -106,8 +109,9 @@ class RefreshTokenServiceTest {
 		RefreshToken otherUserToken = activeToken(99L, "other-jti", Instant.now().plus(1, ChronoUnit.DAYS));
 		when(refreshTokenRepository.findByRt("other-jti")).thenReturn(Optional.of(otherUserToken));
 
+		Instant newExpiry = Instant.now().plus(30, ChronoUnit.DAYS);
 		BusinessException ex = assertThrows(BusinessException.class,
-						() -> refreshTokenService.rotate(10L, "other-jti", "new-jti", Instant.now().plus(30, ChronoUnit.DAYS)));
+						() -> refreshTokenService.rotate(10L, "other-jti", "new-jti", newExpiry));
 
 		assertEquals(ErrorCode.SESSION_EXPIRED, ex.getErrorCode());
 		verify(refreshTokenRepository, never()).revokeAllActiveByUserId(any());

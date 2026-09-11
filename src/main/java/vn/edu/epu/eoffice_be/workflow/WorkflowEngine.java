@@ -120,37 +120,23 @@ public class WorkflowEngine {
             return; // Quản trị viên có toàn quyền điều phối
         }
 
+        if (!hasActionPermission(document, actor, action)) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
+        }
+    }
+
+    private boolean hasActionPermission(Document document, UserLogin actor, WorkflowAction action) {
         boolean isDrafter = document.getDrafter() != null && Objects.equals(document.getDrafter().getId(), actor.getId());
         boolean isAssignedSigner = document.getSigner() != null && Objects.equals(document.getSigner().getId(), actor.getId());
+        Role role = actor.getRole();
+        boolean isReviewerOrLeader = role == Role.REVIEWER || role == Role.LEADER || isAssignedSigner;
 
-        switch (action) {
-            case SUBMIT, WITHDRAW -> {
-                if (!isDrafter) {
-                    throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
-                }
-            }
-            case REVIEW_APPROVE, INITIAL_SIGN -> {
-                if (actor.getRole() != Role.REVIEWER && actor.getRole() != Role.LEADER && !isAssignedSigner) {
-                    throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
-                }
-            }
-            case LEADER_APPROVE -> {
-                if (actor.getRole() != Role.LEADER && !isAssignedSigner) {
-                    throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
-                }
-            }
-            case SIGN_AND_PUBLISH -> {
-                if (!isAssignedSigner) {
-                    throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
-                }
-            }
-            case REQUEST_REVISION, REJECT -> {
-                if (actor.getRole() != Role.REVIEWER && actor.getRole() != Role.LEADER && !isAssignedSigner) {
-                    throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
-                }
-            }
-            default -> throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
-        }
+        return switch (action) {
+            case SUBMIT, WITHDRAW -> isDrafter;
+            case REVIEW_APPROVE, INITIAL_SIGN, REQUEST_REVISION, REJECT -> isReviewerOrLeader;
+            case LEADER_APPROVE -> role == Role.LEADER || isAssignedSigner;
+            case SIGN_AND_PUBLISH -> isAssignedSigner;
+        };
     }
 
     /**

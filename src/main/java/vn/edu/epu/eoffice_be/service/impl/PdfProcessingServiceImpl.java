@@ -44,6 +44,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.security.GeneralSecurityException;
 import java.security.Key;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -59,10 +60,13 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.regex.Pattern;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Slf4j
 @Service
 public class PdfProcessingServiceImpl implements PdfProcessingService {
+
+    private static final String KEYSTORE_TYPE_PKCS12 = "PKCS12";
 
     @Value("${eoffice.pki.keystore-path:}")
     private String keystorePath;
@@ -82,6 +86,7 @@ public class PdfProcessingServiceImpl implements PdfProcessingService {
     private PrivateKey epuPrivateKey;
     private X509Certificate epuCertificate;
 
+    @Autowired
     public PdfProcessingServiceImpl() {
         initProvider();
         init();
@@ -138,64 +143,67 @@ public class PdfProcessingServiceImpl implements PdfProcessingService {
         generateAndPersistKeystore(fallbackPath, "epu-keystore-secret", "epu-signer", "epu-signer-secret");
     }
 
-    private void loadFromConfiguredKeystore(String pathStr, String storePwd, String alias, String keyPwd) {
-        try {
-            InputStream is;
-            if (pathStr.startsWith("classpath:")) {
-                String resourcePath = pathStr.substring("classpath:".length());
-                if (resourcePath.startsWith("/")) {
-                    resourcePath = resourcePath.substring(1);
-                }
-                is = getClass().getClassLoader().getResourceAsStream(resourcePath);
-                if (is == null) {
-                    throw new FileNotFoundException("Khong tim thay keystore tren classpath: " + pathStr);
-                }
+    private InputStream openKeystoreStream(String pathStr) throws IOException {
+        if (pathStr.startsWith("classpath:")) {
+            String resourcePath = pathStr.substring("classpath:".length());
+            if (resourcePath.startsWith("/")) {
+                resourcePath = resourcePath.substring(1);
+            }
+            InputStream is = getClass().getClassLoader().getResourceAsStream(resourcePath);
+            if (is == null) {
+                throw new FileNotFoundException("Khong tim thay keystore tren classpath: " + pathStr);
+            }
+            return is;
+        }
+        Path p = Paths.get(pathStr);
+        if (!Files.exists(p)) {
+            throw new FileNotFoundException("Khong tim thay keystore tai: " + pathStr);
+        }
+        return Files.newInputStream(p);
+    }
+
+    private void extractKeyAndCert(KeyStore keyStore, String alias, char[] password, String keyPwd, String pathStr)
+            throws GeneralSecurityException {
+        String keyAliasToUse = alias;
+        if (keyAliasToUse == null || keyAliasToUse.isBlank()) {
+            Enumeration<String> aliases = keyStore.aliases();
+            if (aliases.hasMoreElements()) {
+                keyAliasToUse = aliases.nextElement();
             } else {
-                Path p = Paths.get(pathStr);
-                if (!Files.exists(p)) {
-                    throw new FileNotFoundException("Khong tim thay keystore tai: " + pathStr);
-                }
-                is = Files.newInputStream(p);
+                throw new IllegalStateException("Keystore khong chua bat ky alias nao: " + pathStr);
             }
+        }
 
-            try (is) {
-                KeyStore keyStore = KeyStore.getInstance("PKCS12");
-                char[] password = storePwd != null ? storePwd.toCharArray() : new char[0];
-                keyStore.load(is, password);
+        char[] keyPasswordToUse = (keyPwd != null && !keyPwd.isBlank()) ? keyPwd.toCharArray() : password;
+        Key key = keyStore.getKey(keyAliasToUse, keyPasswordToUse);
+        if (!(key instanceof PrivateKey)) {
+            throw new IllegalStateException("Khoa duoi alias '" + keyAliasToUse + "' khong phai la PrivateKey");
+        }
+        Certificate cert = keyStore.getCertificate(keyAliasToUse);
+        if (!(cert instanceof X509Certificate)) {
+            throw new IllegalStateException("Chung chi duoi alias '" + keyAliasToUse + "' khong phai la X509Certificate");
+        }
 
-                String keyAliasToUse = alias;
-                if (keyAliasToUse == null || keyAliasToUse.isBlank()) {
-                    Enumeration<String> aliases = keyStore.aliases();
-                    if (aliases.hasMoreElements()) {
-                        keyAliasToUse = aliases.nextElement();
-                    } else {
-                        throw new IllegalStateException("Keystore khong chua bat ky alias nao: " + pathStr);
-                    }
-                }
+        this.epuPrivateKey = (PrivateKey) key;
+        this.epuCertificate = (X509Certificate) cert;
+        log.info("Tai chung thu so PKI tu cau hinh keystore thanh cong: alias={}", keyAliasToUse);
+    }
 
-                char[] keyPasswordToUse = (keyPwd != null && !keyPwd.isBlank()) ? keyPwd.toCharArray() : password;
-                Key key = keyStore.getKey(keyAliasToUse, keyPasswordToUse);
-                if (!(key instanceof PrivateKey)) {
-                    throw new IllegalStateException("Khoa duoi alias '" + keyAliasToUse + "' khong phai la PrivateKey");
-                }
-                Certificate cert = keyStore.getCertificate(keyAliasToUse);
-                if (!(cert instanceof X509Certificate)) {
-                    throw new IllegalStateException("Chung chi duoi alias '" + keyAliasToUse + "' khong phai la X509Certificate");
-                }
-
-                this.epuPrivateKey = (PrivateKey) key;
-                this.epuCertificate = (X509Certificate) cert;
-                log.info("Tai chung thu so PKI tu cau hinh keystore thanh cong: alias={}", keyAliasToUse);
-            }
+    private void loadFromConfiguredKeystore(String pathStr, String storePwd, String alias, String keyPwd) {
+        try (InputStream is = openKeystoreStream(pathStr)) {
+            KeyStore keyStore = KeyStore.getInstance(KEYSTORE_TYPE_PKCS12);
+            char[] password = storePwd != null ? storePwd.toCharArray() : new char[0];
+            keyStore.load(is, password);
+            extractKeyAndCert(keyStore, alias, password, keyPwd, pathStr);
         } catch (Exception e) {
             log.error("Loi khi tai keystore PKI tu {}", pathStr, e);
             throw new IllegalStateException("Khong the khoi tao dich vu PKI tu keystore: " + pathStr, e);
         }
     }
 
-    private void loadFromKeystoreFile(Path path, String storePwd, String alias, String keyPwd) throws Exception {
+    private void loadFromKeystoreFile(Path path, String storePwd, String alias, String keyPwd) throws GeneralSecurityException, IOException {
         try (InputStream is = Files.newInputStream(path)) {
-            KeyStore keyStore = KeyStore.getInstance("PKCS12");
+            KeyStore keyStore = KeyStore.getInstance(KEYSTORE_TYPE_PKCS12);
             char[] password = storePwd != null ? storePwd.toCharArray() : new char[0];
             keyStore.load(is, password);
 
@@ -229,7 +237,7 @@ public class PdfProcessingServiceImpl implements PdfProcessingService {
 
             Instant now = Instant.now();
             Date startDate = Date.from(now.minus(Duration.ofHours(1)));
-            Date endDate = Date.from(now.plus(Duration.ofDays(365 * 5)));
+            Date endDate = Date.from(now.plus(Duration.ofDays(365L * 5)));
             BigInteger serialNumber = BigInteger.valueOf(now.toEpochMilli());
             X500Name dnName = new X500Name("CN=Truong Dai hoc Dien Luc - EPU, OU=Ban Giam Hieu, O=EPU, C=VN");
 
@@ -248,11 +256,11 @@ public class PdfProcessingServiceImpl implements PdfProcessingService {
                 Files.createDirectories(path.getParent());
             }
 
-            KeyStore keyStore = KeyStore.getInstance("PKCS12");
+            KeyStore keyStore = KeyStore.getInstance(KEYSTORE_TYPE_PKCS12);
             keyStore.load(null, null);
             char[] password = storePwd != null ? storePwd.toCharArray() : new char[0];
-            char[] keyPassword = (keyPwd != null && !keyPwd.isBlank()) ? keyPwd.toCharArray() : password;
-            keyStore.setKeyEntry(alias, privKey, keyPassword, new Certificate[]{cert});
+            char[] keyPwdChars = (keyPwd != null && !keyPwd.isBlank()) ? keyPwd.toCharArray() : password;
+            keyStore.setKeyEntry(alias, privKey, keyPwdChars, new Certificate[]{cert});
 
             try (OutputStream os = Files.newOutputStream(path, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
                 keyStore.store(os, password);

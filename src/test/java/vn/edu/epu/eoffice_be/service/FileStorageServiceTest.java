@@ -199,6 +199,7 @@ class FileStorageServiceTest {
                 Files.deleteIfExists(outsideDir.resolve("secret.txt"));
                 Files.deleteIfExists(outsideDir);
             } catch (Exception ignored) {
+                // Ignore cleanup errors in temporary test directories
             }
         }
     }
@@ -216,6 +217,7 @@ class FileStorageServiceTest {
                 Files.createSymbolicLink(linkFile, outsideFile);
                 created = true;
             } catch (Exception ignored) {
+                // Ignore symlink creation failure when runner OS permissions do not permit symlinks
             }
 
             if (created) {
@@ -228,6 +230,7 @@ class FileStorageServiceTest {
                 Files.deleteIfExists(linkFile);
                 Files.deleteIfExists(outsideFile);
             } catch (Exception ignored) {
+                // Ignore cleanup errors for temporary files
             }
         }
     }
@@ -245,9 +248,41 @@ class FileStorageServiceTest {
                     int exitCode = process.waitFor();
                     return exitCode == 0;
                 } catch (Exception ignored) {
+                    // Ignore junction creation failure
                 }
             }
             return false;
         }
+    }
+
+    @Test
+    @DisplayName("Lưu file khi subDirectory là null hoặc rỗng")
+    void storeFile_emptySubDirectory_shouldSaveAtRoot() {
+        byte[] content = "Root Content".getBytes();
+        String storedPathNull = fileStorageService.storeFile(content, "root.pdf", null);
+        assertNotNull(storedPathNull);
+        assertFalse(storedPathNull.contains("/"));
+        byte[] readNull = fileStorageService.loadFileBytes(storedPathNull);
+        assertArrayEquals(content, readNull);
+
+        String storedPathBlank = fileStorageService.storeFile(content, "root2.pdf", "   ");
+        assertNotNull(storedPathBlank);
+        assertFalse(storedPathBlank.contains("/"));
+    }
+
+    @Test
+    @DisplayName("Ném lỗi DOCUMENT_FILE_MISSING khi relativePath là null hoặc rỗng")
+    void loadFile_nullOrBlankPath_shouldThrowDocumentFileMissing() {
+        assertThrows(BusinessException.class, () -> fileStorageService.loadFileBytes(null));
+        assertThrows(BusinessException.class, () -> fileStorageService.loadFileBytes("   "));
+        assertThrows(BusinessException.class, () -> fileStorageService.loadFileInputStream(null));
+        assertThrows(BusinessException.class, () -> fileStorageService.loadFileAsResource(null));
+        assertNull(fileStorageService.computeSha256((byte[]) null));
+    }
+
+    @Test
+    @DisplayName("Nạp file dưới dạng Spring Resource không tồn tại ném ra DOCUMENT_FILE_MISSING")
+    void loadFileAsResource_fileNotFound_shouldThrowDocumentFileMissing() {
+        assertThrows(BusinessException.class, () -> fileStorageService.loadFileAsResource("non-existent.pdf"));
     }
 }

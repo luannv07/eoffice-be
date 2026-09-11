@@ -47,27 +47,32 @@ public class FileStorageServiceImpl implements FileStorageService {
         }
     }
 
+    private String resolveSafeFileName(String originalFilename) {
+        if (originalFilename != null && !originalFilename.isBlank()) {
+            try {
+                String normalizedName = originalFilename.replace('\\', '/');
+                Path fileNamePath = Paths.get(normalizedName).getFileName();
+                if (fileNamePath != null && !fileNamePath.toString().isBlank()) {
+                    return fileNamePath.toString();
+                }
+            } catch (Exception ignored) {
+                // fallback to default "file.pdf"
+            }
+        }
+        return "file.pdf";
+    }
+
     @Override
     public String storeFile(byte[] content, String originalFilename, String subDirectory) {
         if (content == null || content.length == 0) {
             throw new BusinessException(ErrorCode.BAD_REQUEST);
         }
 
-        String safeFileName = "file.pdf";
-        if (originalFilename != null && !originalFilename.isBlank()) {
-            try {
-                String normalizedName = originalFilename.replace('\\', '/');
-                Path fileNamePath = Paths.get(normalizedName).getFileName();
-                if (fileNamePath != null && !fileNamePath.toString().isBlank()) {
-                    safeFileName = fileNamePath.toString();
-                }
-            } catch (Exception ignored) {
-                // fallback to default "file.pdf"
-            }
-        }
+        String safeFileName = resolveSafeFileName(originalFilename);
         String storedFileName = UUID.randomUUID() + "_" + safeFileName;
 
-        Path subDirTarget = this.rootStoragePath.resolve(subDirectory == null ? "" : subDirectory).normalize();
+        String safeSubDir = (subDirectory == null || subDirectory.isBlank()) ? "" : subDirectory.trim();
+        Path subDirTarget = this.rootStoragePath.resolve(safeSubDir).normalize();
 
         // Chống tấn công Path Traversal
         if (!subDirTarget.startsWith(this.rootStoragePath)) {
