@@ -6,16 +6,20 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.io.Resource;
+import vn.edu.epu.eoffice_be.controller.DocumentWorkflowController;
 import vn.edu.epu.eoffice_be.controller.PublicController;
+import vn.edu.epu.eoffice_be.dto.PublishRequest;
 import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.entity.DocumentDistribution;
+import vn.edu.epu.eoffice_be.entity.DocumentWorkflowLog;
 import vn.edu.epu.eoffice_be.repository.DocumentDistributionRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
-import vn.edu.epu.eoffice_be.dto.PublishRequest;
+import vn.edu.epu.eoffice_be.repository.DocumentWorkflowLogRepository;
 
 import java.io.File;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,11 +36,17 @@ class DocumentServiceCoverageTest {
     @Mock
     DocumentDistributionRepository distributionRepository;
 
+    @Mock
+    DocumentWorkflowLogRepository workflowLogRepository;
+
     @InjectMocks
     DocumentQueryService documentQueryService;
 
     @InjectMocks
     DocumentPublishService documentPublishService;
+
+    @InjectMocks
+    DocumentWorkflowService documentWorkflowService;
 
     @Test
     void testGetDocumentDetailsAndDownload_Success() {
@@ -159,6 +169,52 @@ class DocumentServiceCoverageTest {
         when(documentRepository.findById(2L)).thenReturn(Optional.empty());
         Document resultNew = documentPublishService.publishDocument(2L, req);
         assertNotNull(resultNew);
+    }
+
+    @Test
+    void testDocumentWorkflowService_Coverage() {
+        Document doc1 = new Document();
+        doc1.setId(1L);
+        doc1.setStatus("IN_REVIEW");
+
+        Document doc2 = new Document();
+        doc2.setId(2L);
+        doc2.setStatus("WAITING_SIGN");
+
+        Document doc3 = new Document();
+        doc3.setId(3L);
+        doc3.setStatus("OTHER");
+
+        when(documentRepository.findAll()).thenReturn(List.of(doc1, doc2, doc3));
+
+        var pending = documentWorkflowService.getPendingDocuments();
+        assertNotNull(pending);
+
+        DocumentWorkflowLog log = new DocumentWorkflowLog();
+        log.setId(10L);
+        log.setAction("SUBMIT");
+        try {
+            log.setCreatedAt(LocalDateTime.now());
+        } catch (Exception ignored) {
+            // bỏ qua nếu entity không có setter này
+        }
+
+        when(workflowLogRepository.findByDocumentIdOrderByCreatedAtAsc(1L)).thenReturn(List.of(log));
+
+        var timeline = documentWorkflowService.getDocumentTimeline(1L);
+        assertNotNull(timeline);
+
+        documentWorkflowService.logAction(1L, "SIGN", "GiamDoc", "Ky duyet", "127.0.0.1");
+        verify(workflowLogRepository, atLeastOnce()).save(any());
+    }
+
+    @Test
+    void testDocumentWorkflowController() {
+        DocumentWorkflowService mockWorkflow = mock(DocumentWorkflowService.class);
+        DocumentWorkflowController controller = new DocumentWorkflowController(mockWorkflow);
+
+        assertNotNull(controller.getPendingReviewDocuments());
+        assertNotNull(controller.getDocumentTimeline(1L));
     }
 
     @Test
