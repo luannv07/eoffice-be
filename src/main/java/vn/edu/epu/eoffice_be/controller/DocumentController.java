@@ -3,7 +3,6 @@ package vn.edu.epu.eoffice_be.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -71,11 +70,9 @@ public class DocumentController {
 
     @Operation(summary = "Tạo dự thảo văn bản (UC08)",
             description = "Tạo mới một dự thảo văn bản. Hệ thống tự động sinh mã dự thảo, gán trạng thái DRAFT và tạo phiên bản 1.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Tạo dự thảo thành công"),
-            @ApiResponse(responseCode = "400", description = "Dữ liệu đầu vào không hợp lệ (VALIDATION_ERROR)"),
-            @ApiResponse(responseCode = "401", description = "Chưa xác thực (UNAUTHORIZED)")
-    })
+    @ApiResponse(responseCode = "200", description = "Tạo dự thảo thành công")
+    @ApiResponse(responseCode = "400", description = "Dữ liệu đầu vào không hợp lệ (VALIDATION_ERROR)")
+    @ApiResponse(responseCode = "401", description = "Chưa xác thực (UNAUTHORIZED)")
     @PostMapping("/drafts")
     public BaseResponse<DocumentResponse> createDraft(
             @Valid @RequestBody DocumentCreateRequest request,
@@ -113,12 +110,10 @@ public class DocumentController {
 
     @Operation(summary = "Chỉnh sửa dự thảo và lưu phiên bản (UC10)",
             description = "Cập nhật tiêu đề, trích yếu, nội dung hoặc đơn vị. Nếu saveNewVersion=true sẽ tự sinh phiên bản snapshot mới.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Cập nhật thành công"),
-            @ApiResponse(responseCode = "400", description = "Trạng thái văn bản không hợp lệ để chỉnh sửa (DOCUMENT_INVALID_STATUS)"),
-            @ApiResponse(responseCode = "403", description = "Không có quyền chỉnh sửa (FORBIDDEN)"),
-            @ApiResponse(responseCode = "404", description = "Không tìm thấy văn bản (DOCUMENT_NOT_FOUND)")
-    })
+    @ApiResponse(responseCode = "200", description = "Cập nhật thành công")
+    @ApiResponse(responseCode = "400", description = "Trạng thái văn bản không hợp lệ để chỉnh sửa (DOCUMENT_INVALID_STATUS)")
+    @ApiResponse(responseCode = "403", description = "Không có quyền chỉnh sửa (FORBIDDEN)")
+    @ApiResponse(responseCode = "404", description = "Không tìm thấy văn bản (DOCUMENT_NOT_FOUND)")
     @PutMapping("/{id}")
     public BaseResponse<DocumentResponse> updateDraft(
             @PathVariable Long id,
@@ -171,11 +166,9 @@ public class DocumentController {
 
     @Operation(summary = "Tải tệp DOCX/PDF đính kèm (UC09)",
             description = "Tải tệp tài liệu đính kèm lên cho dự thảo. Kiểm tra định dạng (chỉ DOCX/PDF), quét an toàn mã độc và dung lượng tối đa.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Tải tệp lên thành công"),
-            @ApiResponse(responseCode = "400", description = "Định dạng không hợp lệ hoặc tệp không an toàn (FILE_INVALID_FORMAT / FILE_UNSAFE)"),
-            @ApiResponse(responseCode = "413", description = "Dung lượng vượt quá giới hạn (FILE_SIZE_EXCEEDED)")
-    })
+    @ApiResponse(responseCode = "200", description = "Tải tệp lên thành công")
+    @ApiResponse(responseCode = "400", description = "Định dạng không hợp lệ hoặc tệp không an toàn (FILE_INVALID_FORMAT / FILE_UNSAFE)")
+    @ApiResponse(responseCode = "413", description = "Dung lượng vượt quá giới hạn (FILE_SIZE_EXCEEDED)")
     @PostMapping(value = "/{id}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public BaseResponse<DocumentAttachmentResponse> uploadAttachment(
             @PathVariable Long id,
@@ -254,10 +247,8 @@ public class DocumentController {
 
     @Operation(summary = "Gửi văn bản để duyệt (UC11)",
             description = "Gửi hồ sơ văn bản tới cán bộ duyệt đã chọn. Kiểm tra tính đầy đủ hồ sơ (bắt buộc có tệp đính kèm chính hoặc nội dung).")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Gửi duyệt thành công"),
-            @ApiResponse(responseCode = "400", description = "Hồ sơ chưa đầy đủ hoặc trạng thái không hợp lệ (DOCUMENT_INCOMPLETE_DOSSIER / DOCUMENT_INVALID_STATUS)")
-    })
+    @ApiResponse(responseCode = "200", description = "Gửi duyệt thành công")
+    @ApiResponse(responseCode = "400", description = "Hồ sơ chưa đầy đủ hoặc trạng thái không hợp lệ (DOCUMENT_INCOMPLETE_DOSSIER / DOCUMENT_INVALID_STATUS)")
     @PostMapping("/{id}/submit-approval")
     public BaseResponse<DocumentResponse> submitForApproval(
             @PathVariable Long id,
@@ -270,10 +261,8 @@ public class DocumentController {
 
     @Operation(summary = "Thu hồi yêu cầu duyệt (UC11)",
             description = "Người soạn thảo thu hồi văn bản đã gửi duyệt khi người duyệt chưa xử lý. Trạng thái chuyển về lại DRAFT.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Thu hồi thành công"),
-            @ApiResponse(responseCode = "400", description = "Không thể thu hồi do người duyệt đã xử lý (DOCUMENT_CANNOT_RECALL)")
-    })
+    @ApiResponse(responseCode = "200", description = "Thu hồi thành công")
+    @ApiResponse(responseCode = "400", description = "Không thể thu hồi do người duyệt đã xử lý (DOCUMENT_CANNOT_RECALL)")
     @PostMapping("/{id}/recall-approval")
     public BaseResponse<DocumentResponse> recallApproval(
             @PathVariable Long id,

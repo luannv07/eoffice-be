@@ -39,6 +39,7 @@ import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
 
 import java.security.SecureRandom;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -245,7 +246,7 @@ public class DocumentDraftService {
     }
 
     private String generateUniqueDraftCode() {
-        int year = LocalDate.now().getYear();
+        int year = LocalDate.now(ZoneId.systemDefault()).getYear();
         String code;
         do {
             int randomNum = 10000 + RANDOM.nextInt(90000);

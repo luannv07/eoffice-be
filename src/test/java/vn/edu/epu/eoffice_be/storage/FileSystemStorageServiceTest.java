@@ -9,6 +9,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.io.Resource;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.multipart.MultipartFile;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.config.UploadProperties;
@@ -26,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -107,8 +109,9 @@ class FileSystemStorageServiceTest {
     @Test
     @DisplayName("Tai tep khong ton tai nem ngoai le DOCUMENT_ATTACHMENT_NOT_FOUND")
     void loadAsResource_NonExistentFile_ThrowsNotFound() {
+        String uploadDir = tempDir.toString();
         BusinessException ex = assertThrows(BusinessException.class,
-                () -> storageService.loadAsResource(tempDir.toString(), "non_existent_file.pdf"));
+                () -> storageService.loadAsResource(uploadDir, "non_existent_file.pdf"));
         assertEquals(ErrorCode.DOCUMENT_ATTACHMENT_NOT_FOUND, ex.getErrorCode());
     }
 
@@ -132,7 +135,7 @@ class FileSystemStorageServiceTest {
     @Test
     @DisplayName("Lỗi khi đọc file stream ném ngoại lệ FILE_STORAGE_ERROR")
     void storeFile_IoException_ThrowsFileStorageError() throws IOException {
-        org.springframework.web.multipart.MultipartFile badFile = org.mockito.Mockito.mock(org.springframework.web.multipart.MultipartFile.class);
+        MultipartFile badFile = mock(MultipartFile.class);
         when(badFile.getOriginalFilename()).thenReturn("test.pdf");
         when(securityValidator.extractExtension("test.pdf")).thenReturn("pdf");
         when(badFile.getInputStream()).thenThrow(new IOException("Disk error"));
