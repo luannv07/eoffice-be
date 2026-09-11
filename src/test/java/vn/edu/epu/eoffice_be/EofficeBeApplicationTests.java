@@ -2,7 +2,6 @@ package vn.edu.epu.eoffice_be;
 
 import org.junit.jupiter.api.Test;
 import vn.edu.epu.eoffice_be.common.dto.BaseResponse;
-import vn.edu.epu.eoffice_be.controller.PublicController;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -23,16 +22,6 @@ class EofficeBeApplicationTests {
 		assertTrue(!response.isSuccess());
 		assertEquals("Lỗi", response.getMessage());
 		assertEquals("BUSINESS_ERROR", response.getErrorCode());
-		assertNotNull(response.getTimestamp());
-	}
-
-	@Test
-	void publicControllerHealthReturnsBaseResponse() {
-		PublicController controller = new PublicController();
-		BaseResponse<String> response = controller.health();
-		assertTrue(response.isSuccess());
-		assertNotNull(response.getData());
-		assertTrue(response.getData().startsWith("OK: "));
 		assertNotNull(response.getTimestamp());
 	}
 

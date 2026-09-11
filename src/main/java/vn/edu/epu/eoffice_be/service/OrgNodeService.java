@@ -16,6 +16,10 @@ public interface OrgNodeService {
 
 	OrgNodeResponse getDetail(Long id);
 
+	List<OrgNodeResponse> getChildren(Long parentId);
+
+	List<OrgNodeResponse> getRoots();
+
 	void delete(Long id);
 
 	void create(OrgNodeCreateRequest request);

@@ -3,6 +3,8 @@ package vn.edu.epu.eoffice_be.audit.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -40,12 +42,15 @@ public class ChangeHistoryLog {
 	@Column(name = "source_service", nullable = false, length = 100)
 	String sourceService;
 
-	@Column(name = "before_data", columnDefinition = "TEXT")
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(name = "before_data", columnDefinition = "jsonb")
 	String beforeData;
 
-	@Column(name = "after_data", columnDefinition = "TEXT")
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(name = "after_data", columnDefinition = "jsonb")
 	String afterData;
 
-	@Column(name = "changed_fields", columnDefinition = "TEXT")
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(name = "changed_fields", columnDefinition = "jsonb")
 	String changedFields;
 }

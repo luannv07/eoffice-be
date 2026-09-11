@@ -8,7 +8,11 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
-      ddl-auto: validate
+      # Liquibase owns the schema (master-test.yml runs all migrations), so Hibernate
+      # must not validate/generate DDL. This also avoids the cross-DB json type mismatch:
+      # @JdbcTypeCode(SqlTypes.JSON) expects jsonb (Types#JSON) while H2 reports its
+      # JSON columns as Types#OTHER, which would fail schema validation.
+      ddl-auto: none
     open-in-view: false
 
     properties:
