@@ -1,6 +1,9 @@
 package vn.edu.epu.eoffice_be.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.Filter;
+import jakarta.servlet.http.HttpServletResponse;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,10 +16,17 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import vn.edu.epu.eoffice_be.common.dto.BaseResponse;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
+import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
 import vn.edu.epu.eoffice_be.common.exception.GlobalExceptionHandler;
 import vn.edu.epu.eoffice_be.dto.request.DocumentApproveRequest;
@@ -26,8 +36,10 @@ import vn.edu.epu.eoffice_be.dto.request.DocumentRejectRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRevisionRequest;
 import vn.edu.epu.eoffice_be.dto.response.DocumentDetailResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentWorkflowLogResponse;
+import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
 import vn.edu.epu.eoffice_be.service.DocumentWorkflowService;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 
@@ -50,16 +62,35 @@ class DocumentWorkflowControllerTest {
     private DocumentWorkflowController documentWorkflowController;
 
     private MockMvc mockMvc;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     private DocumentDetailResponse sampleResponse;
 
     @BeforeEach
     void setUp() {
+        Filter securityFilter = (request, response, chain) -> {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+                HttpServletResponse httpResponse = (HttpServletResponse) response;
+                httpResponse.setStatus(HttpStatus.UNAUTHORIZED.value());
+                httpResponse.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                httpResponse.setCharacterEncoding(StandardCharsets.UTF_8.name());
+                httpResponse.getWriter().write("{\"success\":false,\"code\":\"UNAUTHORIZED\",\"message\":\"UNAUTHORIZED\"}");
+                return;
+            }
+            chain.doFilter(request, response);
+        };
+
         mockMvc = MockMvcBuilders.standaloneSetup(documentWorkflowController)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
+                .addFilters(securityFilter)
                 .build();
+
+        JwtUserPrincipal principal = new JwtUserPrincipal(1001L, "reviewer", "REVIEWER", true, List.of());
+        SecurityContextHolder.getContext().setAuthentication(
+                UsernamePasswordAuthenticationToken.authenticated(principal, "n/a", List.of(new SimpleGrantedAuthority("ROLE_REVIEWER")))
+        );
 
         sampleResponse = DocumentDetailResponse.builder()
                 .id(100L)
@@ -69,6 +100,11 @@ class DocumentWorkflowControllerTest {
                 .primaryFileUrl("/documents/100/files/primary")
                 .officialFileUrl("/documents/100/files/official")
                 .build();
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -198,5 +234,16 @@ class DocumentWorkflowControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.content[0].action").value("SUBMIT"))
                 .andExpect(jsonPath("$.data.totalElements").value(1));
+    }
+
+    @Test
+    @DisplayName("Chặn truy cập: Trả về 401 UNAUTHORIZED khi chưa xác thực người dùng")
+    void whenUnauthenticated_shouldReturn401() throws Exception {
+        SecurityContextHolder.clearContext();
+
+        mockMvc.perform(get("/documents/100"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHORIZED.getCode()));
     }
 }
