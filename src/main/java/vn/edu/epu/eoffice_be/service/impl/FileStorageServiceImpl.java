@@ -8,7 +8,12 @@ import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.service.FileStorageService;
 
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -23,6 +28,9 @@ public class FileStorageServiceImpl implements FileStorageService {
 
     @Value("${eoffice.storage.base-path:./uploads}")
     private String basePathStr;
+
+    @Value("${eoffice.storage.max-file-size-bytes:20971520}")
+    private long maxFileSizeBytes = 20 * 1024 * 1024L; // 20 MB giới hạn an toàn khi nạp byte[]
 
     private Path rootStoragePath;
 
@@ -102,6 +110,53 @@ public class FileStorageServiceImpl implements FileStorageService {
 
     @Override
     public byte[] loadFileBytes(String relativePath) {
+        Path realTarget = resolveAndValidatePath(relativePath);
+
+        try {
+            long fileSize = Files.size(realTarget);
+            if (fileSize > maxFileSizeBytes) {
+                log.error("Kích thước file ({} bytes) vượt quá giới hạn an toàn ({} bytes) khi nạp vào bộ nhớ: {}",
+                        fileSize, maxFileSizeBytes, realTarget);
+                throw new BusinessException(ErrorCode.STORAGE_ERROR);
+            }
+
+            return Files.readAllBytes(realTarget);
+        } catch (IOException e) {
+            log.error("Lỗi khi đọc file: {}", realTarget, e);
+            throw new BusinessException(ErrorCode.STORAGE_ERROR);
+        }
+    }
+
+    @Override
+    public InputStream loadFileInputStream(String relativePath) {
+        Path realTarget = resolveAndValidatePath(relativePath);
+
+        try {
+            return Files.newInputStream(realTarget);
+        } catch (IOException e) {
+            log.error("Lỗi khi mở luồng đọc file: {}", realTarget, e);
+            throw new BusinessException(ErrorCode.STORAGE_ERROR);
+        }
+    }
+
+    @Override
+    public Resource loadFileAsResource(String relativePath) {
+        Path realTarget = resolveAndValidatePath(relativePath);
+
+        try {
+            Resource resource = new UrlResource(realTarget.toUri());
+            if (resource.exists() && resource.isReadable()) {
+                return resource;
+            } else {
+                throw new BusinessException(ErrorCode.DOCUMENT_FILE_MISSING);
+            }
+        } catch (MalformedURLException e) {
+            log.error("Lỗi URL không hợp lệ khi nạp resource: {}", realTarget, e);
+            throw new BusinessException(ErrorCode.STORAGE_ERROR);
+        }
+    }
+
+    private Path resolveAndValidatePath(String relativePath) {
         if (relativePath == null || relativePath.isBlank()) {
             throw new BusinessException(ErrorCode.DOCUMENT_FILE_MISSING);
         }
@@ -122,13 +177,13 @@ public class FileStorageServiceImpl implements FileStorageService {
             Path realRoot = this.rootStoragePath.toRealPath();
             Path realTarget = targetPath.toRealPath();
             if (!realTarget.startsWith(realRoot)) {
-                log.error("Phát hiện symlink path traversal khi đọc file: targetPath={}, realTarget={}", targetPath, realTarget);
+                log.error("Phát hiện symlink path traversal khi truy cập file: targetPath={}, realTarget={}", targetPath, realTarget);
                 throw new BusinessException(ErrorCode.STORAGE_ERROR);
             }
 
-            return Files.readAllBytes(realTarget);
+            return realTarget;
         } catch (IOException e) {
-            log.error("Lỗi khi đọc file: {}", targetPath, e);
+            log.error("Lỗi khi xác thực đường dẫn file: {}", targetPath, e);
             throw new BusinessException(ErrorCode.STORAGE_ERROR);
         }
     }

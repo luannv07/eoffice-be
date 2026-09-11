@@ -5,12 +5,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.core.io.Resource;
 import org.springframework.test.util.ReflectionTestUtils;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.service.impl.FileStorageServiceImpl;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -101,6 +103,55 @@ class FileStorageServiceTest {
         BusinessException ex = assertThrows(BusinessException.class, () ->
                 fileStorageService.loadFileBytes("non-existing.pdf"));
         assertEquals(ErrorCode.DOCUMENT_FILE_MISSING, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Ném lỗi STORAGE_ERROR khi kích thước file vượt quá ngưỡng an toàn cho phép khi đọc byte[]")
+    void loadFileBytes_fileExceedsSizeLimit_shouldThrowStorageError() {
+        byte[] content = "Content larger than limit".getBytes();
+        String storedPath = fileStorageService.storeFile(content, "large.txt", "drafts");
+
+        // Giới hạn maxFileSizeBytes xuống 10 bytes
+        ReflectionTestUtils.setField(fileStorageService, "maxFileSizeBytes", 10L);
+
+        try {
+            BusinessException ex = assertThrows(BusinessException.class, () ->
+                    fileStorageService.loadFileBytes(storedPath));
+            assertEquals(ErrorCode.STORAGE_ERROR, ex.getErrorCode());
+        } finally {
+            // Khôi phục lại giới hạn mặc định
+            ReflectionTestUtils.setField(fileStorageService, "maxFileSizeBytes", 20 * 1024 * 1024L);
+        }
+    }
+
+    @Test
+    @DisplayName("Mở luồng InputStream đọc nội dung file thành công")
+    void loadFileInputStream_success() throws IOException {
+        byte[] content = "Streaming PDF Content".getBytes();
+        String storedPath = fileStorageService.storeFile(content, "stream.pdf", "drafts");
+
+        try (InputStream is = fileStorageService.loadFileInputStream(storedPath)) {
+            assertNotNull(is);
+            byte[] readBytes = is.readAllBytes();
+            assertArrayEquals(content, readBytes);
+        }
+    }
+
+    @Test
+    @DisplayName("Tải file dưới dạng Spring Resource thành công")
+    void loadFileAsResource_success() throws IOException {
+        byte[] content = "Resource PDF Content".getBytes();
+        String storedPath = fileStorageService.storeFile(content, "resource.pdf", "drafts");
+
+        Resource resource = fileStorageService.loadFileAsResource(storedPath);
+        assertNotNull(resource);
+        assertTrue(resource.exists());
+        assertTrue(resource.isReadable());
+
+        try (InputStream is = resource.getInputStream()) {
+            byte[] readBytes = is.readAllBytes();
+            assertArrayEquals(content, readBytes);
+        }
     }
 
     @Test
