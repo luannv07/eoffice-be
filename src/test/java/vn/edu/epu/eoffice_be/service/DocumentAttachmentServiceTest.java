@@ -378,7 +378,7 @@ class DocumentAttachmentServiceTest {
 
         UserLogin creator = UserLogin.builder().id(creatorId).username("creator").role(Role.USER).build();
         UserLogin formerApprover = UserLogin.builder().id(formerApproverId).username("formerApprover").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.REJECTED).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.WAITING_APPROVAL).build();
 
         DocumentApprovalRequest oldReq = DocumentApprovalRequest.builder()
                 .id(50L)
