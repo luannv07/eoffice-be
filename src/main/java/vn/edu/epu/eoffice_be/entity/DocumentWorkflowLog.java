@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class DocumentWorkflowLog {
-
+    static final java.time.ZoneId ZONE_VN = java.time.ZoneId.of("Asia/Ho_Chi_Minh");
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Long id;
@@ -46,7 +46,7 @@ public class DocumentWorkflowLog {
     @PrePersist
     public void prePersist() {
         if (this.createdAt == null) {
-            this.createdAt = LocalDateTime.now();
+            this.createdAt = LocalDateTime.now(ZONE_VN);
         }
     }
 }
