@@ -69,7 +69,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         OrgNode assignedOrg = null;
         if (request.getAssignedOrgNodeId() != null) {
             assignedOrg = orgNodeRepository.findByIdAndDeleteFlgFalse(request.getAssignedOrgNodeId())
-                    .orElseThrow(() -> new BusinessException(ErrorCode.ORG_NODE_PARENT_NOT_FOUND));
+                    .orElseThrow(() -> new BusinessException(ErrorCode.ORG_NODE_NOT_FOUND));
         }
 
         // Quyết định hành động chuyển tiếp phù hợp với trạng thái hiện tại

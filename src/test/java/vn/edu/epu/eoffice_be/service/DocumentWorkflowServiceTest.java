@@ -175,6 +175,23 @@ class DocumentWorkflowServiceTest {
     }
 
     @Test
+    @DisplayName("UC12: Duyệt văn bản thất bại khi không tìm thấy đơn vị chủ trì được gán")
+    void approve_whenAssignedOrgNotFound_shouldThrowException() {
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+        when(orgNodeRepository.findByIdAndDeleteFlgFalse(9999L)).thenReturn(Optional.empty());
+
+        DocumentApproveRequest request = DocumentApproveRequest.builder()
+                .comment("Dong y")
+                .assignedOrgNodeId(9999L)
+                .build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.approve(5001L, request));
+        assertEquals(ErrorCode.ORG_NODE_NOT_FOUND, ex.getErrorCode());
+    }
+
+    @Test
     @DisplayName("UC12: Yêu cầu chỉnh sửa văn bản")
     void requestRevision_success() {
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
