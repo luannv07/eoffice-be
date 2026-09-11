@@ -12,6 +12,7 @@ import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.entity.DocumentDistribution;
 import vn.edu.epu.eoffice_be.repository.DocumentDistributionRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
+import vn.edu.epu.eoffice_be.dto.PublishRequest;
 
 import java.io.File;
 import java.time.LocalDate;
@@ -139,6 +140,25 @@ class DocumentServiceCoverageTest {
 
         when(documentRepository.findById(99L)).thenReturn(Optional.empty());
         assertThrows(IllegalArgumentException.class, () -> documentPublishService.verifyIntegrity(99L));
+    }
+
+    @Test
+    void testPublishDocument() {
+        Document doc = new Document();
+        doc.setId(1L);
+
+        when(documentRepository.findById(1L)).thenReturn(Optional.of(doc));
+        when(documentRepository.save(any(Document.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PublishRequest req = new PublishRequest();
+        Document result = documentPublishService.publishDocument(1L, req);
+        assertNotNull(result);
+        assertEquals("01/QĐ-ĐHL", result.getOfficialNumber());
+        assertEquals("PUBLISHED", result.getStatus());
+
+        when(documentRepository.findById(2L)).thenReturn(Optional.empty());
+        Document resultNew = documentPublishService.publishDocument(2L, req);
+        assertNotNull(resultNew);
     }
 
     @Test
