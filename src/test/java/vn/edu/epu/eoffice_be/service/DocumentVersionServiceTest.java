@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -309,6 +310,50 @@ class DocumentVersionServiceTest {
         BusinessException ex = assertThrows(BusinessException.class, () ->
                 documentVersionService.compareVersions(docId, 1, 2, otherId));
         assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("So sánh 2 phiên bản thành công với userId hợp lệ")
+    void compareVersions_Success_ValidUserId() {
+        Long docId = 1L;
+        Long userId = 100L;
+        UserLogin creator = UserLogin.builder().id(userId).username("creator").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).build();
+
+        DocumentVersion v1 = DocumentVersion.builder()
+                .document(doc)
+                .versionNumber(1)
+                .title("Tiêu đề cũ")
+                .summary("Trích yếu cũ")
+                .content("Nội dung cũ")
+                .build();
+        DocumentVersion v2 = DocumentVersion.builder()
+                .document(doc)
+                .versionNumber(2)
+                .title("Tiêu đề mới")
+                .summary("Trích yếu cũ")
+                .content("Nội dung mới")
+                .build();
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(documentVersionRepository.findByDocumentIdAndVersionNumberAndDeleteFlgFalse(docId, 1)).thenReturn(Optional.of(v1));
+        when(documentVersionRepository.findByDocumentIdAndVersionNumberAndDeleteFlgFalse(docId, 2)).thenReturn(Optional.of(v2));
+
+        VersionCompareResponse diff = documentVersionService.compareVersions(docId, 1, 2, userId);
+
+        assertNotNull(diff);
+        assertEquals(1, diff.getFromVersionNumber());
+        assertEquals(2, diff.getToVersionNumber());
+        assertTrue(diff.isTitleChanged());
+        assertFalse(diff.isSummaryChanged());
+        assertTrue(diff.isContentChanged());
+        assertEquals("Tiêu đề cũ", diff.getOldTitle());
+        assertEquals("Tiêu đề mới", diff.getNewTitle());
+        assertEquals("Trích yếu cũ", diff.getOldSummary());
+        assertEquals("Trích yếu cũ", diff.getNewSummary());
+        assertEquals("Nội dung cũ", diff.getOldContent());
+        assertEquals("Nội dung mới", diff.getNewContent());
     }
 
     @Test

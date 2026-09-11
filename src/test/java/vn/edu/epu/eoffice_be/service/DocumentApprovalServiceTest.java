@@ -257,6 +257,13 @@ class DocumentApprovalServiceTest {
         req.prePersist();
         assertNotNull(req.getSubmittedAt());
         assertEquals(ApprovalRequestStatus.PENDING, req.getStatus());
+
+        // Kiểm tra @PrePersist tự gán status = PENDING nếu status bị null trước khi persist
+        DocumentApprovalRequest nullStatusReq = new DocumentApprovalRequest();
+        nullStatusReq.setStatus(null);
+        org.junit.jupiter.api.Assertions.assertNull(nullStatusReq.getStatus());
+        nullStatusReq.prePersist();
+        assertEquals(ApprovalRequestStatus.PENDING, nullStatusReq.getStatus());
     }
 
     @Test
@@ -462,8 +469,13 @@ class DocumentApprovalServiceTest {
         Long userId = 88L;
         UserLogin user = UserLogin.builder().id(userId).role(Role.USER).build();
 
+        vn.edu.epu.eoffice_be.entity.PositionPermission perm =
+                vn.edu.epu.eoffice_be.entity.PositionPermission.builder()
+                        .positionCd("HT")
+                        .permissionCd("DOCUMENT_APPROVE")
+                        .build();
         when(positionPermissionRepository.findByPositionCdInAndDeleteFlgFalse(any()))
-                .thenReturn(java.util.List.of());
+                .thenReturn(java.util.List.of(perm));
 
         vn.edu.epu.eoffice_be.entity.PositionAssignment pa =
                 vn.edu.epu.eoffice_be.entity.PositionAssignment.builder()

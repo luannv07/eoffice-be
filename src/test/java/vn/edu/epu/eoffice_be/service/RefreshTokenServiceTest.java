@@ -30,20 +30,20 @@ class RefreshTokenServiceTest {
 
 	@Test
 	void issueShouldPersistActiveToken() {
-		refreshTokenService.issue(10L, "jti-1", Instant.parse("2026-09-11T00:00:00Z"));
+		refreshTokenService.issue(10L, "jti-1", Instant.parse("2026-10-11T00:00:00Z"));
 
 		ArgumentCaptor<RefreshToken> captor = ArgumentCaptor.forClass(RefreshToken.class);
 		verify(refreshTokenRepository).save(captor.capture());
 		RefreshToken saved = captor.getValue();
 		assertEquals(10L, saved.getUserId());
 		assertEquals("jti-1", saved.getRt());
-		assertEquals(Instant.parse("2026-09-11T00:00:00Z"), saved.getExpiresAt());
+		assertEquals(Instant.parse("2026-10-11T00:00:00Z"), saved.getExpiresAt());
 		assertFalse(saved.isRevoked());
 	}
 
 	@Test
 	void rotateShouldRevokeOldAndIssueNewToken() {
-		RefreshToken old = activeToken(10L, "old-jti", Instant.parse("2026-09-11T00:00:00Z"));
+		RefreshToken old = activeToken(10L, "old-jti", Instant.parse("2026-10-11T00:00:00Z"));
 		when(refreshTokenRepository.findByRt("old-jti")).thenReturn(Optional.of(old));
 
 		refreshTokenService.rotate(10L, "old-jti", "new-jti", Instant.parse("2026-10-11T00:00:00Z"));
