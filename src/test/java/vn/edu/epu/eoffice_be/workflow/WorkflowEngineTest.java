@@ -197,7 +197,7 @@ class WorkflowEngineTest {
     }
 
     @Test
-    @DisplayName("Phân quyền: Chặn SIGN_AND_PUBLISH khi actor không phải signer được gán và không phải LEADER")
+    @DisplayName("Phân quyền: Chặn SIGN_AND_PUBLISH khi actor không phải signer được gán")
     void validateActorPermission_unauthorizedSignAndPublish() {
         UserLogin assignedSigner = UserLogin.builder().id(3003L).username("signer").role(Role.USER).build();
         document.setSigner(assignedSigner);
@@ -206,6 +206,17 @@ class WorkflowEngineTest {
 
         BusinessException ex = assertThrows(BusinessException.class, () ->
                 workflowEngine.validateActorPermission(document, otherUser, WorkflowAction.SIGN_AND_PUBLISH));
+        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Phân quyền: Chặn SIGN_AND_PUBLISH khi document.getSigner() null đối với non-admin")
+    void validateActorPermission_nullSigner_shouldThrowUnauthorized() {
+        document.setSigner(null);
+        UserLogin leaderUser = UserLogin.builder().id(3002L).username("leader").role(Role.LEADER).build();
+
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                workflowEngine.validateActorPermission(document, leaderUser, WorkflowAction.SIGN_AND_PUBLISH));
         assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, ex.getErrorCode());
     }
 
@@ -220,5 +231,19 @@ class WorkflowEngineTest {
         assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, admin, WorkflowAction.LEADER_APPROVE));
         assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, admin, WorkflowAction.SIGN_AND_PUBLISH));
         assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, sysAdmin, WorkflowAction.REJECT));
+    }
+
+    @Test
+    @DisplayName("Phân quyền: Chặn SUBMIT / WITHDRAW khi document.getDrafter() null mà không gây NullPointerException")
+    void validateActorPermission_nullDrafter_shouldThrowUnauthorizedWorkflowAction() {
+        document.setDrafter(null);
+
+        BusinessException exSubmit = assertThrows(BusinessException.class, () ->
+                workflowEngine.validateActorPermission(document, drafter, WorkflowAction.SUBMIT));
+        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, exSubmit.getErrorCode());
+
+        BusinessException exWithdraw = assertThrows(BusinessException.class, () ->
+                workflowEngine.validateActorPermission(document, drafter, WorkflowAction.WITHDRAW));
+        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, exWithdraw.getErrorCode());
     }
 }

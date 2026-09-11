@@ -178,6 +178,11 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         document.setIssueDate(issueDate);
         document.setEffectiveDate(effectiveDate);
 
+        // Nếu văn bản chưa có người ký được gán trước đó, gán actor làm signer tại thời điểm ký phát hành
+        if (document.getSigner() == null) {
+            document.setSigner(actor);
+        }
+
         // 2. Kiểm tra file PDF nguồn: nếu chưa có file đính kèm chính thì báo lỗi
         ensureDocumentPdfExists(document);
         byte[] currentPdfBytes = fileStorageService.loadFileBytes(document.getPrimaryFilePath());

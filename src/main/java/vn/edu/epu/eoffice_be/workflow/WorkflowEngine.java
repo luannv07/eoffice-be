@@ -140,10 +140,7 @@ public class WorkflowEngine {
                 }
             }
             case SIGN_AND_PUBLISH -> {
-                if (document.getSigner() != null && !isAssignedSigner) {
-                    throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
-                }
-                if (document.getSigner() == null && actor.getRole() != Role.LEADER) {
+                if (!isAssignedSigner) {
                     throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
                 }
             }
