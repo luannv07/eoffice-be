@@ -1,13 +1,22 @@
 package vn.edu.epu.eoffice_be.service;
 
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cms.CMSSignedData;
+import org.bouncycastle.util.Store;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import vn.edu.epu.eoffice_be.dto.StampInfo;
 import vn.edu.epu.eoffice_be.service.impl.PdfProcessingServiceImpl;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.io.IOException;
+import java.util.Collection;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 class PdfProcessingServiceTest {
 
@@ -49,8 +58,8 @@ class PdfProcessingServiceTest {
     }
 
     @Test
-    @DisplayName("UC14: Ký số PKI X.509 PAdES và khóa niêm phong PDF thành công")
-    void signAndCertifyPdf_shouldSignSuccessfully() {
+    @DisplayName("UC14: Ký số PKI X.509 PAdES và khóa niêm phong PDF thành công, kèm chứng chỉ số trong CMS")
+    void signAndCertifyPdf_shouldSignSuccessfully() throws Exception {
         byte[] originalPdf = pdfProcessingService.createSamplePdf("Quyet dinh", "Quyet dinh ban hanh");
 
         byte[] certifiedPdf = pdfProcessingService.signAndCertifyPdf(
@@ -61,5 +70,19 @@ class PdfProcessingServiceTest {
 
         assertNotNull(certifiedPdf);
         assertTrue(certifiedPdf.length > originalPdf.length);
+
+        // Kiểm tra chữ ký CMS và chứng chỉ số X.509 được đính kèm đầy đủ
+        try (PDDocument document = Loader.loadPDF(certifiedPdf)) {
+            List<PDSignature> signatures = document.getSignatureDictionaries();
+            assertFalse(signatures.isEmpty());
+            PDSignature signature = signatures.get(0);
+            byte[] signatureBytes = signature.getContents(certifiedPdf);
+            assertNotNull(signatureBytes);
+
+            CMSSignedData cmsSignedData = new CMSSignedData(signatureBytes);
+            Store<X509CertificateHolder> certificates = cmsSignedData.getCertificates();
+            Collection<X509CertificateHolder> certList = certificates.getMatches(null);
+            assertFalse(certList.isEmpty(), "Chữ ký số CMS phải chứa chứng chỉ X.509 của người ký");
+        }
     }
 }

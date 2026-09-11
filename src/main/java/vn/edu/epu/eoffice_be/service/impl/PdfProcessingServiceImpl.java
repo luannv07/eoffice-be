@@ -197,6 +197,8 @@ public class PdfProcessingServiceImpl implements PdfProcessingService {
                             new JcaDigestCalculatorProviderBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME).build())
                             .build(sha256Signer, epuCertificate));
 
+                    gen.addCertificate(new X509CertificateHolder(epuCertificate.getEncoded()));
+
                     byte[] contentBytes = content.readAllBytes();
                     CMSProcessableByteArray msg = new CMSProcessableByteArray(contentBytes);
                     CMSSignedData signedData = gen.generate(msg, false);
