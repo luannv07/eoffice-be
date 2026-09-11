@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -129,7 +130,8 @@ class FileSystemStorageServiceTest {
     @Test
     @DisplayName("Xoa tep khong ton tai khong nem ngoai le")
     void deleteFile_NonExistentFile_NoExceptionThrown() {
-        storageService.deleteFile(tempDir.toString(), "non_existent.txt");
+        String dir = tempDir.toString();
+        assertDoesNotThrow(() -> storageService.deleteFile(dir, "non_existent.txt"));
     }
 
     @Test

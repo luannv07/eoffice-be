@@ -370,10 +370,8 @@ public class DocumentApprovalService {
             final int maxDepth = 100;
             while (current != null && depth < maxDepth) {
                 depth++;
-                if (current.getId() != null) {
-                    if (!allowed.add(current.getId())) {
-                        break; // Phát hiện chu trình (cycle detected), dừng duyệt
-                    }
+                if (current.getId() != null && !allowed.add(current.getId())) {
+                    break; // Phát hiện chu trình (cycle detected), dừng duyệt
                 }
                 current = current.getParent();
             }

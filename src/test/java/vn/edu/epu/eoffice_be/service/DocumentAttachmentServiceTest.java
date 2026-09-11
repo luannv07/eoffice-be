@@ -22,6 +22,7 @@ import vn.edu.epu.eoffice_be.repository.DocumentApprovalRequestRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentAttachmentRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentProcessLogRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
+import org.springframework.core.io.Resource;
 import vn.edu.epu.eoffice_be.repository.DocumentVersionRepository;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
 import vn.edu.epu.eoffice_be.storage.FileStorageService;
@@ -34,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -182,7 +184,7 @@ class DocumentAttachmentServiceTest {
                 .storageFileName("file.pdf")
                 .build();
 
-        org.springframework.core.io.Resource mockResource = org.mockito.Mockito.mock(org.springframework.core.io.Resource.class);
+        Resource mockResource = mock(Resource.class);
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
