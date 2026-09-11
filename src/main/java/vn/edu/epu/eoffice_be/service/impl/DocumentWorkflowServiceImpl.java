@@ -79,7 +79,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         } else if (document.getStatus() == DocumentStatus.LEADER_REVIEW) {
             action = WorkflowAction.LEADER_APPROVE;
         } else {
-            action = WorkflowAction.REVIEW_APPROVE;
+            throw new BusinessException(ErrorCode.INVALID_WORKFLOW_STATE);
         }
 
         workflowEngine.executeTransition(

@@ -134,6 +134,47 @@ class DocumentWorkflowServiceTest {
     }
 
     @Test
+    @DisplayName("UC12: Duyệt văn bản ở trạng thái LEADER_REVIEW thì action là LEADER_APPROVE")
+    void approve_whenLeaderReview_shouldUseLeaderApprove() {
+        document.setStatus(DocumentStatus.LEADER_REVIEW);
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        DocumentApproveRequest request = DocumentApproveRequest.builder()
+                .comment("Lanh dao dong y")
+                .build();
+
+        DocumentDetailResponse response = documentWorkflowService.approve(5001L, request);
+
+        assertNotNull(response);
+        verify(workflowEngine).executeTransition(
+                document,
+                WorkflowAction.LEADER_APPROVE,
+                leader,
+                "Lanh dao dong y",
+                null,
+                null,
+                null
+        );
+    }
+
+    @Test
+    @DisplayName("UC12: Duyệt văn bản thất bại khi trạng thái không hợp lệ (ví dụ DRAFT)")
+    void approve_whenInvalidStatus_shouldThrowBusinessException() {
+        document.setStatus(DocumentStatus.DRAFT);
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        DocumentApproveRequest request = DocumentApproveRequest.builder()
+                .comment("Dong y")
+                .build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.approve(5001L, request));
+        assertEquals(ErrorCode.INVALID_WORKFLOW_STATE, ex.getErrorCode());
+    }
+
+    @Test
     @DisplayName("UC12: Yêu cầu chỉnh sửa văn bản")
     void requestRevision_success() {
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));

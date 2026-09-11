@@ -43,7 +43,8 @@ public enum ErrorCode {
     STORAGE_ERROR("STORAGE_ERROR", "Lỗi trong quá trình lưu trữ tệp tin", HttpStatus.INTERNAL_SERVER_ERROR),
     DOCUMENT_FILE_MISSING("DOCUMENT_FILE_MISSING", "Văn bản chưa có tệp đính kèm để ký", HttpStatus.BAD_REQUEST),
     DOCUMENT_PRIMARY_FILE_MISSING("DOCUMENT_PRIMARY_FILE_MISSING", "Văn bản chưa có tệp đính kèm chính để ký", HttpStatus.BAD_REQUEST),
-    DOCUMENT_NOT_READY_FOR_PUBLISH("DOCUMENT_NOT_READY_FOR_PUBLISH", "Văn bản chưa đủ điều kiện để ký phát hành", HttpStatus.BAD_REQUEST);
+    DOCUMENT_NOT_READY_FOR_PUBLISH("DOCUMENT_NOT_READY_FOR_PUBLISH", "Văn bản chưa đủ điều kiện để ký phát hành", HttpStatus.BAD_REQUEST),
+    INVALID_WORKFLOW_STATE("INVALID_WORKFLOW_STATE", "Trạng thái văn bản không hợp lệ trong luồng duyệt", HttpStatus.BAD_REQUEST);
 
 
 	private final String code;
