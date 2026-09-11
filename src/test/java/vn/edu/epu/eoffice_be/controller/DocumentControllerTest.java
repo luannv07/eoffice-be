@@ -130,7 +130,7 @@ class DocumentControllerTest {
                 .versions(Collections.emptyList())
                 .build();
 
-        when(documentDraftService.getDraftDetail(eq(1L), eq(100L))).thenReturn(detail);
+        when(documentDraftService.getDraftDetail(1L, 100L)).thenReturn(detail);
 
         mockMvc.perform(get("/documents/1").principal(auth))
                 .andExpect(status().isOk())

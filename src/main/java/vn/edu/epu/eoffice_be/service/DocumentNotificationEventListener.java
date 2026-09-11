@@ -15,8 +15,8 @@ public class DocumentNotificationEventListener {
     @Async
     @EventListener
     public void onDocumentSubmitted(DocumentSubmittedEvent event) {
-        log.info("[NOTIFICATION] Nhận sự kiện gửi duyệt văn bản: docId={}, senderId={}, approverId={}, title='{}'",
-                event.getDocumentId(), event.getSenderUserId(), event.getApproverUserId(), event.getDocumentTitle());
+        log.info("[NOTIFICATION] Nhận sự kiện gửi duyệt văn bản: docId={}, senderId={}, approverId={}",
+                event.getDocumentId(), event.getSenderUserId(), event.getApproverUserId());
         // Sẵn sàng kết nối tới UC18 (Quản lý thông báo hệ thống / WebSocket / Email)
     }
 }

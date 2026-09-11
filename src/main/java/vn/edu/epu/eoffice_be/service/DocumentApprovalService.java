@@ -237,9 +237,15 @@ public class DocumentApprovalService {
         documentProcessLogRepository.save(processLog);
 
         // Bắn sự kiện gửi thông báo cho người duyệt
+        String cleanTitle = savedDocument.getTitle() != null
+                ? savedDocument.getTitle().replace('\n', '_').replace('\r', '_')
+                : "";
+        String cleanSubmitNote = request.getSubmitNote() != null
+                ? request.getSubmitNote().replace('\n', '_').replace('\r', '_')
+                : null;
         eventPublisher.publishEvent(new DocumentSubmittedEvent(
                 this, savedDocument.getId(), sender.getId(), approver.getId(),
-                savedDocument.getTitle(), request.getSubmitNote()));
+                cleanTitle, cleanSubmitNote));
 
         log.info("Người dùng id={} đã gửi duyệt văn bản id={} tới người duyệt id={}",
                 sender.getId(), savedDocument.getId(), approver.getId());
