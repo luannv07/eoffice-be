@@ -220,7 +220,7 @@ class DocumentRepositoryTest {
         DocumentProcessLog savedLog = documentProcessLogRepository.saveAndFlush(log);
         assertNotNull(savedLog.getId());
         assertNotNull(savedLog.getLogTime());
-        assertFalse(Boolean.TRUE.equals(savedLog.isDeleteFlg()));
+        assertNotEquals(Boolean.TRUE, savedLog.isDeleteFlg());
     }
 
     @Test

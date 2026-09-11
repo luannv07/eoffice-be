@@ -21,6 +21,7 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.HexFormat;
 import java.util.UUID;
 
@@ -41,7 +42,7 @@ public class FileSystemStorageService implements FileStorageService {
         String extension = securityValidator.extractExtension(originalFileName).toLowerCase();
 
         // 2. Tạo đường dẫn lưu trữ theo thư mục phân cấp năm/tháng/documentId
-        LocalDate now = LocalDate.now();
+        LocalDate now = LocalDate.now(ZoneId.systemDefault());
         String relativePath = String.format("%s/%d/%02d/%d",
                 uploadProperties.getDir(), now.getYear(), now.getMonthValue(), documentId);
         Path storageDirectory = Paths.get(relativePath).toAbsolutePath().normalize();
