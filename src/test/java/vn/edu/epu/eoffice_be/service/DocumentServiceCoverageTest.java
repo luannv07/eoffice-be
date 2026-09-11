@@ -263,4 +263,44 @@ class DocumentServiceCoverageTest {
         PublicController controller = new PublicController();
         assertNotNull(controller.health());
     }
+    @Test
+    void testDocumentQueryController_Endpoints() {
+        DocumentQueryService mockQueryService = mock(DocumentQueryService.class);
+        vn.edu.epu.eoffice_be.controller.DocumentQueryController controller =
+                new vn.edu.epu.eoffice_be.controller.DocumentQueryController(mockQueryService);
+
+        // Test getPublishedDocuments(Authentication)
+        when(mockQueryService.getPublishedDocuments(anyLong())).thenReturn(List.of());
+        var resPublished = controller.getPublishedDocuments(null);
+        assertNotNull(resPublished);
+        assertEquals(200, resPublished.getStatusCode().value());
+
+        // Test getDocumentDetails(Long id, Long orgId)
+        when(mockQueryService.getDocumentDetails(1L, 10L)).thenReturn(java.util.Map.of("id", 1L));
+        var resDetails = controller.getDocumentDetails(1L, 10L);
+        assertNotNull(resDetails);
+        assertEquals(200, resDetails.getStatusCode().value());
+
+        // Test downloadDocument(Long id, Authentication authentication)
+        when(mockQueryService.downloadDocument(1L, 1L)).thenReturn("dummy pdf content".getBytes());
+        var resDownload = controller.downloadDocument(1L, null);
+        assertNotNull(resDownload);
+        assertEquals(200, resDownload.getStatusCode().value());
+        assertNotNull(resDownload.getBody());
+    }
+
+    @Test
+    void testDocumentPublishService_NullEdgeCases() {
+        Document doc = new Document();
+        doc.setId(10L);
+        doc.setStatus("DRAFT");
+
+        when(documentRepository.findById(10L)).thenReturn(Optional.of(doc));
+        when(documentRepository.save(any(Document.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Document published = documentPublishService.publishDocument(10L, null);
+        assertNotNull(published);
+        assertEquals("10/QĐ-ĐHL", published.getOfficialNumber());
+        assertEquals("PUBLISHED", published.getStatus());
+    }
 }
