@@ -61,7 +61,7 @@ public class FileStorageServiceImpl implements FileStorageService {
 
             String relativePath = (subDirectory == null || subDirectory.isBlank())
                     ? storedFileName
-                    : subDirectory + "/" + storedFileName;
+                    : Paths.get(subDirectory, storedFileName).toString().replace("\\", "/");
 
             log.info("Lưu file thành công: {}", relativePath);
             return relativePath.replace("\\", "/");

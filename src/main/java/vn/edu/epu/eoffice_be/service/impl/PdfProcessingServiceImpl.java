@@ -39,13 +39,12 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.PrivateKey;
 import java.security.Security;
-import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.text.Normalizer;
-import java.util.ArrayList;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.List;
 import java.util.regex.Pattern;
 
 @Slf4j
@@ -65,10 +64,10 @@ public class PdfProcessingServiceImpl implements PdfProcessingService {
             KeyPair keyPair = keyGen.generateKeyPair();
             this.epuPrivateKey = keyPair.getPrivate();
 
-            long now = System.currentTimeMillis();
-            Date startDate = new Date(now - 1000L * 60 * 60);
-            Date endDate = new Date(now + 1000L * 60 * 60 * 24 * 365 * 5);
-            BigInteger serialNumber = BigInteger.valueOf(now);
+            Instant now = Instant.now();
+            Date startDate = Date.from(now.minus(Duration.ofHours(1)));
+            Date endDate = Date.from(now.plus(Duration.ofDays(365 * 5)));
+            BigInteger serialNumber = BigInteger.valueOf(now.toEpochMilli());
             X500Name dnName = new X500Name("CN=Truong Dai hoc Dien Luc - EPU, OU=Ban Giam Hieu, O=EPU, C=VN");
 
             JcaX509v3CertificateBuilder certBuilder = new JcaX509v3CertificateBuilder(
@@ -189,9 +188,6 @@ public class PdfProcessingServiceImpl implements PdfProcessingService {
 
             SignatureInterface signatureInterface = content -> {
                 try {
-                    List<Certificate> certList = new ArrayList<>();
-                    certList.add(epuCertificate);
-
                     CMSSignedDataGenerator gen = new CMSSignedDataGenerator();
                     ContentSigner sha256Signer = new JcaContentSignerBuilder("SHA256WithRSA")
                             .setProvider(BouncyCastleProvider.PROVIDER_NAME)

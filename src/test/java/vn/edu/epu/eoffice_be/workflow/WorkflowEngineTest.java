@@ -39,14 +39,12 @@ class WorkflowEngineTest {
     private WorkflowEngine workflowEngine;
 
     private UserLogin drafter;
-    private UserLogin leader;
     private OrgNode orgNode;
     private Document document;
 
     @BeforeEach
     void setUp() {
         drafter = UserLogin.builder().id(1001L).username("drafter").role(Role.USER).build();
-        leader = UserLogin.builder().id(1002L).username("leader").role(Role.ADMIN).build();
         orgNode = OrgNode.builder().id(2001L).nameVn("Khoa CNTT").build();
 
         document = Document.builder()

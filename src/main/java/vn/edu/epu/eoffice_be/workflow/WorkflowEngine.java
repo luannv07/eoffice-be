@@ -117,20 +117,14 @@ public class WorkflowEngine {
             return; // Quản trị viên có toàn quyền điều phối
         }
 
-        switch (action) {
-            case SUBMIT, WITHDRAW -> {
-                if (!Objects.equals(document.getDrafter().getId(), actor.getId())) {
-                    throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
-                }
-            }
-            case SIGN_AND_PUBLISH -> {
-                if (document.getSigner() != null && !Objects.equals(document.getSigner().getId(), actor.getId())) {
-                    throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
-                }
-            }
-            default -> {
-                // Các hành động duyệt và ký nháy (UC12, UC13)
-            }
+          if ((action == WorkflowAction.SUBMIT || action == WorkflowAction.WITHDRAW)
+                && !Objects.equals(document.getDrafter().getId(), actor.getId())) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
+        }
+        if (action == WorkflowAction.SIGN_AND_PUBLISH
+                && document.getSigner() != null
+                && !Objects.equals(document.getSigner().getId(), actor.getId())) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
         }
     }
 
