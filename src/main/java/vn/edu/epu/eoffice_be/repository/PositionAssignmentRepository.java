@@ -35,5 +35,17 @@ public interface PositionAssignmentRepository extends JpaRepository<PositionAssi
 					@Param("userId") Long userId,
 					@Param("orgNodeId") Long orgNodeId);
 
+	@Query("""
+					SELECT DISTINCT pa FROM PositionAssignment pa
+					WHERE pa.deleteFlg = false
+					  AND pa.actualDismissalDate IS NULL
+					  AND (pa.effectiveFrom IS NULL OR pa.effectiveFrom <= :atTime)
+					  AND (pa.effectiveTo IS NULL OR pa.effectiveTo >= :atTime)
+					  AND pa.positionCd IN :positionCds
+					""")
+	List<PositionAssignment> findActiveAssignmentsByPositionCds(
+					@Param("positionCds") java.util.Collection<String> positionCds,
+					@Param("atTime") Instant atTime);
+
 	boolean existsByUserLoginIdAndDeleteFlgFalse(Long userLoginId);
 }

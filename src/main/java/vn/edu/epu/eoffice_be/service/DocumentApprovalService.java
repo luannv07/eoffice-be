@@ -77,15 +77,13 @@ public class DocumentApprovalService {
             approverPositions.addAll(leaderCds);
         }
 
-        // Tìm các phân bổ vị trí còn hiệu lực
+        // Tìm các phân bổ vị trí còn hiệu lực trực tiếp qua DB query (Issue 19)
         Instant now = Instant.now();
-        List<PositionAssignment> assignments = positionAssignmentRepository.findAll().stream()
-                .filter(pa -> !pa.isDeleteFlg())
-                .filter(pa -> pa.getActualDismissalDate() == null)
-                .filter(pa -> pa.getEffectiveFrom() == null || !pa.getEffectiveFrom().isAfter(now))
-                .filter(pa -> pa.getEffectiveTo() == null || !pa.getEffectiveTo().isBefore(now))
-                .filter(pa -> approverPositions.contains(pa.getPositionCd()))
-                .toList();
+        List<PositionAssignment> assignments = positionAssignmentRepository
+                .findActiveAssignmentsByPositionCds(approverPositions, now);
+
+        // Lọc theo cây đơn vị: cùng đơn vị hoặc đơn vị cha / lãnh đạo trường (Issue 20)
+        Set<Long> allowedOrgNodeIds = resolveAllowedOrgNodeIds(document);
 
         List<EligibleApproverResponse> responses = new ArrayList<>();
         Set<Long> addedUserIds = new HashSet<>();
@@ -96,8 +94,12 @@ public class DocumentApprovalService {
                 continue;
             }
 
-            // Ưu tiên người duyệt thuộc cùng đơn vị hoặc đơn vị cha / lãnh đạo
+            // Kiểm tra thuộc cùng đơn vị hoặc đơn vị cha (nếu pa gán với orgNode cụ thể)
             OrgNode node = pa.getOrgNode();
+            if (!allowedOrgNodeIds.isEmpty() && node != null && !allowedOrgNodeIds.contains(node.getId())) {
+                continue;
+            }
+
             Optional<UserInfo> infoOpt = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(approverUser.getId());
             String fullName = infoOpt.map(UserInfo::getFullName).orElse(approverUser.getUsername());
 
@@ -114,11 +116,10 @@ public class DocumentApprovalService {
             addedUserIds.add(approverUser.getId());
         }
 
-        // Bổ sung các tài khoản ADMIN / SYSTEM_ADMIN nếu danh sách trống
+        // Bổ sung các tài khoản ADMIN / SYSTEM_ADMIN nếu danh sách trống (Issue 19)
         if (responses.isEmpty()) {
-            List<UserLogin> admins = userLoginRepository.findAll().stream()
-                    .filter(u -> !u.isDeleteFlg() && (u.getRole() == Role.ADMIN || u.getRole() == Role.SYSTEM_ADMIN))
-                    .toList();
+            List<UserLogin> admins = userLoginRepository
+                    .findByRoleInAndDeleteFlgFalse(List.of(Role.ADMIN, Role.SYSTEM_ADMIN));
             for (UserLogin admin : admins) {
                 Optional<UserInfo> infoOpt = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(admin.getId());
                 responses.add(EligibleApproverResponse.builder()
@@ -185,12 +186,15 @@ public class DocumentApprovalService {
         UserLogin approver = userLoginRepository.findByIdAndDeleteFlgFalse(request.getApproverUserId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Không tìm thấy người duyệt được chỉ định"));
 
-        if (!isUserEligibleApprover(approver)) {
+        if (!isUserEligibleApprover(approver, document)) {
             throw new BusinessException(ErrorCode.APPROVER_NOT_ELIGIBLE,
-                    "Người được chọn không có thẩm quyền duyệt văn bản này");
+                    "Người được chọn không có thẩm quyền duyệt văn bản này hoặc không thuộc đơn vị phù hợp");
         }
 
         Instant now = Instant.now();
+
+        // Lưu trạng thái nguồn trước khi đổi trạng thái (Issue 18)
+        DocumentStatus prevStatus = document.getStatus();
 
         // Chuyển trạng thái văn bản sang WAITING_APPROVAL
         document.setStatus(DocumentStatus.WAITING_APPROVAL);
@@ -208,12 +212,12 @@ public class DocumentApprovalService {
                 .build();
         documentApprovalRequestRepository.save(approvalRequest);
 
-        // Ghi nhật ký tiến trình
+        // Ghi nhật ký tiến trình với fromStatus chính xác từ trạng thái nguồn (Issue 18)
         DocumentProcessLog processLog = DocumentProcessLog.builder()
                 .document(savedDocument)
                 .actorUser(sender)
                 .action(DocumentProcessAction.SUBMIT_APPROVAL)
-                .fromStatus(DocumentStatus.DRAFT.name())
+                .fromStatus(prevStatus != null ? prevStatus.name() : DocumentStatus.DRAFT.name())
                 .toStatus(DocumentStatus.WAITING_APPROVAL.name())
                 .note("Gửi văn bản tới cán bộ duyệt: " + approver.getUsername() +
                         (request.getSubmitNote() != null ? ". Ghi chú: " + request.getSubmitNote() : ""))
@@ -309,6 +313,10 @@ public class DocumentApprovalService {
     }
 
     public boolean isUserEligibleApprover(UserLogin user) {
+        return isUserEligibleApprover(user, null);
+    }
+
+    public boolean isUserEligibleApprover(UserLogin user, Document document) {
         if (user == null || user.isDeleteFlg()) {
             return false;
         }
@@ -325,11 +333,34 @@ public class DocumentApprovalService {
             approverPositions.addAll(leaderCds);
         }
 
+        Set<Long> allowedOrgNodeIds = resolveAllowedOrgNodeIds(document);
+
         Instant now = Instant.now();
         return positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(user.getId()).stream()
                 .filter(pa -> pa.getActualDismissalDate() == null)
                 .filter(pa -> pa.getEffectiveFrom() == null || !pa.getEffectiveFrom().isAfter(now))
                 .filter(pa -> pa.getEffectiveTo() == null || !pa.getEffectiveTo().isBefore(now))
-                .anyMatch(pa -> approverPositions.contains(pa.getPositionCd()));
+                .filter(pa -> approverPositions.contains(pa.getPositionCd()))
+                .anyMatch(pa -> {
+                    if (allowedOrgNodeIds.isEmpty()) {
+                        return true;
+                    }
+                    OrgNode node = pa.getOrgNode();
+                    return node == null || allowedOrgNodeIds.contains(node.getId());
+                });
+    }
+
+    private Set<Long> resolveAllowedOrgNodeIds(Document document) {
+        Set<Long> allowed = new HashSet<>();
+        if (document != null && document.getIssuingOrgNode() != null) {
+            OrgNode current = document.getIssuingOrgNode();
+            while (current != null) {
+                if (current.getId() != null) {
+                    allowed.add(current.getId());
+                }
+                current = current.getParent();
+            }
+        }
+        return allowed;
     }
 }

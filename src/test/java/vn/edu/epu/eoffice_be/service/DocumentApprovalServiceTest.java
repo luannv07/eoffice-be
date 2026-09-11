@@ -18,6 +18,8 @@ import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.entity.DocumentApprovalRequest;
 import vn.edu.epu.eoffice_be.entity.DocumentProcessLog;
+import vn.edu.epu.eoffice_be.entity.OrgNode;
+import vn.edu.epu.eoffice_be.entity.PositionAssignment;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
 import vn.edu.epu.eoffice_be.event.DocumentSubmittedEvent;
 import vn.edu.epu.eoffice_be.repository.DocumentApprovalRequestRepository;
@@ -29,11 +31,14 @@ import vn.edu.epu.eoffice_be.repository.PositionPermissionRepository;
 import vn.edu.epu.eoffice_be.repository.UserInfoRepository;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -327,7 +332,7 @@ class DocumentApprovalServiceTest {
                 .positionCd("HT")
                 .deleteFlg(false)
                 .build();
-        when(positionAssignmentRepository.findAll()).thenReturn(java.util.List.of(pa));
+        when(positionAssignmentRepository.findActiveAssignmentsByPositionCds(any(), any())).thenReturn(java.util.List.of(pa));
         when(userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(200L))
                 .thenReturn(Optional.of(vn.edu.epu.eoffice_be.entity.UserInfo.builder().fullName("Nguyễn Văn Hiệu Trưởng").build()));
 
@@ -345,9 +350,9 @@ class DocumentApprovalServiceTest {
         Document doc = Document.builder().id(docId).build();
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
 
-        when(positionAssignmentRepository.findAll()).thenReturn(java.util.List.of());
+        when(positionAssignmentRepository.findActiveAssignmentsByPositionCds(any(), any())).thenReturn(java.util.List.of());
         UserLogin admin = UserLogin.builder().id(999L).username("admin").role(Role.ADMIN).build();
-        when(userLoginRepository.findAll()).thenReturn(java.util.List.of(admin));
+        when(userLoginRepository.findByRoleInAndDeleteFlgFalse(any())).thenReturn(java.util.List.of(admin));
 
         var result = documentApprovalService.getEligibleApprovers(docId, userId);
         org.junit.jupiter.api.Assertions.assertFalse(result.isEmpty());
@@ -499,5 +504,118 @@ class DocumentApprovalServiceTest {
                 .thenReturn(java.util.List.of(pa));
 
         org.junit.jupiter.api.Assertions.assertFalse(documentApprovalService.isUserEligibleApprover(user));
+    }
+
+    @Test
+    @DisplayName("Gửi duyệt văn bản từ trạng thái REJECTED ghi nhật ký tiến trình fromStatus = REJECTED")
+    void submitForApproval_FromRejectedStatus_LogsFromStatusAsRejected() {
+        Long docId = 1L;
+        Long senderId = 100L;
+        Long approverId = 200L;
+
+        UserLogin sender = UserLogin.builder().id(senderId).username("author").role(Role.USER).build();
+        UserLogin approver = UserLogin.builder().id(approverId).username("dean").role(Role.ADMIN).build();
+
+        Document doc = Document.builder()
+                .id(docId)
+                .draftCode("DT-2026-00002")
+                .title("Kế hoạch bị từ chối sửa lại")
+                .summary("Trích yếu")
+                .content("Nội dung")
+                .creatorUser(sender)
+                .status(DocumentStatus.REJECTED)
+                .build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(sender));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(true);
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.of(approver));
+        when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(documentDraftService.mapToDocumentResponse(any())).thenReturn(DocumentResponse.builder().id(docId).status(DocumentStatus.WAITING_APPROVAL).build());
+
+        SubmitApprovalRequest request = SubmitApprovalRequest.builder()
+                .approverUserId(approverId)
+                .submitNote("Đã sửa theo góp ý")
+                .build();
+
+        documentApprovalService.submitForApproval(docId, request, senderId);
+
+        org.mockito.ArgumentCaptor<DocumentProcessLog> logCaptor = org.mockito.ArgumentCaptor.forClass(DocumentProcessLog.class);
+        verify(documentProcessLogRepository).save(logCaptor.capture());
+        DocumentProcessLog capturedLog = logCaptor.getValue();
+        assertEquals("REJECTED", capturedLog.getFromStatus());
+        assertEquals("WAITING_APPROVAL", capturedLog.getToStatus());
+    }
+
+    @Test
+    @DisplayName("Kiểm tra phạm vi đơn vị (org scoping): Cùng đơn vị hoặc đơn vị cha thì hợp lệ, đơn vị ngang hàng (sibling) bị từ chối")
+    void isUserEligibleApprover_OrgScoping_ParentAndSameUnitEligible_SiblingIneligible() {
+        OrgNode school = OrgNode.builder().id(1L).nameVn("Trường ĐH").build();
+        OrgNode facultyIt = OrgNode.builder().id(10L).nameVn("Khoa CNTT").parent(school).build();
+        OrgNode facultyEcon = OrgNode.builder().id(20L).nameVn("Khoa Kinh tế").parent(school).build();
+
+        Document docIt = Document.builder().id(1L).issuingOrgNode(facultyIt).build();
+
+        // 1. Cán bộ thuộc cùng Khoa CNTT
+        UserLogin itLeader = UserLogin.builder().id(101L).role(Role.USER).build();
+        PositionAssignment itPa = PositionAssignment.builder()
+                .id(1L).userLogin(itLeader).positionCd("TK").orgNode(facultyIt).deleteFlg(false).build();
+        when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(101L)).thenReturn(List.of(itPa));
+        assertTrue(documentApprovalService.isUserEligibleApprover(itLeader, docIt));
+
+        // 2. Cán bộ thuộc đơn vị cha (Trường - Hiệu trưởng)
+        UserLogin schoolLeader = UserLogin.builder().id(102L).role(Role.USER).build();
+        PositionAssignment schoolPa = PositionAssignment.builder()
+                .id(2L).userLogin(schoolLeader).positionCd("HT").orgNode(school).deleteFlg(false).build();
+        when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(102L)).thenReturn(List.of(schoolPa));
+        assertTrue(documentApprovalService.isUserEligibleApprover(schoolLeader, docIt));
+
+        // 3. Cán bộ thuộc đơn vị khác (Khoa Kinh tế - đơn vị ngang hàng)
+        UserLogin econLeader = UserLogin.builder().id(103L).role(Role.USER).build();
+        PositionAssignment econPa = PositionAssignment.builder()
+                .id(3L).userLogin(econLeader).positionCd("TK").orgNode(facultyEcon).deleteFlg(false).build();
+        when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(103L)).thenReturn(List.of(econPa));
+        assertFalse(documentApprovalService.isUserEligibleApprover(econLeader, docIt));
+    }
+
+    @Test
+    @DisplayName("Gửi duyệt thất bại khi người duyệt thuộc đơn vị khác không cùng phân cấp (APPROVER_NOT_ELIGIBLE)")
+    void submitForApproval_CrossUnitApprover_ThrowsApproverNotEligible() {
+        Long docId = 1L;
+        Long senderId = 100L;
+        Long crossUnitApproverId = 300L;
+
+        OrgNode school = OrgNode.builder().id(1L).nameVn("Trường ĐH").build();
+        OrgNode facultyIt = OrgNode.builder().id(10L).nameVn("Khoa CNTT").parent(school).build();
+        OrgNode facultyEcon = OrgNode.builder().id(20L).nameVn("Khoa Kinh tế").parent(school).build();
+
+        UserLogin sender = UserLogin.builder().id(senderId).username("author").role(Role.USER).build();
+        UserLogin crossApprover = UserLogin.builder().id(crossUnitApproverId).username("econ_dean").role(Role.USER).build();
+
+        Document doc = Document.builder()
+                .id(docId)
+                .title("Kế hoạch CNTT")
+                .summary("Trích yếu")
+                .content("Nội dung")
+                .creatorUser(sender)
+                .issuingOrgNode(facultyIt)
+                .status(DocumentStatus.DRAFT)
+                .build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(sender));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(true);
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(crossUnitApproverId)).thenReturn(Optional.of(crossApprover));
+
+        // Người duyệt thuộc Khoa Kinh tế
+        PositionAssignment econPa = PositionAssignment.builder()
+                .id(3L).userLogin(crossApprover).positionCd("TK").orgNode(facultyEcon).deleteFlg(false).build();
+        when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(crossUnitApproverId)).thenReturn(List.of(econPa));
+
+        SubmitApprovalRequest request = SubmitApprovalRequest.builder()
+                .approverUserId(crossUnitApproverId)
+                .build();
+
+        assertThrows(BusinessException.class, () -> documentApprovalService.submitForApproval(docId, request, senderId));
     }
 }
