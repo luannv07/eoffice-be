@@ -230,6 +230,41 @@ class DocumentWorkflowServiceTest {
     }
 
     @Test
+    @DisplayName("UC13: Ký nháy thất bại khi văn bản chưa có file đính kèm chính")
+    void initialSign_whenPrimaryFileMissing_shouldThrowException() {
+        document.setPrimaryFilePath(null);
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        DocumentInitialSignRequest request = DocumentInitialSignRequest.builder()
+                .comment("Da ra soat the thuc")
+                .build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.initialSign(5001L, request));
+        assertEquals(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("UC14: Ký phát hành thất bại khi văn bản chưa có file đính kèm chính")
+    void signAndPublish_whenPrimaryFileMissing_shouldThrowException() {
+        document.setPrimaryFilePath(null);
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .officialNumber("125/QD-DHEPU")
+                .comment("Ky ban hanh")
+                .build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.signAndPublish(5001L, request));
+        assertEquals(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING, ex.getErrorCode());
+    }
+
+    @Test
     @DisplayName("UC14: Từ chối phê duyệt văn bản")
     void reject_success() {
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));

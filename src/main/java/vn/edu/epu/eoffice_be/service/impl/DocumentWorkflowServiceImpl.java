@@ -120,7 +120,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         UserLogin actor = getCurrentActor();
         Document document = findDocumentOrThrow(documentId);
 
-        // 1. Chuẩn bị file PDF nguồn: nếu chưa có file đính kèm, sinh file PDF mẫu để hỗ trợ test luồng
+        // 1. Kiểm tra file PDF nguồn: nếu chưa có file đính kèm chính thì báo lỗi
         ensureDocumentPdfExists(document);
 
         byte[] currentPdfBytes = fileStorageService.loadFileBytes(document.getPrimaryFilePath());
@@ -178,7 +178,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         document.setIssueDate(issueDate);
         document.setEffectiveDate(effectiveDate);
 
-        // 2. Chuẩn bị file PDF để ký số
+        // 2. Kiểm tra file PDF nguồn: nếu chưa có file đính kèm chính thì báo lỗi
         ensureDocumentPdfExists(document);
         byte[] currentPdfBytes = fileStorageService.loadFileBytes(document.getPrimaryFilePath());
 
@@ -298,17 +298,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
     private void ensureDocumentPdfExists(Document document) {
         if (document.getPrimaryFilePath() == null || document.getPrimaryFilePath().isBlank()) {
-            byte[] samplePdf = pdfProcessingService.createSamplePdf(
-                    document.getTitle(),
-                    "Van ban: " + document.getTitle() + "\nMa loai: " + document.getDocumentTypeCd()
-            );
-            String storedPath = fileStorageService.storeFile(
-                    samplePdf,
-                    "sample_doc_" + document.getId() + ".pdf",
-                    "drafts"
-            );
-            document.setPrimaryFilePath(storedPath);
-            documentRepository.save(document);
+            throw new BusinessException(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING);
         }
     }
 
