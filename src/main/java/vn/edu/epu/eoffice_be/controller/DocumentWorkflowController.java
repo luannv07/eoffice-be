@@ -9,8 +9,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,10 +24,7 @@ import vn.edu.epu.eoffice_be.dto.request.DocumentRejectRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRevisionRequest;
 import vn.edu.epu.eoffice_be.dto.response.DocumentDetailResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentWorkflowLogResponse;
-import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
 import vn.edu.epu.eoffice_be.service.DocumentWorkflowService;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/documents")
@@ -76,11 +71,9 @@ public class DocumentWorkflowController {
     @PostMapping("/{id}/workflow/approve")
     public BaseResponse<DocumentDetailResponse> approve(
             @PathVariable Long id,
-            @Valid @RequestBody DocumentApproveRequest request,
-            Authentication authentication
+            @Valid @RequestBody DocumentApproveRequest request
     ) {
-        Long actorId = extractUserId(authentication);
-        return BaseResponse.success(documentWorkflowService.approve(id, request, actorId));
+        return BaseResponse.success(documentWorkflowService.approve(id, request));
     }
 
     @Operation(
@@ -94,11 +87,9 @@ public class DocumentWorkflowController {
     @PostMapping("/{id}/workflow/request-revision")
     public BaseResponse<DocumentDetailResponse> requestRevision(
             @PathVariable Long id,
-            @Valid @RequestBody DocumentRevisionRequest request,
-            Authentication authentication
+            @Valid @RequestBody DocumentRevisionRequest request
     ) {
-        Long actorId = extractUserId(authentication);
-        return BaseResponse.success(documentWorkflowService.requestRevision(id, request, actorId));
+        return BaseResponse.success(documentWorkflowService.requestRevision(id, request));
     }
 
     @Operation(
@@ -112,11 +103,9 @@ public class DocumentWorkflowController {
     @PostMapping("/{id}/workflow/initial-sign")
     public BaseResponse<DocumentDetailResponse> initialSign(
             @PathVariable Long id,
-            @Valid @RequestBody DocumentInitialSignRequest request,
-            Authentication authentication
+            @Valid @RequestBody DocumentInitialSignRequest request
     ) {
-        Long actorId = extractUserId(authentication);
-        return BaseResponse.success(documentWorkflowService.initialSign(id, request, actorId));
+        return BaseResponse.success(documentWorkflowService.initialSign(id, request));
     }
 
     @Operation(
@@ -130,11 +119,9 @@ public class DocumentWorkflowController {
     @PostMapping("/{id}/workflow/sign-and-publish")
     public BaseResponse<DocumentDetailResponse> signAndPublish(
             @PathVariable Long id,
-            @Valid @RequestBody DocumentPublishRequest request,
-            Authentication authentication
+            @Valid @RequestBody DocumentPublishRequest request
     ) {
-        Long actorId = extractUserId(authentication);
-        return BaseResponse.success(documentWorkflowService.signAndPublish(id, request, actorId));
+        return BaseResponse.success(documentWorkflowService.signAndPublish(id, request));
     }
 
     @Operation(
@@ -148,17 +135,8 @@ public class DocumentWorkflowController {
     @PostMapping("/{id}/workflow/reject")
     public BaseResponse<DocumentDetailResponse> reject(
             @PathVariable Long id,
-            @Valid @RequestBody DocumentRejectRequest request,
-            Authentication authentication
+            @Valid @RequestBody DocumentRejectRequest request
     ) {
-        Long actorId = extractUserId(authentication);
-        return BaseResponse.success(documentWorkflowService.reject(id, request, actorId));
-    }
-
-    private Long extractUserId(Authentication authentication) {
-        if (authentication != null && authentication.getPrincipal() instanceof JwtUserPrincipal principal) {
-            return principal.getUserId();
-        }
-        throw new AccessDeniedException("User is not authenticated");
+        return BaseResponse.success(documentWorkflowService.reject(id, request));
     }
 }

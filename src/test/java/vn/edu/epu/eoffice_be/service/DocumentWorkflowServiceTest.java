@@ -1,5 +1,6 @@
 package vn.edu.epu.eoffice_be.service;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -7,13 +8,19 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
+import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.enums.Role;
 import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
+import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.dto.StampInfo;
 import vn.edu.epu.eoffice_be.dto.request.DocumentApproveRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentInitialSignRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentPublishRequest;
+import vn.edu.epu.eoffice_be.dto.request.DocumentRejectRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRevisionRequest;
 import vn.edu.epu.eoffice_be.dto.response.DocumentDetailResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentWorkflowLogResponse;
@@ -31,6 +38,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
 import vn.edu.epu.eoffice_be.service.impl.DocumentWorkflowServiceImpl;
 import vn.edu.epu.eoffice_be.workflow.WorkflowEngine;
 
@@ -40,6 +48,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -86,6 +95,15 @@ class DocumentWorkflowServiceTest {
                 .issuingOrg(orgNode)
                 .status(DocumentStatus.SUBMITTED)
                 .build();
+
+        JwtUserPrincipal principal = new JwtUserPrincipal(1002L, "leader", Role.ADMIN.name(), true, List.of());
+        Authentication auth = new UsernamePasswordAuthenticationToken(principal, null, List.of());
+        SecurityContextHolder.getContext().setAuthentication(auth);
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -101,7 +119,7 @@ class DocumentWorkflowServiceTest {
                 .assignedOrgNodeId(2001L)
                 .build();
 
-        DocumentDetailResponse response = documentWorkflowService.approve(5001L, request, 1002L);
+        DocumentDetailResponse response = documentWorkflowService.approve(5001L, request);
 
         assertNotNull(response);
         verify(workflowEngine).executeTransition(
@@ -125,7 +143,7 @@ class DocumentWorkflowServiceTest {
                 .comment("Can bo sung phan phan cong nhiem vu")
                 .build();
 
-        DocumentDetailResponse response = documentWorkflowService.requestRevision(5001L, request, 1002L);
+        DocumentDetailResponse response = documentWorkflowService.requestRevision(5001L, request);
 
         assertNotNull(response);
         verify(workflowEngine).executeTransition(
@@ -156,7 +174,7 @@ class DocumentWorkflowServiceTest {
                 .comment("Da ra soat the thuc")
                 .build();
 
-        DocumentDetailResponse response = documentWorkflowService.initialSign(5001L, request, 1002L);
+        DocumentDetailResponse response = documentWorkflowService.initialSign(5001L, request);
 
         assertNotNull(response);
         assertEquals("drafts/stamped.pdf", document.getPrimaryFilePath());
@@ -191,7 +209,7 @@ class DocumentWorkflowServiceTest {
                 .comment("Ky ban hanh chinh thuc")
                 .build();
 
-        DocumentDetailResponse response = documentWorkflowService.signAndPublish(5001L, request, 1002L);
+        DocumentDetailResponse response = documentWorkflowService.signAndPublish(5001L, request);
 
         assertNotNull(response);
         assertEquals("125/QD-DHEPU", document.getOfficialNumber());
@@ -209,6 +227,44 @@ class DocumentWorkflowServiceTest {
                 null,
                 "official_sha256_hash"
         );
+    }
+
+    @Test
+    @DisplayName("UC14: Từ chối phê duyệt văn bản")
+    void reject_success() {
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        DocumentRejectRequest request = DocumentRejectRequest.builder()
+                .comment("Khong phu hop voi chu truong")
+                .build();
+
+        DocumentDetailResponse response = documentWorkflowService.reject(5001L, request);
+
+        assertNotNull(response);
+        verify(workflowEngine).executeTransition(
+                document,
+                WorkflowAction.REJECT,
+                leader,
+                "Khong phu hop voi chu truong",
+                null,
+                null,
+                null
+        );
+    }
+
+    @Test
+    @DisplayName("Chưa xác thực ném lỗi BusinessException UNAUTHORIZED")
+    void approve_unauthenticated_shouldThrowException() {
+        SecurityContextHolder.clearContext();
+
+        DocumentApproveRequest request = DocumentApproveRequest.builder()
+                .comment("Dong y thong qua")
+                .build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.approve(5001L, request));
+        assertEquals(ErrorCode.UNAUTHORIZED, ex.getErrorCode());
     }
 
     @Test

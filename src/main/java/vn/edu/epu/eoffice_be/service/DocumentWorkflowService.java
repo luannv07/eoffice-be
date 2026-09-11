@@ -10,35 +10,33 @@ import vn.edu.epu.eoffice_be.dto.request.DocumentRevisionRequest;
 import vn.edu.epu.eoffice_be.dto.response.DocumentDetailResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentWorkflowLogResponse;
 
-import java.util.List;
-
 public interface DocumentWorkflowService {
 
     /**
      * UC12: Phê duyệt văn bản, ghi nhận bút phê lãnh đạo và đơn vị chủ trì.
      */
-    DocumentDetailResponse approve(Long documentId, DocumentApproveRequest request, Long actorId);
+    DocumentDetailResponse approve(Long documentId, DocumentApproveRequest request);
 
     /**
      * UC12: Yêu cầu chỉnh sửa văn bản, chuyển trạng thái về NEEDS_REVISION.
      */
-    DocumentDetailResponse requestRevision(Long documentId, DocumentRevisionRequest request, Long actorId);
+    DocumentDetailResponse requestRevision(Long documentId, DocumentRevisionRequest request);
 
     /**
      * UC13: Ký nháy văn bản, nhúng Digital Stamp lên trang cuối PDF và tính SHA-256 hash.
      */
-    DocumentDetailResponse initialSign(Long documentId, DocumentInitialSignRequest request, Long actorId);
+    DocumentDetailResponse initialSign(Long documentId, DocumentInitialSignRequest request);
 
     /**
      * UC14: Phê duyệt và ký phát hành chính thức bằng chữ ký số PKI X.509 PAdES,
      * đặt cờ CERTIFIED_NO_CHANGES_ALLOWED và cấp số hiệu văn bản.
      */
-    DocumentDetailResponse signAndPublish(Long documentId, DocumentPublishRequest request, Long actorId);
+    DocumentDetailResponse signAndPublish(Long documentId, DocumentPublishRequest request);
 
     /**
      * UC14: Từ chối phê duyệt văn bản kèm lý do.
      */
-    DocumentDetailResponse reject(Long documentId, DocumentRejectRequest request, Long actorId);
+    DocumentDetailResponse reject(Long documentId, DocumentRejectRequest request);
 
     /**
      * Lấy timeline lịch sử luồng duyệt của một văn bản (hỗ trợ phân trang).

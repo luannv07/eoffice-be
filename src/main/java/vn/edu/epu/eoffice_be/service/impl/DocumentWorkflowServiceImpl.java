@@ -6,6 +6,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
@@ -13,6 +15,7 @@ import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.dto.StampInfo;
+import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
 import vn.edu.epu.eoffice_be.dto.request.DocumentApproveRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentInitialSignRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentPublishRequest;
@@ -59,9 +62,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
     @Override
     @Transactional
-    public DocumentDetailResponse approve(Long documentId, DocumentApproveRequest request, Long actorId) {
+    public DocumentDetailResponse approve(Long documentId, DocumentApproveRequest request) {
+        UserLogin actor = getCurrentActor();
         Document document = findDocumentOrThrow(documentId);
-        UserLogin actor = findActorOrThrow(actorId);
 
         OrgNode assignedOrg = null;
         if (request.getAssignedOrgNodeId() != null) {
@@ -94,9 +97,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
     @Override
     @Transactional
-    public DocumentDetailResponse requestRevision(Long documentId, DocumentRevisionRequest request, Long actorId) {
+    public DocumentDetailResponse requestRevision(Long documentId, DocumentRevisionRequest request) {
+        UserLogin actor = getCurrentActor();
         Document document = findDocumentOrThrow(documentId);
-        UserLogin actor = findActorOrThrow(actorId);
 
         workflowEngine.executeTransition(
                 document,
@@ -113,9 +116,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
     @Override
     @Transactional
-    public DocumentDetailResponse initialSign(Long documentId, DocumentInitialSignRequest request, Long actorId) {
+    public DocumentDetailResponse initialSign(Long documentId, DocumentInitialSignRequest request) {
+        UserLogin actor = getCurrentActor();
         Document document = findDocumentOrThrow(documentId);
-        UserLogin actor = findActorOrThrow(actorId);
 
         // 1. Chuẩn bị file PDF nguồn: nếu chưa có file đính kèm, sinh file PDF mẫu để hỗ trợ test luồng
         ensureDocumentPdfExists(document);
@@ -163,9 +166,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
     @Override
     @Transactional
-    public DocumentDetailResponse signAndPublish(Long documentId, DocumentPublishRequest request, Long actorId) {
+    public DocumentDetailResponse signAndPublish(Long documentId, DocumentPublishRequest request) {
+        UserLogin actor = getCurrentActor();
         Document document = findDocumentOrThrow(documentId);
-        UserLogin actor = findActorOrThrow(actorId);
 
         // 1. Cập nhật thông tin ban hành chính thức
         Instant issueDate = request.getIssueDate() != null ? request.getIssueDate() : Instant.now();
@@ -217,9 +220,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
     @Override
     @Transactional
-    public DocumentDetailResponse reject(Long documentId, DocumentRejectRequest request, Long actorId) {
+    public DocumentDetailResponse reject(Long documentId, DocumentRejectRequest request) {
+        UserLogin actor = getCurrentActor();
         Document document = findDocumentOrThrow(documentId);
-        UserLogin actor = findActorOrThrow(actorId);
 
         workflowEngine.executeTransition(
                 document,
@@ -268,6 +271,29 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     private UserLogin findActorOrThrow(Long id) {
         return userLoginRepository.findByIdAndDeleteFlgFalse(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+    }
+
+    private Long getCurrentActorId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || authentication.getPrincipal() == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof JwtUserPrincipal jwtPrincipal) {
+            return jwtPrincipal.getUserId();
+        }
+        if (principal instanceof String principalStr) {
+            try {
+                return Long.valueOf(principalStr);
+            } catch (NumberFormatException ignored) {
+                // fall through
+            }
+        }
+        throw new BusinessException(ErrorCode.UNAUTHORIZED);
+    }
+
+    private UserLogin getCurrentActor() {
+        return findActorOrThrow(getCurrentActorId());
     }
 
     private void ensureDocumentPdfExists(Document document) {
