@@ -1,5 +1,6 @@
 package vn.edu.epu.eoffice_be.service;
 
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -9,6 +10,8 @@ import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.service.impl.FileStorageServiceImpl;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -109,5 +112,91 @@ class FileStorageServiceTest {
         assertEquals(64, hash.length());
 
         assertNull(fileStorageService.computeSha256(null));
+    }
+
+    @Test
+    @DisplayName("Chống tấn công qua symlink trỏ ra ngoài storage root khi lưu file và đọc file")
+    void symlinkTraversalAttack_shouldThrowStorageError() throws IOException {
+        Path outsideDir = Files.createTempDirectory("outside-dir");
+        Path linkDir = tempDir.resolve("link-dir");
+        try {
+            Path outsideFile = outsideDir.resolve("secret.txt");
+            Files.writeString(outsideFile, "SECRET_DATA");
+
+            boolean created = createSymlinkOrJunction(linkDir, outsideDir);
+            Assumptions.assumeTrue(created, "Symlink/Junction creation not supported in this environment");
+
+            // 1. Thử lưu file vào thư mục symlink trỏ ra ngoài
+            byte[] content = "Malicious Write".getBytes();
+            BusinessException storeEx = assertThrows(BusinessException.class, () ->
+                    fileStorageService.storeFile(content, "test.pdf", "link-dir"));
+            assertEquals(ErrorCode.STORAGE_ERROR, storeEx.getErrorCode());
+
+            // 2. Thử đọc file nằm ngoài root thông qua symlink directory
+            BusinessException loadEx = assertThrows(BusinessException.class, () ->
+                    fileStorageService.loadFileBytes("link-dir/secret.txt"));
+            assertEquals(ErrorCode.STORAGE_ERROR, loadEx.getErrorCode());
+        } finally {
+            try {
+                if (Files.exists(linkDir, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                    if (System.getProperty("os.name").toLowerCase().contains("win")) {
+                        new ProcessBuilder("cmd.exe", "/c", "rmdir", linkDir.toAbsolutePath().toString()).start().waitFor();
+                    } else {
+                        Files.deleteIfExists(linkDir);
+                    }
+                }
+                Files.deleteIfExists(outsideDir.resolve("secret.txt"));
+                Files.deleteIfExists(outsideDir);
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Chống tấn công đọc file qua file symlink trỏ ra ngoài storage root")
+    void loadFile_fileSymlinkTraversal_shouldThrowStorageError() throws IOException {
+        Path outsideFile = Files.createTempFile("outside-file", ".txt");
+        Path linkFile = tempDir.resolve("link-file.txt");
+        try {
+            Files.writeString(outsideFile, "TOP_SECRET");
+
+            boolean created = false;
+            try {
+                Files.createSymbolicLink(linkFile, outsideFile);
+                created = true;
+            } catch (Exception ignored) {
+            }
+
+            if (created) {
+                BusinessException ex = assertThrows(BusinessException.class, () ->
+                        fileStorageService.loadFileBytes("link-file.txt"));
+                assertEquals(ErrorCode.STORAGE_ERROR, ex.getErrorCode());
+            }
+        } finally {
+            try {
+                Files.deleteIfExists(linkFile);
+                Files.deleteIfExists(outsideFile);
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    private boolean createSymlinkOrJunction(Path link, Path target) {
+        try {
+            Files.createSymbolicLink(link, target);
+            return true;
+        } catch (Exception e) {
+            if (System.getProperty("os.name").toLowerCase().contains("win") && Files.isDirectory(target)) {
+                try {
+                    Process process = new ProcessBuilder("cmd.exe", "/c", "mklink", "/J", link.toAbsolutePath().toString(), target.toAbsolutePath().toString())
+                            .redirectErrorStream(true)
+                            .start();
+                    int exitCode = process.waitFor();
+                    return exitCode == 0;
+                } catch (Exception ignored) {
+                }
+            }
+            return false;
+        }
     }
 }

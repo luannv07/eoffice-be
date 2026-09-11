@@ -31,6 +31,7 @@ public class FileStorageServiceImpl implements FileStorageService {
         this.rootStoragePath = Paths.get(basePathStr).toAbsolutePath().normalize();
         try {
             Files.createDirectories(this.rootStoragePath);
+            this.rootStoragePath = this.rootStoragePath.toRealPath();
             log.info("Khởi tạo thư mục lưu trữ file thành công: {}", this.rootStoragePath);
         } catch (IOException e) {
             log.error("Không thể tạo thư mục lưu trữ file: {}", this.rootStoragePath, e);
@@ -66,8 +67,26 @@ public class FileStorageServiceImpl implements FileStorageService {
 
         try {
             Files.createDirectories(subDirTarget);
-            Path targetFilePath = subDirTarget.resolve(storedFileName);
+            Path realRoot = this.rootStoragePath.toRealPath();
+            Path realSubDir = subDirTarget.toRealPath();
+            if (!realSubDir.startsWith(realRoot)) {
+                log.error("Phát hiện symlink path traversal khi lưu file: subDirTarget={}, realSubDir={}", subDirTarget, realSubDir);
+                throw new BusinessException(ErrorCode.STORAGE_ERROR);
+            }
+
+            Path targetFilePath = realSubDir.resolve(storedFileName);
+            if (Files.isSymbolicLink(targetFilePath)) {
+                log.error("Phát hiện targetFilePath là symbolic link: {}", targetFilePath);
+                throw new BusinessException(ErrorCode.STORAGE_ERROR);
+            }
+
             Files.write(targetFilePath, content, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+
+            if (!targetFilePath.toRealPath().startsWith(realRoot)) {
+                Files.deleteIfExists(targetFilePath);
+                log.error("Phát hiện symlink path traversal sau khi ghi file: targetFilePath={}", targetFilePath);
+                throw new BusinessException(ErrorCode.STORAGE_ERROR);
+            }
 
             String relativePath = (subDirectory == null || subDirectory.isBlank())
                     ? storedFileName
@@ -100,7 +119,14 @@ public class FileStorageServiceImpl implements FileStorageService {
         }
 
         try {
-            return Files.readAllBytes(targetPath);
+            Path realRoot = this.rootStoragePath.toRealPath();
+            Path realTarget = targetPath.toRealPath();
+            if (!realTarget.startsWith(realRoot)) {
+                log.error("Phát hiện symlink path traversal khi đọc file: targetPath={}, realTarget={}", targetPath, realTarget);
+                throw new BusinessException(ErrorCode.STORAGE_ERROR);
+            }
+
+            return Files.readAllBytes(realTarget);
         } catch (IOException e) {
             log.error("Lỗi khi đọc file: {}", targetPath, e);
             throw new BusinessException(ErrorCode.STORAGE_ERROR);
