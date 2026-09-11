@@ -47,14 +47,11 @@ public class DocumentCreateRequest {
 
     @NotNull(message = "Độ mật không được để trống")
     @Schema(description = "Độ mật (NORMAL, CONFIDENTIAL, SECRET)", example = "NORMAL")
+    @Builder.Default
     DocumentSecurityLevel securityLevel = DocumentSecurityLevel.NORMAL;
 
     @NotNull(message = "Độ khẩn không được để trống")
     @Schema(description = "Độ khẩn (NORMAL, URGENT, TOP_URGENT)", example = "NORMAL")
+    @Builder.Default
     DocumentUrgencyLevel urgencyLevel = DocumentUrgencyLevel.NORMAL;
-
-    public static class DocumentCreateRequestBuilder {
-        private DocumentSecurityLevel securityLevel = DocumentSecurityLevel.NORMAL;
-        private DocumentUrgencyLevel urgencyLevel = DocumentUrgencyLevel.NORMAL;
-    }
 }
