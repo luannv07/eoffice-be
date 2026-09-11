@@ -19,9 +19,7 @@ import vn.edu.epu.eoffice_be.entity.UserLogin;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentWorkflowLogRepository;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -129,5 +127,98 @@ class WorkflowEngineTest {
 
         verify(documentRepository).save(document);
         verify(documentWorkflowLogRepository).save(any(DocumentWorkflowLog.class));
+    }
+
+    @Test
+    @DisplayName("Phân quyền: Chặn actor không phải drafter khi SUBMIT hoặc WITHDRAW")
+    void validateActorPermission_unauthorizedDrafterActions() {
+        UserLogin stranger = UserLogin.builder().id(9999L).username("stranger").role(Role.USER).build();
+
+        BusinessException exSubmit = assertThrows(BusinessException.class, () ->
+                workflowEngine.validateActorPermission(document, stranger, WorkflowAction.SUBMIT));
+        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, exSubmit.getErrorCode());
+
+        BusinessException exWithdraw = assertThrows(BusinessException.class, () ->
+                workflowEngine.validateActorPermission(document, stranger, WorkflowAction.WITHDRAW));
+        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, exWithdraw.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Phân quyền: Chặn regular USER thực hiện REVIEW_APPROVE, INITIAL_SIGN, LEADER_APPROVE, REQUEST_REVISION, REJECT")
+    void validateActorPermission_unauthorizedRegularUser_shouldThrow() {
+        UserLogin regularUser = UserLogin.builder().id(2002L).username("regular").role(Role.USER).build();
+
+        // REVIEW_APPROVE
+        BusinessException exReview = assertThrows(BusinessException.class, () ->
+                workflowEngine.validateActorPermission(document, regularUser, WorkflowAction.REVIEW_APPROVE));
+        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, exReview.getErrorCode());
+
+        // INITIAL_SIGN
+        BusinessException exInitial = assertThrows(BusinessException.class, () ->
+                workflowEngine.validateActorPermission(document, regularUser, WorkflowAction.INITIAL_SIGN));
+        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, exInitial.getErrorCode());
+
+        // LEADER_APPROVE
+        BusinessException exLeader = assertThrows(BusinessException.class, () ->
+                workflowEngine.validateActorPermission(document, regularUser, WorkflowAction.LEADER_APPROVE));
+        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, exLeader.getErrorCode());
+
+        // REQUEST_REVISION
+        BusinessException exRevision = assertThrows(BusinessException.class, () ->
+                workflowEngine.validateActorPermission(document, regularUser, WorkflowAction.REQUEST_REVISION));
+        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, exRevision.getErrorCode());
+
+        // REJECT
+        BusinessException exReject = assertThrows(BusinessException.class, () ->
+                workflowEngine.validateActorPermission(document, regularUser, WorkflowAction.REJECT));
+        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, exReject.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Phân quyền: Cho phép actor có role REVIEWER hoặc LEADER hoặc được gán ký")
+    void validateActorPermission_authorizedRoles_shouldPass() {
+        UserLogin reviewer = UserLogin.builder().id(3001L).username("reviewer").role(Role.REVIEWER).build();
+        UserLogin leaderUser = UserLogin.builder().id(3002L).username("leader").role(Role.LEADER).build();
+        UserLogin assignedSigner = UserLogin.builder().id(3003L).username("signer").role(Role.USER).build();
+        document.setSigner(assignedSigner);
+
+        // REVIEWER có thể REVIEW_APPROVE, INITIAL_SIGN, REQUEST_REVISION, REJECT
+        assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, reviewer, WorkflowAction.REVIEW_APPROVE));
+        assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, reviewer, WorkflowAction.INITIAL_SIGN));
+        assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, reviewer, WorkflowAction.REQUEST_REVISION));
+        assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, reviewer, WorkflowAction.REJECT));
+
+        // LEADER có thể LEADER_APPROVE, SIGN_AND_PUBLISH (khi là leader), REVIEW_APPROVE, v.v.
+        assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, leaderUser, WorkflowAction.LEADER_APPROVE));
+
+        // Assigned signer có thể LEADER_APPROVE, SIGN_AND_PUBLISH
+        assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, assignedSigner, WorkflowAction.SIGN_AND_PUBLISH));
+        assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, assignedSigner, WorkflowAction.LEADER_APPROVE));
+    }
+
+    @Test
+    @DisplayName("Phân quyền: Chặn SIGN_AND_PUBLISH khi actor không phải signer được gán và không phải LEADER")
+    void validateActorPermission_unauthorizedSignAndPublish() {
+        UserLogin assignedSigner = UserLogin.builder().id(3003L).username("signer").role(Role.USER).build();
+        document.setSigner(assignedSigner);
+
+        UserLogin otherUser = UserLogin.builder().id(4004L).username("other").role(Role.REVIEWER).build();
+
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                workflowEngine.validateActorPermission(document, otherUser, WorkflowAction.SIGN_AND_PUBLISH));
+        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Phân quyền: Quản trị viên (ADMIN, SYSTEM_ADMIN) bypass kiểm tra thẩm quyền")
+    void validateActorPermission_adminBypass() {
+        UserLogin admin = UserLogin.builder().id(8888L).username("admin").role(Role.ADMIN).build();
+        UserLogin sysAdmin = UserLogin.builder().id(9999L).username("sysadmin").role(Role.SYSTEM_ADMIN).build();
+
+        assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, admin, WorkflowAction.SUBMIT));
+        assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, admin, WorkflowAction.REVIEW_APPROVE));
+        assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, admin, WorkflowAction.LEADER_APPROVE));
+        assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, admin, WorkflowAction.SIGN_AND_PUBLISH));
+        assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, sysAdmin, WorkflowAction.REJECT));
     }
 }

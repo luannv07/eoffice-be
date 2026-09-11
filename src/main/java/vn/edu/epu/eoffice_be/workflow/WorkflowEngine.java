@@ -113,18 +113,46 @@ public class WorkflowEngine {
         if (actor == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
+        if (document == null) {
+            throw new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND);
+        }
         if (actor.getRole() == Role.SYSTEM_ADMIN || actor.getRole() == Role.ADMIN) {
             return; // Quản trị viên có toàn quyền điều phối
         }
 
-          if ((action == WorkflowAction.SUBMIT || action == WorkflowAction.WITHDRAW)
-                && !Objects.equals(document.getDrafter().getId(), actor.getId())) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
-        }
-        if (action == WorkflowAction.SIGN_AND_PUBLISH
-                && document.getSigner() != null
-                && !Objects.equals(document.getSigner().getId(), actor.getId())) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
+        boolean isDrafter = document.getDrafter() != null && Objects.equals(document.getDrafter().getId(), actor.getId());
+        boolean isAssignedSigner = document.getSigner() != null && Objects.equals(document.getSigner().getId(), actor.getId());
+
+        switch (action) {
+            case SUBMIT, WITHDRAW -> {
+                if (!isDrafter) {
+                    throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
+                }
+            }
+            case REVIEW_APPROVE, INITIAL_SIGN -> {
+                if (actor.getRole() != Role.REVIEWER && actor.getRole() != Role.LEADER && !isAssignedSigner) {
+                    throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
+                }
+            }
+            case LEADER_APPROVE -> {
+                if (actor.getRole() != Role.LEADER && !isAssignedSigner) {
+                    throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
+                }
+            }
+            case SIGN_AND_PUBLISH -> {
+                if (document.getSigner() != null && !isAssignedSigner) {
+                    throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
+                }
+                if (document.getSigner() == null && actor.getRole() != Role.LEADER) {
+                    throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
+                }
+            }
+            case REQUEST_REVISION, REJECT -> {
+                if (actor.getRole() != Role.REVIEWER && actor.getRole() != Role.LEADER && !isAssignedSigner) {
+                    throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
+                }
+            }
+            default -> throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
         }
     }
 
