@@ -2,6 +2,11 @@ databaseChangeLog:
   - changeSet:
       id: 2026-09-11-create-table-documents
       author: quyet
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - tableExists:
+                tableName: documents
       changes:
         - createTable:
             tableName: documents
@@ -19,13 +24,14 @@ databaseChangeLog:
                   constraints:
                     nullable: false
               - column:
+                  name: official_number
+                  type: VARCHAR(100)
+              - column:
                   name: status
-                  type: VARCHAR(30)
+                  type: VARCHAR(50)
+                  defaultValue: DRAFT
                   constraints:
                     nullable: false
-              - column:
-                  name: official_number
-                  type: VARCHAR(50)
               - column:
                   name: issue_date
                   type: DATE
@@ -37,23 +43,22 @@ databaseChangeLog:
                   type: VARCHAR(500)
               - column:
                   name: official_hash
-                  type: VARCHAR(255)
+                  type: VARCHAR(64)
               - column:
-                  name: created_at
+                  name: created_date
                   type: TIMESTAMP
               - column:
-                  name: updated_at
+                  name: updated_date
                   type: TIMESTAMP
-              - column:
-                  name: created_by
-                  type: VARCHAR(100)
-              - column:
-                  name: updated_by
-                  type: VARCHAR(100)
 
   - changeSet:
       id: 2026-09-11-create-table-document-distribution
       author: quyet
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - tableExists:
+                tableName: document_distribution
       changes:
         - createTable:
             tableName: document_distribution
@@ -74,25 +79,31 @@ databaseChangeLog:
                   name: target_id
                   type: BIGINT
               - column:
+                  name: target_type
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
                   name: is_read
                   type: BOOLEAN
                   defaultValueBoolean: false
+                  constraints:
+                    nullable: false
               - column:
                   name: read_at
-                  type: TIMESTAMP
-              - column:
-                  name: created_at
-                  type: TIMESTAMP
-              - column:
-                  name: updated_at
                   type: TIMESTAMP
 
   - changeSet:
       id: 2026-09-11-create-table-document-workflow-log
       author: quyet
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - tableExists:
+                tableName: document_workflow_logs
       changes:
         - createTable:
-            tableName: document_workflow_log
+            tableName: document_workflow_logs
             columns:
               - column:
                   name: id
@@ -113,6 +124,12 @@ databaseChangeLog:
                   name: actor
                   type: VARCHAR(100)
               - column:
+                  name: actor_username
+                  type: VARCHAR(100)
+              - column:
+                  name: actor_role
+                  type: VARCHAR(100)
+              - column:
                   name: comment
                   type: TEXT
               - column:
@@ -125,61 +142,45 @@ databaseChangeLog:
   - changeSet:
       id: 2026-09-11-seed-documents-data
       author: quyet
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: "SELECT COUNT(*) FROM documents WHERE id = 1"
       changes:
         - insert:
             tableName: documents
             columns:
-              - column: { name: id, valueNumeric: 1 }
-              - column: { name: title, value: "Quyet dinh ban hanh quy che cong tac van thu nam hoc 2026-2027" }
-              - column: { name: status, value: "PUBLISHED" }
-              - column: { name: official_number, value: "01/QD-DHL" }
-              - column: { name: issue_date, valueDate: "2026-09-11" }
-              - column: { name: effective_date, valueDate: "2026-09-11" }
-              - column: { name: official_file_path, value: "/uploads/documents/01-qd-dhl.pdf" }
-              - column: { name: official_hash, value: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" }
-              - column: { name: created_at, valueComputed: "CURRENT_TIMESTAMP" }
-              - column: { name: updated_at, valueComputed: "CURRENT_TIMESTAMP" }
-        - insert:
-            tableName: documents
-            columns:
-              - column: { name: id, valueNumeric: 2 }
-              - column: { name: title, value: "To trinh phe duyet ke hoach trien khai phan mem e-Office" }
-              - column: { name: status, value: "IN_REVIEW" }
-              - column: { name: created_at, valueComputed: "CURRENT_TIMESTAMP" }
-              - column: { name: updated_at, valueComputed: "CURRENT_TIMESTAMP" }
-        - insert:
-            tableName: documents
-            columns:
-              - column: { name: id, valueNumeric: 3 }
-              - column: { name: title, value: "Thong bao lich nghi le Quoc khanh" }
-              - column: { name: status, value: "WAITING_SIGN" }
-              - column: { name: created_at, valueComputed: "CURRENT_TIMESTAMP" }
-              - column: { name: updated_at, valueComputed: "CURRENT_TIMESTAMP" }
+              - column:
+                  name: id
+                  valueNumeric: 1
+              - column:
+                  name: title
+                  value: "Quy chế tổ chức hoạt động văn phòng điện tử"
+              - column:
+                  name: official_number
+                  value: "01/QĐ-ĐHL"
+              - column:
+                  name: status
+                  value: "PUBLISHED"
+              - column:
+                  name: issue_date
+                  valueDate: "2026-09-11"
         - insert:
             tableName: document_distribution
             columns:
-              - column: { name: id, valueNumeric: 1 }
-              - column: { name: document_id, valueNumeric: 1 }
-              - column: { name: target_id, valueNumeric: 1 }
-              - column: { name: is_read, valueBoolean: false }
-              - column: { name: created_at, valueComputed: "CURRENT_TIMESTAMP" }
-        - insert:
-            tableName: document_workflow_log
-            columns:
-              - column: { name: id, valueNumeric: 1 }
-              - column: { name: document_id, valueNumeric: 1 }
-              - column: { name: action, value: "SUBMIT" }
-              - column: { name: actor, value: "chuyenvien" }
-              - column: { name: comment, value: "Khoi tao van ban trinh ky" }
-              - column: { name: ip_address, value: "127.0.0.1" }
-              - column: { name: created_at, valueComputed: "CURRENT_TIMESTAMP" }
-        - insert:
-            tableName: document_workflow_log
-            columns:
-              - column: { name: id, valueNumeric: 2 }
-              - column: { name: document_id, valueNumeric: 1 }
-              - column: { name: action, value: "APPROVE" }
-              - column: { name: actor, value: "lanhdao" }
-              - column: { name: comment, value: "Duyet ban hanh" }
-              - column: { name: ip_address, value: "127.0.0.1" }
-              - column: { name: created_at, valueComputed: "CURRENT_TIMESTAMP" }
+              - column:
+                  name: id
+                  valueNumeric: 1
+              - column:
+                  name: document_id
+                  valueNumeric: 1
+              - column:
+                  name: target_id
+                  valueNumeric: 1
+              - column:
+                  name: target_type
+                  value: "ORG"
+              - column:
+                  name: is_read
+                  valueBoolean: false
