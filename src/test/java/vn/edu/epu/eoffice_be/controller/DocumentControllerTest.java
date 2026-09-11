@@ -44,6 +44,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -578,7 +579,13 @@ class DocumentControllerTest {
     void downloadAttachment_Forbidden_WhenCrossUserAccess() throws Exception {
         Long docId = 1L;
         Long attId = 10L;
+        vn.edu.epu.eoffice_be.entity.DocumentAttachment meta =
+                vn.edu.epu.eoffice_be.entity.DocumentAttachment.builder()
+                        .originalFileName("kehoach.docx")
+                        .mimeType("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                        .build();
 
+        lenient().when(documentAttachmentService.getAttachmentMetadata(docId, attId, 100L)).thenReturn(meta);
         when(documentAttachmentService.downloadAttachment(docId, attId, 100L))
                 .thenThrow(new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền truy cập tệp đính kèm của văn bản này"));
 

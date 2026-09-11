@@ -6,6 +6,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import vn.edu.epu.eoffice_be.common.enums.ApprovalRequestStatus;
 import vn.edu.epu.eoffice_be.common.enums.DocumentProcessAction;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
@@ -148,19 +149,12 @@ public class DocumentAttachmentService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_ATTACHMENT_NOT_FOUND));
     }
 
-    @Transactional(readOnly = true)
-    public DocumentAttachment getAttachmentMetadata(Long documentId, Long attachmentId) {
-        return documentAttachmentRepository
-                .findByIdAndDocumentIdAndDeleteFlgFalse(attachmentId, documentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_ATTACHMENT_NOT_FOUND));
-    }
-
     /**
      * Kiểm tra quyền truy cập tệp đính kèm:
      * - Người tạo văn bản
      * - Quản trị viên hệ thống (ADMIN, SYSTEM_ADMIN)
      * - Văn bản đã ban hành hoặc đã được phê duyệt (ISSUED, APPROVED)
-     * - Người duyệt được phân công trong yêu cầu phê duyệt của văn bản
+     * - Người duyệt được phân công trong yêu cầu phê duyệt đang chờ xử lý (PENDING)
      */
     void assertCanAccessAttachment(Document document, Long userId) {
         if (userId == null) {
@@ -174,8 +168,9 @@ public class DocumentAttachmentService {
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
         boolean isPublished = document.getStatus() == DocumentStatus.ISSUED || document.getStatus() == DocumentStatus.APPROVED;
 
-        boolean isApprover = documentApprovalRequestRepository != null && documentApprovalRequestRepository
+        boolean isApprover = documentApprovalRequestRepository
                 .findByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(document.getId()).stream()
+                .filter(req -> req.getStatus() == ApprovalRequestStatus.PENDING)
                 .anyMatch(req -> req.getApproverUser() != null && req.getApproverUser().getId().equals(userId));
 
         if (!isCreator && !isAdmin && !isPublished && !isApprover) {

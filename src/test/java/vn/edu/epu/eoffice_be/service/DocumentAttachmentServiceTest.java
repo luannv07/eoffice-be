@@ -7,12 +7,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
+import vn.edu.epu.eoffice_be.common.enums.ApprovalRequestStatus;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.enums.Role;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.dto.response.DocumentAttachmentResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
+import vn.edu.epu.eoffice_be.entity.DocumentApprovalRequest;
 import vn.edu.epu.eoffice_be.entity.DocumentAttachment;
 import vn.edu.epu.eoffice_be.entity.DocumentProcessLog;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
@@ -332,6 +334,66 @@ class DocumentAttachmentServiceTest {
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentAttachmentService.deleteAttachment(docId, attId, userId));
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Lấy metadata tệp đính kèm thành công khi người dùng là người duyệt có yêu cầu PENDING")
+    void getAttachmentMetadata_PendingApprover_Success() {
+        Long docId = 1L;
+        Long attId = 10L;
+        Long approverId = 300L;
+        Long creatorId = 100L;
+
+        UserLogin creator = UserLogin.builder().id(creatorId).username("creator").role(Role.USER).build();
+        UserLogin approver = UserLogin.builder().id(approverId).username("approver").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.WAITING_APPROVAL).build();
+        DocumentAttachment att = DocumentAttachment.builder().id(attId).document(doc).originalFileName("draft.docx").build();
+
+        DocumentApprovalRequest pendingReq = DocumentApprovalRequest.builder()
+                .id(50L)
+                .document(doc)
+                .approverUser(approver)
+                .status(ApprovalRequestStatus.PENDING)
+                .build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.of(approver));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentApprovalRequestRepository.findByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(docId))
+                .thenReturn(java.util.List.of(pendingReq));
+        when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId, docId)).thenReturn(Optional.of(att));
+
+        DocumentAttachment result = documentAttachmentService.getAttachmentMetadata(docId, attId, approverId);
+        assertNotNull(result);
+        assertEquals("draft.docx", result.getOriginalFileName());
+    }
+
+    @Test
+    @DisplayName("Lấy metadata tệp đính kèm bị từ chối khi người duyệt có yêu cầu cũ không phải PENDING (REJECTED)")
+    void getAttachmentMetadata_RejectedApprover_ThrowsForbidden() {
+        Long docId = 1L;
+        Long attId = 10L;
+        Long formerApproverId = 300L;
+        Long creatorId = 100L;
+
+        UserLogin creator = UserLogin.builder().id(creatorId).username("creator").role(Role.USER).build();
+        UserLogin formerApprover = UserLogin.builder().id(formerApproverId).username("formerApprover").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.REJECTED).build();
+
+        DocumentApprovalRequest oldReq = DocumentApprovalRequest.builder()
+                .id(50L)
+                .document(doc)
+                .approverUser(formerApprover)
+                .status(ApprovalRequestStatus.REJECTED)
+                .build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(formerApproverId)).thenReturn(Optional.of(formerApprover));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentApprovalRequestRepository.findByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(docId))
+                .thenReturn(java.util.List.of(oldReq));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentAttachmentService.getAttachmentMetadata(docId, attId, formerApproverId));
         assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
     }
 }
