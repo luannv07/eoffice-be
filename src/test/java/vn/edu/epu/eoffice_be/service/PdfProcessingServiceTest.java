@@ -14,7 +14,13 @@ import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.dto.StampInfo;
 import vn.edu.epu.eoffice_be.service.impl.PdfProcessingServiceImpl;
 
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.test.util.ReflectionTestUtils;
+
 import java.io.IOException;
+import java.nio.file.Path;
+import java.security.PrivateKey;
+import java.security.cert.X509Certificate;
 import java.util.Collection;
 import java.util.List;
 
@@ -107,5 +113,43 @@ class PdfProcessingServiceTest {
             Collection<X509CertificateHolder> certList = certificates.getMatches(null);
             assertFalse(certList.isEmpty(), "Chữ ký số CMS phải chứa chứng chỉ X.509 của người ký");
         }
+    }
+
+    @Test
+    @DisplayName("Keystore được tái sử dụng từ tệp đã lưu trữ mà không bị tạo mới sau mỗi lần khởi động")
+    void keystorePersistence_shouldReuseExistingKeystoreWithoutRegeneration(@TempDir Path tempDir) throws Exception {
+        Path keystoreFile = tempDir.resolve("test-pki.p12");
+
+        PdfProcessingServiceImpl service1 = new PdfProcessingServiceImpl();
+        ReflectionTestUtils.setField(service1, "fallbackKeystorePath", keystoreFile.toString());
+        service1.init();
+
+        PrivateKey key1 = service1.getPrivateKey();
+        X509Certificate cert1 = service1.getCertificate();
+        assertNotNull(key1);
+        assertNotNull(cert1);
+
+        // Khởi tạo instance thứ 2 với cùng đường dẫn keystore -> phải đọc lại key/cert đã lưu
+        PdfProcessingServiceImpl service2 = new PdfProcessingServiceImpl();
+        ReflectionTestUtils.setField(service2, "fallbackKeystorePath", keystoreFile.toString());
+        service2.init();
+
+        PrivateKey key2 = service2.getPrivateKey();
+        X509Certificate cert2 = service2.getCertificate();
+
+        assertEquals(cert1.getSerialNumber(), cert2.getSerialNumber(), "Serial number của chứng chỉ phải trùng khớp từ keystore đã lưu");
+        assertArrayEquals(cert1.getEncoded(), cert2.getEncoded(), "Chứng chỉ phải trùng khớp");
+    }
+
+    @Test
+    @DisplayName("Hỗ trợ inject trực tiếp PrivateKey và X509Certificate qua constructor")
+    void constructorInjection_shouldUseInjectedKeys() {
+        PdfProcessingServiceImpl baseService = new PdfProcessingServiceImpl();
+        PrivateKey mockKey = baseService.getPrivateKey();
+        X509Certificate mockCert = baseService.getCertificate();
+
+        PdfProcessingServiceImpl injectedService = new PdfProcessingServiceImpl(mockKey, mockCert);
+        assertSame(mockKey, injectedService.getPrivateKey());
+        assertSame(mockCert, injectedService.getCertificate());
     }
 }

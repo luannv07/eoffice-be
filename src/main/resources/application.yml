@@ -52,6 +52,12 @@ management:
 eoffice:
   storage:
     base-path: ${STORAGE_BASE_PATH:./uploads}
+  pki:
+    keystore-path: ${PKI_KEYSTORE_PATH:}
+    keystore-password: ${PKI_KEYSTORE_PASSWORD:}
+    key-alias: ${PKI_KEY_ALIAS:}
+    key-password: ${PKI_KEY_PASSWORD:}
+    fallback-keystore-path: ${PKI_FALLBACK_KEYSTORE_PATH:./uploads/keystore/epu-pki.p12}
   jwt:
     issuer: eoffice-be
     secret-key: ${JWT_SECRET}

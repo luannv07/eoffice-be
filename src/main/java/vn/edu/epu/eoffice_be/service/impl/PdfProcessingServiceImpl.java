@@ -22,9 +22,11 @@ import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
 import org.bouncycastle.cms.jcajce.JcaSignerInfoGeneratorBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import jakarta.annotation.PostConstruct;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
@@ -33,36 +35,197 @@ import vn.edu.epu.eoffice_be.service.PdfProcessingService;
 
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.math.BigInteger;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.security.Key;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.Security;
+import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.text.Normalizer;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.Enumeration;
 import java.util.regex.Pattern;
 
 @Slf4j
 @Service
 public class PdfProcessingServiceImpl implements PdfProcessingService {
 
-    private final PrivateKey epuPrivateKey;
-    private final X509Certificate epuCertificate;
+    @Value("${eoffice.pki.keystore-path:}")
+    private String keystorePath;
+
+    @Value("${eoffice.pki.keystore-password:}")
+    private String keystorePassword;
+
+    @Value("${eoffice.pki.key-alias:}")
+    private String keyAlias;
+
+    @Value("${eoffice.pki.key-password:}")
+    private String keyPassword;
+
+    @Value("${eoffice.pki.fallback-keystore-path:./uploads/keystore/epu-pki.p12}")
+    private String fallbackKeystorePath = "./uploads/keystore/epu-pki.p12";
+
+    private PrivateKey epuPrivateKey;
+    private X509Certificate epuCertificate;
 
     public PdfProcessingServiceImpl() {
+        initProvider();
+        init();
+    }
+
+    public PdfProcessingServiceImpl(PrivateKey privateKey, X509Certificate certificate) {
+        initProvider();
+        this.epuPrivateKey = privateKey;
+        this.epuCertificate = certificate;
+    }
+
+    private static void initProvider() {
         if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
             Security.addProvider(new BouncyCastleProvider());
         }
+    }
+
+    @PostConstruct
+    public synchronized void init() {
+        initProvider();
+        if (keystorePath != null && !keystorePath.isBlank()) {
+            loadFromConfiguredKeystore(keystorePath, keystorePassword, keyAlias, keyPassword);
+            return;
+        }
+        if (this.epuPrivateKey != null && this.epuCertificate != null) {
+            return;
+        }
+        loadOrInitializeKeys();
+    }
+
+    private void loadOrInitializeKeys() {
+        if (keystorePath != null && !keystorePath.isBlank()) {
+            loadFromConfiguredKeystore(keystorePath, keystorePassword, keyAlias, keyPassword);
+            return;
+        }
+
+        // TICKET-PKI-PROD: Keystore fallback - Persist key/cert locally so it is not regenerated on every startup
+        Path fallbackPath = Paths.get(fallbackKeystorePath != null && !fallbackKeystorePath.isBlank()
+                ? fallbackKeystorePath
+                : "./uploads/keystore/epu-pki.p12").toAbsolutePath().normalize();
+
+        if (Files.exists(fallbackPath)) {
+            try {
+                loadFromKeystoreFile(fallbackPath, "epu-keystore-secret", "epu-signer", "epu-signer-secret");
+                log.info("Tai chung thu so PKI thanh cong tu keystore da luu tru: {}", fallbackPath);
+                return;
+            } catch (Exception e) {
+                log.warn("Khong the doc keystore da ton tai tai {}. Se tien hanh tao moi va ghi de.", fallbackPath, e);
+            }
+        }
+
+        // Generate and persist once to disk
+        log.warn("CANH BAO [TICKET-PKI-PROD]: Chua cau hinh eoffice.pki.keystore-path. Dang sinh va luu keystore tu sinh tai: {}. Doi voi moi truong Production, bat buoc phai cau hinh chung thu so PKI tu CA chinh thuc!", fallbackPath);
+        generateAndPersistKeystore(fallbackPath, "epu-keystore-secret", "epu-signer", "epu-signer-secret");
+    }
+
+    private void loadFromConfiguredKeystore(String pathStr, String storePwd, String alias, String keyPwd) {
+        try {
+            InputStream is;
+            if (pathStr.startsWith("classpath:")) {
+                String resourcePath = pathStr.substring("classpath:".length());
+                if (resourcePath.startsWith("/")) {
+                    resourcePath = resourcePath.substring(1);
+                }
+                is = getClass().getClassLoader().getResourceAsStream(resourcePath);
+                if (is == null) {
+                    throw new FileNotFoundException("Khong tim thay keystore tren classpath: " + pathStr);
+                }
+            } else {
+                Path p = Paths.get(pathStr);
+                if (!Files.exists(p)) {
+                    throw new FileNotFoundException("Khong tim thay keystore tai: " + pathStr);
+                }
+                is = Files.newInputStream(p);
+            }
+
+            try (is) {
+                KeyStore keyStore = KeyStore.getInstance("PKCS12");
+                char[] password = storePwd != null ? storePwd.toCharArray() : new char[0];
+                keyStore.load(is, password);
+
+                String keyAliasToUse = alias;
+                if (keyAliasToUse == null || keyAliasToUse.isBlank()) {
+                    Enumeration<String> aliases = keyStore.aliases();
+                    if (aliases.hasMoreElements()) {
+                        keyAliasToUse = aliases.nextElement();
+                    } else {
+                        throw new IllegalStateException("Keystore khong chua bat ky alias nao: " + pathStr);
+                    }
+                }
+
+                char[] keyPasswordToUse = (keyPwd != null && !keyPwd.isBlank()) ? keyPwd.toCharArray() : password;
+                Key key = keyStore.getKey(keyAliasToUse, keyPasswordToUse);
+                if (!(key instanceof PrivateKey)) {
+                    throw new IllegalStateException("Khoa duoi alias '" + keyAliasToUse + "' khong phai la PrivateKey");
+                }
+                Certificate cert = keyStore.getCertificate(keyAliasToUse);
+                if (!(cert instanceof X509Certificate)) {
+                    throw new IllegalStateException("Chung chi duoi alias '" + keyAliasToUse + "' khong phai la X509Certificate");
+                }
+
+                this.epuPrivateKey = (PrivateKey) key;
+                this.epuCertificate = (X509Certificate) cert;
+                log.info("Tai chung thu so PKI tu cau hinh keystore thanh cong: alias={}", keyAliasToUse);
+            }
+        } catch (Exception e) {
+            log.error("Loi khi tai keystore PKI tu {}", pathStr, e);
+            throw new IllegalStateException("Khong the khoi tao dich vu PKI tu keystore: " + pathStr, e);
+        }
+    }
+
+    private void loadFromKeystoreFile(Path path, String storePwd, String alias, String keyPwd) throws Exception {
+        try (InputStream is = Files.newInputStream(path)) {
+            KeyStore keyStore = KeyStore.getInstance("PKCS12");
+            char[] password = storePwd != null ? storePwd.toCharArray() : new char[0];
+            keyStore.load(is, password);
+
+            String keyAliasToUse = alias;
+            if (keyAliasToUse == null || keyAliasToUse.isBlank() || !keyStore.containsAlias(keyAliasToUse)) {
+                Enumeration<String> aliases = keyStore.aliases();
+                if (aliases.hasMoreElements()) {
+                    keyAliasToUse = aliases.nextElement();
+                }
+            }
+
+            char[] keyPasswordToUse = (keyPwd != null && !keyPwd.isBlank()) ? keyPwd.toCharArray() : password;
+            Key key = keyStore.getKey(keyAliasToUse, keyPasswordToUse);
+            Certificate cert = keyStore.getCertificate(keyAliasToUse);
+
+            if (!(key instanceof PrivateKey) || !(cert instanceof X509Certificate)) {
+                throw new IllegalStateException("Keystore tai " + path + " khong chua PrivateKey hoac X509Certificate hop le");
+            }
+
+            this.epuPrivateKey = (PrivateKey) key;
+            this.epuCertificate = (X509Certificate) cert;
+        }
+    }
+
+    private void generateAndPersistKeystore(Path path, String storePwd, String alias, String keyPwd) {
         try {
             KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA", BouncyCastleProvider.PROVIDER_NAME);
             keyGen.initialize(2048);
             KeyPair keyPair = keyGen.generateKeyPair();
-            this.epuPrivateKey = keyPair.getPrivate();
+            PrivateKey privKey = keyPair.getPrivate();
 
             Instant now = Instant.now();
             Date startDate = Date.from(now.minus(Duration.ofHours(1)));
@@ -74,17 +237,50 @@ public class PdfProcessingServiceImpl implements PdfProcessingService {
                     dnName, serialNumber, startDate, endDate, dnName, keyPair.getPublic());
             ContentSigner contentSigner = new JcaContentSignerBuilder("SHA256WithRSA")
                     .setProvider(BouncyCastleProvider.PROVIDER_NAME)
-                    .build(this.epuPrivateKey);
+                    .build(privKey);
             X509CertificateHolder certHolder = certBuilder.build(contentSigner);
 
-            this.epuCertificate = new JcaX509CertificateConverter()
+            X509Certificate cert = new JcaX509CertificateConverter()
                     .setProvider(BouncyCastleProvider.PROVIDER_NAME)
                     .getCertificate(certHolder);
-            log.info("Khoi tao chung thu so EPU PKI X.509 thanh cong.");
+
+            if (path.getParent() != null) {
+                Files.createDirectories(path.getParent());
+            }
+
+            KeyStore keyStore = KeyStore.getInstance("PKCS12");
+            keyStore.load(null, null);
+            char[] password = storePwd != null ? storePwd.toCharArray() : new char[0];
+            char[] keyPassword = (keyPwd != null && !keyPwd.isBlank()) ? keyPwd.toCharArray() : password;
+            keyStore.setKeyEntry(alias, privKey, keyPassword, new Certificate[]{cert});
+
+            try (OutputStream os = Files.newOutputStream(path, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
+                keyStore.store(os, password);
+            }
+
+            this.epuPrivateKey = privKey;
+            this.epuCertificate = cert;
+            log.info("Luu keystore PKCS12 thanh cong vao {}", path.toAbsolutePath());
         } catch (Exception e) {
-            log.error("Loi khi khoi tao chung thu so PKI", e);
-            throw new IllegalStateException("Khong the khoi tao dich vu PKI", e);
+            log.error("Loi khi sinh va luu keystore tai {}", path, e);
+            throw new IllegalStateException("Khong the khoi tao va luu keystore", e);
         }
+    }
+
+    public void setPrivateKey(PrivateKey privateKey) {
+        this.epuPrivateKey = privateKey;
+    }
+
+    public void setCertificate(X509Certificate certificate) {
+        this.epuCertificate = certificate;
+    }
+
+    public PrivateKey getPrivateKey() {
+        return this.epuPrivateKey;
+    }
+
+    public X509Certificate getCertificate() {
+        return this.epuCertificate;
     }
 
     @Override
