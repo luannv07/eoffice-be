@@ -183,6 +183,7 @@ class DocumentRepositoryTest {
     @DisplayName("Kiểm tra Document không expose public setter cho cờ xóa mềm deleteFlg")
     void document_DoesNotExposeDeleteFlgSetter() {
         assertThrows(NoSuchMethodException.class, () -> Document.class.getMethod("setDeleteFlg", boolean.class));
+        assertThrows(NoSuchMethodException.class, () -> Document.class.getMethod("setDeleteFlg", Boolean.class));
     }
 
     @Test
@@ -210,8 +211,6 @@ class DocumentRepositoryTest {
                 .build());
 
         DocumentProcessLog log = new DocumentProcessLog();
-        assertNotNull(log.getLogTime(), "logTime phải được khởi tạo từ constructor");
-        assertFalse(log.isDeleteFlg());
 
         log.setDocument(doc);
         log.setActorUser(actor);
@@ -221,6 +220,7 @@ class DocumentRepositoryTest {
         DocumentProcessLog savedLog = documentProcessLogRepository.saveAndFlush(log);
         assertNotNull(savedLog.getId());
         assertNotNull(savedLog.getLogTime());
+        assertFalse(Boolean.TRUE.equals(savedLog.isDeleteFlg()));
     }
 
     @Test

@@ -662,4 +662,55 @@ class DocumentApprovalServiceTest {
 
         assertThrows(BusinessException.class, () -> documentApprovalService.submitForApproval(docId, request, senderId));
     }
+
+    @Test
+    @DisplayName("Kiểm tra xử lý an toàn không lặp vô hạn khi cây đơn vị có chu trình cha (cycle protection)")
+    void submitForApproval_OrgNodeCycle_HandlesCycleSafelyWithoutLoop() {
+        Long docId = 1L;
+        Long senderId = 100L;
+        Long approverId = 200L;
+
+        UserLogin sender = UserLogin.builder().id(senderId).role(Role.USER).build();
+        UserLogin approver = UserLogin.builder().id(approverId).role(Role.USER).build();
+
+        // Tạo 2 đơn vị có chu trình cha lặp vòng: nodeA -> nodeB -> nodeA
+        OrgNode nodeA = OrgNode.builder().id(10L).nameVn("Đơn vị A").build();
+        OrgNode nodeB = OrgNode.builder().id(20L).nameVn("Đơn vị B").build();
+        nodeA.setParent(nodeB);
+        nodeB.setParent(nodeA);
+
+        Document doc = Document.builder()
+                .id(docId)
+                .title("Dự thảo kiểm tra chu trình")
+                .summary("Trích yếu")
+                .content("Nội dung")
+                .creatorUser(sender)
+                .issuingOrgNode(nodeA)
+                .status(DocumentStatus.DRAFT)
+                .build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(sender));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(true);
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.of(approver));
+
+        // Approver thuộc nodeB (nằm trong chu trình của nodeA)
+        PositionAssignment pa = PositionAssignment.builder()
+                .id(1L)
+                .userLogin(approver)
+                .positionCd("TK")
+                .orgNode(nodeB)
+                .deleteFlg(false)
+                .build();
+        when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(approverId)).thenReturn(List.of(pa));
+        when(documentRepository.save(any(Document.class))).thenReturn(doc);
+
+        SubmitApprovalRequest request = SubmitApprovalRequest.builder()
+                .approverUserId(approverId)
+                .build();
+
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(
+                () -> documentApprovalService.submitForApproval(docId, request, senderId)
+        );
+    }
 }

@@ -537,7 +537,7 @@ class DocumentControllerTest {
                         .build();
 
         when(documentAttachmentService.downloadAttachment(docId, attId, 100L)).thenReturn(mockResource);
-        when(documentAttachmentService.getAttachmentMetadata(docId, attId, 100L)).thenReturn(meta);
+        when(documentAttachmentService.getAttachmentMetadata(docId, attId)).thenReturn(meta);
 
         mockMvc.perform(get("/documents/1/attachments/10/download").principal(auth))
                 .andExpect(status().isOk())
@@ -561,7 +561,7 @@ class DocumentControllerTest {
                         .build();
 
         when(documentAttachmentService.downloadAttachment(docId, attId, 100L)).thenReturn(mockResource);
-        when(documentAttachmentService.getAttachmentMetadata(docId, attId, 100L)).thenReturn(meta);
+        when(documentAttachmentService.getAttachmentMetadata(docId, attId)).thenReturn(meta);
 
         mockMvc.perform(get("/documents/1/attachments/10/download").principal(auth))
                 .andExpect(status().isOk())

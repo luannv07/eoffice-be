@@ -357,9 +357,14 @@ public class DocumentApprovalService {
         Set<Long> allowed = new HashSet<>();
         if (document != null && document.getIssuingOrgNode() != null) {
             OrgNode current = document.getIssuingOrgNode();
-            while (current != null) {
+            int depth = 0;
+            final int maxDepth = 100;
+            while (current != null && depth < maxDepth) {
+                depth++;
                 if (current.getId() != null) {
-                    allowed.add(current.getId());
+                    if (!allowed.add(current.getId())) {
+                        break; // Phát hiện chu trình (cycle detected), dừng duyệt
+                    }
                 }
                 current = current.getParent();
             }
