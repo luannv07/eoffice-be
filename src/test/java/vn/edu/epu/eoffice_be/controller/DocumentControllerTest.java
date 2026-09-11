@@ -54,7 +54,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 
 @ExtendWith(MockitoExtension.class)
 class DocumentControllerTest {
@@ -77,11 +76,7 @@ class DocumentControllerTest {
 
     @BeforeEach
     void setUp() {
-        MappingJackson2HttpMessageConverter converter = new MappingJackson2HttpMessageConverter();
-        converter.setObjectMapper(objectMapper);
-
         mockMvc = MockMvcBuilders.standaloneSetup(documentController)
-                .setMessageConverters(converter, new org.springframework.http.converter.ResourceHttpMessageConverter())
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
 

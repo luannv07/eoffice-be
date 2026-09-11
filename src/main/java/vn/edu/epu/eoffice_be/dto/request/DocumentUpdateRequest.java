@@ -54,5 +54,9 @@ public class DocumentUpdateRequest {
     String changeSummary;
 
     @Schema(description = "Có lưu thành một phiên bản mới hay không (mặc định: true)", example = "true")
-    boolean saveNewVersion = true;
+    Boolean saveNewVersion = true;
+
+    public boolean isSaveNewVersion() {
+        return saveNewVersion == null || Boolean.TRUE.equals(saveNewVersion);
+    }
 }

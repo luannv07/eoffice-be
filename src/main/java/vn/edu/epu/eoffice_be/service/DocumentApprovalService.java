@@ -65,80 +65,89 @@ public class DocumentApprovalService {
         Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
-        Long orgNodeId = document.getIssuingOrgNode() != null ? document.getIssuingOrgNode().getId() : null;
-
-        // Tìm các position có quyền DOCUMENT_APPROVE hoặc DOCUMENT_SIGN_DRAFT
-        Set<String> leaderCds = Set.of("HT", "PHT", "TK", "TP", "PK", "PP");
-        Set<String> approverPositions = positionPermissionRepository
-                .findByPositionCdInAndDeleteFlgFalse(leaderCds).stream()
-                .map(PositionPermission::getPositionCd)
-                .collect(Collectors.toSet());
-        if (approverPositions.isEmpty()) {
-            approverPositions.addAll(leaderCds);
-        }
-
-        // Tìm các phân bổ vị trí còn hiệu lực trực tiếp qua DB query (Issue 19)
+        Set<String> approverPositions = resolveApproverPositions();
         Instant now = Instant.now();
         List<PositionAssignment> assignments = positionAssignmentRepository
                 .findActiveAssignmentsByPositionCds(approverPositions, now);
-
-        // Lọc theo cây đơn vị: cùng đơn vị hoặc đơn vị cha / lãnh đạo trường (Issue 20)
         Set<Long> allowedOrgNodeIds = resolveAllowedOrgNodeIds(document);
 
         List<EligibleApproverResponse> responses = new ArrayList<>();
         Set<Long> addedUserIds = new HashSet<>();
 
         for (PositionAssignment pa : assignments) {
-            if (pa == null || pa.isDeleteFlg() || pa.getActualDismissalDate() != null) {
-                continue;
+            if (isAssignmentEligible(pa, addedUserIds, allowedOrgNodeIds)) {
+                responses.add(buildApproverResponse(pa));
+                addedUserIds.add(pa.getUserLogin().getId());
             }
-            UserLogin approverUser = pa.getUserLogin();
-            if (approverUser == null || approverUser.isDeleteFlg() || addedUserIds.contains(approverUser.getId())) {
-                continue;
-            }
-
-            // Kiểm tra thuộc cùng đơn vị hoặc đơn vị cha (nếu pa gán với orgNode cụ thể)
-            OrgNode node = pa.getOrgNode();
-            if (!allowedOrgNodeIds.isEmpty() && node != null && !allowedOrgNodeIds.contains(node.getId())) {
-                continue;
-            }
-
-            Optional<UserInfo> infoOpt = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(approverUser.getId());
-            String fullName = infoOpt.map(UserInfo::getFullName).orElse(approverUser.getUsername());
-
-            responses.add(EligibleApproverResponse.builder()
-                    .userId(approverUser.getId())
-                    .username(approverUser.getUsername())
-                    .fullName(fullName)
-                    .email(approverUser.getEmail())
-                    .positionCd(pa.getPositionCd())
-                    .positionName(resolvePositionName(pa.getPositionCd()))
-                    .orgNodeId(node != null ? node.getId() : null)
-                    .orgNodeName(node != null ? node.getNameVn() : null)
-                    .build());
-            addedUserIds.add(approverUser.getId());
         }
 
-        // Bổ sung các tài khoản ADMIN / SYSTEM_ADMIN nếu danh sách trống (Issue 19)
         if (responses.isEmpty()) {
-            List<UserLogin> admins = userLoginRepository
-                    .findByRoleInAndDeleteFlgFalse(List.of(Role.ADMIN, Role.SYSTEM_ADMIN));
-            for (UserLogin admin : admins) {
-                Optional<UserInfo> infoOpt = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(admin.getId());
-                responses.add(EligibleApproverResponse.builder()
-                        .userId(admin.getId())
-                        .username(admin.getUsername())
-                        .fullName(infoOpt.map(UserInfo::getFullName).orElse(admin.getUsername()))
-                        .email(admin.getEmail())
-                        .positionCd("ADMIN")
-                        .positionName("Quản trị viên")
-                        .orgNodeId(orgNodeId)
-                        .orgNodeName(document.getIssuingOrgNode() != null ? document.getIssuingOrgNode().getNameVn() : null)
-                        .build());
-            }
+            responses.addAll(buildFallbackAdminResponses(document));
         }
 
         return responses;
+    }
+
+    private Set<String> resolveApproverPositions() {
+        Set<String> leaderCds = Set.of("HT", "PHT", "TK", "TP", "PK", "PP");
+        Set<String> positions = positionPermissionRepository
+                .findByPositionCdInAndDeleteFlgFalse(leaderCds).stream()
+                .map(PositionPermission::getPositionCd)
+                .collect(Collectors.toSet());
+        return positions.isEmpty() ? new HashSet<>(leaderCds) : positions;
+    }
+
+    private boolean isAssignmentEligible(PositionAssignment pa, Set<Long> addedUserIds, Set<Long> allowedOrgNodeIds) {
+        if (pa == null || pa.isDeleteFlg() || pa.getActualDismissalDate() != null) {
+            return false;
+        }
+        UserLogin approverUser = pa.getUserLogin();
+        if (approverUser == null || approverUser.isDeleteFlg() || addedUserIds.contains(approverUser.getId())) {
+            return false;
+        }
+        OrgNode node = pa.getOrgNode();
+        return allowedOrgNodeIds.isEmpty() || node == null || allowedOrgNodeIds.contains(node.getId());
+    }
+
+    private EligibleApproverResponse buildApproverResponse(PositionAssignment pa) {
+        UserLogin approverUser = pa.getUserLogin();
+        OrgNode node = pa.getOrgNode();
+        Optional<UserInfo> infoOpt = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(approverUser.getId());
+        String fullName = infoOpt.map(UserInfo::getFullName).orElse(approverUser.getUsername());
+
+        return EligibleApproverResponse.builder()
+                .userId(approverUser.getId())
+                .username(approverUser.getUsername())
+                .fullName(fullName)
+                .email(approverUser.getEmail())
+                .positionCd(pa.getPositionCd())
+                .positionName(resolvePositionName(pa.getPositionCd()))
+                .orgNodeId(node != null ? node.getId() : null)
+                .orgNodeName(node != null ? node.getNameVn() : null)
+                .build();
+    }
+
+    private List<EligibleApproverResponse> buildFallbackAdminResponses(Document document) {
+        Long orgNodeId = document.getIssuingOrgNode() != null ? document.getIssuingOrgNode().getId() : null;
+        String orgNodeName = document.getIssuingOrgNode() != null ? document.getIssuingOrgNode().getNameVn() : null;
+
+        List<UserLogin> admins = userLoginRepository
+                .findByRoleInAndDeleteFlgFalse(List.of(Role.ADMIN, Role.SYSTEM_ADMIN));
+        List<EligibleApproverResponse> adminResponses = new ArrayList<>();
+        for (UserLogin admin : admins) {
+            Optional<UserInfo> infoOpt = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(admin.getId());
+            adminResponses.add(EligibleApproverResponse.builder()
+                    .userId(admin.getId())
+                    .username(admin.getUsername())
+                    .fullName(infoOpt.map(UserInfo::getFullName).orElse(admin.getUsername()))
+                    .email(admin.getEmail())
+                    .positionCd("ADMIN")
+                    .positionName("Quản trị viên")
+                    .orgNodeId(orgNodeId)
+                    .orgNodeName(orgNodeName)
+                    .build());
+        }
+        return adminResponses;
     }
 
     /**
@@ -232,8 +241,8 @@ public class DocumentApprovalService {
                 this, savedDocument.getId(), sender.getId(), approver.getId(),
                 savedDocument.getTitle(), request.getSubmitNote()));
 
-        log.info("Người dùng {} đã gửi duyệt văn bản {} tới {}",
-                sender.getUsername(), savedDocument.getDraftCode(), approver.getUsername());
+        log.info("Người dùng id={} đã gửi duyệt văn bản id={} tới người duyệt id={}",
+                sender.getId(), savedDocument.getId(), approver.getId());
 
         return documentDraftService.mapToDocumentResponse(savedDocument);
     }
@@ -297,7 +306,7 @@ public class DocumentApprovalService {
                 .build();
         documentProcessLogRepository.save(processLog);
 
-        log.info("Người dùng {} đã thu hồi yêu cầu duyệt văn bản {}", user.getUsername(), savedDocument.getDraftCode());
+        log.info("Người dùng id={} đã thu hồi yêu cầu duyệt văn bản id={}", user.getId(), savedDocument.getId());
 
         return documentDraftService.mapToDocumentResponse(savedDocument);
     }
