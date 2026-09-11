@@ -43,6 +43,9 @@ class DocumentRepositoryTest {
     @Autowired
     private DocumentProcessLogRepository documentProcessLogRepository;
 
+    @Autowired
+    private PositionAssignmentRepository positionAssignmentRepository;
+
     private OrgNode getOrCreateOrgNode(String code) {
         return orgNodeRepository.findByCodeAndDeleteFlgFalse(code)
                 .orElseGet(() -> orgNodeRepository.saveAndFlush(OrgNode.builder()
@@ -218,5 +221,19 @@ class DocumentRepositoryTest {
         DocumentProcessLog savedLog = documentProcessLogRepository.saveAndFlush(log);
         assertNotNull(savedLog.getId());
         assertNotNull(savedLog.getLogTime());
+    }
+
+    @Test
+    @DisplayName("findActiveAssignmentsByPositionCds trả về rỗng an toàn khi collection null hoặc rỗng, không sinh lỗi SQL IN ()")
+    void findActiveAssignmentsByPositionCds_WithNullOrEmpty_ReturnsEmptyListWithoutSqlError() {
+        java.time.Instant now = java.time.Instant.now();
+
+        var resultNull = positionAssignmentRepository.findActiveAssignmentsByPositionCds(null, now);
+        assertNotNull(resultNull);
+        assertTrue(resultNull.isEmpty());
+
+        var resultEmpty = positionAssignmentRepository.findActiveAssignmentsByPositionCds(java.util.Collections.emptyList(), now);
+        assertNotNull(resultEmpty);
+        assertTrue(resultEmpty.isEmpty());
     }
 }

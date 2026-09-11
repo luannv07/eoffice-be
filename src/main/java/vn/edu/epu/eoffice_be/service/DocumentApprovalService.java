@@ -89,6 +89,9 @@ public class DocumentApprovalService {
         Set<Long> addedUserIds = new HashSet<>();
 
         for (PositionAssignment pa : assignments) {
+            if (pa == null || pa.isDeleteFlg() || pa.getActualDismissalDate() != null) {
+                continue;
+            }
             UserLogin approverUser = pa.getUserLogin();
             if (approverUser == null || approverUser.isDeleteFlg() || addedUserIds.contains(approverUser.getId())) {
                 continue;

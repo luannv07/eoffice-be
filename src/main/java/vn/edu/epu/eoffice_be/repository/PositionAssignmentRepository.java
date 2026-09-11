@@ -6,6 +6,8 @@ import org.springframework.data.repository.query.Param;
 import vn.edu.epu.eoffice_be.entity.PositionAssignment;
 
 import java.time.Instant;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 public interface PositionAssignmentRepository extends JpaRepository<PositionAssignment, Long> {
@@ -36,16 +38,25 @@ public interface PositionAssignmentRepository extends JpaRepository<PositionAssi
 					@Param("orgNodeId") Long orgNodeId);
 
 	@Query("""
-					SELECT DISTINCT pa FROM PositionAssignment pa
+					SELECT pa FROM PositionAssignment pa
 					WHERE pa.deleteFlg = false
 					  AND pa.actualDismissalDate IS NULL
 					  AND (pa.effectiveFrom IS NULL OR pa.effectiveFrom <= :atTime)
 					  AND (pa.effectiveTo IS NULL OR pa.effectiveTo >= :atTime)
 					  AND pa.positionCd IN :positionCds
 					""")
-	List<PositionAssignment> findActiveAssignmentsByPositionCds(
-					@Param("positionCds") java.util.Collection<String> positionCds,
+	List<PositionAssignment> findActiveAssignmentsByPositionCdsInternal(
+					@Param("positionCds") Collection<String> positionCds,
 					@Param("atTime") Instant atTime);
+
+	default List<PositionAssignment> findActiveAssignmentsByPositionCds(
+					Collection<String> positionCds,
+					Instant atTime) {
+		if (positionCds == null || positionCds.isEmpty()) {
+			return Collections.emptyList();
+		}
+		return findActiveAssignmentsByPositionCdsInternal(positionCds, atTime);
+	}
 
 	boolean existsByUserLoginIdAndDeleteFlgFalse(Long userLoginId);
 }

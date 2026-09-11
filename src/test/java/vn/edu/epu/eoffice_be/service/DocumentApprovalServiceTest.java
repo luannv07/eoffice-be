@@ -361,6 +361,50 @@ class DocumentApprovalServiceTest {
     }
 
     @Test
+    @DisplayName("Lấy danh sách người duyệt loại bỏ phân bổ đã xóa mềm hoặc đã miễn nhiệm")
+    void getEligibleApprovers_DismissedOrDeletedAssignment_Excluded() {
+        Long docId = 1L;
+        Long userId = 100L;
+        Document doc = Document.builder().id(docId).build();
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+
+        UserLogin dismissedUser = UserLogin.builder().id(201L).username("dismissedLeader").build();
+        vn.edu.epu.eoffice_be.entity.PositionAssignment dismissedPa = vn.edu.epu.eoffice_be.entity.PositionAssignment.builder()
+                .id(1L)
+                .userLogin(dismissedUser)
+                .positionCd("HT")
+                .deleteFlg(false)
+                .actualDismissalDate(java.time.Instant.now())
+                .build();
+
+        UserLogin deletedUser = UserLogin.builder().id(202L).username("deletedAssignmentLeader").build();
+        vn.edu.epu.eoffice_be.entity.PositionAssignment deletedPa = vn.edu.epu.eoffice_be.entity.PositionAssignment.builder()
+                .id(2L)
+                .userLogin(deletedUser)
+                .positionCd("PHT")
+                .deleteFlg(true)
+                .build();
+
+        UserLogin activeUser = UserLogin.builder().id(203L).username("activeLeader").build();
+        vn.edu.epu.eoffice_be.entity.PositionAssignment activePa = vn.edu.epu.eoffice_be.entity.PositionAssignment.builder()
+                .id(3L)
+                .userLogin(activeUser)
+                .positionCd("TK")
+                .deleteFlg(false)
+                .build();
+
+        when(positionAssignmentRepository.findActiveAssignmentsByPositionCds(any(), any()))
+                .thenReturn(java.util.List.of(dismissedPa, deletedPa, activePa));
+        when(userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(203L))
+                .thenReturn(Optional.of(vn.edu.epu.eoffice_be.entity.UserInfo.builder().fullName("Trưởng Khoa Hoạt Động").build()));
+
+        var result = documentApprovalService.getEligibleApprovers(docId, userId);
+        assertEquals(1, result.size());
+        assertEquals("activeLeader", result.get(0).getUsername());
+        assertEquals("Trưởng khoa", result.get(0).getPositionName());
+    }
+
+    @Test
     @DisplayName("Gửi duyệt thất bại khi người gửi không phải người tạo và không phải admin (FORBIDDEN)")
     void submitForApproval_Forbidden_ThrowsForbidden() {
         Long docId = 1L;

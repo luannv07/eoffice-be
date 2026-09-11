@@ -30,6 +30,8 @@ import vn.edu.epu.eoffice_be.repository.OrgNodeRepository;
 import vn.edu.epu.eoffice_be.repository.UserInfoRepository;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
 
+import org.springframework.test.util.ReflectionTestUtils;
+
 import java.util.Collections;
 import java.util.Optional;
 
@@ -77,7 +79,7 @@ class DocumentDraftServiceTest {
         when(documentRepository.existsByDraftCodeAndDeleteFlgFalse(any())).thenReturn(false);
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> {
             Document doc = inv.getArgument(0);
-            doc.setId(1L);
+            ReflectionTestUtils.setField(doc, "id", 1L);
             return doc;
         });
 
