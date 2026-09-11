@@ -10,13 +10,13 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
 import vn.edu.epu.eoffice_be.common.entity.BaseEntity;
@@ -28,11 +28,27 @@ import java.time.Instant;
 @Table(name = "document_process_logs")
 @Getter
 @Setter
-@NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class DocumentProcessLog extends BaseEntity {
+
+    public DocumentProcessLog() {
+        this.logTime = Instant.now();
+        this.deleteFlg = false;
+    }
+
+    @PrePersist
+    public void prePersist() {
+        if (this.logTime == null) {
+            this.logTime = Instant.now();
+        }
+    }
+
+    public static class DocumentProcessLogBuilder {
+        private Instant logTime = Instant.now();
+        private boolean deleteFlg = false;
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "eoffice_seq")
@@ -61,10 +77,8 @@ public class DocumentProcessLog extends BaseEntity {
     String note;
 
     @Column(name = "log_time", nullable = false)
-    @Builder.Default
     Instant logTime = Instant.now();
 
     @Column(name = "delete_flg", nullable = false)
-    @Builder.Default
     boolean deleteFlg = false;
 }

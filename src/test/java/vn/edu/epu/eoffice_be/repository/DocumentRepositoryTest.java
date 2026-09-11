@@ -12,10 +12,12 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.epu.eoffice_be.common.config.JpaAuditingConfig;
+import vn.edu.epu.eoffice_be.common.enums.DocumentProcessAction;
 import vn.edu.epu.eoffice_be.common.enums.DocumentSecurityLevel;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.common.enums.DocumentUrgencyLevel;
 import vn.edu.epu.eoffice_be.entity.Document;
+import vn.edu.epu.eoffice_be.entity.DocumentProcessLog;
 import vn.edu.epu.eoffice_be.entity.OrgNode;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
 
@@ -37,6 +39,9 @@ class DocumentRepositoryTest {
 
     @Autowired
     private OrgNodeRepository orgNodeRepository;
+
+    @Autowired
+    private DocumentProcessLogRepository documentProcessLogRepository;
 
     private OrgNode getOrCreateOrgNode(String code) {
         return orgNodeRepository.findByCodeAndDeleteFlgFalse(code)
@@ -136,5 +141,82 @@ class DocumentRepositoryTest {
                 creator.getId(), null, null, "100\\%", PageRequest.of(0, 10));
         assertEquals(1, page.getTotalElements());
         assertEquals("DT-TEST-002", page.getContent().get(0).getDraftCode());
+    }
+
+    @Test
+    @DisplayName("Kiểm tra sequence documents_seq với allocationSize=50 không gây trùng khóa chính khi lưu nhiều bản ghi")
+    void documentsSequence_AllocationSize50_NoPrimaryKeyCollision() {
+        OrgNode orgNode = getOrCreateOrgNode("TEST_ORG_SEQ");
+        UserLogin creator = userLoginRepository.saveAndFlush(UserLogin.builder()
+                .username("test-seq-user")
+                .passwordHash("secret")
+                .build());
+
+        java.util.Set<Long> generatedIds = new java.util.HashSet<>();
+        // Lưu 55 bản ghi liên tiếp để vượt ngưỡng allocationSize=50
+        for (int i = 1; i <= 55; i++) {
+            Document doc = Document.builder()
+                    .draftCode("DT-SEQ-" + String.format("%03d", i))
+                    .title("Văn bản kiểm tra sequence " + i)
+                    .summary("Trích yếu kiểm tra sequence " + i)
+                    .content("Nội dung chi tiết " + i)
+                    .documentTypeCd("CONG_VAN")
+                    .status(DocumentStatus.DRAFT)
+                    .securityLevel(DocumentSecurityLevel.NORMAL)
+                    .urgencyLevel(DocumentUrgencyLevel.NORMAL)
+                    .currentVersion(1)
+                    .creatorUser(creator)
+                    .issuingOrgNode(orgNode)
+                    .deleteFlg(false)
+                    .build();
+            Document saved = documentRepository.saveAndFlush(doc);
+            assertNotNull(saved.getId(), "ID không được null");
+            assertTrue(generatedIds.add(saved.getId()), "ID " + saved.getId() + " đã bị trùng lặp!");
+        }
+        assertEquals(55, generatedIds.size());
+    }
+
+    @Test
+    @DisplayName("Kiểm tra Document không expose public setter cho cờ xóa mềm deleteFlg")
+    void document_DoesNotExposeDeleteFlgSetter() {
+        assertThrows(NoSuchMethodException.class, () -> Document.class.getMethod("setDeleteFlg", boolean.class));
+    }
+
+    @Test
+    @DisplayName("Kiểm tra DocumentProcessLog tạo bằng no-args constructor không bị lỗi NOT NULL logTime khi persist")
+    void documentProcessLog_NoArgsConstructor_PersistsSuccessfully() {
+        OrgNode orgNode = getOrCreateOrgNode("TEST_ORG_LOG");
+        UserLogin actor = userLoginRepository.saveAndFlush(UserLogin.builder()
+                .username("test-log-user")
+                .passwordHash("secret")
+                .build());
+
+        Document doc = documentRepository.saveAndFlush(Document.builder()
+                .draftCode("DT-LOG-001")
+                .title("Văn bản test log")
+                .summary("Trích yếu")
+                .content("Nội dung")
+                .documentTypeCd("CONG_VAN")
+                .status(DocumentStatus.DRAFT)
+                .securityLevel(DocumentSecurityLevel.NORMAL)
+                .urgencyLevel(DocumentUrgencyLevel.NORMAL)
+                .currentVersion(1)
+                .creatorUser(actor)
+                .issuingOrgNode(orgNode)
+                .deleteFlg(false)
+                .build());
+
+        DocumentProcessLog log = new DocumentProcessLog();
+        assertNotNull(log.getLogTime(), "logTime phải được khởi tạo từ constructor");
+        assertFalse(log.isDeleteFlg());
+
+        log.setDocument(doc);
+        log.setActorUser(actor);
+        log.setAction(DocumentProcessAction.CREATE_DRAFT);
+        log.setNote("Ghi chú thử nghiệm");
+
+        DocumentProcessLog savedLog = documentProcessLogRepository.saveAndFlush(log);
+        assertNotNull(savedLog.getId());
+        assertNotNull(savedLog.getLogTime());
     }
 }

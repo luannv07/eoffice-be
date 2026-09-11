@@ -31,7 +31,7 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
           AND (:keyword IS NULL OR :keyword = ''
                 OR LOWER(d.title) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
                 OR LOWER(d.draftCode) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
-                OR LOWER(d.summary) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\')
+                OR LOWER(CAST(d.summary AS string)) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\')
     """)
     Page<Document> searchDocuments(
             @Param("creatorUserId") Long creatorUserId,

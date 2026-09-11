@@ -77,8 +77,7 @@ public class DocumentApprovalRequest extends BaseEntity {
     String decisionNote;
 
     @Column(name = "submitted_at", nullable = false)
-    @Builder.Default
-    Instant submittedAt = Instant.now();
+    Instant submittedAt;
 
     @Column(name = "processed_at")
     Instant processedAt;

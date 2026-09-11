@@ -267,6 +267,15 @@ class DocumentApprovalServiceTest {
     }
 
     @Test
+    @DisplayName("Kiểm tra DocumentApprovalRequest builder: submittedAt null trước khi persist và được gán khi prePersist")
+    void documentApprovalRequest_Builder_SubmittedAtNullBeforePersist() {
+        DocumentApprovalRequest req = DocumentApprovalRequest.builder().build();
+        org.junit.jupiter.api.Assertions.assertNull(req.getSubmittedAt());
+        req.prePersist();
+        assertNotNull(req.getSubmittedAt());
+    }
+
+    @Test
     @DisplayName("Kiểm tra tính hợp lệ của người duyệt (isUserEligibleApprover)")
     void isUserEligibleApprover_Scenarios() {
         // null hoặc deleted
