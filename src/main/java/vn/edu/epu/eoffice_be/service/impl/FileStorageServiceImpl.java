@@ -56,7 +56,8 @@ public class FileStorageServiceImpl implements FileStorageService {
         String safeFileName = "file.pdf";
         if (originalFilename != null && !originalFilename.isBlank()) {
             try {
-                Path fileNamePath = Paths.get(originalFilename).getFileName();
+                String normalizedName = originalFilename.replace('\\', '/');
+                Path fileNamePath = Paths.get(normalizedName).getFileName();
                 if (fileNamePath != null && !fileNamePath.toString().isBlank()) {
                     safeFileName = fileNamePath.toString();
                 }
