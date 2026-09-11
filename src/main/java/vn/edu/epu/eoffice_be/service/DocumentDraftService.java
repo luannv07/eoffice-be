@@ -149,8 +149,12 @@ public class DocumentDraftService {
         document.setContent(request.getContent());
         document.setDocumentTypeCd(request.getDocumentTypeCd());
         document.setIssuingOrgNode(issuingOrg);
-        document.setSecurityLevel(request.getSecurityLevel());
-        document.setUrgencyLevel(request.getUrgencyLevel());
+        if (request.getSecurityLevel() != null) {
+            document.setSecurityLevel(request.getSecurityLevel());
+        }
+        if (request.getUrgencyLevel() != null) {
+            document.setUrgencyLevel(request.getUrgencyLevel());
+        }
 
         // Nếu người dùng chọn lưu phiên bản mới
         if (request.isSaveNewVersion()) {

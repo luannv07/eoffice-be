@@ -455,8 +455,61 @@ class DocumentControllerTest {
         DocumentUpdateRequest req = objectMapper.readValue(json, DocumentUpdateRequest.class);
 
         org.junit.jupiter.api.Assertions.assertTrue(req.isSaveNewVersion());
-        org.junit.jupiter.api.Assertions.assertEquals(DocumentSecurityLevel.NORMAL, req.getSecurityLevel());
-        org.junit.jupiter.api.Assertions.assertEquals(DocumentUrgencyLevel.NORMAL, req.getUrgencyLevel());
+        org.junit.jupiter.api.Assertions.assertNull(req.getSecurityLevel());
+        org.junit.jupiter.api.Assertions.assertNull(req.getUrgencyLevel());
+    }
+
+    @Test
+    @DisplayName("API PUT /documents/{id} - Bị từ chối 400 khi changeSummary vượt quá 1000 ký tự")
+    void updateDraft_ChangeSummaryTooLong_ReturnsBadRequest() throws Exception {
+        String json = "{\"title\":\"Tiêu đề\",\"summary\":\"Trích yếu\",\"documentTypeCd\":\"QD\",\"issuingOrgNodeId\":10,\"changeSummary\":\"" + "A".repeat(1001) + "\"}";
+        mockMvc.perform(put("/documents/1")
+                        .principal(auth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("API POST /documents/{id}/recall-approval - Bị từ chối 400 khi recallReason rỗng hoặc khoảng trắng")
+    void recallApproval_BlankReason_ReturnsBadRequest() throws Exception {
+        mockMvc.perform(post("/documents/1/recall-approval")
+                        .principal(auth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"recallReason\": \"   \"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+
+        mockMvc.perform(post("/documents/1/recall-approval")
+                        .principal(auth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"recallReason\": \"\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("API POST /documents/{id}/submit-approval - Bị từ chối 400 khi submitNote vượt quá 1000 ký tự")
+    void submitApproval_NoteTooLong_ReturnsBadRequest() throws Exception {
+        String json = "{\"approverUserId\": 1002, \"submitNote\": \"" + "A".repeat(1001) + "\"}";
+        mockMvc.perform(post("/documents/1/submit-approval")
+                        .principal(auth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("Kiểm tra Jackson Serialization của DocumentAttachmentResponse giữ đúng tên isMainDocument")
+    void documentAttachmentResponse_Serialization_IncludesIsMainDocument() throws Exception {
+        DocumentAttachmentResponse resp = DocumentAttachmentResponse.builder()
+                .id(1L)
+                .isMainDocument(true)
+                .build();
+        String json = objectMapper.writeValueAsString(resp);
+        org.junit.jupiter.api.Assertions.assertTrue(json.contains("\"isMainDocument\":true"));
     }
 
     @Test

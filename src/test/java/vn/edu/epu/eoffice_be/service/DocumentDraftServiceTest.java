@@ -171,6 +171,51 @@ class DocumentDraftServiceTest {
     }
 
     @Test
+    @DisplayName("Chỉnh sửa dự thảo không làm hạ cấp độ mật/độ khẩn khi request có giá trị null")
+    void updateDraft_NullSecurityLevel_PreservesExistingSecurityLevel() {
+        Long userId = 100L;
+        Long docId = 1L;
+        Long orgId = 10L;
+
+        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        OrgNode orgNode = OrgNode.builder().id(orgId).nameVn("Phòng Đào tạo").build();
+
+        Document doc = Document.builder()
+                .id(docId)
+                .title("Tiêu đề mật")
+                .summary("Trích yếu")
+                .content("Nội dung")
+                .securityLevel(DocumentSecurityLevel.SECRET)
+                .urgencyLevel(DocumentUrgencyLevel.TOP_URGENT)
+                .creatorUser(creator)
+                .issuingOrgNode(orgNode)
+                .status(DocumentStatus.DRAFT)
+                .currentVersion(1)
+                .build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(orgNodeRepository.findByIdAndDeleteFlgFalse(orgId)).thenReturn(Optional.of(orgNode));
+        when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DocumentUpdateRequest request = DocumentUpdateRequest.builder()
+                .title("Tiêu đề cập nhật")
+                .summary("Trích yếu")
+                .content("Nội dung")
+                .documentTypeCd("QUYET_DINH")
+                .issuingOrgNodeId(orgId)
+                .securityLevel(null) // Không gửi độ mật
+                .urgencyLevel(null)  // Không gửi độ khẩn
+                .saveNewVersion(false)
+                .build();
+
+        DocumentResponse response = documentDraftService.updateDraft(docId, request, userId);
+
+        assertEquals(DocumentSecurityLevel.SECRET, response.getSecurityLevel());
+        assertEquals(DocumentUrgencyLevel.TOP_URGENT, response.getUrgencyLevel());
+    }
+
+    @Test
     @DisplayName("Chỉnh sửa dự thảo bị từ chối khi không phải người tạo (FORBIDDEN)")
     void updateDraft_Forbidden_WhenNotCreator() {
         Long creatorId = 100L;

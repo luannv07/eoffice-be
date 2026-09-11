@@ -1,5 +1,6 @@
 package vn.edu.epu.eoffice_be.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -24,6 +25,8 @@ public class DocumentAttachmentResponse {
     String mimeType;
     long fileSizeBytes;
     String sha256Checksum;
+
+    @JsonProperty("isMainDocument")
     boolean isMainDocument;
     Long uploadedByUserId;
     String uploadedByUsername;

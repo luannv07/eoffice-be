@@ -44,11 +44,12 @@ public class DocumentUpdateRequest {
     Long issuingOrgNodeId;
 
     @Schema(description = "Độ mật (NORMAL, CONFIDENTIAL, SECRET)", example = "NORMAL")
-    DocumentSecurityLevel securityLevel = DocumentSecurityLevel.NORMAL;
+    DocumentSecurityLevel securityLevel;
 
     @Schema(description = "Độ khẩn (NORMAL, URGENT, TOP_URGENT)", example = "NORMAL")
-    DocumentUrgencyLevel urgencyLevel = DocumentUrgencyLevel.NORMAL;
+    DocumentUrgencyLevel urgencyLevel;
 
+    @Size(max = 1000, message = "Tóm tắt thay đổi không được vượt quá 1000 ký tự")
     @Schema(description = "Tóm tắt lý do hoặc nội dung thay đổi của phiên bản mới", example = "Chỉnh sửa điều 5 theo yêu cầu của phòng Đào tạo")
     String changeSummary;
 
