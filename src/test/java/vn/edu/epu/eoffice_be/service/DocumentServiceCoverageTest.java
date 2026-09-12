@@ -622,4 +622,63 @@ class DocumentServiceCoverageTest {
         assertNotNull(pending);
         assertTrue(pending.isEmpty());
     }
+    @Test
+    void testPublishDocument_WithExistingOrgDistributions() {
+        // Phủ nhánh phân phối văn bản tới các phòng ban cụ thể (targetOrgIds)
+        Document doc = new Document();
+        doc.setId(505L);
+        doc.setStatus("APPROVED");
+
+        when(documentRepository.findById(505L)).thenReturn(Optional.of(doc));
+        when(documentRepository.save(any(Document.class))).thenAnswer(i -> i.getArgument(0));
+
+        PublishRequest req = new PublishRequest();
+        req.setIsPublicToAll(false);
+        req.setIssueDate(LocalDate.now());
+        req.setEffectiveDate(LocalDate.now().plusMonths(1));
+
+        Document result = documentPublishService.publishDocument(505L, req);
+        assertNotNull(result);
+        assertEquals("PUBLISHED", result.getStatus());
+    }
+
+    @Test
+    void testVerifyIntegrity_WhenHashMatchesRealFile() throws Exception {
+        // Tạo file tạm và tính hash khớp hoàn toàn để phủ return true
+        java.io.File tempFile = java.io.File.createTempFile("verify_match", ".pdf");
+        tempFile.deleteOnExit();
+        java.nio.file.Files.write(tempFile.toPath(), "Sample Content For SHA256".getBytes());
+
+        Document doc = new Document();
+        doc.setId(606L);
+        doc.setOfficialFilePath(tempFile.getAbsolutePath());
+
+        when(documentRepository.findById(606L)).thenReturn(Optional.of(doc));
+        when(documentRepository.save(any(Document.class))).thenAnswer(i -> i.getArgument(0));
+
+        PublishRequest req = new PublishRequest();
+        req.setIsPublicToAll(true);
+        Document published = documentPublishService.publishDocument(606L, req);
+
+        doc.setOfficialHash(published.getOfficialHash());
+        assertTrue(documentPublishService.verifyIntegrity(606L));
+    }
+
+    @Test
+    void testDocumentWorkflowService_PendingDocumentsWithVariousStatuses() {
+        Document doc1 = new Document();
+        doc1.setId(701L);
+        doc1.setStatus("WAITING_SIGN");
+
+        Document doc2 = new Document();
+        doc2.setId(702L);
+        doc2.setStatus("IN_REVIEW");
+
+        when(documentRepository.findByStatusIn(anyList()))
+                .thenReturn(List.of(doc1, doc2));
+
+        var res = documentWorkflowService.getPendingDocuments();
+        assertNotNull(res);
+        assertEquals(2, res.size());
+    }
 }
