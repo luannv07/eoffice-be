@@ -34,8 +34,8 @@ import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
 public class DocumentWorkflowLog extends BaseEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "eoffice_seq")
-    @SequenceGenerator(name = "eoffice_seq", sequenceName = "hibernate_sequence", allocationSize = 50)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "document_workflow_logs_seq")
+    @SequenceGenerator(name = "document_workflow_logs_seq", sequenceName = "document_workflow_logs_seq", allocationSize = 50)
     Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
