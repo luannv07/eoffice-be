@@ -74,4 +74,12 @@ public interface FileStorageService {
      * @throws BusinessException nếu gặp lỗi I/O trong quá trình đọc luồng dữ liệu
      */
     String computeSha256(InputStream stream);
+
+    /**
+     * Xóa tệp tin đã lưu trữ theo đường dẫn tương đối.
+     *
+     * @param relativePath Đường dẫn tương đối của tệp tin cần xóa
+     * @return true nếu xóa thành công, false nếu tệp không tồn tại hoặc có lỗi
+     */
+    boolean deleteFile(String relativePath);
 }

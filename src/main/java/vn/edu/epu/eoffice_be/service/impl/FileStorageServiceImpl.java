@@ -228,6 +228,24 @@ public class FileStorageServiceImpl implements FileStorageService {
         }
     }
 
+    @Override
+    public boolean deleteFile(String relativePath) {
+        if (relativePath == null || relativePath.isBlank()) {
+            return false;
+        }
+        try {
+            Path target = resolveAndValidatePath(relativePath);
+            boolean deleted = Files.deleteIfExists(target);
+            if (deleted) {
+                log.info("Xóa file thành công: {}", relativePath);
+            }
+            return deleted;
+        } catch (Exception e) {
+            log.warn("Không thể xóa file lưu trữ: {}", relativePath, e);
+            return false;
+        }
+    }
+
     private String bytesToHex(byte[] bytes) {
         StringBuilder hexString = new StringBuilder();
         for (byte b : bytes) {

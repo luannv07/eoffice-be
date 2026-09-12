@@ -115,7 +115,6 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     }
 
     @Override
-    @Transactional
     public DocumentDetailResponse initialSign(Long documentId, DocumentInitialSignRequest request) {
         UserLogin actor = getCurrentActor();
         Document document = findDocumentOrThrow(documentId);
@@ -150,22 +149,26 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
         String signatureHash = fileStorageService.computeSha256(stampedPdfBytes);
 
-        // 5. Điều hướng luồng duyệt và ghi log
-        workflowEngine.executeTransition(
-                document,
-                WorkflowAction.INITIAL_SIGN,
-                actor,
-                request.getComment(),
-                null,
-                null,
-                signatureHash
-        );
+        // 5. Điều hướng luồng duyệt và ghi log (chạy trong @Transactional của WorkflowEngine)
+        try {
+            workflowEngine.executeTransition(
+                    document,
+                    WorkflowAction.INITIAL_SIGN,
+                    actor,
+                    request.getComment(),
+                    null,
+                    null,
+                    signatureHash
+            );
+        } catch (Exception ex) {
+            fileStorageService.deleteFile(newPdfPath);
+            throw ex;
+        }
 
         return mapToDetailResponse(document);
     }
 
     @Override
-    @Transactional
     public DocumentDetailResponse signAndPublish(Long documentId, DocumentPublishRequest request) {
         UserLogin actor = getCurrentActor();
         Document document = findDocumentOrThrow(documentId);
@@ -209,16 +212,21 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         document.setOfficialFilePath(officialPath);
         document.setOfficialHash(officialHash);
 
-        // 5. Chuyển trạng thái sang PUBLISHED và ghi log
-        workflowEngine.executeTransition(
-                document,
-                WorkflowAction.SIGN_AND_PUBLISH,
-                actor,
-                request.getComment(),
-                null,
-                null,
-                officialHash
-        );
+        // 5. Chuyển trạng thái sang PUBLISHED và ghi log (chạy trong @Transactional của WorkflowEngine)
+        try {
+            workflowEngine.executeTransition(
+                    document,
+                    WorkflowAction.SIGN_AND_PUBLISH,
+                    actor,
+                    request.getComment(),
+                    null,
+                    null,
+                    officialHash
+            );
+        } catch (Exception ex) {
+            fileStorageService.deleteFile(officialPath);
+            throw ex;
+        }
 
         return mapToDetailResponse(document);
     }

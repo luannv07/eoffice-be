@@ -315,4 +315,23 @@ class FileStorageServiceTest {
     void loadFileAsResource_fileNotFound_shouldThrowDocumentFileMissing() {
         assertThrows(BusinessException.class, () -> fileStorageService.loadFileAsResource("non-existent.pdf"));
     }
+
+    @Test
+    @DisplayName("Xóa file đã lưu thành công và trả về false khi file không tồn tại hoặc path null/blank")
+    void deleteFile_testCases() {
+        byte[] content = "Content to delete".getBytes();
+        String storedPath = fileStorageService.storeFile(content, "to_delete.pdf", "drafts");
+        assertNotNull(storedPath);
+
+        // Xóa file tồn tại
+        boolean deleted = fileStorageService.deleteFile(storedPath);
+        assertTrue(deleted);
+
+        // Xóa lại file vừa bị xóa -> false
+        assertFalse(fileStorageService.deleteFile(storedPath));
+
+        // Xóa với null hoặc blank -> false
+        assertFalse(fileStorageService.deleteFile(null));
+        assertFalse(fileStorageService.deleteFile("   "));
+    }
 }

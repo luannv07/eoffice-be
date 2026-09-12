@@ -52,6 +52,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -285,6 +286,65 @@ class DocumentWorkflowServiceTest {
                 null,
                 "official_sha256_hash"
         );
+    }
+
+    @Test
+    @DisplayName("initialSign: nếu workflow transition thất bại thì phải xóa file đã lưu trong storage")
+    void initialSign_transitionFails_shouldCleanUpStoredFile() {
+        document.setPrimaryFilePath("drafts/sample.pdf");
+        byte[] mockBytes = new byte[]{1, 2, 3};
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+        when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
+        when(pdfProcessingService.applyInitialSignStamp(any(byte[].class), any(StampInfo.class))).thenReturn(mockBytes);
+        when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("drafts/stamped_failed.pdf");
+        when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("mock_sha256_hash");
+
+        doThrow(new BusinessException(ErrorCode.INVALID_WORKFLOW_STATE))
+                .when(workflowEngine).executeTransition(
+                        any(), any(), any(), any(), any(), any(), any()
+                );
+
+        DocumentInitialSignRequest request = DocumentInitialSignRequest.builder()
+                .comment("Da ra soat the thuc")
+                .build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.initialSign(5001L, request));
+        assertEquals(ErrorCode.INVALID_WORKFLOW_STATE, ex.getErrorCode());
+
+        verify(fileStorageService).deleteFile("drafts/stamped_failed.pdf");
+    }
+
+    @Test
+    @DisplayName("signAndPublish: nếu workflow transition thất bại thì phải xóa file official đã lưu trong storage")
+    void signAndPublish_transitionFails_shouldCleanUpStoredFile() {
+        document.setPrimaryFilePath("drafts/sample.pdf");
+        byte[] mockBytes = new byte[]{1, 2, 3};
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+        when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
+        when(pdfProcessingService.signAndCertifyPdf(any(byte[].class), anyString(), anyString())).thenReturn(mockBytes);
+        when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("official/doc_failed.pdf");
+        when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("official_sha256_hash");
+
+        doThrow(new BusinessException(ErrorCode.INVALID_WORKFLOW_STATE))
+                .when(workflowEngine).executeTransition(
+                        any(), any(), any(), any(), any(), any(), any()
+                );
+
+        DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .officialNumber("125/QD-DHEPU")
+                .comment("Ky ban hanh chinh thuc")
+                .build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.signAndPublish(5001L, request));
+        assertEquals(ErrorCode.INVALID_WORKFLOW_STATE, ex.getErrorCode());
+
+        verify(fileStorageService).deleteFile("official/doc_failed.pdf");
     }
 
     @Test
