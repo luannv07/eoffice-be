@@ -11,6 +11,7 @@ import vn.edu.epu.eoffice_be.entity.DocumentBook;
 import vn.edu.epu.eoffice_be.repository.DocumentBookRepository;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 
 @Component
@@ -19,13 +20,15 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class DocumentBookYearResetJob {
 
+	private static final String ZONE_VIETNAM = "Asia/Ho_Chi_Minh";
+
 	DocumentBookRepository documentBookRepository;
 
-	// Chạy vào 00:00:00 ngày 01 tháng 01 hàng năm
-	@Scheduled(cron = "${eoffice.cron.book-reset:0 0 0 1 1 *}")
+	// Chạy vào 00:00:00 ngày 01 tháng 01 hàng năm (giờ Việt Nam)
+	@Scheduled(cron = "${eoffice.cron.book-reset:0 0 0 1 1 *}", zone = ZONE_VIETNAM)
 	@Transactional
 	public void resetAllBookCounters() {
-		int newYear = LocalDate.now().getYear();
+		int newYear = LocalDate.now(ZoneId.of(ZONE_VIETNAM)).getYear();
 		int previousYear = newYear - 1;
 		log.info("[CRON] Bắt đầu tự động chuyển giao và reset sổ văn bản sang năm mới: {}", newYear);
 

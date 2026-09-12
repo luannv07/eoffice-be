@@ -20,6 +20,8 @@ public interface DocumentBookService {
 
 	void close(Long id);
 
+	void reopen(Long id);
+
 	void delete(Long id);
 
 	AssignDocumentNumberResponse assignNumber(AssignDocumentNumberRequest request);

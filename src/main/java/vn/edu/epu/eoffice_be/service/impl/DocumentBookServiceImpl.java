@@ -143,6 +143,16 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 
 	@Override
 	@Transactional
+	public void reopen(Long id) {
+		DocumentBook book = documentBookRepository.findByIdAndDeleteFlgFalse(id)
+				.orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_BOOK_NOT_FOUND));
+
+		book.setIsClosed(false);
+		documentBookRepository.save(book);
+	}
+
+	@Override
+	@Transactional
 	public void delete(Long id) {
 		DocumentBook book = documentBookRepository.findByIdAndDeleteFlgFalse(id)
 				.orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_BOOK_NOT_FOUND));

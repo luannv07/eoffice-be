@@ -12,6 +12,7 @@ import vn.edu.epu.eoffice_be.entity.OrgNode;
 import vn.edu.epu.eoffice_be.repository.DocumentBookRepository;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -28,7 +29,7 @@ class DocumentBookYearResetJobTest {
 
 	@Test
 	void resetAllBookCounters_ClosesOldBooksAndCreatesNewBooks() {
-		int currentYear = LocalDate.now().getYear();
+		int currentYear = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).getYear();
 		int oldYear = currentYear - 1;
 
 		DictionaryItem docType = DictionaryItem.builder()

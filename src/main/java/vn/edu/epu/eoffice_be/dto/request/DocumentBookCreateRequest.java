@@ -49,7 +49,7 @@ public class DocumentBookCreateRequest {
 	@Schema(description = "Mẫu sinh số văn bản. Bắt buộc chứa {NUM}/[MÃ_LOẠI]-[MÃ_ĐƠN_VỊ]", example = "{NUM}/QĐ-ĐHEPU", requiredMode = Schema.RequiredMode.REQUIRED)
 	@NotBlank(message = "numberPattern không được để trống")
 	@Pattern(
-			regexp = "^\\{NUM\\}\\/[A-Za-z0-9À-ỹĐđ]+(?:[-/.][A-Za-z0-9À-ỹĐđ]+)+$",
+			regexp = "^\\{NUM\\}\\/[A-Za-z0-9À-ỹ]++(?:[-/.][A-Za-z0-9À-ỹ]++)++$",
 			message = "Mẫu số văn bản phải có định dạng {NUM}/[MÃ_LOẠI]-[MÃ_ĐƠN_VỊ] (ví dụ: {NUM}/QĐ-ĐHEPU hoặc {NUM}/TB-CNTT)"
 	)
 	String numberPattern;

@@ -3,6 +3,7 @@ package vn.edu.epu.eoffice_be.service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -198,6 +199,16 @@ class DocumentBookServiceImplTest {
 	}
 
 	@Test
+	void reopen_Success() {
+		book.setIsClosed(true);
+		when(documentBookRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(book));
+		when(documentBookRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+		documentBookService.reopen(1L);
+		assertFalse(book.getIsClosed());
+	}
+
+	@Test
 	void delete_Success() {
 		when(documentBookRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(book));
 		when(documentBookRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -246,7 +257,7 @@ class DocumentBookServiceImplTest {
 		req.setYear(2026);
 		req.setBookLevel(1);
 
-		when(documentBookRepository.findAll(any(Specification.class), any(Pageable.class)))
+		when(documentBookRepository.findAll(ArgumentMatchers.<Specification<DocumentBook>>any(), any(Pageable.class)))
 				.thenReturn(new PageImpl<>(List.of(book)));
 
 		var page = documentBookService.getAll(req);
