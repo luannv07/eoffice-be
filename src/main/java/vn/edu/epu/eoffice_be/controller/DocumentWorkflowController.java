@@ -29,10 +29,6 @@ public class DocumentWorkflowController {
 
     DocumentWorkflowService workflowService;
 
-    public ResponseEntity<List<WorkflowTimelineResponse>> getDocumentTimeline(Long id) {
-        List<WorkflowTimelineResponse> timeline = workflowService.getDocumentTimeline(id);
-        return ResponseEntity.status(HttpStatus.OK).body(timeline);
-    }
 
     // UC17.1: Xem timeline luồng điều hành & bút phê lãnh đạo
     @GetMapping("/{id}/timeline")

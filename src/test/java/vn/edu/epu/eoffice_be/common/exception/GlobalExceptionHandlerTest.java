@@ -58,6 +58,16 @@ class GlobalExceptionHandlerTest {
 	}
 
 	@Test
+	void handleAuthenticationExceptionShouldReturnUnauthorized() {
+		ResponseEntity<BaseResponse<Void>> response =
+						handler.handleAuthenticationException(new org.springframework.security.authentication.InsufficientAuthenticationException("unauthorized"));
+
+		assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+		assertEquals("UNAUTHORIZED", response.getBody().getErrorCode());
+		assertEquals(ErrorCode.UNAUTHORIZED.getMessage(), response.getBody().getMessage());
+	}
+
+	@Test
 	void handleAccessDeniedShouldReturnForbidden() {
 		ResponseEntity<BaseResponse<Void>> response =
 						handler.handleAccessDenied(new AccessDeniedException("denied"));

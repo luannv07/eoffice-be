@@ -55,7 +55,8 @@ class DocumentServiceCoverageTest {
     @InjectMocks
     DocumentWorkflowService documentWorkflowService;
 
-    public static class TestOrgPrincipal {
+    public static class TestOrgPrincipal implements vn.edu.epu.eoffice_be.security.OrgAwarePrincipal {
+        @Override
         public Long getOrgId() { return 1L; }
     }
 
@@ -262,7 +263,7 @@ class DocumentServiceCoverageTest {
         DocumentWorkflowController controller = new DocumentWorkflowController(mockWorkflow);
 
         assertNotNull(controller.getPendingReviewDocuments(PageRequest.of(0, 10)));
-        assertNotNull(controller.getDocumentTimeline(1L));
+        assertNotNull(controller.getDocumentTimeline(1L, mock(org.springframework.security.core.Authentication.class)));
     }
 
     @Test
@@ -456,9 +457,10 @@ class DocumentServiceCoverageTest {
     void testDocumentWorkflowController_GetTimelineEndpoint() {
         DocumentWorkflowService mockWorkflow = mock(DocumentWorkflowService.class);
         DocumentWorkflowController controller = new DocumentWorkflowController(mockWorkflow);
+        org.springframework.security.core.Authentication auth = mock(org.springframework.security.core.Authentication.class);
 
-        when(mockWorkflow.getDocumentTimeline(1L)).thenReturn(List.of());
-        var res = controller.getDocumentTimeline(1L);
+        when(mockWorkflow.getDocumentTimeline(1L, auth)).thenReturn(List.of());
+        var res = controller.getDocumentTimeline(1L, auth);
 
         assertNotNull(res);
         assertEquals(200, res.getStatusCode().value());

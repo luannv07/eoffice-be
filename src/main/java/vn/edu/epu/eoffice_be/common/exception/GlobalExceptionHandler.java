@@ -4,6 +4,7 @@ import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -38,6 +39,12 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<BaseResponse<Void>> handleConstraintViolation(ConstraintViolationException ex) {
 		return ResponseEntity.status(ErrorCode.VALIDATION_ERROR.getStatus())
 						.body(BaseResponse.error(ex.getMessage(), ErrorCode.VALIDATION_ERROR.getCode()));
+	}
+
+	@ExceptionHandler(AuthenticationException.class)
+	public ResponseEntity<BaseResponse<Void>> handleAuthenticationException(AuthenticationException ex) {
+		return ResponseEntity.status(ErrorCode.UNAUTHORIZED.getStatus())
+						.body(BaseResponse.error(ErrorCode.UNAUTHORIZED.getMessage(), ErrorCode.UNAUTHORIZED.getCode()));
 	}
 
 	@ExceptionHandler(AccessDeniedException.class)

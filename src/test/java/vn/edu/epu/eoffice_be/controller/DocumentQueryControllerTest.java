@@ -8,7 +8,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.Authentication;
+import vn.edu.epu.eoffice_be.security.OrgAwarePrincipal;
 import vn.edu.epu.eoffice_be.service.DocumentQueryService;
 
 import java.util.List;
@@ -33,10 +35,21 @@ class DocumentQueryControllerTest {
     }
 
     // Custom Principal classes for test scenarios
-    public static class ValidPrincipal {
+    public static class ValidPrincipal implements OrgAwarePrincipal {
         private final Long orgId;
         public ValidPrincipal(Long orgId) { this.orgId = orgId; }
+        @Override
         public Long getOrgId() { return orgId; }
+    }
+
+    public static class ValidReflectionPrincipal {
+        private final Long orgId;
+        public ValidReflectionPrincipal(Long orgId) { this.orgId = orgId; }
+        public Long getOrgId() { return orgId; }
+    }
+
+    public static class NullOrgIdReflectionPrincipal {
+        public Long getOrgId() { return null; }
     }
 
     public static class MissingOrgIdPrincipal {
@@ -60,6 +73,17 @@ class DocumentQueryControllerTest {
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
         verify(documentQueryService, times(1)).getPublishedDocuments(100L);
+    }
+
+    @Test
+    void testGetPublishedDocuments_FallbackReflection_Success() {
+        when(auth.getPrincipal()).thenReturn(new ValidReflectionPrincipal(150L));
+        when(documentQueryService.getPublishedDocuments(150L)).thenReturn(List.of());
+
+        ResponseEntity<Object> response = documentQueryController.getPublishedDocuments(auth);
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        verify(documentQueryService, times(1)).getPublishedDocuments(150L);
     }
 
     @Test
@@ -101,6 +125,14 @@ class DocumentQueryControllerTest {
     }
 
     @Test
+    void testResolveUserOrgId_NullOrgId_FallbackReflection_ThrowsAccessDenied() {
+        when(auth.getPrincipal()).thenReturn(new NullOrgIdReflectionPrincipal());
+
+        assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(auth));
+        verifyNoInteractions(documentQueryService);
+    }
+
+    @Test
     void testResolveUserOrgId_NonLongOrgId_ThrowsAccessDenied() {
         when(auth.getPrincipal()).thenReturn(new NonLongOrgIdPrincipal());
 
@@ -109,24 +141,25 @@ class DocumentQueryControllerTest {
     }
 
     @Test
-    void testResolveUserOrgId_ReflectionException_ThrowsAccessDenied() {
+    void testResolveUserOrgId_ReflectionException_PropagatesRuntimeException() {
         when(auth.getPrincipal()).thenReturn(new ExceptionThrowingPrincipal());
 
-        assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(auth));
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> documentQueryController.getPublishedDocuments(auth));
+        assertEquals("Reflection invocation error", exception.getMessage());
         verifyNoInteractions(documentQueryService);
     }
 
     @Test
-    void testResolveUserOrgId_NullAuthentication_ThrowsAccessDenied() {
-        assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(null));
+    void testResolveUserOrgId_NullAuthentication_ThrowsAuthenticationException() {
+        assertThrows(AuthenticationCredentialsNotFoundException.class, () -> documentQueryController.getPublishedDocuments(null));
         verifyNoInteractions(documentQueryService);
     }
 
     @Test
-    void testResolveUserOrgId_NullPrincipal_ThrowsAccessDenied() {
+    void testResolveUserOrgId_NullPrincipal_ThrowsAuthenticationException() {
         when(auth.getPrincipal()).thenReturn(null);
 
-        assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(auth));
+        assertThrows(AuthenticationCredentialsNotFoundException.class, () -> documentQueryController.getPublishedDocuments(auth));
         verifyNoInteractions(documentQueryService);
     }
 }

@@ -61,7 +61,6 @@ class DocumentPublishControllerTest {
     @Test
     void testVerifyIntegrityEndpoint_Authorized_Returns200() throws Exception {
         lenient().when(publishService.verifyIntegrity(eq(1L), any())).thenReturn(true);
-        lenient().when(publishService.verifyIntegrity(1L)).thenReturn(true);
 
         mockMvc.perform(get("/documents/1/verify-integrity"))
                 .andExpect(status().isOk())
@@ -72,7 +71,6 @@ class DocumentPublishControllerTest {
     @Test
     void testVerifyIntegrityEndpoint_WhenFalse_Returns200() throws Exception {
         lenient().when(publishService.verifyIntegrity(eq(2L), any())).thenReturn(false);
-        lenient().when(publishService.verifyIntegrity(2L)).thenReturn(false);
 
         mockMvc.perform(get("/documents/2/verify-integrity"))
                 .andExpect(status().isOk())

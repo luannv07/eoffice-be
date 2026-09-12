@@ -42,14 +42,6 @@ public class DocumentPublishController {
         return ResponseEntity.ok(response);
     }
 
-    public ResponseEntity<IntegrityVerifyResponse> verifyIntegrity(Long id) {
-        boolean isValid = publishService.verifyIntegrity(id);
-        IntegrityVerifyResponse response = IntegrityVerifyResponse.builder()
-                .documentId(id)
-                .valid(isValid)
-                .build();
-        return ResponseEntity.ok(response);
-    }
 
     // UC17: Kiểm tra tính toàn vẹn văn bản
     @GetMapping("/{id}/verify-integrity")
