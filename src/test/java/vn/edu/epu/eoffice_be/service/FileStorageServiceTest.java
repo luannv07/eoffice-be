@@ -11,6 +11,7 @@ import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.service.impl.FileStorageServiceImpl;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -155,14 +156,43 @@ class FileStorageServiceTest {
     }
 
     @Test
-    @DisplayName("Tính toán mã băm SHA-256 chính xác")
+    @DisplayName("Tính toán mã băm SHA-256 chính xác từ byte[]")
     void computeSha256_success() {
         byte[] content = "Test Content For SHA256".getBytes();
         String hash = fileStorageService.computeSha256(content);
         assertNotNull(hash);
         assertEquals(64, hash.length());
 
-        assertNull(fileStorageService.computeSha256(null));
+        assertNull(fileStorageService.computeSha256((byte[]) null));
+    }
+
+    @Test
+    @DisplayName("Tính toán mã băm SHA-256 từ InputStream khớp với byte[] và hỗ trợ streaming")
+    void computeSha256_withInputStream_matchesByteArray() {
+        byte[] content = "Test Content For Streaming SHA256".getBytes();
+        String byteHash = fileStorageService.computeSha256(content);
+        String streamHash = fileStorageService.computeSha256(new ByteArrayInputStream(content));
+
+        assertNotNull(streamHash);
+        assertEquals(64, streamHash.length());
+        assertEquals(byteHash, streamHash);
+
+        assertNull(fileStorageService.computeSha256((InputStream) null));
+    }
+
+    @Test
+    @DisplayName("Tính toán mã băm SHA-256 từ InputStream gặp lỗi I/O ném ra STORAGE_ERROR")
+    void computeSha256_withBrokenStream_shouldThrowStorageError() {
+        InputStream brokenStream = new InputStream() {
+            @Override
+            public int read() throws IOException {
+                throw new IOException("Simulated I/O failure during stream hashing");
+            }
+        };
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> fileStorageService.computeSha256(brokenStream));
+        assertEquals(ErrorCode.STORAGE_ERROR, ex.getErrorCode());
     }
 
     @Test

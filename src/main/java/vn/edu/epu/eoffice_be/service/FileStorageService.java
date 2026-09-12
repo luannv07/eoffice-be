@@ -61,7 +61,17 @@ public interface FileStorageService {
      * Tính toán mã băm SHA-256 của file để kiểm tra tính toàn vẹn (DevSecOps).
      *
      * @param content Dữ liệu file
-     * @return Chuỗi hex 64 ký tự của mã SHA-256
+     * @return Chuỗi hex 64 ký tự của mã SHA-256, hoặc null nếu content là null
      */
     String computeSha256(byte[] content);
+
+    /**
+     * Tính toán mã băm SHA-256 từ luồng InputStream phục vụ kiểm tra tính toàn vẹn cho file lớn
+     * theo cơ chế streaming, tránh nạp toàn bộ nội dung file vào bộ nhớ Heap.
+     *
+     * @param stream Luồng đọc dữ liệu của file
+     * @return Chuỗi hex 64 ký tự của mã SHA-256, hoặc null nếu stream là null
+     * @throws BusinessException nếu gặp lỗi I/O trong quá trình đọc luồng dữ liệu
+     */
+    String computeSha256(InputStream stream);
 }
