@@ -12,6 +12,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import vn.edu.epu.eoffice_be.common.exception.GlobalExceptionHandler;
@@ -21,6 +25,8 @@ import vn.edu.epu.eoffice_be.service.DocumentWorkflowService;
 
 import java.util.Collections;
 import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -58,7 +64,7 @@ class DocumentWorkflowControllerTest {
                 .build();
         Page<PendingDocumentResponse> page = new PageImpl<>(List.of(doc1), PageRequest.of(0, 10), 1);
 
-        when(workflowService.getPendingDocuments(any(Pageable.class))).thenReturn(page);
+        when(workflowService.getPendingDocuments(eq(PageRequest.of(0, 10)))).thenReturn(page);
 
         mockMvc.perform(get("/documents/pending-review"))
                 .andExpect(status().isOk())
@@ -67,14 +73,14 @@ class DocumentWorkflowControllerTest {
                 .andExpect(jsonPath("$.size").value(10))
                 .andExpect(jsonPath("$.number").value(0));
 
-        verify(workflowService, times(1)).getPendingDocuments(any(Pageable.class));
+        verify(workflowService, times(1)).getPendingDocuments(eq(PageRequest.of(0, 10)));
     }
 
     @Test
     void testGetPendingReviewDocuments_EmptyPage_Success() throws Exception {
         Page<PendingDocumentResponse> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(5, 10), 0);
 
-        when(workflowService.getPendingDocuments(any(Pageable.class))).thenReturn(emptyPage);
+        when(workflowService.getPendingDocuments(eq(PageRequest.of(5, 10)))).thenReturn(emptyPage);
 
         mockMvc.perform(get("/documents/pending-review?page=5&size=10"))
                 .andExpect(status().isOk())
@@ -82,7 +88,7 @@ class DocumentWorkflowControllerTest {
                 .andExpect(jsonPath("$.totalElements").value(0))
                 .andExpect(jsonPath("$.number").value(5));
 
-        verify(workflowService, times(1)).getPendingDocuments(any(Pageable.class));
+        verify(workflowService, times(1)).getPendingDocuments(eq(PageRequest.of(5, 10)));
     }
 
     @Test
@@ -93,7 +99,7 @@ class DocumentWorkflowControllerTest {
         );
         Page<PendingDocumentResponse> page = new PageImpl<>(docs, PageRequest.of(1, 2), 5);
 
-        when(workflowService.getPendingDocuments(any(Pageable.class))).thenReturn(page);
+        when(workflowService.getPendingDocuments(eq(PageRequest.of(1, 2)))).thenReturn(page);
 
         mockMvc.perform(get("/documents/pending-review?page=1&size=2"))
                 .andExpect(status().isOk())
@@ -101,6 +107,8 @@ class DocumentWorkflowControllerTest {
                 .andExpect(jsonPath("$.totalElements").value(5))
                 .andExpect(jsonPath("$.totalPages").value(3))
                 .andExpect(jsonPath("$.number").value(1));
+
+        verify(workflowService, times(1)).getPendingDocuments(eq(PageRequest.of(1, 2)));
     }
 
     @Test
@@ -112,25 +120,47 @@ class DocumentWorkflowControllerTest {
                 .comment("Kính gửi lãnh đạo phê duyệt")
                 .build();
 
-        when(workflowService.getDocumentTimeline(eq(10L), any())).thenReturn(List.of(timelineItem));
+        Authentication auth = new UsernamePasswordAuthenticationToken(
+                "user", "pass", List.of(new SimpleGrantedAuthority("ROLE_USER")));
 
-        mockMvc.perform(get("/documents/10/timeline"))
+        when(workflowService.getDocumentTimeline(eq(10L), eq(auth))).thenReturn(List.of(timelineItem));
+
+        mockMvc.perform(get("/documents/10/timeline").principal(auth))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1L))
                 .andExpect(jsonPath("$[0].documentId").value(10L))
                 .andExpect(jsonPath("$[0].action").value("SUBMIT_APPROVAL"));
 
-        verify(workflowService, times(1)).getDocumentTimeline(eq(10L), any());
+        verify(workflowService, times(1)).getDocumentTimeline(eq(10L), eq(auth));
     }
 
     @Test
-    void testGetDocumentTimeline_Unauthorized_Returns403() throws Exception {
-        when(workflowService.getDocumentTimeline(eq(99L), any()))
-                .thenThrow(new AccessDeniedException("User is not authorized to view timeline"));
-
+    void testGetDocumentTimeline_Unauthenticated_Returns403() throws Exception {
+        // Enforced at API/controller authorization layer without stubbing workflowService
         mockMvc.perform(get("/documents/99/timeline"))
                 .andExpect(status().isForbidden());
 
-        verify(workflowService, times(1)).getDocumentTimeline(eq(99L), any());
+        verifyNoInteractions(workflowService);
+    }
+
+    @Test
+    void testGetDocumentTimeline_ServiceThrowsAccessDenied_ExceptionHandlerReturns403() throws Exception {
+        Authentication auth = new UsernamePasswordAuthenticationToken(
+                "user", "pass", List.of(new SimpleGrantedAuthority("ROLE_USER")));
+
+        when(workflowService.getDocumentTimeline(eq(99L), eq(auth)))
+                .thenThrow(new AccessDeniedException("User is not authorized to view timeline"));
+
+        mockMvc.perform(get("/documents/99/timeline").principal(auth))
+                .andExpect(status().isForbidden());
+
+        verify(workflowService, times(1)).getDocumentTimeline(eq(99L), eq(auth));
+    }
+
+    @Test
+    void testClassLevelPreAuthorizeAnnotation() {
+        PreAuthorize annotation = DocumentWorkflowController.class.getAnnotation(PreAuthorize.class);
+        assertNotNull(annotation, "DocumentWorkflowController must be annotated with @PreAuthorize");
+        assertEquals("isAuthenticated()", annotation.value());
     }
 }

@@ -270,7 +270,8 @@ class DocumentServiceCoverageTest {
         DocumentWorkflowController controller = new DocumentWorkflowController(mockWorkflow);
 
         assertNotNull(controller.getPendingReviewDocuments(PageRequest.of(0, 10)));
-        assertNotNull(controller.getDocumentTimeline(1L, mock(org.springframework.security.core.Authentication.class)));
+        Authentication auth = new UsernamePasswordAuthenticationToken("user", "pass", List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        assertNotNull(controller.getDocumentTimeline(1L, auth));
     }
 
     @Test
@@ -307,20 +308,24 @@ class DocumentServiceCoverageTest {
                 new vn.edu.epu.eoffice_be.controller.DocumentQueryController(mockQueryService);
 
         org.springframework.security.core.Authentication auth = mock(org.springframework.security.core.Authentication.class);
-        when(auth.getPrincipal()).thenReturn(new TestOrgPrincipal());
+        TestOrgPrincipal principal = new TestOrgPrincipal();
+        when(auth.getPrincipal()).thenReturn(principal);
 
-        when(mockQueryService.getPublishedDocuments(anyLong())).thenReturn(List.of());
+        when(mockQueryService.getPublishedDocuments(eq(1L))).thenReturn(List.of());
         var resPublished = controller.getPublishedDocuments(auth);
         assertNotNull(resPublished);
         assertEquals(200, resPublished.getStatusCode().value());
+        verify(mockQueryService, times(1)).getPublishedDocuments(eq(principal.getOrgId()));
 
-        when(mockQueryService.getDocumentDetails(eq(1L), anyLong())).thenReturn(java.util.Map.of("id", 1L));
+        when(mockQueryService.getDocumentDetails(eq(1L), eq(1L))).thenReturn(java.util.Map.of("id", 1L));
         var resDetails = controller.getDocumentDetails(1L, auth);
         assertNotNull(resDetails);
+        verify(mockQueryService, times(1)).getDocumentDetails(eq(1L), eq(principal.getOrgId()));
 
-        when(mockQueryService.downloadDocument(eq(1L), anyLong())).thenReturn("pdf content".getBytes());
+        when(mockQueryService.downloadDocument(eq(1L), eq(1L))).thenReturn("pdf content".getBytes());
         var resDownload = controller.downloadDocument(1L, auth);
         assertNotNull(resDownload);
+        verify(mockQueryService, times(1)).downloadDocument(eq(1L), eq(principal.getOrgId()));
     }
 
     @Test
@@ -343,14 +348,40 @@ class DocumentServiceCoverageTest {
         DocumentWorkflowService mockWf = mock(DocumentWorkflowService.class);
         DocumentWorkflowController wfController = new DocumentWorkflowController(mockWf);
 
-        when(mockWf.getPendingDocuments(any(org.springframework.data.domain.Pageable.class)))
+        // 1. Controller passes PageRequest.of(0, 10) to DocumentWorkflowService (happy path)
+        PageRequest pageRequest0 = PageRequest.of(0, 10);
+        when(mockWf.getPendingDocuments(eq(pageRequest0)))
                 .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(
                         vn.edu.epu.eoffice_be.dto.PendingDocumentResponse.builder().id(1L).title("Doc 1").build()
-                )));
+                ), pageRequest0, 1));
 
-        var page = wfController.getPendingReviewDocuments(PageRequest.of(0, 10));
+        var page = wfController.getPendingReviewDocuments(pageRequest0);
         assertNotNull(page);
+        assertNotNull(page.getBody());
         assertEquals(1, page.getBody().getContent().size());
+        assertEquals(1L, page.getBody().getContent().get(0).getId());
+        verify(mockWf, times(1)).getPendingDocuments(eq(pageRequest0));
+
+        // 2. Controller passes PageRequest.of(5, 2) and handles empty Page
+        PageRequest pageRequest5 = PageRequest.of(5, 2);
+        when(mockWf.getPendingDocuments(eq(pageRequest5)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(
+                        Collections.emptyList(), pageRequest5, 0));
+
+        var emptyPage = wfController.getPendingReviewDocuments(pageRequest5);
+        assertNotNull(emptyPage);
+        assertNotNull(emptyPage.getBody());
+        assertTrue(emptyPage.getBody().getContent().isEmpty());
+        assertEquals(0, emptyPage.getBody().getContent().size());
+        verify(mockWf, times(1)).getPendingDocuments(eq(pageRequest5));
+
+        // 3. Real DocumentWorkflowService branch: covers Pageable passing to documentRepository
+        when(documentRepository.findByStatusIn(anyList(), eq(pageRequest0)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of()));
+        var srvPage = documentWorkflowService.getPendingDocuments(pageRequest0);
+        assertNotNull(srvPage);
+        assertTrue(srvPage.getContent().isEmpty());
+        verify(documentRepository, times(1)).findByStatusIn(anyList(), eq(pageRequest0));
     }
 
     @Test
@@ -464,7 +495,7 @@ class DocumentServiceCoverageTest {
     void testDocumentWorkflowController_GetTimelineEndpoint() {
         DocumentWorkflowService mockWorkflow = mock(DocumentWorkflowService.class);
         DocumentWorkflowController controller = new DocumentWorkflowController(mockWorkflow);
-        org.springframework.security.core.Authentication auth = mock(org.springframework.security.core.Authentication.class);
+        Authentication auth = new UsernamePasswordAuthenticationToken("user", "pass", List.of(new SimpleGrantedAuthority("ROLE_USER")));
 
         when(mockWorkflow.getDocumentTimeline(1L, auth)).thenReturn(List.of());
         var res = controller.getDocumentTimeline(1L, auth);
