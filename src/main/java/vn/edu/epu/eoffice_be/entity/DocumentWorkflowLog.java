@@ -8,6 +8,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.SequenceGenerator;
@@ -24,7 +25,13 @@ import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
 
 @Entity
-@Table(name = "document_workflow_logs")
+@Table(
+        name = "document_workflow_logs",
+        indexes = {
+                @Index(name = "idx_doc_wf_document_id", columnList = "document_id"),
+                @Index(name = "idx_dwl_actor", columnList = "actor_id")
+        }
+)
 @Getter
 @Setter
 @NoArgsConstructor
