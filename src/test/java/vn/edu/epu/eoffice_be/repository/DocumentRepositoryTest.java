@@ -12,12 +12,16 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.epu.eoffice_be.common.config.JpaAuditingConfig;
+import vn.edu.epu.eoffice_be.common.enums.ApprovalRequestStatus;
 import vn.edu.epu.eoffice_be.common.enums.DocumentProcessAction;
 import vn.edu.epu.eoffice_be.common.enums.DocumentSecurityLevel;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.common.enums.DocumentUrgencyLevel;
 import vn.edu.epu.eoffice_be.entity.Document;
+import vn.edu.epu.eoffice_be.entity.DocumentApprovalRequest;
+import vn.edu.epu.eoffice_be.entity.DocumentAttachment;
 import vn.edu.epu.eoffice_be.entity.DocumentProcessLog;
+import vn.edu.epu.eoffice_be.entity.DocumentVersion;
 import vn.edu.epu.eoffice_be.entity.OrgNode;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
 
@@ -45,6 +49,15 @@ class DocumentRepositoryTest {
 
     @Autowired
     private PositionAssignmentRepository positionAssignmentRepository;
+
+    @Autowired
+    private DocumentVersionRepository documentVersionRepository;
+
+    @Autowired
+    private DocumentAttachmentRepository documentAttachmentRepository;
+
+    @Autowired
+    private DocumentApprovalRequestRepository documentApprovalRequestRepository;
 
     private OrgNode getOrCreateOrgNode(String code) {
         return orgNodeRepository.findByCodeAndDeleteFlgFalse(code)
@@ -235,5 +248,180 @@ class DocumentRepositoryTest {
         var resultEmpty = positionAssignmentRepository.findActiveAssignmentsByPositionCds(java.util.Collections.emptyList(), now);
         assertNotNull(resultEmpty);
         assertTrue(resultEmpty.isEmpty());
+    }
+
+    @Test
+    @DisplayName("document_versions: Lưu và truy vấn phiên bản văn bản thành công từ CSDL")
+    void documentVersionRepository_SaveAndQuery_Success() {
+        OrgNode orgNode = getOrCreateOrgNode("TEST_ORG_VER");
+        UserLogin author = userLoginRepository.saveAndFlush(UserLogin.builder()
+                .username("test-ver-author")
+                .passwordHash("secret")
+                .build());
+
+        Document doc = documentRepository.saveAndFlush(Document.builder()
+                .draftCode("DT-TEST-VER-001")
+                .title("Văn bản kiểm tra phiên bản")
+                .summary("Trích yếu phiên bản")
+                .documentTypeCd("QUYET_DINH")
+                .status(DocumentStatus.DRAFT)
+                .securityLevel(DocumentSecurityLevel.NORMAL)
+                .urgencyLevel(DocumentUrgencyLevel.NORMAL)
+                .currentVersion(1)
+                .creatorUser(author)
+                .issuingOrgNode(orgNode)
+                .deleteFlg(false)
+                .build());
+
+        DocumentVersion ver1 = documentVersionRepository.saveAndFlush(DocumentVersion.builder()
+                .document(doc)
+                .versionNumber(1)
+                .title("Tiêu đề bản 1")
+                .summary("Trích yếu bản 1")
+                .content("Nội dung bản 1")
+                .createdByUser(author)
+                .deleteFlg(false)
+                .build());
+
+        DocumentVersion ver2 = documentVersionRepository.saveAndFlush(DocumentVersion.builder()
+                .document(doc)
+                .versionNumber(2)
+                .title("Tiêu đề bản 2")
+                .summary("Trích yếu bản 2")
+                .content("Nội dung bản 2")
+                .changeSummary("Cập nhật điều 2")
+                .createdByUser(author)
+                .deleteFlg(false)
+                .build());
+
+        assertNotNull(ver1.getId());
+        assertNotNull(ver2.getId());
+
+        var versions = documentVersionRepository.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(doc.getId());
+        assertEquals(2, versions.size());
+        assertEquals(2, versions.get(0).getVersionNumber());
+
+        var topVer = documentVersionRepository.findTopByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(doc.getId());
+        assertTrue(topVer.isPresent());
+        assertEquals(2, topVer.get().getVersionNumber());
+
+        var v1Opt = documentVersionRepository.findByDocumentIdAndVersionNumberAndDeleteFlgFalse(doc.getId(), 1);
+        assertTrue(v1Opt.isPresent());
+        assertEquals("Tiêu đề bản 1", v1Opt.get().getTitle());
+    }
+
+    @Test
+    @DisplayName("document_attachments: Lưu và truy vấn tệp đính kèm văn bản thành công từ CSDL")
+    void documentAttachmentRepository_SaveAndQuery_Success() {
+        OrgNode orgNode = getOrCreateOrgNode("TEST_ORG_ATT");
+        UserLogin author = userLoginRepository.saveAndFlush(UserLogin.builder()
+                .username("test-att-author")
+                .passwordHash("secret")
+                .build());
+
+        Document doc = documentRepository.saveAndFlush(Document.builder()
+                .draftCode("DT-TEST-ATT-001")
+                .title("Văn bản kiểm tra tệp đính kèm")
+                .summary("Trích yếu tệp đính kèm")
+                .documentTypeCd("CONG_VAN")
+                .status(DocumentStatus.DRAFT)
+                .securityLevel(DocumentSecurityLevel.NORMAL)
+                .urgencyLevel(DocumentUrgencyLevel.NORMAL)
+                .currentVersion(1)
+                .creatorUser(author)
+                .issuingOrgNode(orgNode)
+                .deleteFlg(false)
+                .build());
+
+        DocumentAttachment mainAtt = documentAttachmentRepository.saveAndFlush(DocumentAttachment.builder()
+                .document(doc)
+                .originalFileName("kehoach.docx")
+                .storageFileName("storage-uuid-1.docx")
+                .storagePath("uploads/2026/09/1")
+                .fileExtension("docx")
+                .mimeType("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                .fileSizeBytes(2048L)
+                .sha256Checksum("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+                .isMainDocument(true)
+                .uploadedByUser(author)
+                .deleteFlg(false)
+                .build());
+
+        DocumentAttachment subAtt = documentAttachmentRepository.saveAndFlush(DocumentAttachment.builder()
+                .document(doc)
+                .originalFileName("phuluc.pdf")
+                .storageFileName("storage-uuid-2.pdf")
+                .storagePath("uploads/2026/09/1")
+                .fileExtension("pdf")
+                .mimeType("application/pdf")
+                .fileSizeBytes(1024L)
+                .sha256Checksum("d41d8cd98f00b204e9800998ecf8427e")
+                .isMainDocument(false)
+                .uploadedByUser(author)
+                .deleteFlg(false)
+                .build());
+
+        assertNotNull(mainAtt.getId());
+        assertNotNull(subAtt.getId());
+
+        assertTrue(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(doc.getId()));
+        assertTrue(documentAttachmentRepository.existsByDocumentIdAndDeleteFlgFalse(doc.getId()));
+
+        var allAttachments = documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(doc.getId());
+        assertEquals(2, allAttachments.size());
+
+        var mainList = documentAttachmentRepository.findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(doc.getId());
+        assertEquals(1, mainList.size());
+        assertEquals("kehoach.docx", mainList.get(0).getOriginalFileName());
+    }
+
+    @Test
+    @DisplayName("document_approval_requests: Lưu và truy vấn yêu cầu duyệt văn bản thành công từ CSDL")
+    void documentApprovalRequestRepository_SaveAndQuery_Success() {
+        OrgNode orgNode = getOrCreateOrgNode("TEST_ORG_APR");
+        UserLogin sender = userLoginRepository.saveAndFlush(UserLogin.builder()
+                .username("test-apr-sender")
+                .passwordHash("secret")
+                .build());
+        UserLogin approver = userLoginRepository.saveAndFlush(UserLogin.builder()
+                .username("test-apr-approver")
+                .passwordHash("secret")
+                .build());
+
+        Document doc = documentRepository.saveAndFlush(Document.builder()
+                .draftCode("DT-TEST-APR-001")
+                .title("Văn bản kiểm tra yêu cầu duyệt")
+                .summary("Trích yếu yêu cầu duyệt")
+                .documentTypeCd("TO_TRINH")
+                .status(DocumentStatus.WAITING_APPROVAL)
+                .securityLevel(DocumentSecurityLevel.NORMAL)
+                .urgencyLevel(DocumentUrgencyLevel.NORMAL)
+                .currentVersion(1)
+                .creatorUser(sender)
+                .issuingOrgNode(orgNode)
+                .deleteFlg(false)
+                .build());
+
+        DocumentApprovalRequest req = documentApprovalRequestRepository.saveAndFlush(DocumentApprovalRequest.builder()
+                .document(doc)
+                .senderUser(sender)
+                .approverUser(approver)
+                .status(ApprovalRequestStatus.PENDING)
+                .submitNote("Kính gửi lãnh đạo phê duyệt tờ trình")
+                .submittedAt(java.time.Instant.now())
+                .deleteFlg(false)
+                .build());
+
+        assertNotNull(req.getId());
+
+        var list = documentApprovalRequestRepository.findByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(doc.getId());
+        assertEquals(1, list.size());
+        assertEquals(ApprovalRequestStatus.PENDING, list.get(0).getStatus());
+        assertEquals("Kính gửi lãnh đạo phê duyệt tờ trình", list.get(0).getSubmitNote());
+
+        var pendingOpt = documentApprovalRequestRepository
+                .findTopByDocumentIdAndStatusAndDeleteFlgFalseOrderBySubmittedAtDesc(doc.getId(), ApprovalRequestStatus.PENDING);
+        assertTrue(pendingOpt.isPresent());
+        assertEquals(approver.getId(), pendingOpt.get().getApproverUser().getId());
     }
 }

@@ -54,6 +54,7 @@ public class DocumentUpdateRequest {
     String changeSummary;
 
     @Schema(description = "Có lưu thành một phiên bản mới hay không (mặc định: true)", example = "true")
+    @Builder.Default
     Boolean saveNewVersion = true;
 
     public boolean isSaveNewVersion() {
