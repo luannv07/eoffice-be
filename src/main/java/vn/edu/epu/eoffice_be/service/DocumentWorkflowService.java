@@ -84,15 +84,12 @@ public class DocumentWorkflowService {
             throw new org.springframework.security.access.AccessDeniedException("Yêu cầu xác thực người dùng");
         }
 
-        boolean isAdminOrPrivileged = authentication.getAuthorities() != null && authentication.getAuthorities().stream()
+        boolean isAdmin = authentication.getAuthorities() != null && authentication.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN")
                             || a.getAuthority().equals("ADMIN")
                             || a.getAuthority().equals("ROLE_SYSTEM_ADMIN")
-                            || a.getAuthority().equals("SYSTEM_ADMIN")
-                            || a.getAuthority().equals("DOCUMENT_VIEW")
-                            || a.getAuthority().equals("DOCUMENT_APPROVE")
-                            || a.getAuthority().equals("DOCUMENT_PUBLISH"));
-        if (isAdminOrPrivileged) {
+                            || a.getAuthority().equals("SYSTEM_ADMIN"));
+        if (isAdmin) {
             return;
         }
 
@@ -120,22 +117,12 @@ public class DocumentWorkflowService {
             return null;
         }
         Object principal = authentication.getPrincipal();
+        if (principal instanceof vn.edu.epu.eoffice_be.security.UserIdAwarePrincipal uap) {
+            return uap.getUserId();
+        }
         if (principal instanceof vn.edu.epu.eoffice_be.security.JwtUserPrincipal jwt) {
             return jwt.getUserId();
         }
-        try {
-            var method = principal.getClass().getMethod("getUserId");
-            Object val = method.invoke(principal);
-            if (val instanceof Long l) return l;
-        } catch (Exception ignored) {}
-        try {
-            var method = principal.getClass().getMethod("getId");
-            Object val = method.invoke(principal);
-            if (val instanceof Long l) return l;
-        } catch (Exception ignored) {}
-        try {
-            return Long.parseLong(authentication.getName());
-        } catch (Exception ignored) {}
         return null;
     }
 

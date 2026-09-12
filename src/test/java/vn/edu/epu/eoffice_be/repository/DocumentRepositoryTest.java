@@ -25,6 +25,8 @@ import vn.edu.epu.eoffice_be.entity.DocumentVersion;
 import vn.edu.epu.eoffice_be.entity.OrgNode;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
@@ -423,5 +425,57 @@ class DocumentRepositoryTest {
                 .findTopByDocumentIdAndStatusAndDeleteFlgFalseOrderBySubmittedAtDesc(doc.getId(), ApprovalRequestStatus.PENDING);
         assertTrue(pendingOpt.isPresent());
         assertEquals(approver.getId(), pendingOpt.get().getApproverUser().getId());
+    }
+
+    @Test
+    @DisplayName("findByStatusIn: Kiểm tra phân trang ổn định (ORDER BY xác định) và tính nhất quán giữa List và Page")
+    void findByStatusIn_PaginationAndFilterConsistency_Success() {
+        OrgNode orgNode = getOrCreateOrgNode("TEST_ORG_PAGE");
+        UserLogin creator = userLoginRepository.saveAndFlush(UserLogin.builder()
+                .username("test-page-user")
+                .passwordHash("secret")
+                .build());
+
+        for (int i = 1; i <= 4; i++) {
+            documentRepository.saveAndFlush(Document.builder()
+                    .draftCode("DT-PAGE-00" + i)
+                    .title("Văn bản phân trang " + i)
+                    .summary("Trích yếu " + i)
+                    .documentTypeCd("CONG_VAN")
+                    .status(DocumentStatus.WAITING_APPROVAL)
+                    .securityLevel(DocumentSecurityLevel.NORMAL)
+                    .urgencyLevel(DocumentUrgencyLevel.NORMAL)
+                    .currentVersion(1)
+                    .creatorUser(creator)
+                    .issuingOrgNode(orgNode)
+                    .deleteFlg(false)
+                    .build());
+        }
+
+        List<String> statuses = List.of("WAITING_APPROVAL");
+
+        Page<Document> page0 = documentRepository.findByStatusIn(statuses, PageRequest.of(0, 2));
+        Page<Document> page1 = documentRepository.findByStatusIn(statuses, PageRequest.of(1, 2));
+
+        assertEquals(4, page0.getTotalElements());
+        assertEquals(2, page0.getContent().size());
+        assertEquals(2, page1.getContent().size());
+
+        List<Long> idsPage0 = page0.getContent().stream().map(Document::getId).toList();
+        List<Long> idsPage1 = page1.getContent().stream().map(Document::getId).toList();
+
+        assertTrue(idsPage0.get(0) < idsPage0.get(1));
+        assertTrue(idsPage1.get(0) < idsPage1.get(1));
+        assertTrue(idsPage0.get(1) < idsPage1.get(0));
+
+        java.util.Set<Long> allPagedIds = new java.util.HashSet<>();
+        allPagedIds.addAll(idsPage0);
+        allPagedIds.addAll(idsPage1);
+        assertEquals(4, allPagedIds.size());
+
+        List<Document> listResults = documentRepository.findByStatusIn(statuses);
+        assertEquals(4, listResults.size());
+        List<Long> listIds = listResults.stream().map(Document::getId).toList();
+        assertEquals(List.of(idsPage0.get(0), idsPage0.get(1), idsPage1.get(0), idsPage1.get(1)), listIds);
     }
 }

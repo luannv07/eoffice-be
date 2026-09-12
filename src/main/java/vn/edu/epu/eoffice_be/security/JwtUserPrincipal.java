@@ -12,7 +12,7 @@ import java.util.List;
 @Getter
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class JwtUserPrincipal implements Principal, Serializable {
+public class JwtUserPrincipal implements Principal, Serializable, UserIdAwarePrincipal {
 
 	Long userId;
 

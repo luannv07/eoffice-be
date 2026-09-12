@@ -111,6 +111,9 @@ public class DocumentPublishService {
     }
 
     public boolean verifyIntegrity(Long documentId, org.springframework.security.core.Authentication authentication) {
+        if (authentication == null) {
+            authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        }
         Document doc = documentRepository.findById(documentId)
                 .orElseThrow(() -> new IllegalArgumentException("Document not found: " + documentId));
 
@@ -131,15 +134,12 @@ public class DocumentPublishService {
         }
     }
 
-    public boolean verifyIntegrity(Long documentId) {
-        return verifyIntegrity(documentId, null);
-    }
-
     void assertCanVerifyIntegrity(Document doc, org.springframework.security.core.Authentication authentication) {
-        if (authentication == null) {
+        if (doc.getStatus() == DocumentStatus.PUBLISHED || doc.getStatus() == DocumentStatus.ISSUED) {
             return;
         }
-        if (!authentication.isAuthenticated()) {
+
+        if (authentication == null || !authentication.isAuthenticated()) {
             throw new org.springframework.security.access.AccessDeniedException("Yêu cầu xác thực người dùng");
         }
 
@@ -151,10 +151,6 @@ public class DocumentPublishService {
                             || a.getAuthority().equals("DOCUMENT_VERIFY")
                             || a.getAuthority().equals("DOCUMENT_PUBLISH"));
         if (hasAdminOrPrivilege) {
-            return;
-        }
-
-        if (doc.getStatus() == DocumentStatus.PUBLISHED || doc.getStatus() == DocumentStatus.ISSUED) {
             return;
         }
 
@@ -172,22 +168,12 @@ public class DocumentPublishService {
             return null;
         }
         Object principal = authentication.getPrincipal();
+        if (principal instanceof vn.edu.epu.eoffice_be.security.UserIdAwarePrincipal uap) {
+            return uap.getUserId();
+        }
         if (principal instanceof vn.edu.epu.eoffice_be.security.JwtUserPrincipal jwt) {
             return jwt.getUserId();
         }
-        try {
-            var method = principal.getClass().getMethod("getUserId");
-            Object val = method.invoke(principal);
-            if (val instanceof Long l) return l;
-        } catch (Exception ignored) {}
-        try {
-            var method = principal.getClass().getMethod("getId");
-            Object val = method.invoke(principal);
-            if (val instanceof Long l) return l;
-        } catch (Exception ignored) {}
-        try {
-            return Long.parseLong(authentication.getName());
-        } catch (Exception ignored) {}
         return null;
     }
 

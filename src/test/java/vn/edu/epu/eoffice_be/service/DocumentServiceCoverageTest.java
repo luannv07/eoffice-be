@@ -27,6 +27,12 @@ import java.time.LocalDateTime;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import vn.edu.epu.eoffice_be.entity.UserLogin;
+import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -181,23 +187,24 @@ class DocumentServiceCoverageTest {
 
         Document doc = new Document();
         doc.setId(1L);
+        doc.setStatus(DocumentStatus.PUBLISHED);
         doc.setOfficialFilePath(tempFile.getAbsolutePath());
         doc.setOfficialHash(expectedHash);
 
         when(documentRepository.findById(1L)).thenReturn(Optional.of(doc));
-        assertTrue(documentPublishService.verifyIntegrity(1L));
+        assertTrue(documentPublishService.verifyIntegrity(1L, null));
 
         doc.setOfficialHash(null);
-        assertFalse(documentPublishService.verifyIntegrity(1L));
+        assertFalse(documentPublishService.verifyIntegrity(1L, null));
 
         doc.setOfficialHash("   ");
-        assertFalse(documentPublishService.verifyIntegrity(1L));
+        assertFalse(documentPublishService.verifyIntegrity(1L, null));
 
         doc.setOfficialHash("wrong_hash_123");
-        assertFalse(documentPublishService.verifyIntegrity(1L));
+        assertFalse(documentPublishService.verifyIntegrity(1L, null));
 
         when(documentRepository.findById(99L)).thenReturn(Optional.empty());
-        assertThrows(IllegalArgumentException.class, () -> documentPublishService.verifyIntegrity(99L));
+        assertThrows(IllegalArgumentException.class, () -> documentPublishService.verifyIntegrity(99L, null));
     }
 
     @Test
@@ -370,7 +377,7 @@ class DocumentServiceCoverageTest {
         // Test nhánh verifyIntegrity khi file không tồn tại gây exception lúc tính hash
         docWithRealFile.setOfficialFilePath("non_existent_folder/non_existent_file.pdf");
         docWithRealFile.setOfficialHash("somehash123");
-        assertFalse(documentPublishService.verifyIntegrity(77L));
+        assertFalse(documentPublishService.verifyIntegrity(77L, null));
     }
 
     @Test
@@ -482,17 +489,19 @@ class DocumentServiceCoverageTest {
         // 1. Nhánh hash rỗng/blank
         Document docBlankHash = new Document();
         docBlankHash.setId(88L);
+        docBlankHash.setStatus(DocumentStatus.PUBLISHED);
         docBlankHash.setOfficialHash("   ");
         when(documentRepository.findById(88L)).thenReturn(Optional.of(docBlankHash));
-        assertFalse(documentPublishService.verifyIntegrity(88L));
+        assertFalse(documentPublishService.verifyIntegrity(88L, null));
 
         // 2. Nhánh hash không khớp
         Document docDiffHash = new Document();
         docDiffHash.setId(89L);
+        docDiffHash.setStatus(DocumentStatus.PUBLISHED);
         docDiffHash.setOfficialHash("DIFFERENT_HASH_VALUE_123456");
         docDiffHash.setOfficialFilePath("non_existent_file_path.pdf");
         when(documentRepository.findById(89L)).thenReturn(Optional.of(docDiffHash));
-        assertFalse(documentPublishService.verifyIntegrity(89L));
+        assertFalse(documentPublishService.verifyIntegrity(89L, null));
     }
 
     @Test
@@ -536,7 +545,7 @@ class DocumentServiceCoverageTest {
         assertNotNull(published.getOfficialHash());
 
         doc.setOfficialHash(published.getOfficialHash());
-        assertTrue(documentPublishService.verifyIntegrity(999L));
+        assertTrue(documentPublishService.verifyIntegrity(999L, null));
     }
     @Test
     void testCalculateSha256_FallbackWhenFileNull() {
@@ -557,7 +566,7 @@ class DocumentServiceCoverageTest {
     @Test
     void testVerifyIntegrity_WhenDocumentNotFound() {
         when(documentRepository.findById(99999L)).thenReturn(Optional.empty());
-        assertThrows(IllegalArgumentException.class, () -> documentPublishService.verifyIntegrity(99999L));
+        assertThrows(IllegalArgumentException.class, () -> documentPublishService.verifyIntegrity(99999L, null));
     }
     @Test
     void testDocumentWorkflowService_CompletePendingFlow() {
@@ -665,7 +674,7 @@ class DocumentServiceCoverageTest {
         Document published = documentPublishService.publishDocument(606L, req);
 
         doc.setOfficialHash(published.getOfficialHash());
-        assertTrue(documentPublishService.verifyIntegrity(606L));
+        assertTrue(documentPublishService.verifyIntegrity(606L, null));
     }
 
     @Test
@@ -680,9 +689,130 @@ class DocumentServiceCoverageTest {
 
         when(documentRepository.findByStatusIn(anyList()))
                 .thenReturn(List.of(doc1, doc2));
-
         var res = documentWorkflowService.getPendingDocuments();
         assertNotNull(res);
         assertEquals(2, res.size());
+    }
+
+    public static class NumericUsernamePrincipal {
+        private final String username;
+        public NumericUsernamePrincipal(String username) { this.username = username; }
+        public String getName() { return username; }
+    }
+
+    public static class NonUserIdPrincipal {
+        private final Long id;
+        public NonUserIdPrincipal(Long id) { this.id = id; }
+        public Long getId() { return id; }
+    }
+
+    @Test
+    void testVerifyIntegrity_UnpublishedDocument_SecurityChecks() {
+        UserLogin creator = new UserLogin();
+        creator.setId(100L);
+
+        Document draftDoc = new Document();
+        draftDoc.setId(500L);
+        draftDoc.setStatus(DocumentStatus.DRAFT);
+        draftDoc.setCreatorUser(creator);
+        draftDoc.setOfficialHash("validhash");
+        draftDoc.setOfficialFilePath("dummy.pdf");
+
+        when(documentRepository.findById(500L)).thenReturn(Optional.of(draftDoc));
+
+        // 1. Authentication null trên tài liệu DRAFT -> ném AccessDeniedException
+        assertThrows(AccessDeniedException.class, () -> documentPublishService.verifyIntegrity(500L, null));
+
+        // 2. Authentication unauthenticated -> ném AccessDeniedException
+        Authentication unauth = mock(Authentication.class);
+        when(unauth.isAuthenticated()).thenReturn(false);
+        assertThrows(AccessDeniedException.class, () -> documentPublishService.verifyIntegrity(500L, unauth));
+
+        // 3. Principal có username dạng số "100" trùng với creatorId nhưng không phải JwtUserPrincipal/UserIdAwarePrincipal -> bị từ chối
+        Authentication numUserAuth = new UsernamePasswordAuthenticationToken(
+                new NumericUsernamePrincipal("100"), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        assertThrows(AccessDeniedException.class, () -> documentPublishService.verifyIntegrity(500L, numUserAuth));
+
+        // 4. Principal có getId() trả về 100L (nhưng không phải user ID) -> bị từ chối
+        Authentication nonUserIdAuth = new UsernamePasswordAuthenticationToken(
+                new NonUserIdPrincipal(100L), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        assertThrows(AccessDeniedException.class, () -> documentPublishService.verifyIntegrity(500L, nonUserIdAuth));
+
+        // 5. User thông thường khác creatorId (200L != 100L) -> bị từ chối
+        JwtUserPrincipal otherUser = new JwtUserPrincipal(200L, "other", "USER", true, List.of());
+        Authentication otherAuth = new UsernamePasswordAuthenticationToken(
+                otherUser, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        assertThrows(AccessDeniedException.class, () -> documentPublishService.verifyIntegrity(500L, otherAuth));
+
+        // 6. User có DOCUMENT_VIEW nhưng không phải creator -> bị từ chối
+        Authentication viewAuth = new UsernamePasswordAuthenticationToken(
+                otherUser, null, List.of(new SimpleGrantedAuthority("DOCUMENT_VIEW")));
+        assertThrows(AccessDeniedException.class, () -> documentPublishService.verifyIntegrity(500L, viewAuth));
+
+        // 7. ROLE_ADMIN -> được phép vượt qua kiểm tra quyền
+        Authentication adminAuth = new UsernamePasswordAuthenticationToken(
+                otherUser, null, List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+        assertDoesNotThrow(() -> documentPublishService.verifyIntegrity(500L, adminAuth));
+
+        // 8. DOCUMENT_VERIFY -> được phép vượt qua kiểm tra quyền
+        Authentication verifyAuth = new UsernamePasswordAuthenticationToken(
+                otherUser, null, List.of(new SimpleGrantedAuthority("DOCUMENT_VERIFY")));
+        assertDoesNotThrow(() -> documentPublishService.verifyIntegrity(500L, verifyAuth));
+
+        // 9. Chính creator (userId = 100L) -> được phép vượt qua kiểm tra quyền
+        JwtUserPrincipal creatorPrincipal = new JwtUserPrincipal(100L, "creator", "USER", true, List.of());
+        Authentication creatorAuth = new UsernamePasswordAuthenticationToken(
+                creatorPrincipal, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        assertDoesNotThrow(() -> documentPublishService.verifyIntegrity(500L, creatorAuth));
+    }
+
+    @Test
+    void testVerifyUserCanAccessDocument_SecurityChecks() {
+        UserLogin creator = new UserLogin();
+        creator.setId(100L);
+
+        Document pendingDoc = new Document();
+        pendingDoc.setId(600L);
+        pendingDoc.setStatus(DocumentStatus.WAITING_APPROVAL);
+        pendingDoc.setCreatorUser(creator);
+
+        when(documentRepository.findById(600L)).thenReturn(Optional.of(pendingDoc));
+
+        JwtUserPrincipal otherUser = new JwtUserPrincipal(200L, "other", "USER", true, List.of());
+
+        // 1. User có DOCUMENT_VIEW nhưng không phải creator -> bị từ chối
+        Authentication docViewAuth = new UsernamePasswordAuthenticationToken(
+                otherUser, null, List.of(new SimpleGrantedAuthority("DOCUMENT_VIEW")));
+        assertThrows(AccessDeniedException.class, () -> documentWorkflowService.verifyUserCanAccessDocument(600L, docViewAuth));
+
+        // 2. User có DOCUMENT_APPROVE nhưng không phải creator -> bị từ chối
+        Authentication docApproveAuth = new UsernamePasswordAuthenticationToken(
+                otherUser, null, List.of(new SimpleGrantedAuthority("DOCUMENT_APPROVE")));
+        assertThrows(AccessDeniedException.class, () -> documentWorkflowService.verifyUserCanAccessDocument(600L, docApproveAuth));
+
+        // 3. User có DOCUMENT_PUBLISH nhưng không phải creator -> bị từ chối
+        Authentication docPublishAuth = new UsernamePasswordAuthenticationToken(
+                otherUser, null, List.of(new SimpleGrantedAuthority("DOCUMENT_PUBLISH")));
+        assertThrows(AccessDeniedException.class, () -> documentWorkflowService.verifyUserCanAccessDocument(600L, docPublishAuth));
+
+        // 4. ROLE_ADMIN -> được phép
+        Authentication adminAuth = new UsernamePasswordAuthenticationToken(
+                otherUser, null, List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+        assertDoesNotThrow(() -> documentWorkflowService.verifyUserCanAccessDocument(600L, adminAuth));
+
+        // 5. Chính creator (userId = 100L) -> được phép
+        JwtUserPrincipal creatorPrincipal = new JwtUserPrincipal(100L, "creator", "USER", true, List.of());
+        Authentication creatorAuth = new UsernamePasswordAuthenticationToken(
+                creatorPrincipal, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        assertDoesNotThrow(() -> documentWorkflowService.verifyUserCanAccessDocument(600L, creatorAuth));
+
+        // 6. Tài liệu đã PUBLISHED -> được phép truy cập timeline
+        Document publishedDoc = new Document();
+        publishedDoc.setId(601L);
+        publishedDoc.setStatus(DocumentStatus.PUBLISHED);
+        publishedDoc.setCreatorUser(creator);
+        when(documentRepository.findById(601L)).thenReturn(Optional.of(publishedDoc));
+
+        assertDoesNotThrow(() -> documentWorkflowService.verifyUserCanAccessDocument(601L, docViewAuth));
     }
 }
