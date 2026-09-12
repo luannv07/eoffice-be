@@ -6,8 +6,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.ArgumentCaptor;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import vn.edu.epu.eoffice_be.common.exception.GlobalExceptionHandler;
@@ -15,6 +19,10 @@ import vn.edu.epu.eoffice_be.dto.PublishRequest;
 import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.service.DocumentPublishService;
 
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -59,36 +67,51 @@ class DocumentPublishControllerTest {
 
     @Test
     void testVerifyIntegrityEndpoint_Authorized_Returns200() throws Exception {
+        Authentication auth = new UsernamePasswordAuthenticationToken(
+                "tester", null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
         when(publishService.verifyIntegrity(eq(1L), any())).thenReturn(true);
 
-        mockMvc.perform(get("/documents/1/verify-integrity"))
+        mockMvc.perform(get("/documents/1/verify-integrity").principal(auth))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.documentId").value(1L))
                 .andExpect(jsonPath("$.valid").value(true));
 
-        verify(publishService, times(1)).verifyIntegrity(eq(1L), any());
+        ArgumentCaptor<Authentication> authCaptor = ArgumentCaptor.forClass(Authentication.class);
+        verify(publishService, times(1)).verifyIntegrity(eq(1L), authCaptor.capture());
+        assertNotNull(authCaptor.getValue());
+        assertEquals(auth, authCaptor.getValue());
     }
 
     @Test
     void testVerifyIntegrityEndpoint_WhenFalse_Returns200() throws Exception {
+        Authentication auth = new UsernamePasswordAuthenticationToken(
+                "tester", null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
         when(publishService.verifyIntegrity(eq(2L), any())).thenReturn(false);
 
-        mockMvc.perform(get("/documents/2/verify-integrity"))
+        mockMvc.perform(get("/documents/2/verify-integrity").principal(auth))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.documentId").value(2L))
                 .andExpect(jsonPath("$.valid").value(false));
 
-        verify(publishService, times(1)).verifyIntegrity(eq(2L), any());
+        ArgumentCaptor<Authentication> authCaptor = ArgumentCaptor.forClass(Authentication.class);
+        verify(publishService, times(1)).verifyIntegrity(eq(2L), authCaptor.capture());
+        assertNotNull(authCaptor.getValue());
+        assertEquals(auth, authCaptor.getValue());
     }
 
     @Test
     void testVerifyIntegrityEndpoint_Unauthorized_Returns403() throws Exception {
+        Authentication auth = new UsernamePasswordAuthenticationToken(
+                "unauthorized_user", null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
         when(publishService.verifyIntegrity(eq(99L), any()))
                 .thenThrow(new AccessDeniedException("User is not authorized to verify integrity"));
 
-        mockMvc.perform(get("/documents/99/verify-integrity"))
+        mockMvc.perform(get("/documents/99/verify-integrity").principal(auth))
                 .andExpect(status().isForbidden());
 
-        verify(publishService, times(1)).verifyIntegrity(eq(99L), any());
+        ArgumentCaptor<Authentication> authCaptor = ArgumentCaptor.forClass(Authentication.class);
+        verify(publishService, times(1)).verifyIntegrity(eq(99L), authCaptor.capture());
+        assertNotNull(authCaptor.getValue());
+        assertEquals(auth, authCaptor.getValue());
     }
 }

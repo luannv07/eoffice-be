@@ -1,5 +1,6 @@
 package vn.edu.epu.eoffice_be.controller;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,6 +19,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import vn.edu.epu.eoffice_be.common.exception.GlobalExceptionHandler;
@@ -29,10 +31,10 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
-
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -50,10 +52,23 @@ class DocumentWorkflowControllerTest {
 
     @BeforeEach
     void setUp() {
+        SecurityContextHolder.clearContext();
+
+        var securityFilter = new org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter();
+        try {
+            securityFilter.afterPropertiesSet();
+        } catch (Exception ignored) {}
+
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .addFilters(securityFilter)
                 .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -127,17 +142,24 @@ class DocumentWorkflowControllerTest {
 
         when(workflowService.getDocumentTimeline(eq(10L), eq(auth))).thenReturn(List.of(timelineItem));
 
-        mockMvc.perform(get("/documents/10/timeline").principal(auth))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1L))
-                .andExpect(jsonPath("$[0].documentId").value(10L))
-                .andExpect(jsonPath("$[0].action").value("SUBMIT_APPROVAL"));
+        SecurityContextHolder.getContext().setAuthentication(auth);
+        try {
+            mockMvc.perform(get("/documents/10/timeline")
+                            .with(authentication(auth)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].id").value(1L))
+                    .andExpect(jsonPath("$[0].documentId").value(10L))
+                    .andExpect(jsonPath("$[0].action").value("SUBMIT_APPROVAL"));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
 
         verify(workflowService, times(1)).getDocumentTimeline(eq(10L), eq(auth));
     }
 
     @Test
     void testGetDocumentTimeline_Unauthenticated_Returns401() throws Exception {
+        SecurityContextHolder.clearContext();
         // Enforced at API/controller authorization layer without stubbing workflowService
         mockMvc.perform(get("/documents/99/timeline"))
                 .andExpect(status().isUnauthorized());
@@ -150,8 +172,14 @@ class DocumentWorkflowControllerTest {
         Authentication anonymous = new AnonymousAuthenticationToken(
                 "key", "anonymousUser", AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS"));
 
-        mockMvc.perform(get("/documents/99/timeline").principal(anonymous))
-                .andExpect(status().isUnauthorized());
+        SecurityContextHolder.getContext().setAuthentication(anonymous);
+        try {
+            mockMvc.perform(get("/documents/99/timeline")
+                            .with(authentication(anonymous)))
+                    .andExpect(status().isUnauthorized());
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
 
         verifyNoInteractions(workflowService);
     }
@@ -164,8 +192,14 @@ class DocumentWorkflowControllerTest {
         when(workflowService.getDocumentTimeline(eq(99L), eq(auth)))
                 .thenThrow(new AccessDeniedException("User is not authorized to view timeline"));
 
-        mockMvc.perform(get("/documents/99/timeline").principal(auth))
-                .andExpect(status().isForbidden());
+        SecurityContextHolder.getContext().setAuthentication(auth);
+        try {
+            mockMvc.perform(get("/documents/99/timeline")
+                            .with(authentication(auth)))
+                    .andExpect(status().isForbidden());
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
 
         verify(workflowService, times(1)).getDocumentTimeline(eq(99L), eq(auth));
     }

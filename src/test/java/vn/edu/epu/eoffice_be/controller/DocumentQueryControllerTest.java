@@ -1,5 +1,6 @@
 package vn.edu.epu.eoffice_be.controller;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,6 +18,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -30,6 +32,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -48,11 +51,24 @@ class DocumentQueryControllerTest {
 
     @BeforeEach
     void setUp() {
+        SecurityContextHolder.clearContext();
         auth = mock(Authentication.class);
         lenient().when(auth.isAuthenticated()).thenReturn(true);
+
+        var securityFilter = new org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter();
+        try {
+            securityFilter.afterPropertiesSet();
+        } catch (Exception ignored) {}
+
         mockMvc = MockMvcBuilders.standaloneSetup(documentQueryController)
+                .addFilters(securityFilter)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
     }
 
     // Realistic production-like test fixture implementing UserDetails & OrgAwarePrincipal
@@ -242,15 +258,21 @@ class DocumentQueryControllerTest {
         Authentication authentication = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
         when(documentQueryService.getPublishedDocuments(100L)).thenReturn(List.of());
 
-        mockMvc.perform(get("/documents/published")
-                        .principal(authentication))
-                .andExpect(status().isOk());
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        try {
+            mockMvc.perform(get("/documents/published")
+                            .with(authentication(authentication)))
+                    .andExpect(status().isOk());
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
 
         verify(documentQueryService, times(1)).getPublishedDocuments(100L);
     }
 
     @Test
     void testMockMvc_GetPublishedDocuments_Unauthenticated_Returns401() throws Exception {
+        SecurityContextHolder.clearContext();
         mockMvc.perform(get("/documents/published"))
                 .andExpect(status().isUnauthorized());
 
@@ -262,9 +284,14 @@ class DocumentQueryControllerTest {
         Authentication anonymous = new AnonymousAuthenticationToken(
                 "key", "anonymousUser", AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS"));
 
-        mockMvc.perform(get("/documents/published")
-                        .principal(anonymous))
-                .andExpect(status().isUnauthorized());
+        SecurityContextHolder.getContext().setAuthentication(anonymous);
+        try {
+            mockMvc.perform(get("/documents/published")
+                            .with(authentication(anonymous)))
+                    .andExpect(status().isUnauthorized());
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
 
         verifyNoInteractions(documentQueryService);
     }
@@ -274,9 +301,14 @@ class DocumentQueryControllerTest {
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 new MissingOrgIdPrincipal(), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
 
-        mockMvc.perform(get("/documents/published")
-                        .principal(authentication))
-                .andExpect(status().isForbidden());
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        try {
+            mockMvc.perform(get("/documents/published")
+                            .with(authentication(authentication)))
+                    .andExpect(status().isForbidden());
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
 
         verifyNoInteractions(documentQueryService);
     }
@@ -286,9 +318,14 @@ class DocumentQueryControllerTest {
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 new ExceptionThrowingPrincipal(), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
 
-        mockMvc.perform(get("/documents/published")
-                        .principal(authentication))
-                .andExpect(status().isForbidden());
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        try {
+            mockMvc.perform(get("/documents/published")
+                            .with(authentication(authentication)))
+                    .andExpect(status().isForbidden());
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
 
         verifyNoInteractions(documentQueryService);
     }
@@ -300,13 +337,44 @@ class DocumentQueryControllerTest {
         Authentication authentication = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
         when(documentQueryService.downloadDocument(1L, 300L)).thenReturn(expectedBytes);
 
-        mockMvc.perform(get("/documents/1/download")
-                        .principal(authentication))
-                .andExpect(status().isOk())
-                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"document_1.pdf\""))
-                .andExpect(content().contentType(MediaType.APPLICATION_PDF))
-                .andExpect(content().bytes(expectedBytes));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        try {
+            mockMvc.perform(get("/documents/1/download")
+                            .with(authentication(authentication)))
+                    .andExpect(status().isOk())
+                    .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"document_1.pdf\""))
+                    .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+                    .andExpect(content().bytes(expectedBytes));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
 
         verify(documentQueryService, times(1)).downloadDocument(1L, 300L);
+    }
+
+    @Test
+    void testMockMvc_DownloadDocument_Unauthenticated_Returns401() throws Exception {
+        SecurityContextHolder.clearContext();
+        mockMvc.perform(get("/documents/1/download"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(documentQueryService);
+    }
+
+    @Test
+    void testMockMvc_DownloadDocument_MissingOrgId_Returns403() throws Exception {
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                new MissingOrgIdPrincipal(), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        try {
+            mockMvc.perform(get("/documents/1/download")
+                            .with(authentication(authentication)))
+                    .andExpect(status().isForbidden());
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        verifyNoInteractions(documentQueryService);
     }
 }
