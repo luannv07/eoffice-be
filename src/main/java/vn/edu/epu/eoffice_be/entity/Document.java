@@ -41,6 +41,7 @@ public class Document extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "eoffice_seq")
     @SequenceGenerator(name = "eoffice_seq", sequenceName = "hibernate_sequence", allocationSize = 50)
+    @Setter(AccessLevel.PROTECTED)
     Long id;
 
     @Column(nullable = false, length = 500)
