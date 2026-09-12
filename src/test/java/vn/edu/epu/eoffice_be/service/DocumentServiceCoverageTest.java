@@ -310,6 +310,7 @@ class DocumentServiceCoverageTest {
         org.springframework.security.core.Authentication auth = mock(org.springframework.security.core.Authentication.class);
         TestOrgPrincipal principal = new TestOrgPrincipal();
         when(auth.getPrincipal()).thenReturn(principal);
+        when(auth.isAuthenticated()).thenReturn(true);
 
         when(mockQueryService.getPublishedDocuments(eq(1L))).thenReturn(List.of());
         var resPublished = controller.getPublishedDocuments(auth);

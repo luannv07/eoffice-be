@@ -13,8 +13,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -135,10 +137,21 @@ class DocumentWorkflowControllerTest {
     }
 
     @Test
-    void testGetDocumentTimeline_Unauthenticated_Returns403() throws Exception {
+    void testGetDocumentTimeline_Unauthenticated_Returns401() throws Exception {
         // Enforced at API/controller authorization layer without stubbing workflowService
         mockMvc.perform(get("/documents/99/timeline"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(workflowService);
+    }
+
+    @Test
+    void testGetDocumentTimeline_AnonymousToken_Returns401() throws Exception {
+        Authentication anonymous = new AnonymousAuthenticationToken(
+                "key", "anonymousUser", AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS"));
+
+        mockMvc.perform(get("/documents/99/timeline").principal(anonymous))
+                .andExpect(status().isUnauthorized());
 
         verifyNoInteractions(workflowService);
     }

@@ -19,9 +19,10 @@ import vn.edu.epu.eoffice_be.service.DocumentQueryService;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.WeakHashMap;
 
 @Slf4j
 @RestController
@@ -31,12 +32,31 @@ import java.util.concurrent.ConcurrentHashMap;
 @PreAuthorize("isAuthenticated()")
 public class DocumentQueryController {
 
-    private static final Map<Class<?>, Optional<Method>> ORG_ID_METHOD_CACHE = new ConcurrentHashMap<>();
+    /**
+     * Cache for reflection lookup of getOrgId() method.
+     * Uses WeakHashMap wrapped in synchronizedMap so that dynamic/proxy classes
+     * and their ClassLoaders can be garbage-collected without leaking memory.
+     * A maximum bounded size is also enforced to prevent memory exhaustion.
+     */
+    private static final int MAX_CACHE_SIZE = 256;
+    private static final Map<Class<?>, Optional<Method>> ORG_ID_METHOD_CACHE =
+            Collections.synchronizedMap(new WeakHashMap<>() {
+                @Override
+                public Optional<Method> put(Class<?> key, Optional<Method> value) {
+                    if (size() >= MAX_CACHE_SIZE) {
+                        clear();
+                    }
+                    return super.put(key, value);
+                }
+            });
 
     DocumentQueryService queryService;
 
     private Long resolveUserOrgId(Authentication authentication) {
-        if (authentication == null || authentication.getPrincipal() == null) {
+        if (authentication == null 
+                || !authentication.isAuthenticated() 
+                || authentication instanceof org.springframework.security.authentication.AnonymousAuthenticationToken 
+                || authentication.getPrincipal() == null) {
             throw new AuthenticationCredentialsNotFoundException("Yêu cầu xác thực người dùng");
         }
         Object principal = authentication.getPrincipal();
@@ -65,29 +85,26 @@ public class DocumentQueryController {
             throw new AccessDeniedException("Không thể xác định đơn vị (orgId) hợp lệ của người dùng", e);
         } catch (InvocationTargetException e) {
             Throwable cause = e.getCause();
-            log.error("Exception thrown by getOrgId() on principal {}: {}", principal.getClass().getName(), cause != null ? cause.getMessage() : e.getMessage(), cause);
-            if (cause instanceof RuntimeException re) {
-                throw re;
-            }
-            if (cause instanceof Error err) {
-                throw err;
-            }
-            throw new IllegalStateException("Lỗi khi xác định đơn vị người dùng", cause);
+            log.warn("Exception thrown while invoking getOrgId() on principal class {}: {}",
+                    principal.getClass().getName(), cause != null ? cause.getMessage() : e.getMessage());
+            throw new AccessDeniedException("Không thể xác định đơn vị (orgId) hợp lệ của người dùng", e);
         }
 
         throw new AccessDeniedException("Người dùng không có thông tin đơn vị (orgId) hợp lệ");
     }
 
     private Optional<Method> findOrgIdMethod(Class<?> clazz) {
-        return ORG_ID_METHOD_CACHE.computeIfAbsent(clazz, c -> {
-            try {
-                Method m = c.getMethod("getOrgId");
-                return Optional.of(m);
-            } catch (NoSuchMethodException e) {
-                log.debug("No public getOrgId() found on class {}", c.getName());
-                return Optional.empty();
-            }
-        });
+        synchronized (ORG_ID_METHOD_CACHE) {
+            return ORG_ID_METHOD_CACHE.computeIfAbsent(clazz, c -> {
+                try {
+                    Method m = c.getMethod("getOrgId");
+                    return Optional.of(m);
+                } catch (NoSuchMethodException e) {
+                    log.debug("No public getOrgId() found on class {}", c.getName());
+                    return Optional.empty();
+                }
+            });
+        }
     }
 
     // UC16.1: Tra cứu danh sách văn bản ban hành

@@ -41,7 +41,7 @@ public class GlobalExceptionHandler {
 						.body(BaseResponse.error(ex.getMessage(), ErrorCode.VALIDATION_ERROR.getCode()));
 	}
 
-	@ExceptionHandler(AuthenticationException.class)
+	@ExceptionHandler({AuthenticationException.class, org.springframework.security.authentication.AuthenticationCredentialsNotFoundException.class})
 	public ResponseEntity<BaseResponse<Void>> handleAuthenticationException(AuthenticationException ex) {
 		return ResponseEntity.status(ErrorCode.UNAUTHORIZED.getStatus())
 						.body(BaseResponse.error(ErrorCode.UNAUTHORIZED.getMessage(), ErrorCode.UNAUTHORIZED.getCode()));

@@ -10,10 +10,12 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.test.web.servlet.MockMvc;
@@ -47,6 +49,7 @@ class DocumentQueryControllerTest {
     @BeforeEach
     void setUp() {
         auth = mock(Authentication.class);
+        lenient().when(auth.isAuthenticated()).thenReturn(true);
         mockMvc = MockMvcBuilders.standaloneSetup(documentQueryController)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
@@ -193,11 +196,28 @@ class DocumentQueryControllerTest {
     }
 
     @Test
-    void testResolveUserOrgId_ReflectionException_PropagatesRuntimeException() {
+    void testResolveUserOrgId_ReflectionException_ThrowsAccessDeniedException() {
         when(auth.getPrincipal()).thenReturn(new ExceptionThrowingPrincipal());
 
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> documentQueryController.getPublishedDocuments(auth));
-        assertEquals("Reflection invocation error", exception.getMessage());
+        AccessDeniedException exception = assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(auth));
+        assertTrue(exception.getMessage().contains("Không thể xác định đơn vị"));
+        verifyNoInteractions(documentQueryService);
+    }
+
+    @Test
+    void testResolveUserOrgId_Unauthenticated_ThrowsAuthenticationException() {
+        when(auth.isAuthenticated()).thenReturn(false);
+
+        assertThrows(AuthenticationCredentialsNotFoundException.class, () -> documentQueryController.getPublishedDocuments(auth));
+        verifyNoInteractions(documentQueryService);
+    }
+
+    @Test
+    void testResolveUserOrgId_AnonymousToken_ThrowsAuthenticationException() {
+        Authentication anonymous = new AnonymousAuthenticationToken(
+                "key", "anonymousUser", AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS"));
+
+        assertThrows(AuthenticationCredentialsNotFoundException.class, () -> documentQueryController.getPublishedDocuments(anonymous));
         verifyNoInteractions(documentQueryService);
     }
 
@@ -238,9 +258,33 @@ class DocumentQueryControllerTest {
     }
 
     @Test
+    void testMockMvc_GetPublishedDocuments_Anonymous_Returns401() throws Exception {
+        Authentication anonymous = new AnonymousAuthenticationToken(
+                "key", "anonymousUser", AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS"));
+
+        mockMvc.perform(get("/documents/published")
+                        .principal(anonymous))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(documentQueryService);
+    }
+
+    @Test
     void testMockMvc_GetPublishedDocuments_InvalidPrincipal_Returns403() throws Exception {
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 new MissingOrgIdPrincipal(), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+
+        mockMvc.perform(get("/documents/published")
+                        .principal(authentication))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(documentQueryService);
+    }
+
+    @Test
+    void testMockMvc_GetPublishedDocuments_ReflectionException_Returns403() throws Exception {
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                new ExceptionThrowingPrincipal(), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
 
         mockMvc.perform(get("/documents/published")
                         .principal(authentication))
