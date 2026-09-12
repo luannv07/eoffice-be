@@ -452,7 +452,7 @@ class DocumentRepositoryTest {
                     .build());
         }
 
-        List<String> statuses = List.of("WAITING_APPROVAL");
+        List<DocumentStatus> statuses = List.of(DocumentStatus.WAITING_APPROVAL);
 
         // [5/17] Xác nhận phân trang ổn định xác định (ORDER BY d.id ASC) kể cả khi Pageable không truyền Sort
         Page<Document> page0 = documentRepository.findByStatusIn(statuses, PageRequest.of(0, 2));
@@ -505,12 +505,24 @@ class DocumentRepositoryTest {
                     .build());
         }
 
-        List<String> statuses = List.of("WAITING_APPROVAL");
+        List<DocumentStatus> statuses = List.of(DocumentStatus.WAITING_APPROVAL);
         Page<Document> page = documentRepository.findByStatusIn(statuses, PageRequest.of(0, 3));
 
         List<Long> ids = page.getContent().stream().map(Document::getId).toList();
         assertTrue(ids.size() >= 3);
         assertTrue(ids.get(0) < ids.get(1));
         assertTrue(ids.get(1) < ids.get(2));
+    }
+
+    @Test
+    @DisplayName("findByStatusIn: Kiểm tra với collection status rỗng trả về rỗng an toàn")
+    void findByStatusIn_EmptyStatuses_ReturnsEmptySafely() {
+        List<Document> emptyList = documentRepository.findByStatusIn(List.of());
+        assertNotNull(emptyList);
+        assertTrue(emptyList.isEmpty());
+
+        Page<Document> emptyPage = documentRepository.findByStatusIn(List.of(), PageRequest.of(0, 10));
+        assertNotNull(emptyPage);
+        assertTrue(emptyPage.isEmpty());
     }
 }

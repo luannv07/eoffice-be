@@ -34,6 +34,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
 import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
+import vn.edu.epu.eoffice_be.security.UserIdAwarePrincipal;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -739,9 +740,10 @@ class DocumentServiceCoverageTest {
         assertEquals(2, res.size());
     }
 
-    public static class PrincipalWithGetUserId {
+    public static class PrincipalWithGetUserId implements UserIdAwarePrincipal {
         private final Long userId;
         public PrincipalWithGetUserId(Long userId) { this.userId = userId; }
+        @Override
         public Long getUserId() { return userId; }
     }
 
@@ -825,33 +827,33 @@ class DocumentServiceCoverageTest {
         assertThrows(AccessDeniedException.class, () -> documentPublishService.verifyIntegrity(501L, null));
         assertThrows(AccessDeniedException.class, () -> documentPublishService.verifyIntegrity(501L, unauth));
 
-        // 4. [10/20] [19/20] [20/20] Fallback reflection cho non-JwtUserPrincipal
-        // Principal có username dạng số "100" trùng với creatorId -> thành công
+        // 4. [8/17] [9/17] [10/17] Không suy đoán user ID từ username số hay reflection bừa bãi
+        // Principal có username dạng số "100" không phải UserIdAwarePrincipal -> bị từ chối
         Authentication numUserAuth = new UsernamePasswordAuthenticationToken(
                 new NumericUsernamePrincipal("100"), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
-        assertTrue(documentPublishService.verifyIntegrity(500L, numUserAuth));
+        assertThrows(AccessDeniedException.class, () -> documentPublishService.verifyIntegrity(500L, numUserAuth));
 
-        // Principal dạng String chứa user id ("100") -> thành công
+        // Principal dạng String chứa user id ("100") không phải UserIdAwarePrincipal -> bị từ chối
         Authentication strUserAuth = new UsernamePasswordAuthenticationToken(
                 "100", null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
-        assertTrue(documentPublishService.verifyIntegrity(500L, strUserAuth));
+        assertThrows(AccessDeniedException.class, () -> documentPublishService.verifyIntegrity(500L, strUserAuth));
 
-        // [19/20] Principal UserDetails có username dạng số "100" trùng với creatorId -> thành công
+        // Principal UserDetails có username dạng số "100" không phải UserIdAwarePrincipal -> bị từ chối
         Authentication userDetailsAuth = new UsernamePasswordAuthenticationToken(
                 new NumericUserDetailsPrincipal("100"), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
-        assertTrue(documentPublishService.verifyIntegrity(500L, userDetailsAuth));
+        assertThrows(AccessDeniedException.class, () -> documentPublishService.verifyIntegrity(500L, userDetailsAuth));
 
-        // [19/20] Principal có username dạng số nhưng không trùng creatorId (999 != 100) -> bị từ chối
+        // Principal có username dạng số khác creatorId (999 != 100) -> bị từ chối
         Authentication diffNumUserAuth = new UsernamePasswordAuthenticationToken(
                 new NumericUsernamePrincipal("999"), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
         assertThrows(AccessDeniedException.class, () -> documentPublishService.verifyIntegrity(500L, diffNumUserAuth));
 
-        // Principal có getId() trả về 100L trùng creatorId -> thành công
+        // Principal có getId() không implement UserIdAwarePrincipal -> bị từ chối
         Authentication nonUserIdAuth = new UsernamePasswordAuthenticationToken(
                 new NonUserIdPrincipal(100L), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
-        assertTrue(documentPublishService.verifyIntegrity(500L, nonUserIdAuth));
+        assertThrows(AccessDeniedException.class, () -> documentPublishService.verifyIntegrity(500L, nonUserIdAuth));
 
-        // Principal có getUserId() trả về 100L trùng creatorId -> thành công
+        // Principal implement UserIdAwarePrincipal trả về 100L trùng creatorId -> thành công
         Authentication withUserIdAuth = new UsernamePasswordAuthenticationToken(
                 new PrincipalWithGetUserId(100L), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
         assertTrue(documentPublishService.verifyIntegrity(500L, withUserIdAuth));
@@ -888,12 +890,14 @@ class DocumentServiceCoverageTest {
                 creatorPrincipal, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
         assertTrue(documentPublishService.verifyIntegrity(500L, creatorAuth));
 
-        // 10. [7/20] [9/20] Overload verifyIntegrity(Long) uỷ quyền theo SecurityContextHolder
+        // 10. [7/17] Overload verifyIntegrity(Long) và verifyIntegrity(Long, null) uỷ quyền theo SecurityContextHolder
         try {
             org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(creatorAuth);
+            assertTrue(documentPublishService.verifyIntegrity(501L, null));
             assertTrue(documentPublishService.verifyIntegrity(501L));
 
             org.springframework.security.core.context.SecurityContextHolder.clearContext();
+            assertThrows(AccessDeniedException.class, () -> documentPublishService.verifyIntegrity(501L, null));
             assertThrows(AccessDeniedException.class, () -> documentPublishService.verifyIntegrity(501L));
         } finally {
             org.springframework.security.core.context.SecurityContextHolder.clearContext();
@@ -959,32 +963,32 @@ class DocumentServiceCoverageTest {
 
         assertDoesNotThrow(() -> documentWorkflowService.verifyUserCanAccessDocument(601L, docViewAuth));
 
-        // 7. [10/20] [19/20] Fallback reflection cho non-JwtUserPrincipal: username dạng số "100" trùng creatorId -> được phép
+        // 7. [8/17] [9/17] [10/17] Không suy đoán user ID từ username số hay reflection bừa bãi
         Authentication numUserAuth = new UsernamePasswordAuthenticationToken(
                 new NumericUsernamePrincipal("100"), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
-        assertDoesNotThrow(() -> documentWorkflowService.verifyUserCanAccessDocument(600L, numUserAuth));
+        assertThrows(AccessDeniedException.class, () -> documentWorkflowService.verifyUserCanAccessDocument(600L, numUserAuth));
 
-        // Principal dạng String chứa user id ("100") -> được phép
+        // Principal dạng String chứa user id ("100") không phải UserIdAwarePrincipal -> bị từ chối
         Authentication strUserAuth = new UsernamePasswordAuthenticationToken(
                 "100", null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
-        assertDoesNotThrow(() -> documentWorkflowService.verifyUserCanAccessDocument(600L, strUserAuth));
+        assertThrows(AccessDeniedException.class, () -> documentWorkflowService.verifyUserCanAccessDocument(600L, strUserAuth));
 
-        // [19/20] UserDetails có username "100" trùng creatorId -> được phép
+        // UserDetails có username "100" không phải UserIdAwarePrincipal -> bị từ chối
         Authentication userDetailsAuth = new UsernamePasswordAuthenticationToken(
                 new NumericUserDetailsPrincipal("100"), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
-        assertDoesNotThrow(() -> documentWorkflowService.verifyUserCanAccessDocument(600L, userDetailsAuth));
+        assertThrows(AccessDeniedException.class, () -> documentWorkflowService.verifyUserCanAccessDocument(600L, userDetailsAuth));
 
-        // [19/20] Principal có username số không trùng creatorId (999 != 100) -> bị từ chối
+        // Principal có username số không trùng creatorId (999 != 100) -> bị từ chối
         Authentication diffNumUserAuth = new UsernamePasswordAuthenticationToken(
                 new NumericUsernamePrincipal("999"), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
         assertThrows(AccessDeniedException.class, () -> documentWorkflowService.verifyUserCanAccessDocument(600L, diffNumUserAuth));
 
-        // Fallback getId() trả về 100L trùng creatorId -> được phép
+        // Principal có getId() không implement UserIdAwarePrincipal -> bị từ chối
         Authentication nonUserIdAuth = new UsernamePasswordAuthenticationToken(
                 new NonUserIdPrincipal(100L), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
-        assertDoesNotThrow(() -> documentWorkflowService.verifyUserCanAccessDocument(600L, nonUserIdAuth));
+        assertThrows(AccessDeniedException.class, () -> documentWorkflowService.verifyUserCanAccessDocument(600L, nonUserIdAuth));
 
-        // Fallback getUserId() trả về 100L trùng creatorId -> được phép
+        // Principal implement UserIdAwarePrincipal trả về 100L trùng creatorId -> được phép
         Authentication withUserIdAuth = new UsernamePasswordAuthenticationToken(
                 new PrincipalWithGetUserId(100L), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
         assertDoesNotThrow(() -> documentWorkflowService.verifyUserCanAccessDocument(600L, withUserIdAuth));

@@ -58,19 +58,19 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
 
     @Query("""
         SELECT d FROM Document d
-        WHERE CAST(d.status AS string) IN (:statuses)
+        WHERE d.status IN (:statuses)
           AND d.deleteFlg = false
         ORDER BY d.id ASC
     """)
-    List<Document> findByStatusIn(@Param("statuses") List<String> statuses);
+    List<Document> findByStatusIn(@Param("statuses") java.util.Collection<DocumentStatus> statuses);
 
     @Query("""
         SELECT d FROM Document d
-        WHERE CAST(d.status AS string) IN (:statuses)
+        WHERE d.status IN (:statuses)
           AND d.deleteFlg = false
         ORDER BY d.id ASC
     """)
-    Page<Document> findByStatusIn(@Param("statuses") List<String> statuses, Pageable pageable);
+    Page<Document> findByStatusIn(@Param("statuses") java.util.Collection<DocumentStatus> statuses, Pageable pageable);
 
     @Query(value = """
         SELECT DISTINCT d.* FROM documents d
