@@ -23,6 +23,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -79,7 +80,8 @@ class DocumentPublishControllerTest {
         ArgumentCaptor<Authentication> authCaptor = ArgumentCaptor.forClass(Authentication.class);
         verify(publishService, times(1)).verifyIntegrity(eq(1L), authCaptor.capture());
         assertNotNull(authCaptor.getValue());
-        assertEquals(auth, authCaptor.getValue());
+        assertEquals("tester", authCaptor.getValue().getName());
+        assertTrue(authCaptor.getValue().getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_USER")));
     }
 
     @Test
@@ -96,7 +98,8 @@ class DocumentPublishControllerTest {
         ArgumentCaptor<Authentication> authCaptor = ArgumentCaptor.forClass(Authentication.class);
         verify(publishService, times(1)).verifyIntegrity(eq(2L), authCaptor.capture());
         assertNotNull(authCaptor.getValue());
-        assertEquals(auth, authCaptor.getValue());
+        assertEquals("tester", authCaptor.getValue().getName());
+        assertTrue(authCaptor.getValue().getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_USER")));
     }
 
     @Test
@@ -112,6 +115,15 @@ class DocumentPublishControllerTest {
         ArgumentCaptor<Authentication> authCaptor = ArgumentCaptor.forClass(Authentication.class);
         verify(publishService, times(1)).verifyIntegrity(eq(99L), authCaptor.capture());
         assertNotNull(authCaptor.getValue());
-        assertEquals(auth, authCaptor.getValue());
+        assertEquals("unauthorized_user", authCaptor.getValue().getName());
+        assertTrue(authCaptor.getValue().getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_USER")));
+    }
+
+    @Test
+    void testVerifyIntegrityEndpoint_MissingAuthentication_Returns403() throws Exception {
+        mockMvc.perform(get("/documents/1/verify-integrity"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(publishService);
     }
 }

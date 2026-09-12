@@ -430,6 +430,8 @@ class DocumentRepositoryTest {
     @Test
     @DisplayName("findByStatusIn: Kiểm tra phân trang ổn định (ORDER BY xác định) và tính nhất quán giữa List và Page")
     void findByStatusIn_PaginationAndFilterConsistency_Success() {
+        documentRepository.deleteAll();
+
         OrgNode orgNode = getOrCreateOrgNode("TEST_ORG_PAGE");
         UserLogin creator = userLoginRepository.saveAndFlush(UserLogin.builder()
                 .username("test-page-user")
@@ -484,14 +486,17 @@ class DocumentRepositoryTest {
     @Test
     @DisplayName("findByStatusIn: Kiểm tra phân trang với PageRequest unsorted duy trì thứ tự id ASC xác định")
     void findByStatusIn_UnsortedPageable_MaintainsDeterministicAscendingOrder_Success() {
+        documentRepository.deleteAll();
+
         OrgNode orgNode = getOrCreateOrgNode("TEST_ORG_PAGE_UNSORTED");
         UserLogin creator = userLoginRepository.saveAndFlush(UserLogin.builder()
                 .username("test-page-unsorted-user")
                 .passwordHash("secret")
                 .build());
 
+        List<Long> createdIds = new java.util.ArrayList<>();
         for (int i = 1; i <= 3; i++) {
-            documentRepository.saveAndFlush(Document.builder()
+            Document saved = documentRepository.saveAndFlush(Document.builder()
                     .draftCode("DT-PAGE-UNSORTED-00" + i)
                     .title("Văn bản phân trang unsorted " + i)
                     .documentTypeCd("CONG_VAN")
@@ -503,13 +508,17 @@ class DocumentRepositoryTest {
                     .issuingOrgNode(orgNode)
                     .deleteFlg(false)
                     .build());
+            createdIds.add(saved.getId());
         }
 
         List<DocumentStatus> statuses = List.of(DocumentStatus.WAITING_APPROVAL);
         Page<Document> page = documentRepository.findByStatusIn(statuses, PageRequest.of(0, 3));
 
         List<Long> ids = page.getContent().stream().map(Document::getId).toList();
-        assertTrue(ids.size() >= 3);
+        assertEquals(3, ids.size());
+        assertEquals(createdIds, ids);
+        assertEquals(3, page.getTotalElements());
+        assertEquals(1, page.getTotalPages());
         assertTrue(ids.get(0) < ids.get(1));
         assertTrue(ids.get(1) < ids.get(2));
     }

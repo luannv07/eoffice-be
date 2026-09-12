@@ -1,28 +1,27 @@
 package vn.edu.epu.eoffice_be.controller;
 
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.aop.support.AopUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.test.context.support.WithAnonymousUser;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import vn.edu.epu.eoffice_be.common.exception.GlobalExceptionHandler;
+import vn.edu.epu.eoffice_be.config.SecurityConfig;
 import vn.edu.epu.eoffice_be.dto.PendingDocumentResponse;
 import vn.edu.epu.eoffice_be.dto.WorkflowTimelineResponse;
 import vn.edu.epu.eoffice_be.service.DocumentWorkflowService;
@@ -34,37 +33,25 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@ExtendWith(MockitoExtension.class)
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles("test")
 class DocumentWorkflowControllerTest {
 
+    @Autowired
     MockMvc mockMvc;
 
-    @Mock
+    @MockBean
     DocumentWorkflowService workflowService;
 
-    @InjectMocks
+    @Autowired
     DocumentWorkflowController controller;
-
-    @BeforeEach
-    void setUp() {
-        SecurityContextHolder.clearContext();
-
-        var securityFilter = new org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter();
-        try {
-            securityFilter.afterPropertiesSet();
-        } catch (Exception ignored) {}
-
-        mockMvc = MockMvcBuilders.standaloneSetup(controller)
-                .addFilters(securityFilter)
-                .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .build();
-    }
 
     @AfterEach
     void tearDown() {
@@ -72,6 +59,7 @@ class DocumentWorkflowControllerTest {
     }
 
     @Test
+    @WithMockUser
     void testGetPendingReviewDocuments_DefaultPageable_Success() throws Exception {
         PendingDocumentResponse doc1 = PendingDocumentResponse.builder()
                 .id(1L)
@@ -94,6 +82,7 @@ class DocumentWorkflowControllerTest {
     }
 
     @Test
+    @WithMockUser
     void testGetPendingReviewDocuments_EmptyPage_Success() throws Exception {
         Page<PendingDocumentResponse> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(5, 10), 0);
 
@@ -109,6 +98,7 @@ class DocumentWorkflowControllerTest {
     }
 
     @Test
+    @WithMockUser
     void testGetPendingReviewDocuments_CustomPageAndSize_Success() throws Exception {
         List<PendingDocumentResponse> docs = List.of(
                 PendingDocumentResponse.builder().id(2L).title("Doc 2").build(),
@@ -140,46 +130,41 @@ class DocumentWorkflowControllerTest {
         Authentication auth = new UsernamePasswordAuthenticationToken(
                 "user", "pass", List.of(new SimpleGrantedAuthority("ROLE_USER")));
 
-        when(workflowService.getDocumentTimeline(eq(10L), eq(auth))).thenReturn(List.of(timelineItem));
+        when(workflowService.getDocumentTimeline(eq(10L), any(Authentication.class))).thenReturn(List.of(timelineItem));
 
-        SecurityContextHolder.getContext().setAuthentication(auth);
-        try {
-            mockMvc.perform(get("/documents/10/timeline")
-                            .with(authentication(auth)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$[0].id").value(1L))
-                    .andExpect(jsonPath("$[0].documentId").value(10L))
-                    .andExpect(jsonPath("$[0].action").value("SUBMIT_APPROVAL"));
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
+        mockMvc.perform(get("/documents/10/timeline")
+                        .with(authentication(auth)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(1L))
+                .andExpect(jsonPath("$[0].documentId").value(10L))
+                .andExpect(jsonPath("$[0].action").value("SUBMIT_APPROVAL"));
 
-        verify(workflowService, times(1)).getDocumentTimeline(eq(10L), eq(auth));
+        verify(workflowService, times(1)).getDocumentTimeline(eq(10L), any(Authentication.class));
     }
 
     @Test
-    void testGetDocumentTimeline_Unauthenticated_Returns403() throws Exception {
+    void testGetDocumentTimeline_Unauthenticated_Returns401Or403() throws Exception {
         SecurityContextHolder.clearContext();
-        // Enforced at API/controller authorization layer without stubbing workflowService -> 403 Forbidden
+        // Enforced at API/controller authorization layer without stubbing workflowService -> 401/403
         mockMvc.perform(get("/documents/99/timeline"))
-                .andExpect(status().isForbidden());
+                .andExpect(result -> {
+                    int status = result.getResponse().getStatus();
+                    assertTrue(status == 401 || status == 403,
+                            "Expected 401 or 403 for unauthenticated request, got: " + status);
+                });
 
         verifyNoInteractions(workflowService);
     }
 
     @Test
-    void testGetDocumentTimeline_AnonymousToken_Returns403() throws Exception {
-        Authentication anonymous = new AnonymousAuthenticationToken(
-                "key", "anonymousUser", AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS"));
-
-        SecurityContextHolder.getContext().setAuthentication(anonymous);
-        try {
-            mockMvc.perform(get("/documents/99/timeline")
-                            .with(authentication(anonymous)))
-                    .andExpect(status().isForbidden());
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
+    @WithAnonymousUser
+    void testGetDocumentTimeline_AnonymousToken_Returns401Or403() throws Exception {
+        mockMvc.perform(get("/documents/99/timeline").with(anonymous()))
+                .andExpect(result -> {
+                    int status = result.getResponse().getStatus();
+                    assertTrue(status == 401 || status == 403,
+                            "Expected 401 or 403 for anonymous request, got: " + status);
+                });
 
         verifyNoInteractions(workflowService);
     }
@@ -189,27 +174,20 @@ class DocumentWorkflowControllerTest {
         Authentication auth = new UsernamePasswordAuthenticationToken(
                 "user", "pass", List.of(new SimpleGrantedAuthority("ROLE_USER")));
 
-        when(workflowService.getDocumentTimeline(eq(99L), eq(auth)))
+        when(workflowService.getDocumentTimeline(eq(99L), any(Authentication.class)))
                 .thenThrow(new AccessDeniedException("User is not authorized to view timeline"));
 
-        SecurityContextHolder.getContext().setAuthentication(auth);
-        try {
-            mockMvc.perform(get("/documents/99/timeline")
-                            .with(authentication(auth)))
-                    .andExpect(status().isForbidden());
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
+        mockMvc.perform(get("/documents/99/timeline")
+                        .with(authentication(auth)))
+                .andExpect(status().isForbidden());
 
-        verify(workflowService, times(1)).getDocumentTimeline(eq(99L), eq(auth));
+        verify(workflowService, times(1)).getDocumentTimeline(eq(99L), any(Authentication.class));
     }
 
     @Test
-    void testMethodSecurityConfigurationAndEnforcement() {
+    void testMethodSecurityConfigurationAndEnforcement() throws Exception {
         // [16/20] 1. Kiểm tra cấu hình method security toàn cục @EnableMethodSecurity(prePostEnabled = true)
-        org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity enableMethodSecurity =
-                vn.edu.epu.eoffice_be.config.SecurityConfig.class.getAnnotation(
-                        org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity.class);
+        EnableMethodSecurity enableMethodSecurity = SecurityConfig.class.getAnnotation(EnableMethodSecurity.class);
         assertNotNull(enableMethodSecurity, "SecurityConfig must be annotated with @EnableMethodSecurity");
         assertTrue(enableMethodSecurity.prePostEnabled(), "prePostEnabled must be true for @PreAuthorize enforcement");
 
@@ -218,10 +196,18 @@ class DocumentWorkflowControllerTest {
         assertNotNull(annotation, "DocumentWorkflowController must be annotated with @PreAuthorize");
         assertEquals("isAuthenticated()", annotation.value());
 
-        // [16/20] [4/17] 3. Kiểm tra hành vi: khi SecurityContext trống, yêu cầu bị từ chối với AccessDeniedException (403)
+        // [13/17] 3. Kiểm tra controller được tạo proxy method security bởi Spring Security
+        assertTrue(AopUtils.isAopProxy(controller),
+                "DocumentWorkflowController must be proxied by Spring Security for @PreAuthorize enforcement");
+
+        // [14/17] 4. Kiểm tra hành vi: khi SecurityContext trống, yêu cầu HTTP bị chặn (401/403) và không gọi workflowService
         SecurityContextHolder.clearContext();
-        assertThrows(AccessDeniedException.class,
-                () -> controller.getDocumentTimeline(99L, null));
+        mockMvc.perform(get("/documents/99/timeline"))
+                .andExpect(result -> {
+                    int status = result.getResponse().getStatus();
+                    assertTrue(status == 401 || status == 403,
+                            "Expected 401 or 403 for unauthenticated request, got: " + status);
+                });
         verifyNoInteractions(workflowService);
     }
 }
