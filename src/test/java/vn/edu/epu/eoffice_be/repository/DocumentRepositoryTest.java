@@ -454,8 +454,8 @@ class DocumentRepositoryTest {
 
         List<String> statuses = List.of("WAITING_APPROVAL");
 
-        Page<Document> page0 = documentRepository.findByStatusIn(statuses, PageRequest.of(0, 2));
-        Page<Document> page1 = documentRepository.findByStatusIn(statuses, PageRequest.of(1, 2));
+        Page<Document> page0 = documentRepository.findByStatusIn(statuses, PageRequest.of(0, 2, org.springframework.data.domain.Sort.by("id").ascending()));
+        Page<Document> page1 = documentRepository.findByStatusIn(statuses, PageRequest.of(1, 2, org.springframework.data.domain.Sort.by("id").ascending()));
 
         assertEquals(4, page0.getTotalElements());
         assertEquals(2, page0.getContent().size());
@@ -477,5 +477,39 @@ class DocumentRepositoryTest {
         assertEquals(4, listResults.size());
         List<Long> listIds = listResults.stream().map(Document::getId).toList();
         assertEquals(List.of(idsPage0.get(0), idsPage0.get(1), idsPage1.get(0), idsPage1.get(1)), listIds);
+    }
+
+    @Test
+    @DisplayName("findByStatusIn: Kiểm tra hỗ trợ dynamic Sort từ Pageable (DESC)")
+    void findByStatusIn_DynamicSort_Success() {
+        OrgNode orgNode = getOrCreateOrgNode("TEST_ORG_PAGE_DESC");
+        UserLogin creator = userLoginRepository.saveAndFlush(UserLogin.builder()
+                .username("test-page-desc-user")
+                .passwordHash("secret")
+                .build());
+
+        for (int i = 1; i <= 3; i++) {
+            documentRepository.saveAndFlush(Document.builder()
+                    .draftCode("DT-PAGE-DESC-00" + i)
+                    .title("Văn bản phân trang DESC " + i)
+                    .documentTypeCd("CONG_VAN")
+                    .status(DocumentStatus.WAITING_APPROVAL)
+                    .securityLevel(DocumentSecurityLevel.NORMAL)
+                    .urgencyLevel(DocumentUrgencyLevel.NORMAL)
+                    .currentVersion(1)
+                    .creatorUser(creator)
+                    .issuingOrgNode(orgNode)
+                    .deleteFlg(false)
+                    .build());
+        }
+
+        List<String> statuses = List.of("WAITING_APPROVAL");
+        Page<Document> pageDesc = documentRepository.findByStatusIn(statuses,
+                PageRequest.of(0, 3, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "id")));
+
+        List<Long> idsDesc = pageDesc.getContent().stream().map(Document::getId).toList();
+        assertTrue(idsDesc.size() >= 3);
+        assertTrue(idsDesc.get(0) > idsDesc.get(1));
+        assertTrue(idsDesc.get(1) > idsDesc.get(2));
     }
 }

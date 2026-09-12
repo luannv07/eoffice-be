@@ -114,7 +114,7 @@ public class DocumentWorkflowService {
         throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền xem timeline của tài liệu này");
     }
 
-    private Long extractUserId(org.springframework.security.core.Authentication authentication) {
+    Long extractUserId(org.springframework.security.core.Authentication authentication) {
         if (authentication == null || authentication.getPrincipal() == null) {
             return null;
         }
@@ -122,6 +122,35 @@ public class DocumentWorkflowService {
         if (principal instanceof vn.edu.epu.eoffice_be.security.JwtUserPrincipal jwt) {
             return jwt.getUserId();
         }
+
+        // 1. Try getUserId() via reflection
+        try {
+            java.lang.reflect.Method m = principal.getClass().getMethod("getUserId");
+            Object res = m.invoke(principal);
+            if (res instanceof Number num) {
+                return num.longValue();
+            }
+        } catch (Exception ignored) {
+        }
+
+        // 2. Try getId() via reflection
+        try {
+            java.lang.reflect.Method m = principal.getClass().getMethod("getId");
+            Object res = m.invoke(principal);
+            if (res instanceof Number num) {
+                return num.longValue();
+            }
+        } catch (Exception ignored) {
+        }
+
+        // 3. Try parsing authentication.getName() as numeric user ID
+        try {
+            if (authentication.getName() != null) {
+                return Long.parseLong(authentication.getName());
+            }
+        } catch (Exception ignored) {
+        }
+
         return null;
     }
 

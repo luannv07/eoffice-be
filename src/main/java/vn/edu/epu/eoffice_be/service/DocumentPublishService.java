@@ -110,10 +110,21 @@ public class DocumentPublishService {
         return Collections.emptyList();
     }
 
+    /**
+     * Backward-compatible overload for internal callers and legacy invocations.
+     * Explicitly resolves the current authentication from SecurityContextHolder
+     * and delegates to {@link #verifyIntegrity(Long, Authentication)}.
+     *
+     * @param documentId the ID of the document to verify
+     * @return true if document matches official SHA-256 hash, false otherwise
+     */
+    public boolean verifyIntegrity(Long documentId) {
+        org.springframework.security.core.Authentication auth =
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        return verifyIntegrity(documentId, auth);
+    }
+
     public boolean verifyIntegrity(Long documentId, org.springframework.security.core.Authentication authentication) {
-        if (authentication == null) {
-            authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-        }
         Document doc = documentRepository.findById(documentId)
                 .orElseThrow(() -> new IllegalArgumentException("Document not found: " + documentId));
 
@@ -135,12 +146,15 @@ public class DocumentPublishService {
     }
 
     void assertCanVerifyIntegrity(Document doc, org.springframework.security.core.Authentication authentication) {
-        if (doc.getStatus() == DocumentStatus.PUBLISHED || doc.getStatus() == DocumentStatus.ISSUED) {
-            return;
+        // Enforce user authentication first before inspecting document status
+        if (authentication == null 
+                || !authentication.isAuthenticated() 
+                || authentication instanceof org.springframework.security.authentication.AnonymousAuthenticationToken) {
+            throw new org.springframework.security.access.AccessDeniedException("Yêu cầu xác thực người dùng");
         }
 
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new org.springframework.security.access.AccessDeniedException("Yêu cầu xác thực người dùng");
+        if (doc.getStatus() == DocumentStatus.PUBLISHED || doc.getStatus() == DocumentStatus.ISSUED) {
+            return;
         }
 
         boolean hasAdminOrPrivilege = authentication.getAuthorities() != null && authentication.getAuthorities().stream()
@@ -163,7 +177,7 @@ public class DocumentPublishService {
         throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền kiểm tra tính toàn vẹn của tài liệu này");
     }
 
-    private Long extractUserId(org.springframework.security.core.Authentication authentication) {
+    Long extractUserId(org.springframework.security.core.Authentication authentication) {
         if (authentication == null || authentication.getPrincipal() == null) {
             return null;
         }
@@ -171,6 +185,35 @@ public class DocumentPublishService {
         if (principal instanceof vn.edu.epu.eoffice_be.security.JwtUserPrincipal jwt) {
             return jwt.getUserId();
         }
+
+        // 1. Try getUserId() via reflection
+        try {
+            java.lang.reflect.Method m = principal.getClass().getMethod("getUserId");
+            Object res = m.invoke(principal);
+            if (res instanceof Number num) {
+                return num.longValue();
+            }
+        } catch (Exception ignored) {
+        }
+
+        // 2. Try getId() via reflection
+        try {
+            java.lang.reflect.Method m = principal.getClass().getMethod("getId");
+            Object res = m.invoke(principal);
+            if (res instanceof Number num) {
+                return num.longValue();
+            }
+        } catch (Exception ignored) {
+        }
+
+        // 3. Try parsing authentication.getName() as numeric user ID
+        try {
+            if (authentication.getName() != null) {
+                return Long.parseLong(authentication.getName());
+            }
+        } catch (Exception ignored) {
+        }
+
         return null;
     }
 

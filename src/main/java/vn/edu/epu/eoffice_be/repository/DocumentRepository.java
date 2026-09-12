@@ -56,14 +56,19 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
             Pageable pageable
     );
 
-    String FIND_BY_STATUS_BASE_SQL = "FROM documents WHERE status IN (:statuses) AND delete_flg = false";
-
-    @Query(value = "SELECT * " + FIND_BY_STATUS_BASE_SQL + " ORDER BY id ASC", nativeQuery = true)
+    @Query("""
+        SELECT d FROM Document d
+        WHERE CAST(d.status AS string) IN (:statuses)
+          AND d.deleteFlg = false
+        ORDER BY d.id ASC
+    """)
     List<Document> findByStatusIn(@Param("statuses") List<String> statuses);
 
-    @Query(value = "SELECT * " + FIND_BY_STATUS_BASE_SQL + " ORDER BY id ASC",
-           countQuery = "SELECT count(*) " + FIND_BY_STATUS_BASE_SQL,
-           nativeQuery = true)
+    @Query("""
+        SELECT d FROM Document d
+        WHERE CAST(d.status AS string) IN (:statuses)
+          AND d.deleteFlg = false
+    """)
     Page<Document> findByStatusIn(@Param("statuses") List<String> statuses, Pageable pageable);
 
     @Query(value = """
