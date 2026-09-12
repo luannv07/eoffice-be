@@ -20,6 +20,7 @@ import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentWorkflowLogRepository;
 import java.util.Collections;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.security.MessageDigest;
 import java.time.LocalDate;
@@ -712,6 +713,13 @@ class DocumentServiceCoverageTest {
         doc.setOfficialHash(published.getOfficialHash());
         Authentication auth = new UsernamePasswordAuthenticationToken("tester", null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
         assertTrue(documentPublishService.verifyIntegrity(606L, auth));
+
+        // [18/20] Kiểm tra hash sai thì verifyIntegrity trả về false
+        doc.setOfficialHash("different_hash_value_123");
+        assertFalse(documentPublishService.verifyIntegrity(606L, auth));
+
+        // [18/20] Gọi verifyIntegrity với null authentication bị từ chối theo chuẩn bảo mật
+        assertThrows(AccessDeniedException.class, () -> documentPublishService.verifyIntegrity(606L, null));
     }
 
     @Test
@@ -760,17 +768,39 @@ class DocumentServiceCoverageTest {
         public String toString() { return username; }
     }
 
+    public static class NumericUserDetailsPrincipal implements org.springframework.security.core.userdetails.UserDetails {
+        private final String username;
+        public NumericUserDetailsPrincipal(String username) { this.username = username; }
+        @Override public String getUsername() { return username; }
+        @Override public String getPassword() { return ""; }
+        @Override public java.util.Collection<? extends org.springframework.security.core.GrantedAuthority> getAuthorities() {
+            return List.of(new SimpleGrantedAuthority("ROLE_USER"));
+        }
+        @Override public boolean isAccountNonExpired() { return true; }
+        @Override public boolean isAccountNonLocked() { return true; }
+        @Override public boolean isCredentialsNonExpired() { return true; }
+        @Override public boolean isEnabled() { return true; }
+    }
+
     @Test
-    void testVerifyIntegrity_UnpublishedDocument_SecurityChecks() {
+    void testVerifyIntegrity_UnpublishedDocument_SecurityChecks() throws Exception {
         UserLogin creator = new UserLogin();
         creator.setId(100L);
+
+        // [20/20] Tạo file tạm thực tế có SHA-256 hash chuẩn xác để kiểm tra tính toàn vẹn không bị thiếu mock
+        File tempFile = File.createTempFile("test_verify_doc", ".pdf");
+        tempFile.deleteOnExit();
+        byte[] fileBytes = "Sample PDF content for security verification".getBytes(StandardCharsets.UTF_8);
+        Files.write(tempFile.toPath(), fileBytes);
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        String validHash = HexFormat.of().formatHex(digest.digest(fileBytes));
 
         Document draftDoc = new Document();
         draftDoc.setId(500L);
         draftDoc.setStatus(DocumentStatus.DRAFT);
         draftDoc.setCreatorUser(creator);
-        draftDoc.setOfficialHash("validhash");
-        draftDoc.setOfficialFilePath("dummy.pdf");
+        draftDoc.setOfficialHash(validHash);
+        draftDoc.setOfficialFilePath(tempFile.getAbsolutePath());
 
         when(documentRepository.findById(500L)).thenReturn(Optional.of(draftDoc));
 
@@ -778,8 +808,8 @@ class DocumentServiceCoverageTest {
         publishedDoc.setId(501L);
         publishedDoc.setStatus(DocumentStatus.PUBLISHED);
         publishedDoc.setCreatorUser(creator);
-        publishedDoc.setOfficialHash("validhash");
-        publishedDoc.setOfficialFilePath("dummy.pdf");
+        publishedDoc.setOfficialHash(validHash);
+        publishedDoc.setOfficialFilePath(tempFile.getAbsolutePath());
 
         when(documentRepository.findById(501L)).thenReturn(Optional.of(publishedDoc));
 
@@ -795,26 +825,36 @@ class DocumentServiceCoverageTest {
         assertThrows(AccessDeniedException.class, () -> documentPublishService.verifyIntegrity(501L, null));
         assertThrows(AccessDeniedException.class, () -> documentPublishService.verifyIntegrity(501L, unauth));
 
-        // 4. [10/20] Fallback reflection cho non-JwtUserPrincipal
+        // 4. [10/20] [19/20] [20/20] Fallback reflection cho non-JwtUserPrincipal
         // Principal có username dạng số "100" trùng với creatorId -> thành công
         Authentication numUserAuth = new UsernamePasswordAuthenticationToken(
                 new NumericUsernamePrincipal("100"), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
-        assertDoesNotThrow(() -> documentPublishService.verifyIntegrity(500L, numUserAuth));
+        assertTrue(documentPublishService.verifyIntegrity(500L, numUserAuth));
 
         // Principal dạng String chứa user id ("100") -> thành công
         Authentication strUserAuth = new UsernamePasswordAuthenticationToken(
                 "100", null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
-        assertDoesNotThrow(() -> documentPublishService.verifyIntegrity(500L, strUserAuth));
+        assertTrue(documentPublishService.verifyIntegrity(500L, strUserAuth));
+
+        // [19/20] Principal UserDetails có username dạng số "100" trùng với creatorId -> thành công
+        Authentication userDetailsAuth = new UsernamePasswordAuthenticationToken(
+                new NumericUserDetailsPrincipal("100"), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        assertTrue(documentPublishService.verifyIntegrity(500L, userDetailsAuth));
+
+        // [19/20] Principal có username dạng số nhưng không trùng creatorId (999 != 100) -> bị từ chối
+        Authentication diffNumUserAuth = new UsernamePasswordAuthenticationToken(
+                new NumericUsernamePrincipal("999"), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        assertThrows(AccessDeniedException.class, () -> documentPublishService.verifyIntegrity(500L, diffNumUserAuth));
 
         // Principal có getId() trả về 100L trùng creatorId -> thành công
         Authentication nonUserIdAuth = new UsernamePasswordAuthenticationToken(
                 new NonUserIdPrincipal(100L), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
-        assertDoesNotThrow(() -> documentPublishService.verifyIntegrity(500L, nonUserIdAuth));
+        assertTrue(documentPublishService.verifyIntegrity(500L, nonUserIdAuth));
 
         // Principal có getUserId() trả về 100L trùng creatorId -> thành công
         Authentication withUserIdAuth = new UsernamePasswordAuthenticationToken(
                 new PrincipalWithGetUserId(100L), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
-        assertDoesNotThrow(() -> documentPublishService.verifyIntegrity(500L, withUserIdAuth));
+        assertTrue(documentPublishService.verifyIntegrity(500L, withUserIdAuth));
 
         // Principal không thể trích xuất userId hợp lệ và không có quyền -> ném AccessDeniedException
         Authentication invalidPrincipalAuth = new UsernamePasswordAuthenticationToken(
@@ -832,32 +872,42 @@ class DocumentServiceCoverageTest {
                 otherUser, null, List.of(new SimpleGrantedAuthority("DOCUMENT_VIEW")));
         assertThrows(AccessDeniedException.class, () -> documentPublishService.verifyIntegrity(500L, viewAuth));
 
-        // 7. ROLE_ADMIN -> được phép vượt qua kiểm tra quyền
+        // 7. ROLE_ADMIN -> được phép vượt qua kiểm tra quyền và xác thực tính toàn vẹn thành công
         Authentication adminAuth = new UsernamePasswordAuthenticationToken(
                 otherUser, null, List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
-        assertDoesNotThrow(() -> documentPublishService.verifyIntegrity(500L, adminAuth));
+        assertTrue(documentPublishService.verifyIntegrity(500L, adminAuth));
 
-        // 8. DOCUMENT_VERIFY -> được phép vượt qua kiểm tra quyền
+        // 8. DOCUMENT_VERIFY -> được phép vượt qua kiểm tra quyền và xác thực tính toàn vẹn thành công
         Authentication verifyAuth = new UsernamePasswordAuthenticationToken(
                 otherUser, null, List.of(new SimpleGrantedAuthority("DOCUMENT_VERIFY")));
-        assertDoesNotThrow(() -> documentPublishService.verifyIntegrity(500L, verifyAuth));
+        assertTrue(documentPublishService.verifyIntegrity(500L, verifyAuth));
 
-        // 9. Chính creator (userId = 100L) -> được phép vượt qua kiểm tra quyền
+        // 9. Chính creator (userId = 100L) -> được phép vượt qua kiểm tra quyền và xác thực tính toàn vẹn thành công
         JwtUserPrincipal creatorPrincipal = new JwtUserPrincipal(100L, "creator", "USER", true, List.of());
         Authentication creatorAuth = new UsernamePasswordAuthenticationToken(
                 creatorPrincipal, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
-        assertDoesNotThrow(() -> documentPublishService.verifyIntegrity(500L, creatorAuth));
+        assertTrue(documentPublishService.verifyIntegrity(500L, creatorAuth));
 
         // 10. [7/20] [9/20] Overload verifyIntegrity(Long) uỷ quyền theo SecurityContextHolder
         try {
             org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(creatorAuth);
-            assertDoesNotThrow(() -> documentPublishService.verifyIntegrity(501L));
+            assertTrue(documentPublishService.verifyIntegrity(501L));
 
             org.springframework.security.core.context.SecurityContextHolder.clearContext();
             assertThrows(AccessDeniedException.class, () -> documentPublishService.verifyIntegrity(501L));
         } finally {
             org.springframework.security.core.context.SecurityContextHolder.clearContext();
         }
+
+        // [20/20] Kiểm tra khi có quyền nhưng hash không khớp -> trả về false chứ không ném ngoại lệ
+        Document hashMismatchDoc = new Document();
+        hashMismatchDoc.setId(502L);
+        hashMismatchDoc.setStatus(DocumentStatus.DRAFT);
+        hashMismatchDoc.setCreatorUser(creator);
+        hashMismatchDoc.setOfficialHash("incorrect_hash_value");
+        hashMismatchDoc.setOfficialFilePath(tempFile.getAbsolutePath());
+        when(documentRepository.findById(502L)).thenReturn(Optional.of(hashMismatchDoc));
+        assertFalse(documentPublishService.verifyIntegrity(502L, creatorAuth));
     }
 
     @Test
@@ -909,7 +959,7 @@ class DocumentServiceCoverageTest {
 
         assertDoesNotThrow(() -> documentWorkflowService.verifyUserCanAccessDocument(601L, docViewAuth));
 
-        // 7. [10/20] Fallback reflection cho non-JwtUserPrincipal: username dạng số "100" trùng creatorId -> được phép
+        // 7. [10/20] [19/20] Fallback reflection cho non-JwtUserPrincipal: username dạng số "100" trùng creatorId -> được phép
         Authentication numUserAuth = new UsernamePasswordAuthenticationToken(
                 new NumericUsernamePrincipal("100"), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
         assertDoesNotThrow(() -> documentWorkflowService.verifyUserCanAccessDocument(600L, numUserAuth));
@@ -918,6 +968,16 @@ class DocumentServiceCoverageTest {
         Authentication strUserAuth = new UsernamePasswordAuthenticationToken(
                 "100", null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
         assertDoesNotThrow(() -> documentWorkflowService.verifyUserCanAccessDocument(600L, strUserAuth));
+
+        // [19/20] UserDetails có username "100" trùng creatorId -> được phép
+        Authentication userDetailsAuth = new UsernamePasswordAuthenticationToken(
+                new NumericUserDetailsPrincipal("100"), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        assertDoesNotThrow(() -> documentWorkflowService.verifyUserCanAccessDocument(600L, userDetailsAuth));
+
+        // [19/20] Principal có username số không trùng creatorId (999 != 100) -> bị từ chối
+        Authentication diffNumUserAuth = new UsernamePasswordAuthenticationToken(
+                new NumericUsernamePrincipal("999"), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        assertThrows(AccessDeniedException.class, () -> documentWorkflowService.verifyUserCanAccessDocument(600L, diffNumUserAuth));
 
         // Fallback getId() trả về 100L trùng creatorId -> được phép
         Authentication nonUserIdAuth = new UsernamePasswordAuthenticationToken(

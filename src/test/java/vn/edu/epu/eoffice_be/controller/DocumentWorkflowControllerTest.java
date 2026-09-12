@@ -205,9 +205,23 @@ class DocumentWorkflowControllerTest {
     }
 
     @Test
-    void testClassLevelPreAuthorizeAnnotation() {
+    void testMethodSecurityConfigurationAndEnforcement() {
+        // [16/20] 1. Kiểm tra cấu hình method security toàn cục @EnableMethodSecurity(prePostEnabled = true)
+        org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity enableMethodSecurity =
+                vn.edu.epu.eoffice_be.config.SecurityConfig.class.getAnnotation(
+                        org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity.class);
+        assertNotNull(enableMethodSecurity, "SecurityConfig must be annotated with @EnableMethodSecurity");
+        assertTrue(enableMethodSecurity.prePostEnabled(), "prePostEnabled must be true for @PreAuthorize enforcement");
+
+        // [16/20] 2. Kiểm tra annotation @PreAuthorize trên controller
         PreAuthorize annotation = DocumentWorkflowController.class.getAnnotation(PreAuthorize.class);
         assertNotNull(annotation, "DocumentWorkflowController must be annotated with @PreAuthorize");
         assertEquals("isAuthenticated()", annotation.value());
+
+        // [16/20] 3. Kiểm tra hành vi: khi SecurityContext trống, yêu cầu bị từ chối mà không chạm tới service
+        SecurityContextHolder.clearContext();
+        assertThrows(org.springframework.security.authentication.AuthenticationCredentialsNotFoundException.class,
+                () -> controller.getDocumentTimeline(99L, null));
+        verifyNoInteractions(workflowService);
     }
 }

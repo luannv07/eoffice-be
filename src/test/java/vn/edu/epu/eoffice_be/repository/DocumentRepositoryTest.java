@@ -454,8 +454,9 @@ class DocumentRepositoryTest {
 
         List<String> statuses = List.of("WAITING_APPROVAL");
 
-        Page<Document> page0 = documentRepository.findByStatusIn(statuses, PageRequest.of(0, 2, org.springframework.data.domain.Sort.by("id").ascending()));
-        Page<Document> page1 = documentRepository.findByStatusIn(statuses, PageRequest.of(1, 2, org.springframework.data.domain.Sort.by("id").ascending()));
+        // [17/20] Xác định thứ tự ổn định rõ ràng qua Sort.Direction.ASC thay vì phụ thuộc thứ tự ngầm định
+        Page<Document> page0 = documentRepository.findByStatusIn(statuses, PageRequest.of(0, 2, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "id")));
+        Page<Document> page1 = documentRepository.findByStatusIn(statuses, PageRequest.of(1, 2, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "id")));
 
         assertEquals(4, page0.getTotalElements());
         assertEquals(2, page0.getContent().size());
@@ -473,10 +474,11 @@ class DocumentRepositoryTest {
         allPagedIds.addAll(idsPage1);
         assertEquals(4, allPagedIds.size());
 
+        // [17/20] So sánh tập hợp ID với findByStatusIn(statuses) để tránh phụ thuộc vào thứ tự danh sách không đảm bảo
         List<Document> listResults = documentRepository.findByStatusIn(statuses);
         assertEquals(4, listResults.size());
-        List<Long> listIds = listResults.stream().map(Document::getId).toList();
-        assertEquals(List.of(idsPage0.get(0), idsPage0.get(1), idsPage1.get(0), idsPage1.get(1)), listIds);
+        java.util.Set<Long> listIdsSet = listResults.stream().map(Document::getId).collect(java.util.stream.Collectors.toSet());
+        assertEquals(allPagedIds, listIdsSet);
     }
 
     @Test
