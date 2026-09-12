@@ -321,4 +321,85 @@ class DocumentServiceCoverageTest {
         assertEquals("10/QĐ-ĐHL", published.getOfficialNumber());
         assertEquals("PUBLISHED", published.getStatus());
     }
+    @Test
+    void testWorkflowPagination_SubListBranches() {
+        // Test phân trang: offset vượt quá kích thước danh sách và offset bình thường
+        DocumentWorkflowService mockWf = mock(DocumentWorkflowService.class);
+        DocumentWorkflowController wfController = new DocumentWorkflowController(mockWf);
+
+        when(mockWf.getPendingDocuments()).thenReturn(List.of(
+                vn.edu.epu.eoffice_be.dto.PendingDocumentResponse.builder().id(1L).title("Doc 1").build(),
+                vn.edu.epu.eoffice_be.dto.PendingDocumentResponse.builder().id(2L).title("Doc 2").build()
+        ));
+
+        // Nhánh start > pendingList.size()
+        var emptyPage = wfController.getPendingReviewDocuments(PageRequest.of(5, 2));
+        assertNotNull(emptyPage);
+        assertEquals(0, emptyPage.getBody().getContent().size());
+
+        // Nhánh start <= pendingList.size()
+        var normalPage = wfController.getPendingReviewDocuments(PageRequest.of(0, 1));
+        assertNotNull(normalPage);
+        assertEquals(1, normalPage.getBody().getContent().size());
+    }
+
+    @Test
+    void testDocumentPublishService_ExceptionAndEdgeBranches() throws Exception {
+        // Test nhánh tính SHA-256 từ file thật hợp lệ
+        File realTempFile = File.createTempFile("coverage_real_doc", ".pdf");
+        realTempFile.deleteOnExit();
+        Files.write(realTempFile.toPath(), "Content for hashing coverage".getBytes());
+
+        Document docWithRealFile = new Document();
+        docWithRealFile.setId(77L);
+        docWithRealFile.setOfficialFilePath(realTempFile.getAbsolutePath());
+
+        when(documentRepository.findById(77L)).thenReturn(Optional.of(docWithRealFile));
+        when(documentRepository.save(any(Document.class))).thenAnswer(i -> i.getArgument(0));
+
+        PublishRequest req = new PublishRequest();
+        req.setIssueDate(LocalDate.now());
+
+        Document result = documentPublishService.publishDocument(77L, req);
+        assertNotNull(result);
+        assertNotNull(result.getOfficialHash());
+
+        // Test nhánh verifyIntegrity khi file không tồn tại gây exception lúc tính hash
+        docWithRealFile.setOfficialFilePath("non_existent_folder/non_existent_file.pdf");
+        docWithRealFile.setOfficialHash("somehash123");
+        assertFalse(documentPublishService.verifyIntegrity(77L));
+    }
+
+    @Test
+    void testDocumentQueryService_RemainingBranches() {
+        // Phủ các nhánh null-check và empty list của DocumentQueryService
+        lenient().when(documentRepository.findPublishedDocumentsForUser(999L)).thenReturn(List.of());
+        var emptyDocs = documentQueryService.getPublishedDocuments(999L);
+        assertNotNull(emptyDocs);
+        assertTrue(emptyDocs.isEmpty());
+    }
+
+    @Test
+    void testPendingDocumentResponseDto() {
+        var res = new vn.edu.epu.eoffice_be.dto.PendingDocumentResponse();
+        res.setId(100L);
+        res.setTitle("Tờ trình");
+        res.setStatus("IN_REVIEW");
+
+        assertEquals(100L, res.getId());
+        assertEquals("Tờ trình", res.getTitle());
+        assertEquals("IN_REVIEW", res.getStatus());
+    }
+
+    @Test
+    void testWorkflowTimelineResponseDto() {
+        var timelineRes = new vn.edu.epu.eoffice_be.dto.WorkflowTimelineResponse();
+        timelineRes.setId(200L);
+        timelineRes.setAction("APPROVE");
+        timelineRes.setCreatedAt(LocalDateTime.now());
+
+        assertEquals(200L, timelineRes.getId());
+        assertEquals("APPROVE", timelineRes.getAction());
+        assertNotNull(timelineRes.getCreatedAt());
+    }
 }
