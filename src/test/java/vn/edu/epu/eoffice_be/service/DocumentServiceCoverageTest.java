@@ -17,7 +17,7 @@ import vn.edu.epu.eoffice_be.entity.DocumentWorkflowLog;
 import vn.edu.epu.eoffice_be.repository.DocumentDistributionRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentWorkflowLogRepository;
-
+import java.util.Collections;
 import java.io.File;
 import java.nio.file.Files;
 import java.security.MessageDigest;
@@ -533,5 +533,84 @@ class DocumentServiceCoverageTest {
 
         doc.setOfficialHash(published.getOfficialHash());
         assertTrue(documentPublishService.verifyIntegrity(999L));
+    }
+    @Test
+    void testCalculateSha256_FallbackWhenFileNull() {
+        Document doc = new Document();
+        doc.setId(301L);
+        doc.setOfficialFilePath(null); // Kích hoạt nhánh file rỗng/null
+
+        when(documentRepository.findById(301L)).thenReturn(Optional.of(doc));
+        when(documentRepository.save(any(Document.class))).thenAnswer(i -> i.getArgument(0));
+
+        PublishRequest req = new PublishRequest();
+        req.setIsPublicToAll(true);
+
+        Document published = documentPublishService.publishDocument(301L, req);
+        assertNotNull(published.getOfficialHash());
+    }
+
+    @Test
+    void testVerifyIntegrity_WhenDocumentNotFound() {
+        when(documentRepository.findById(99999L)).thenReturn(Optional.empty());
+        assertThrows(IllegalArgumentException.class, () -> documentPublishService.verifyIntegrity(99999L));
+    }
+    @Test
+    void testDocumentWorkflowService_CompletePendingFlow() {
+        Document docInReview = new Document();
+        docInReview.setId(101L);
+        docInReview.setStatus("IN_REVIEW");
+
+        Document docDraft = new Document();
+        docDraft.setId(102L);
+        docDraft.setStatus("DRAFT");
+
+        when(documentRepository.findByStatusIn(anyList()))
+                .thenReturn(List.of(docInReview, docDraft));
+
+        var result = documentWorkflowService.getPendingDocuments();
+        assertNotNull(result);
+        assertFalse(result.isEmpty());
+    }
+
+    @Test
+    void testDocumentQueryService_WithDifferentFilters() {
+        Document doc1 = new Document();
+        doc1.setId(201L);
+        doc1.setStatus("PUBLISHED");
+
+        // Test truy vấn với userId hợp lệ
+        when(documentRepository.findPublishedDocumentsForUser(eq(10L)))
+                .thenReturn(List.of(doc1));
+
+        var res = documentQueryService.getPublishedDocuments(10L);
+        assertNotNull(res);
+        assertEquals(1, res.size());
+
+        // Test truy vấn với userId không có tài liệu nào
+        when(documentRepository.findPublishedDocumentsForUser(eq(999L)))
+                .thenReturn(Collections.emptyList());
+
+        var emptyRes = documentQueryService.getPublishedDocuments(999L);
+        assertNotNull(emptyRes);
+        assertTrue(emptyRes.isEmpty());
+    }
+
+    @Test
+    void testCalculateSha256_ExceptionOnRead() {
+        // Kiểm tra xử lý ngoại lệ khi đường dẫn tệp là một thư mục thay vì tệp tin (gây lỗi khi đọc stream)
+        java.io.File tempDir = new java.io.File(System.getProperty("java.io.tmpdir"));
+        Document doc = new Document();
+        doc.setId(888L);
+        doc.setOfficialFilePath(tempDir.getAbsolutePath());
+
+        when(documentRepository.findById(888L)).thenReturn(Optional.of(doc));
+        when(documentRepository.save(any(Document.class))).thenAnswer(i -> i.getArgument(0));
+
+        PublishRequest req = new PublishRequest();
+        req.setIsPublicToAll(true);
+
+        Document published = documentPublishService.publishDocument(888L, req);
+        assertNotNull(published.getOfficialHash());
     }
 }
