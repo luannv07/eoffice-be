@@ -3,8 +3,13 @@ package vn.edu.epu.eoffice_be.controller;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -12,9 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.edu.epu.eoffice_be.dto.PendingDocumentResponse;
 import vn.edu.epu.eoffice_be.dto.WorkflowTimelineResponse;
 import vn.edu.epu.eoffice_be.service.DocumentWorkflowService;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
-import org.springframework.security.access.prepost.PreAuthorize;
+
 import java.util.List;
 
 @RestController
@@ -35,16 +38,12 @@ public class DocumentWorkflowController {
 
     // UC17.2: Danh sách văn bản tồn đọng / chờ xử lý kèm số ngày chờ SLA
     @GetMapping("/pending-review")
-    public ResponseEntity<List<PendingDocumentResponse>> getPendingReviewDocuments(
-            @PageableDefault(size = 20) Pageable pageable) {
-        List<PendingDocumentResponse> pendingList = workflowService.getPendingDocuments();
-        // Giới hạn kết quả theo pageable để tối ưu payload
+    public ResponseEntity<Page<PendingDocumentResponse>> getPendingReviewDocuments(
+            @PageableDefault(size = 10) Pageable pageable) {
+        var pendingList = workflowService.getPendingDocuments();
         int start = (int) pageable.getOffset();
         int end = Math.min((start + pageable.getPageSize()), pendingList.size());
-        List<PendingDocumentResponse> pagedList = (start > pendingList.size()) 
-                ? List.of() 
-                : pendingList.subList(start, end);
-
-        return ResponseEntity.ok(pagedList);
+        var subList = (start > pendingList.size()) ? List.<PendingDocumentResponse>of() : pendingList.subList(start, end);
+        return ResponseEntity.ok(new PageImpl<>(subList, pageable, pendingList.size()));
     }
 }

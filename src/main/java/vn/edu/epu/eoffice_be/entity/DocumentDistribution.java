@@ -33,14 +33,15 @@ public class DocumentDistribution extends BaseEntity {
     @Column(name = "is_read", nullable = false)
     boolean isRead = false;
 
+    @Column(name = "read_at")
+    Instant readAt;
+
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public boolean getIsRead() {
-        return this.isRead;
+        return Boolean.TRUE.equals(this.isRead);
     }
 
     public void setIsRead(boolean isRead) {
         this.isRead = isRead;
     }
-
-    @Column(name = "read_at")
-    Instant readAt;
 }

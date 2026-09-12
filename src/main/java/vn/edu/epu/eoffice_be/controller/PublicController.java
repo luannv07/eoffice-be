@@ -16,7 +16,6 @@ import java.time.Instant;
 @Slf4j
 @RestController
 @RequestMapping("/public")
-@Auditable
 @Tag(name = "Public", description = "Endpoint công khai, không cần xác thực — dùng kiểm tra hệ thống và chạy pipeline")
 public class PublicController {
 

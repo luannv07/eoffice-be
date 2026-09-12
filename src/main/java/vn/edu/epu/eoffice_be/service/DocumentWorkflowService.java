@@ -39,25 +39,26 @@ public class DocumentWorkflowService {
     }
 
     public List<PendingDocumentResponse> getPendingDocuments() {
-        Instant now = Instant.now();
-        List<Document> list = documentRepository.findAll();
+        // [17/20]: Lọc trực tiếp theo danh sách trạng thái chờ xử lý thay vì findAll()
+        List<String> pendingStatuses = List.of("SUBMITTED", "PENDING_REVIEW", "PENDING_APPROVAL");
+        List<Document> list = documentRepository.findByStatusIn(pendingStatuses);
 
-        return list.stream()
-                .filter(doc -> !"PUBLISHED".equalsIgnoreCase(doc.getStatus()) && !"REJECTED".equalsIgnoreCase(doc.getStatus()))
-                .map(doc -> {
-                    Instant lastUpdate = (doc.getUpdatedDate() != null) ? doc.getUpdatedDate() : now;
-                    long pendingDays = Duration.between(lastUpdate, now).toDays();
-                    return PendingDocumentResponse.builder()
-                            .id(doc.getId())
-                            .title(doc.getTitle())
-                            .status(doc.getStatus())
-                            .currentHolder("Lãnh đạo phê duyệt")
-                            .updatedAt(lastUpdate)
-                            .pendingDays(pendingDays)
-                            .isOverdue(pendingDays >= 3)
-                            .build();
-                })
-                .toList();
+        return list.stream().map(doc -> {
+            // [16/20]: Xác định currentHolder dựa trên trạng thái thực tế
+            String holder = switch (doc.getStatus()) {
+                case "SUBMITTED" -> "Văn thư tiếp nhận";
+                case "PENDING_REVIEW" -> "Chuyên viên thẩm định";
+                case "PENDING_APPROVAL" -> "Lãnh đạo phê duyệt";
+                default -> "Bộ phận xử lý văn bản";
+            };
+
+            return PendingDocumentResponse.builder()
+                    .id(doc.getId())
+                    .title(doc.getTitle())
+                    .status(doc.getStatus())
+                    .currentHolder(holder)
+                    .build();
+        }).toList();
     }
 
     public void logAction(Long documentId, String username, String role, String action, String comment) {

@@ -13,7 +13,7 @@ import java.util.Optional;
 
 @Repository
 public interface DocumentRepository extends JpaRepository<Document, Long> {
-
+    java.util.List<Document> findByStatusIn(java.util.List<String> statuses);
     @Query(value = """
         SELECT DISTINCT d.* FROM documents d
         JOIN document_distribution dd ON d.id = dd.document_id
@@ -59,13 +59,16 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
         JOIN document_distribution dd ON d.id = dd.document_id
         WHERE d.id = :documentId
           AND d.status = 'PUBLISHED'
-          AND (dd.target_type = 'ALL' 
-               OR (dd.target_type = 'ORG' AND (:orgId IS NOT NULL AND dd.target_id = :orgId))
-               OR (dd.target_type = 'USER' AND (:userId IS NOT NULL AND dd.target_id = :userId)))
+          AND (
+               dd.target_type = 'ALL'
+            OR (dd.target_type = 'ORG' AND :orgId IS NOT NULL AND dd.target_id = :orgId)
+            OR (dd.target_type = 'USER' AND :userId IS NOT NULL AND dd.target_id = :userId)
+          )
+        LIMIT 1
         """, nativeQuery = true)
     Optional<Document> findAccessiblePublishedDocument(
-            @Param("documentId") Long documentId, 
-            @Param("orgId") Long orgId, 
+            @Param("documentId") Long documentId,
+            @Param("orgId") Long orgId,
             @Param("userId") Long userId);
 
     default Optional<Document> findAccessiblePublishedDocument(Long documentId, Long orgId) {

@@ -14,8 +14,11 @@ import vn.edu.epu.eoffice_be.service.DocumentWorkflowService;
 import java.util.Collections;
 
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ExtendWith(MockitoExtension.class)
@@ -41,7 +44,10 @@ class DocumentWorkflowControllerTest {
         when(workflowService.getPendingDocuments()).thenReturn(Collections.emptyList());
 
         mockMvc.perform(get("/documents/pending-review"))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").exists());
+
+        verify(workflowService, atLeastOnce()).getPendingDocuments();
     }
 
     @Test
@@ -50,5 +56,7 @@ class DocumentWorkflowControllerTest {
 
         mockMvc.perform(get("/documents/1/timeline"))
                 .andExpect(status().isOk());
+
+        verify(workflowService, atLeastOnce()).getDocumentTimeline(1L);
     }
 }

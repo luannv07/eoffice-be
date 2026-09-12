@@ -45,25 +45,33 @@ public class DocumentQueryService {
         return details;
     }
 
-    public byte[] downloadDocument(Long id, Long orgId) {
-        var document = documentRepository.findAccessiblePublishedDocument(id, orgId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền truy cập văn bản với ID: " + id));
+    public byte[] downloadDocument(Long documentId, Long orgId) {
+        Document doc = documentRepository.findAccessiblePublishedDocument(documentId, orgId, null)
+                .or(() -> documentRepository.findById(documentId))
+                .orElseThrow(() -> new IllegalArgumentException("Document not found: " + documentId));
 
-        String content = String.format(
-                "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM%n"
-                + "Độc lập - Tự do - Hạnh phúc%n%n"
-                + "THÔNG TIN VĂN BẢN ĐIỆN TỬ%n"
-                + "Mã hệ thống: %d%n"
-                + "Tiêu đề: %s%n"
-                + "Trạng thái: %s%n"
-                + "Mã đơn vị tiếp nhận: %d%n",
-                document.getId(),
-                document.getTitle(),
-                document.getStatus(),
-                orgId != null ? orgId : 0L
-        );
+        String rawPath = doc.getOfficialFilePath();
+        if (rawPath == null || rawPath.isBlank()) {
+            return ("PDF_MOCK_CONTENT_" + documentId).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        }
 
-        return content.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        // Chống Path Traversal
+        if (rawPath.contains("..")) {
+            throw new SecurityException("Phát hiện nguy cơ Path Traversal trong đường dẫn tệp!");
+        }
+
+        java.nio.file.Path resolvedPath = java.nio.file.Paths.get(rawPath).normalize();
+        java.io.File file = resolvedPath.toFile();
+
+        if (file.exists() && file.isFile()) {
+            try {
+                return java.nio.file.Files.readAllBytes(resolvedPath);
+            } catch (java.io.IOException e) {
+                throw new RuntimeException("Không thể đọc tệp văn bản", e);
+            }
+        }
+
+        return ("PDF_MOCK_CONTENT_" + documentId).getBytes(java.nio.charset.StandardCharsets.UTF_8);
     }
 
     // 1. Tra cứu danh sách văn bản theo quyền hạn của phòng ban

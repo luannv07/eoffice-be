@@ -3,50 +3,59 @@ package vn.edu.epu.eoffice_be.controller;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-import vn.edu.epu.eoffice_be.service.DocumentQueryService;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+import vn.edu.epu.eoffice_be.service.DocumentQueryService;
 
 @RestController
 @RequestMapping("/documents")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+@PreAuthorize("isAuthenticated()")
 public class DocumentQueryController {
 
     DocumentQueryService queryService;
 
-    // UC16.1: Tra cứu danh sách văn bản ban hành (truyền orgId của đơn vị hiện tại)
+    private Long resolveUserOrgId(Authentication authentication) {
+        if (authentication != null && authentication.getPrincipal() != null) {
+            // Trường hợp principal là UserDetails mở rộng hoặc đối tượng có orgId
+            try {
+                var method = authentication.getPrincipal().getClass().getMethod("getOrgId");
+                Object val = method.invoke(authentication.getPrincipal());
+                if (val instanceof Long longVal) {
+                    return longVal;
+                }
+            } catch (Exception ignored) {
+                // Fallback nếu Principal chưa có getOrgId
+            }
+        }
+        return 1L;
+    }
+
+    // UC16.1: Tra cứu danh sách văn bản ban hành
     @GetMapping("/published")
     public ResponseEntity<Object> getPublishedDocuments(Authentication authentication) {
-        // Nếu có authentication, lấy orgId từ user details, ngược lại dùng ID mặc định nội bộ
-        Long orgId = 1L; // Hoặc resolve từ authentication: ((CustomUserDetails) authentication.getPrincipal()).getOrgId();
+        Long orgId = resolveUserOrgId(authentication);
         return ResponseEntity.ok(queryService.getPublishedDocuments(orgId));
     }
 
-    // UC16.2: Xem chi tiết trích yếu, số hiệu, ngày ban hành
+    // UC16.2: Xem chi tiết trích yếu
     @GetMapping("/{id}/details")
-    public ResponseEntity<Object> getDocumentDetails(
-            @PathVariable Long id,
-            @RequestParam(required = false, defaultValue = "1") Long orgId) {
-        return ResponseEntity.status(HttpStatus.OK).body(queryService.getDocumentDetails(id, orgId));
+    public ResponseEntity<Object> getDocumentDetails(@PathVariable Long id, Authentication authentication) {
+        Long orgId = resolveUserOrgId(authentication);
+        return ResponseEntity.ok(queryService.getDocumentDetails(id, orgId));
     }
 
-    // UC16.3: Tải file PDF chính thức đã ký số
+    // UC16.3: Tải file PDF chính thức
     @GetMapping("/{id}/download")
-    public ResponseEntity<Resource> downloadDocument(
-            @PathVariable("id") Long id,
-            Authentication authentication) {
-        Long orgId = 1L; 
+    public ResponseEntity<Resource> downloadDocument(@PathVariable Long id, Authentication authentication) {
+        Long orgId = resolveUserOrgId(authentication);
         byte[] pdfBytes = queryService.downloadDocument(id, orgId);
         ByteArrayResource resource = new ByteArrayResource(pdfBytes);
 

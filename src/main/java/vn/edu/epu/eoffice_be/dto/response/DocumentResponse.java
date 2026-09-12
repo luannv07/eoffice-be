@@ -1,6 +1,11 @@
 package vn.edu.epu.eoffice_be.dto.response;
 
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import lombok.experimental.FieldDefaults;
 
 import java.time.LocalDate;
@@ -18,6 +23,6 @@ public class DocumentResponse {
     String status;
     LocalDate issueDate;
     LocalDate effectiveDate;
+    String officialFilePath;
     String officialHash;
-    Boolean isRead;
 }
