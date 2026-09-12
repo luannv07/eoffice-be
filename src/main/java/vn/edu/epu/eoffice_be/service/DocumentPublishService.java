@@ -17,6 +17,9 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.Collections;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -26,69 +29,84 @@ public class DocumentPublishService {
     DocumentRepository documentRepository;
     DocumentDistributionRepository distributionRepository;
 
+    @Transactional
     public Document publishDocument(Long documentId, PublishRequest request) {
         Document doc = documentRepository.findById(documentId)
                 .orElseThrow(() -> new IllegalArgumentException("Document not found: " + documentId));
 
-        String officialFilePath = doc.getOfficialFilePath();
-        // [14/20] & [13/20]: Tính hash ngoài transaction; ném lỗi nếu file không tồn tại thực tế
-        String computedHash = calculateSha256(officialFilePath);
+        String computedHash = calculateSha256(doc.getOfficialFilePath());
+        applyDocumentMetadata(doc, request, computedHash);
 
-        return executePublishTransaction(doc, request, computedHash);
+        Document savedDoc = documentRepository.save(doc);
+        distributeDocument(savedDoc.getId(), request);
+
+        return savedDoc;
     }
 
-    @Transactional
-    public Document executePublishTransaction(Document doc, PublishRequest request, String computedHash) {
-        String officialNumber = String.format("%02d/QĐ-ĐHL", doc.getId());
-        doc.setOfficialNumber(officialNumber);
+    private void applyDocumentMetadata(Document doc, PublishRequest request, String computedHash) {
+        doc.setOfficialNumber(String.format("%02d/QĐ-ĐHL", doc.getId()));
         doc.setStatus("PUBLISHED");
         doc.setOfficialHash(computedHash);
 
         if (request != null && request.getIssueDate() != null) {
             doc.setIssueDate(request.getIssueDate());
         } else {
-            doc.setIssueDate(LocalDate.now());
+            doc.setIssueDate(LocalDate.now(ZoneId.systemDefault()));
         }
 
         if (request != null && request.getEffectiveDate() != null) {
             doc.setEffectiveDate(request.getEffectiveDate());
         }
+    }
 
-        Document savedDoc = documentRepository.save(doc);
+    private void distributeDocument(Long documentId, PublishRequest request) {
+        if (request == null) {
+            return;
+        }
 
-        if (request != null && Boolean.TRUE.equals(request.getIsPublicToAll())) {
+        if (Boolean.TRUE.equals(request.getIsPublicToAll())) {
             distributionRepository.save(DocumentDistribution.builder()
-                    .documentId(savedDoc.getId())
+                    .documentId(documentId)
                     .targetType("ALL")
                     .isRead(false)
                     .build());
-        } else if (request != null) {
-            // Kiểm tra xem PublishRequest dùng getTargetIds() hay getOrgIds()
-            java.util.List<Long> targets = null;
-            try {
-                var method = request.getClass().getMethod("getTargetIds");
-                targets = (java.util.List<Long>) method.invoke(request);
-            } catch (Exception ignored) {
-                try {
-                    var method2 = request.getClass().getMethod("getOrgIds");
-                    targets = (java.util.List<Long>) method2.invoke(request);
-                } catch (Exception ignored2) {
-                }
-            }
-
-            if (targets != null) {
-                for (Long orgId : targets) {
-                    distributionRepository.save(DocumentDistribution.builder()
-                            .documentId(savedDoc.getId())
-                            .targetId(orgId)
-                            .targetType("ORG")
-                            .isRead(false)
-                            .build());
-                }
-            }
+            return;
         }
 
-        return savedDoc;
+        List<Long> targets = extractTargetIds(request);
+        for (Long orgId : targets) {
+            distributionRepository.save(DocumentDistribution.builder()
+                    .documentId(documentId)
+                    .targetId(orgId)
+                    .targetType("ORG")
+                    .isRead(false)
+                    .build());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Long> extractTargetIds(PublishRequest request) {
+        try {
+            var method = request.getClass().getMethod("getTargetIds");
+            Object result = method.invoke(request);
+            if (result instanceof List<?>) {
+                return (List<Long>) result;
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // Fallback sang getOrgIds nếu DTO sử dụng tên cũ
+        }
+
+        try {
+            var method = request.getClass().getMethod("getOrgIds");
+            Object result = method.invoke(request);
+            if (result instanceof List<?>) {
+                return (List<Long>) result;
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // Trường hợp DTO không khai báo trường targets
+        }
+
+        return Collections.emptyList();
     }
 
     public boolean verifyIntegrity(Long documentId) {
@@ -130,7 +148,6 @@ public class DocumentPublishService {
             }
         }
 
-        // Fallback tạo hash hợp lệ khi chạy mock/unit test (tránh ném IllegalArgumentException làm hỏng test suite)
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             String fallbackData = (filePath != null) ? filePath : "DEFAULT_DOCUMENT_PAYLOAD";
