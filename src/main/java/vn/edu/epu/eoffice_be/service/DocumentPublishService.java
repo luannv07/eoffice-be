@@ -110,9 +110,11 @@ public class DocumentPublishService {
         return Collections.emptyList();
     }
 
-    public boolean verifyIntegrity(Long documentId) {
+    public boolean verifyIntegrity(Long documentId, org.springframework.security.core.Authentication authentication) {
         Document doc = documentRepository.findById(documentId)
                 .orElseThrow(() -> new IllegalArgumentException("Document not found: " + documentId));
+
+        assertCanVerifyIntegrity(doc, authentication);
 
         if (doc.getOfficialHash() == null || doc.getOfficialHash().isBlank()) {
             return false;
@@ -127,6 +129,66 @@ public class DocumentPublishService {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    public boolean verifyIntegrity(Long documentId) {
+        return verifyIntegrity(documentId, null);
+    }
+
+    void assertCanVerifyIntegrity(Document doc, org.springframework.security.core.Authentication authentication) {
+        if (authentication == null) {
+            return;
+        }
+        if (!authentication.isAuthenticated()) {
+            throw new org.springframework.security.access.AccessDeniedException("Yêu cầu xác thực người dùng");
+        }
+
+        boolean hasAdminOrPrivilege = authentication.getAuthorities() != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN")
+                            || a.getAuthority().equals("ADMIN")
+                            || a.getAuthority().equals("ROLE_SYSTEM_ADMIN")
+                            || a.getAuthority().equals("SYSTEM_ADMIN")
+                            || a.getAuthority().equals("DOCUMENT_VERIFY")
+                            || a.getAuthority().equals("DOCUMENT_PUBLISH"));
+        if (hasAdminOrPrivilege) {
+            return;
+        }
+
+        if (doc.getStatus() == DocumentStatus.PUBLISHED || doc.getStatus() == DocumentStatus.ISSUED) {
+            return;
+        }
+
+        Long userId = extractUserId(authentication);
+        Long creatorId = doc.getCreatorUser() != null ? doc.getCreatorUser().getId() : null;
+        if (userId != null && userId.equals(creatorId)) {
+            return;
+        }
+
+        throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền kiểm tra tính toàn vẹn của tài liệu này");
+    }
+
+    private Long extractUserId(org.springframework.security.core.Authentication authentication) {
+        if (authentication == null || authentication.getPrincipal() == null) {
+            return null;
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof vn.edu.epu.eoffice_be.security.JwtUserPrincipal jwt) {
+            return jwt.getUserId();
+        }
+        try {
+            var method = principal.getClass().getMethod("getUserId");
+            Object val = method.invoke(principal);
+            if (val instanceof Long l) return l;
+        } catch (Exception ignored) {}
+        try {
+            var method = principal.getClass().getMethod("getId");
+            Object val = method.invoke(principal);
+            if (val instanceof Long l) return l;
+        } catch (Exception ignored) {}
+        try {
+            return Long.parseLong(authentication.getName());
+        } catch (Exception ignored) {}
+        return null;
     }
 
     private String calculateSha256(String filePath) {

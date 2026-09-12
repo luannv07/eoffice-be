@@ -23,19 +23,21 @@ public class DocumentQueryController {
     DocumentQueryService queryService;
 
     private Long resolveUserOrgId(Authentication authentication) {
-        if (authentication != null && authentication.getPrincipal() != null) {
-            // Trường hợp principal là UserDetails mở rộng hoặc đối tượng có orgId
-            try {
-                var method = authentication.getPrincipal().getClass().getMethod("getOrgId");
-                Object val = method.invoke(authentication.getPrincipal());
-                if (val instanceof Long longVal) {
-                    return longVal;
-                }
-            } catch (Exception ignored) {
-                // Fallback nếu Principal chưa có getOrgId
-            }
+        if (authentication == null || authentication.getPrincipal() == null) {
+            throw new org.springframework.security.access.AccessDeniedException("Yêu cầu xác thực người dùng");
         }
-        return 1L;
+        Object principal = authentication.getPrincipal();
+        try {
+            var method = principal.getClass().getMethod("getOrgId");
+            method.setAccessible(true);
+            Object val = method.invoke(principal);
+            if (val instanceof Long longVal && longVal != null) {
+                return longVal;
+            }
+        } catch (Exception e) {
+            throw new org.springframework.security.access.AccessDeniedException("Không thể xác định đơn vị (orgId) hợp lệ của người dùng", e);
+        }
+        throw new org.springframework.security.access.AccessDeniedException("Người dùng không có thông tin đơn vị (orgId) hợp lệ");
     }
 
     // UC16.1: Tra cứu danh sách văn bản ban hành

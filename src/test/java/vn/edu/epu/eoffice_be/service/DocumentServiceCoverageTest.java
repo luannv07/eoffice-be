@@ -55,6 +55,10 @@ class DocumentServiceCoverageTest {
     @InjectMocks
     DocumentWorkflowService documentWorkflowService;
 
+    public static class TestOrgPrincipal {
+        public Long getOrgId() { return 1L; }
+    }
+
     @Test
     void testGetDocumentDetailsAndDownload_Success() throws Exception {
         File tempFile = File.createTempFile("test-doc", ".pdf");
@@ -294,17 +298,20 @@ class DocumentServiceCoverageTest {
         vn.edu.epu.eoffice_be.controller.DocumentQueryController controller =
                 new vn.edu.epu.eoffice_be.controller.DocumentQueryController(mockQueryService);
 
+        org.springframework.security.core.Authentication auth = mock(org.springframework.security.core.Authentication.class);
+        when(auth.getPrincipal()).thenReturn(new TestOrgPrincipal());
+
         when(mockQueryService.getPublishedDocuments(anyLong())).thenReturn(List.of());
-        var resPublished = controller.getPublishedDocuments(null);
+        var resPublished = controller.getPublishedDocuments(auth);
         assertNotNull(resPublished);
         assertEquals(200, resPublished.getStatusCode().value());
 
         when(mockQueryService.getDocumentDetails(eq(1L), anyLong())).thenReturn(java.util.Map.of("id", 1L));
-        var resDetails = controller.getDocumentDetails(1L, null);
+        var resDetails = controller.getDocumentDetails(1L, auth);
         assertNotNull(resDetails);
 
         when(mockQueryService.downloadDocument(eq(1L), anyLong())).thenReturn("pdf content".getBytes());
-        var resDownload = controller.downloadDocument(1L, null);
+        var resDownload = controller.downloadDocument(1L, auth);
         assertNotNull(resDownload);
     }
 
@@ -322,26 +329,20 @@ class DocumentServiceCoverageTest {
         assertEquals("10/QĐ-ĐHL", published.getOfficialNumber());
         assertEquals(DocumentStatus.PUBLISHED, published.getStatus());
     }
+
     @Test
-    void testWorkflowPagination_SubListBranches() {
-        // Test phân trang: offset vượt quá kích thước danh sách và offset bình thường
+    void testWorkflowPagination_ServiceBranches() {
         DocumentWorkflowService mockWf = mock(DocumentWorkflowService.class);
         DocumentWorkflowController wfController = new DocumentWorkflowController(mockWf);
 
-        when(mockWf.getPendingDocuments()).thenReturn(List.of(
-                vn.edu.epu.eoffice_be.dto.PendingDocumentResponse.builder().id(1L).title("Doc 1").build(),
-                vn.edu.epu.eoffice_be.dto.PendingDocumentResponse.builder().id(2L).title("Doc 2").build()
-        ));
+        when(mockWf.getPendingDocuments(any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(
+                        vn.edu.epu.eoffice_be.dto.PendingDocumentResponse.builder().id(1L).title("Doc 1").build()
+                )));
 
-        // Nhánh start > pendingList.size()
-        var emptyPage = wfController.getPendingReviewDocuments(PageRequest.of(5, 2));
-        assertNotNull(emptyPage);
-        assertEquals(0, emptyPage.getBody().getContent().size());
-
-        // Nhánh start <= pendingList.size()
-        var normalPage = wfController.getPendingReviewDocuments(PageRequest.of(0, 1));
-        assertNotNull(normalPage);
-        assertEquals(1, normalPage.getBody().getContent().size());
+        var page = wfController.getPendingReviewDocuments(PageRequest.of(0, 10));
+        assertNotNull(page);
+        assertEquals(1, page.getBody().getContent().size());
     }
 
     @Test
