@@ -1,6 +1,7 @@
 package vn.edu.epu.eoffice_be.service;
 
 import org.springframework.core.io.Resource;
+import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 
 import java.io.InputStream;
 
@@ -19,10 +20,17 @@ public interface FileStorageService {
 
     /**
      * Đọc toàn bộ nội dung file dạng byte[] từ đường dẫn tương đối.
-     * Giới hạn kích thước file an toàn để tránh OutOfMemoryError.
+     * <p>
+     * Giới hạn kích thước file an toàn mặc định là 20MB (20.971.520 bytes, cấu hình qua
+     * {@code eoffice.storage.max-file-size-bytes}) để tránh cạn kiệt bộ nhớ Heap (OutOfMemoryError).
+     * Đối với các tệp lớn vượt quá ngưỡng này, hãy sử dụng luồng stream {@link #loadFileInputStream(String)}
+     * hoặc Spring {@link #loadFileAsResource(String)}.
+     * </p>
      *
-     * @param relativePath Đường dẫn tương đối đã lưu
+     * @param relativePath Đường dẫn tương đối đã lưu của file
      * @return Mảng byte của file
+     * @throws BusinessException nếu file vượt quá giới hạn an toàn 20MB (mã lỗi STORAGE_ERROR),
+     *                           hoặc khi phát hiện đường dẫn không hợp lệ / lỗi I/O đọc file
      */
     byte[] loadFileBytes(String relativePath);
 
