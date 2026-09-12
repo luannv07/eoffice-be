@@ -6,20 +6,35 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import vn.edu.epu.eoffice_be.common.exception.GlobalExceptionHandler;
 import vn.edu.epu.eoffice_be.security.OrgAwarePrincipal;
 import vn.edu.epu.eoffice_be.service.DocumentQueryService;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Collection;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @ExtendWith(MockitoExtension.class)
 class DocumentQueryControllerTest {
+
+    private MockMvc mockMvc;
 
     @Mock
     private DocumentQueryService documentQueryService;
@@ -32,6 +47,37 @@ class DocumentQueryControllerTest {
     @BeforeEach
     void setUp() {
         auth = mock(Authentication.class);
+        mockMvc = MockMvcBuilders.standaloneSetup(documentQueryController)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
+    }
+
+    // Realistic production-like test fixture implementing UserDetails & OrgAwarePrincipal
+    public static class CustomUserDetailsPrincipal implements UserDetails, OrgAwarePrincipal {
+        private final Long orgId;
+        private final String username;
+
+        public CustomUserDetailsPrincipal(Long orgId, String username) {
+            this.orgId = orgId;
+            this.username = username;
+        }
+
+        @Override
+        public Long getOrgId() {
+            return orgId;
+        }
+
+        @Override
+        public Collection<? extends GrantedAuthority> getAuthorities() {
+            return List.of(new SimpleGrantedAuthority("ROLE_USER"));
+        }
+
+        @Override public String getPassword() { return "secret"; }
+        @Override public String getUsername() { return username; }
+        @Override public boolean isAccountNonExpired() { return true; }
+        @Override public boolean isAccountNonLocked() { return true; }
+        @Override public boolean isCredentialsNonExpired() { return true; }
+        @Override public boolean isEnabled() { return true; }
     }
 
     // Custom Principal classes for test scenarios
@@ -66,7 +112,7 @@ class DocumentQueryControllerTest {
 
     @Test
     void testGetPublishedDocuments_ValidOrgId_Success() {
-        when(auth.getPrincipal()).thenReturn(new ValidPrincipal(100L));
+        when(auth.getPrincipal()).thenReturn(new CustomUserDetailsPrincipal(100L, "user1"));
         when(documentQueryService.getPublishedDocuments(100L)).thenReturn(List.of());
 
         ResponseEntity<Object> response = documentQueryController.getPublishedDocuments(auth);
@@ -88,7 +134,7 @@ class DocumentQueryControllerTest {
 
     @Test
     void testGetDocumentDetails_ValidOrgId_Success() {
-        when(auth.getPrincipal()).thenReturn(new ValidPrincipal(200L));
+        when(auth.getPrincipal()).thenReturn(new CustomUserDetailsPrincipal(200L, "user2"));
         when(documentQueryService.getDocumentDetails(1L, 200L)).thenReturn(new Object());
 
         ResponseEntity<Object> response = documentQueryController.getDocumentDetails(1L, auth);
@@ -99,12 +145,18 @@ class DocumentQueryControllerTest {
 
     @Test
     void testDownloadDocument_ValidOrgId_Success() {
-        when(auth.getPrincipal()).thenReturn(new ValidPrincipal(300L));
-        when(documentQueryService.downloadDocument(1L, 300L)).thenReturn("PDF Content".getBytes());
+        byte[] expectedBytes = "PDF Content".getBytes(StandardCharsets.UTF_8);
+        when(auth.getPrincipal()).thenReturn(new CustomUserDetailsPrincipal(300L, "user3"));
+        when(documentQueryService.downloadDocument(1L, 300L)).thenReturn(expectedBytes);
 
         var response = documentQueryController.downloadDocument(1L, auth);
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
+        assertEquals(MediaType.APPLICATION_PDF, response.getHeaders().getContentType());
+        assertEquals("attachment; filename=\"document_1.pdf\"", response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION));
+        assertEquals((long) expectedBytes.length, response.getHeaders().getContentLength());
+        assertNotNull(response.getBody());
+        assertArrayEquals(expectedBytes, ((org.springframework.core.io.ByteArrayResource) response.getBody()).getByteArray());
         verify(documentQueryService, times(1)).downloadDocument(1L, 300L);
     }
 
@@ -161,5 +213,56 @@ class DocumentQueryControllerTest {
 
         assertThrows(AuthenticationCredentialsNotFoundException.class, () -> documentQueryController.getPublishedDocuments(auth));
         verifyNoInteractions(documentQueryService);
+    }
+
+    // MockMvc Integration Tests verifying Spring Security & Error Contract Enforcement
+    @Test
+    void testMockMvc_GetPublishedDocuments_WithValidPrincipal_Returns200() throws Exception {
+        CustomUserDetailsPrincipal principal = new CustomUserDetailsPrincipal(100L, "testuser");
+        Authentication authentication = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+        when(documentQueryService.getPublishedDocuments(100L)).thenReturn(List.of());
+
+        mockMvc.perform(get("/documents/published")
+                        .principal(authentication))
+                .andExpect(status().isOk());
+
+        verify(documentQueryService, times(1)).getPublishedDocuments(100L);
+    }
+
+    @Test
+    void testMockMvc_GetPublishedDocuments_Unauthenticated_Returns401() throws Exception {
+        mockMvc.perform(get("/documents/published"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(documentQueryService);
+    }
+
+    @Test
+    void testMockMvc_GetPublishedDocuments_InvalidPrincipal_Returns403() throws Exception {
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                new MissingOrgIdPrincipal(), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+
+        mockMvc.perform(get("/documents/published")
+                        .principal(authentication))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(documentQueryService);
+    }
+
+    @Test
+    void testMockMvc_DownloadDocument_WithValidPrincipal_Returns200AndHeadersAndBody() throws Exception {
+        byte[] expectedBytes = "PDF Content".getBytes(StandardCharsets.UTF_8);
+        CustomUserDetailsPrincipal principal = new CustomUserDetailsPrincipal(300L, "testuser");
+        Authentication authentication = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+        when(documentQueryService.downloadDocument(1L, 300L)).thenReturn(expectedBytes);
+
+        mockMvc.perform(get("/documents/1/download")
+                        .principal(authentication))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"document_1.pdf\""))
+                .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+                .andExpect(content().bytes(expectedBytes));
+
+        verify(documentQueryService, times(1)).downloadDocument(1L, 300L);
     }
 }

@@ -168,9 +168,6 @@ public class DocumentPublishService {
             return null;
         }
         Object principal = authentication.getPrincipal();
-        if (principal instanceof vn.edu.epu.eoffice_be.security.UserIdAwarePrincipal uap) {
-            return uap.getUserId();
-        }
         if (principal instanceof vn.edu.epu.eoffice_be.security.JwtUserPrincipal jwt) {
             return jwt.getUserId();
         }

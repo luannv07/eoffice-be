@@ -814,5 +814,10 @@ class DocumentServiceCoverageTest {
         when(documentRepository.findById(601L)).thenReturn(Optional.of(publishedDoc));
 
         assertDoesNotThrow(() -> documentWorkflowService.verifyUserCanAccessDocument(601L, docViewAuth));
+
+        // 7. Non-JwtUserPrincipal với username là chuỗi số "100" trùng creatorId -> bị từ chối
+        Authentication numUserAuth = new UsernamePasswordAuthenticationToken(
+                new NumericUsernamePrincipal("100"), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        assertThrows(AccessDeniedException.class, () -> documentWorkflowService.verifyUserCanAccessDocument(600L, numUserAuth));
     }
 }

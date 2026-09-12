@@ -17,8 +17,7 @@ import vn.edu.epu.eoffice_be.service.DocumentPublishService;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -60,30 +59,36 @@ class DocumentPublishControllerTest {
 
     @Test
     void testVerifyIntegrityEndpoint_Authorized_Returns200() throws Exception {
-        lenient().when(publishService.verifyIntegrity(eq(1L), any())).thenReturn(true);
+        when(publishService.verifyIntegrity(eq(1L), any())).thenReturn(true);
 
         mockMvc.perform(get("/documents/1/verify-integrity"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.documentId").value(1L))
                 .andExpect(jsonPath("$.valid").value(true));
+
+        verify(publishService, times(1)).verifyIntegrity(eq(1L), any());
     }
 
     @Test
     void testVerifyIntegrityEndpoint_WhenFalse_Returns200() throws Exception {
-        lenient().when(publishService.verifyIntegrity(eq(2L), any())).thenReturn(false);
+        when(publishService.verifyIntegrity(eq(2L), any())).thenReturn(false);
 
         mockMvc.perform(get("/documents/2/verify-integrity"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.documentId").value(2L))
                 .andExpect(jsonPath("$.valid").value(false));
+
+        verify(publishService, times(1)).verifyIntegrity(eq(2L), any());
     }
 
     @Test
     void testVerifyIntegrityEndpoint_Unauthorized_Returns403() throws Exception {
-        lenient().when(publishService.verifyIntegrity(eq(99L), any()))
+        when(publishService.verifyIntegrity(eq(99L), any()))
                 .thenThrow(new AccessDeniedException("User is not authorized to verify integrity"));
 
         mockMvc.perform(get("/documents/99/verify-integrity"))
                 .andExpect(status().isForbidden());
+
+        verify(publishService, times(1)).verifyIntegrity(eq(99L), any());
     }
 }
