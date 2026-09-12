@@ -509,4 +509,29 @@ class DocumentServiceCoverageTest {
         assertNotNull(result.getIssueDate());
         assertEquals("PUBLISHED", result.getStatus());
     }
+    @Test
+    void testCalculateSha256_WithLargeTempFile() throws Exception {
+        java.io.File tempFile = java.io.File.createTempFile("large_test_doc", ".pdf");
+        tempFile.deleteOnExit();
+
+        byte[] largeData = new byte[16384]; // 16KB để chạy qua vòng lặp while buffer reading
+        java.util.Arrays.fill(largeData, (byte) 'A');
+        java.nio.file.Files.write(tempFile.toPath(), largeData);
+
+        Document doc = new Document();
+        doc.setId(999L);
+        doc.setOfficialFilePath(tempFile.getAbsolutePath());
+
+        when(documentRepository.findById(999L)).thenReturn(Optional.of(doc));
+        when(documentRepository.save(any(Document.class))).thenAnswer(i -> i.getArgument(0));
+
+        PublishRequest req = new PublishRequest();
+        req.setIsPublicToAll(true);
+
+        Document published = documentPublishService.publishDocument(999L, req);
+        assertNotNull(published.getOfficialHash());
+
+        doc.setOfficialHash(published.getOfficialHash());
+        assertTrue(documentPublishService.verifyIntegrity(999L));
+    }
 }
