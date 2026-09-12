@@ -53,6 +53,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -446,5 +447,108 @@ class DocumentWorkflowServiceTest {
         assertEquals(1, history.getTotalElements());
         assertEquals(1, history.getContent().size());
         assertEquals(WorkflowAction.SUBMIT, history.getContent().get(0).getAction());
+    }
+
+    @Test
+    @DisplayName("approve: Actor không có thẩm quyền ném lỗi UNAUTHORIZED_WORKFLOW_ACTION")
+    void approve_unauthorizedActor_shouldThrowUnauthorizedWorkflowAction() {
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        doThrow(new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION))
+                .when(workflowEngine).validateActorPermission(eq(document), eq(leader), eq(WorkflowAction.REVIEW_APPROVE));
+
+        DocumentApproveRequest request = DocumentApproveRequest.builder()
+                .comment("Khong co tham quyen")
+                .build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.approve(5001L, request));
+        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, ex.getErrorCode());
+
+        verify(workflowEngine, never()).executeTransition(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("requestRevision: Actor không có thẩm quyền ném lỗi UNAUTHORIZED_WORKFLOW_ACTION")
+    void requestRevision_unauthorizedActor_shouldThrowUnauthorizedWorkflowAction() {
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        doThrow(new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION))
+                .when(workflowEngine).validateActorPermission(eq(document), eq(leader), eq(WorkflowAction.REQUEST_REVISION));
+
+        DocumentRevisionRequest request = DocumentRevisionRequest.builder()
+                .comment("Khong co tham quyen tra ve")
+                .build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.requestRevision(5001L, request));
+        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, ex.getErrorCode());
+
+        verify(workflowEngine, never()).executeTransition(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("initialSign: Chặn actor không có quyền ngay từ đầu và bỏ qua xử lý PDF/lưu file")
+    void initialSign_unauthorizedActor_shouldThrowUnauthorizedAndSkipPdfProcessing() {
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        doThrow(new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION))
+                .when(workflowEngine).validateActorPermission(eq(document), eq(leader), eq(WorkflowAction.INITIAL_SIGN));
+
+        DocumentInitialSignRequest request = DocumentInitialSignRequest.builder()
+                .comment("Khong co tham quyen ky nhay")
+                .build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.initialSign(5001L, request));
+        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, ex.getErrorCode());
+
+        verify(pdfProcessingService, never()).applyInitialSignStamp(any(), any());
+        verify(fileStorageService, never()).storeFile(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("signAndPublish: Chặn actor không có quyền ngay từ đầu và bỏ qua ký số PKI/lưu file")
+    void signAndPublish_unauthorizedActor_shouldThrowUnauthorizedAndSkipSigning() {
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        doThrow(new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION))
+                .when(workflowEngine).validateActorPermission(eq(document), eq(leader), eq(WorkflowAction.SIGN_AND_PUBLISH));
+
+        DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .officialNumber("999/QD-TEST")
+                .comment("Khong co tham quyen ban hanh")
+                .build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.signAndPublish(5001L, request));
+        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, ex.getErrorCode());
+
+        verify(pdfProcessingService, never()).signAndCertifyPdf(any(), any(), any());
+        verify(fileStorageService, never()).storeFile(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("reject: Actor không có thẩm quyền ném lỗi UNAUTHORIZED_WORKFLOW_ACTION")
+    void reject_unauthorizedActor_shouldThrowUnauthorizedWorkflowAction() {
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        doThrow(new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION))
+                .when(workflowEngine).validateActorPermission(eq(document), eq(leader), eq(WorkflowAction.REJECT));
+
+        DocumentRejectRequest request = DocumentRejectRequest.builder()
+                .comment("Khong co quyen tu choi")
+                .build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.reject(5001L, request));
+        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, ex.getErrorCode());
+
+        verify(workflowEngine, never()).executeTransition(any(), any(), any(), any(), any(), any(), any());
     }
 }

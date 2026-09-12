@@ -82,6 +82,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             throw new BusinessException(ErrorCode.INVALID_WORKFLOW_STATE);
         }
 
+        // Kiểm tra thẩm quyền người xử lý trước khi thực hiện chuyển đổi
+        validateActorAuthorization(document, actor, action);
+
         workflowEngine.executeTransition(
                 document,
                 action,
@@ -101,6 +104,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         UserLogin actor = getCurrentActor();
         Document document = findDocumentOrThrow(documentId);
 
+        // Kiểm tra thẩm quyền người yêu cầu chỉnh sửa
+        validateActorAuthorization(document, actor, WorkflowAction.REQUEST_REVISION);
+
         workflowEngine.executeTransition(
                 document,
                 WorkflowAction.REQUEST_REVISION,
@@ -118,6 +124,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     public DocumentDetailResponse initialSign(Long documentId, DocumentInitialSignRequest request) {
         UserLogin actor = getCurrentActor();
         Document document = findDocumentOrThrow(documentId);
+
+        // Kiểm tra thẩm quyền ký nháy TRƯỚC KHI xử lý file PDF nhằm tránh lãng phí tài nguyên CPU/IO
+        validateActorAuthorization(document, actor, WorkflowAction.INITIAL_SIGN);
 
         // 1. Kiểm tra file PDF nguồn: nếu chưa có file đính kèm chính thì báo lỗi
         ensureDocumentPdfExists(document);
@@ -186,6 +195,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             document.setSigner(actor);
         }
 
+        // Kiểm tra thẩm quyền ký phát hành TRƯỚC KHI xử lý ký số PKI nhằm tránh lãng phí tài nguyên
+        validateActorAuthorization(document, actor, WorkflowAction.SIGN_AND_PUBLISH);
+
         // 2. Kiểm tra file PDF nguồn: nếu chưa có file đính kèm chính thì báo lỗi
         ensureDocumentPdfExists(document);
         byte[] currentPdfBytes = fileStorageService.loadFileBytes(document.getPrimaryFilePath());
@@ -236,6 +248,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     public DocumentDetailResponse reject(Long documentId, DocumentRejectRequest request) {
         UserLogin actor = getCurrentActor();
         Document document = findDocumentOrThrow(documentId);
+
+        // Kiểm tra thẩm quyền từ chối văn bản
+        validateActorAuthorization(document, actor, WorkflowAction.REJECT);
 
         workflowEngine.executeTransition(
                 document,
@@ -313,6 +328,19 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         if (document.getPrimaryFilePath() == null || document.getPrimaryFilePath().isBlank()) {
             throw new BusinessException(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING);
         }
+    }
+
+    /**
+     * Xác thực thẩm quyền của người dùng hiện tại đối với hành động trên văn bản,
+     * ủy quyền cho WorkflowEngine kiểm tra chi tiết theo vai trò và người được gán xử lý.
+     *
+     * @param document Văn bản đang được xử lý
+     * @param actor    Người dùng hiện tại thực hiện hành động
+     * @param action   Hành động luồng duyệt yêu cầu
+     * @throws BusinessException nếu người dùng không đủ quyền thực hiện hành động
+     */
+    private void validateActorAuthorization(Document document, UserLogin actor, WorkflowAction action) {
+        workflowEngine.validateActorPermission(document, actor, action);
     }
 
     private DocumentDetailResponse mapToDetailResponse(Document doc) {
