@@ -463,11 +463,50 @@ class DocumentServiceCoverageTest {
     }
     @Test
     void testDocumentWorkflowService_ExecuteTimelineFlow() {
-        try {
-            var timeline = documentWorkflowService.getDocumentTimeline(10L);
-            assertNotNull(timeline);
-        } catch (Exception ignored) {
-            // Document khong ton tai hoac repository chua duoc mock
-        }
+        // Giả lập Document tồn tại
+        Document doc = new Document();
+        doc.setId(10L);
+        lenient().when(documentRepository.findById(10L)).thenReturn(Optional.of(doc));
+
+        // Dùng var để tránh lỗi cannot find symbol WorkflowTimelineResponse
+        var timeline = documentWorkflowService.getDocumentTimeline(10L);
+        assertNotNull(timeline);
+    }
+
+    @Test
+    void testVerifyIntegrity_HashMismatchAndBlank() {
+        // 1. Nhánh hash rỗng/blank
+        Document docBlankHash = new Document();
+        docBlankHash.setId(88L);
+        docBlankHash.setOfficialHash("   ");
+        when(documentRepository.findById(88L)).thenReturn(Optional.of(docBlankHash));
+        assertFalse(documentPublishService.verifyIntegrity(88L));
+
+        // 2. Nhánh hash không khớp
+        Document docDiffHash = new Document();
+        docDiffHash.setId(89L);
+        docDiffHash.setOfficialHash("DIFFERENT_HASH_VALUE_123456");
+        docDiffHash.setOfficialFilePath("non_existent_file_path.pdf");
+        when(documentRepository.findById(89L)).thenReturn(Optional.of(docDiffHash));
+        assertFalse(documentPublishService.verifyIntegrity(89L));
+    }
+
+    @Test
+    void testPublishDocument_NullDatesFallback() {
+        Document doc = new Document();
+        doc.setId(90L);
+        when(documentRepository.findById(90L)).thenReturn(Optional.of(doc));
+        when(documentRepository.save(any(Document.class))).thenAnswer(i -> i.getArgument(0));
+
+        // Request với issueDate và effectiveDate là null để phủ nhánh fallback LocalDate.now()
+        PublishRequest req = new PublishRequest();
+        req.setIssueDate(null);
+        req.setEffectiveDate(null);
+        req.setIsPublicToAll(true);
+
+        Document result = documentPublishService.publishDocument(90L, req);
+        assertNotNull(result);
+        assertNotNull(result.getIssueDate());
+        assertEquals("PUBLISHED", result.getStatus());
     }
 }
