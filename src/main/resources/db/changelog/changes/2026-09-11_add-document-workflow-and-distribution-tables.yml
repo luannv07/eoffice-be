@@ -1,0 +1,223 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-09-11-create-table-documents
+      author: quyet
+      preConditions:
+        onFail: MARK_RAN
+        sqlCheck:
+          expectedResult: 0
+          sql: "SELECT COUNT(*) FROM information_schema.tables WHERE LOWER(table_name) = 'documents'"
+      changes:
+        - createTable:
+            tableName: documents
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: title
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: official_number
+                  type: VARCHAR(100)
+              - column:
+                  name: status
+                  type: VARCHAR(50)
+                  defaultValue: DRAFT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: issue_date
+                  type: DATE
+              - column:
+                  name: effective_date
+                  type: DATE
+              - column:
+                  name: official_file_path
+                  type: VARCHAR(500)
+              - column:
+                  name: official_hash
+                  type: VARCHAR(64)
+              - column:
+                  name: created_date
+                  type: TIMESTAMP
+              - column:
+                  name: updated_date
+                  type: TIMESTAMP
+
+  - changeSet:
+      id: 2026-09-11-add-missing-publish-columns
+      author: antigravity
+      preConditions:
+        onFail: MARK_RAN
+        sqlCheck:
+          expectedResult: 0
+          sql: "SELECT COUNT(*) FROM information_schema.columns WHERE LOWER(table_name) = 'documents' AND LOWER(column_name) = 'official_number'"
+      changes:
+        - addColumn:
+            tableName: documents
+            columns:
+              - column:
+                  name: official_number
+                  type: VARCHAR(100)
+              - column:
+                  name: issue_date
+                  type: DATE
+              - column:
+                  name: effective_date
+                  type: DATE
+              - column:
+                  name: official_file_path
+                  type: VARCHAR(500)
+              - column:
+                  name: official_hash
+                  type: VARCHAR(64)
+
+  - changeSet:
+      id: 2026-09-11-create-table-document-distribution
+      author: quyet
+      preConditions:
+        onFail: MARK_RAN
+        sqlCheck:
+          expectedResult: 0
+          sql: "SELECT COUNT(*) FROM information_schema.tables WHERE LOWER(table_name) = 'document_distribution'"
+      changes:
+        - createTable:
+            tableName: document_distribution
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: document_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: target_id
+                  type: BIGINT
+              - column:
+                  name: target_type
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: is_read
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: read_at
+                  type: TIMESTAMP
+
+  - changeSet:
+      id: 2026-09-11-create-table-document-workflow-log
+      author: quyet
+      preConditions:
+        onFail: MARK_RAN
+        sqlCheck:
+          expectedResult: 0
+          sql: "SELECT COUNT(*) FROM information_schema.tables WHERE LOWER(table_name) = 'document_workflow_logs'"
+      changes:
+        - createTable:
+            tableName: document_workflow_logs
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: document_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: action
+                  type: VARCHAR(100)
+              - column:
+                  name: actor
+                  type: VARCHAR(100)
+              - column:
+                  name: actor_username
+                  type: VARCHAR(100)
+              - column:
+                  name: actor_role
+                  type: VARCHAR(100)
+              - column:
+                  name: comment
+                  type: TEXT
+              - column:
+                  name: ip_address
+                  type: VARCHAR(100)
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+
+  - changeSet:
+      id: 2026-09-11-seed-documents-data
+      author: quyet
+      preConditions:
+        onFail: MARK_RAN
+        sqlCheck:
+          expectedResult: 0
+          sql: "SELECT COUNT(*) FROM documents WHERE id = 1"
+      changes:
+        - insert:
+            tableName: documents
+            columns:
+              - column:
+                  name: id
+                  valueNumeric: 1
+              - column:
+                  name: draft_code
+                  value: "DT-2026-00001"
+              - column:
+                  name: title
+                  value: "Quy chế tổ chức hoạt động văn phòng điện tử"
+              - column:
+                  name: summary
+                  value: "Quy chế tổ chức hoạt động văn phòng điện tử"
+              - column:
+                  name: document_type_cd
+                  value: "QUYET_DINH"
+              - column:
+                  name: official_number
+                  value: "01/QĐ-ĐHL"
+              - column:
+                  name: status
+                  value: "PUBLISHED"
+              - column:
+                  name: issue_date
+                  valueDate: "2026-09-11"
+        - insert:
+            tableName: document_distribution
+            columns:
+              - column:
+                  name: id
+                  valueNumeric: 1
+              - column:
+                  name: document_id
+                  valueNumeric: 1
+              - column:
+                  name: target_id
+                  valueNumeric: 1
+              - column:
+                  name: target_type
+                  value: "ORG"
+              - column:
+                  name: is_read
+                  valueBoolean: false

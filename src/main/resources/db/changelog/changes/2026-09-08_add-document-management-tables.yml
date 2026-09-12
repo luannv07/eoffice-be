@@ -33,7 +33,7 @@ databaseChangeLog:
                   type: VARCHAR(50)
                   remarks: Mã định danh dự thảo văn bản
                   constraints:
-                    nullable: false
+                    nullable: true
               - column:
                   name: title
                   type: VARCHAR(500)
@@ -45,7 +45,7 @@ databaseChangeLog:
                   type: TEXT
                   remarks: Trích yếu / tóm tắt nội dung
                   constraints:
-                    nullable: false
+                    nullable: true
               - column:
                   name: content
                   type: TEXT
@@ -55,19 +55,19 @@ databaseChangeLog:
                   type: VARCHAR(50)
                   remarks: Loại văn bản (dictionary group DOCUMENT_TYPE_CD)
                   constraints:
-                    nullable: false
+                    nullable: true
               - column:
                   name: issuing_org_node_id
                   type: BIGINT
                   remarks: Đơn vị ban hành / chủ trì soạn thảo (FK org_nodes)
                   constraints:
-                    nullable: false
+                    nullable: true
               - column:
                   name: creator_user_id
                   type: BIGINT
                   remarks: Người tạo dự thảo (FK user_logins)
                   constraints:
-                    nullable: false
+                    nullable: true
               - column:
                   name: status
                   type: VARCHAR(50)
@@ -107,6 +107,21 @@ databaseChangeLog:
                   remarks: Cờ xóa mềm
                   constraints:
                     nullable: false
+              - column:
+                  name: official_number
+                  type: VARCHAR(100)
+              - column:
+                  name: issue_date
+                  type: DATE
+              - column:
+                  name: effective_date
+                  type: DATE
+              - column:
+                  name: official_file_path
+                  type: VARCHAR(500)
+              - column:
+                  name: official_hash
+                  type: VARCHAR(64)
               - column:
                   name: created_by
                   type: VARCHAR(100)

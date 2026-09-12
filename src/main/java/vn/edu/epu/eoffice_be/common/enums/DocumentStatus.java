@@ -11,6 +11,7 @@ public enum DocumentStatus {
     APPROVED("Đã duyệt"),
     REJECTED("Bị từ chối / Cần sửa"),
     ISSUED("Đã phát hành"),
+    PUBLISHED("Đã phát hành"),
     REVOKED("Đã thu hồi");
 
     private final String description;
