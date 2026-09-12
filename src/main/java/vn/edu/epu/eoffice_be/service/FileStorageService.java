@@ -8,13 +8,20 @@ import java.io.InputStream;
 public interface FileStorageService {
 
     /**
-     * Lưu trữ nội dung file dạng byte[] vào thư mục chỉ định.
-     * Tên file sẽ được tự động gắn UUID để chống trùng lặp và tấn công Path Traversal.
+     * Lưu trữ nội dung file dạng byte[] vào thư mục con chỉ định.
+     * <p>
+     * Tên file được tự động gắn UUID ngẫu nhiên để đảm bảo duy nhất và chống tấn công Path Traversal
+     * từ tên file gốc. Để đảm bảo an toàn, tham số {@code subDirectory} phải là một tên thư mục đơn,
+     * không được phép chứa các ký tự duyệt đường dẫn nguy hiểm (như {@code ".."}, {@code "/"} hay {@code "\\"}).
+     * Các lớp triển khai bắt buộc phải sanitize hoặc kiểm tra (validate) nghiêm ngặt tham số này nhằm ngăn chặn
+     * triệt để tấn công Path Traversal và Symbolic Link.
+     * </p>
      *
      * @param content          Dữ liệu file
      * @param originalFilename Tên gốc của file
-     * @param subDirectory     Thư mục con (ví dụ: "drafts", "official")
+     * @param subDirectory     Tên thư mục con đơn, không chứa ký tự duyệt thư mục (ví dụ: "drafts", "official")
      * @return Đường dẫn tương đối của file sau khi lưu
+     * @throws BusinessException nếu phát hiện tấn công Path Traversal hoặc gặp lỗi I/O khi lưu file
      */
     String storeFile(byte[] content, String originalFilename, String subDirectory);
 
