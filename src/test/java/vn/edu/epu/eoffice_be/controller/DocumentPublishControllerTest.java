@@ -59,4 +59,11 @@ class DocumentPublishControllerTest {
         mockMvc.perform(get("/documents/1/verify-integrity"))
                 .andExpect(status().isOk());
     }
+    @Test
+    void testVerifyIntegrityEndpoint_WhenFalse() throws Exception {
+        when(publishService.verifyIntegrity(2L)).thenReturn(false);
+
+        mockMvc.perform(get("/documents/2/verify-integrity"))
+                .andExpect(status().isOk());
+    }
 }

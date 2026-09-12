@@ -580,7 +580,7 @@ class DocumentServiceCoverageTest {
         doc1.setStatus("PUBLISHED");
 
         // Test truy vấn với userId hợp lệ
-        when(documentRepository.findPublishedDocumentsForUser(eq(10L)))
+        when(documentRepository.findPublishedDocumentsForUser(10L))
                 .thenReturn(List.of(doc1));
 
         var res = documentQueryService.getPublishedDocuments(10L);
@@ -588,7 +588,7 @@ class DocumentServiceCoverageTest {
         assertEquals(1, res.size());
 
         // Test truy vấn với userId không có tài liệu nào
-        when(documentRepository.findPublishedDocumentsForUser(eq(999L)))
+        when(documentRepository.findPublishedDocumentsForUser(999L))
                 .thenReturn(Collections.emptyList());
 
         var emptyRes = documentQueryService.getPublishedDocuments(999L);
@@ -612,5 +612,14 @@ class DocumentServiceCoverageTest {
 
         Document published = documentPublishService.publishDocument(888L, req);
         assertNotNull(published.getOfficialHash());
+    }
+    @Test
+    void testDocumentWorkflowService_EmptyPendingList() {
+        when(documentRepository.findByStatusIn(anyList()))
+                .thenReturn(Collections.emptyList());
+
+        var pending = documentWorkflowService.getPendingDocuments();
+        assertNotNull(pending);
+        assertTrue(pending.isEmpty());
     }
 }
