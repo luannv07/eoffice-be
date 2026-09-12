@@ -129,6 +129,10 @@ class DocumentQueryControllerTest {
         public Long getOrgId() { throw new RuntimeException("Reflection invocation error"); }
     }
 
+    public static class ErrorThrowingPrincipal {
+        public Long getOrgId() { throw new AssertionError("JVM Error inside getOrgId"); }
+    }
+
     @Test
     void testGetPublishedDocuments_ValidOrgId_Success() {
         when(auth.getPrincipal()).thenReturn(new CustomUserDetailsPrincipal(100L, "user1"));
@@ -212,11 +216,20 @@ class DocumentQueryControllerTest {
     }
 
     @Test
-    void testResolveUserOrgId_ReflectionException_ThrowsAccessDeniedException() {
+    void testResolveUserOrgId_ReflectionRuntimeException_PropagatesOriginalException() {
         when(auth.getPrincipal()).thenReturn(new ExceptionThrowingPrincipal());
 
-        AccessDeniedException exception = assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(auth));
-        assertTrue(exception.getMessage().contains("Không thể xác định đơn vị"));
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> documentQueryController.getPublishedDocuments(auth));
+        assertEquals("Reflection invocation error", exception.getMessage());
+        verifyNoInteractions(documentQueryService);
+    }
+
+    @Test
+    void testResolveUserOrgId_ReflectionError_RethrowsErrorWithoutSwallowing() {
+        when(auth.getPrincipal()).thenReturn(new ErrorThrowingPrincipal());
+
+        AssertionError error = assertThrows(AssertionError.class, () -> documentQueryController.getPublishedDocuments(auth));
+        assertEquals("JVM Error inside getOrgId", error.getMessage());
         verifyNoInteractions(documentQueryService);
     }
 
@@ -314,7 +327,7 @@ class DocumentQueryControllerTest {
     }
 
     @Test
-    void testMockMvc_GetPublishedDocuments_ReflectionException_Returns403() throws Exception {
+    void testMockMvc_GetPublishedDocuments_ReflectionRuntimeException_Returns500() throws Exception {
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 new ExceptionThrowingPrincipal(), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
 
@@ -322,12 +335,30 @@ class DocumentQueryControllerTest {
         try {
             mockMvc.perform(get("/documents/published")
                             .with(authentication(authentication)))
-                    .andExpect(status().isForbidden());
+                    .andExpect(status().isInternalServerError());
         } finally {
             SecurityContextHolder.clearContext();
         }
 
         verifyNoInteractions(documentQueryService);
+    }
+
+    @Test
+    void testClassValueCache_LookupWorksConsistently() {
+        ValidReflectionPrincipal principal = new ValidReflectionPrincipal(200L);
+        when(auth.getPrincipal()).thenReturn(principal);
+        when(auth.isAuthenticated()).thenReturn(true);
+        when(documentQueryService.getPublishedDocuments(200L)).thenReturn(List.of());
+
+        // Call 1: Computes value and caches Method in ClassValue
+        ResponseEntity<Object> res1 = documentQueryController.getPublishedDocuments(auth);
+        assertEquals(200, res1.getStatusCode().value());
+
+        // Call 2: Uses cached Method from ClassValue
+        ResponseEntity<Object> res2 = documentQueryController.getPublishedDocuments(auth);
+        assertEquals(200, res2.getStatusCode().value());
+
+        verify(documentQueryService, times(2)).getPublishedDocuments(200L);
     }
 
     @Test

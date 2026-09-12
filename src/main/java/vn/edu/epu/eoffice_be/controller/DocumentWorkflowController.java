@@ -38,7 +38,7 @@ public class DocumentWorkflowController {
         if (authentication == null 
                 || !authentication.isAuthenticated() 
                 || authentication instanceof org.springframework.security.authentication.AnonymousAuthenticationToken) {
-            throw new org.springframework.security.authentication.AuthenticationCredentialsNotFoundException("Yêu cầu xác thực người dùng");
+            throw new org.springframework.security.access.AccessDeniedException("Yêu cầu xác thực người dùng");
         }
         List<WorkflowTimelineResponse> timeline = workflowService.getDocumentTimeline(id, authentication);
         return ResponseEntity.status(HttpStatus.OK).body(timeline);

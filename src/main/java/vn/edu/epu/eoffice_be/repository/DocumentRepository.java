@@ -68,6 +68,7 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
         SELECT d FROM Document d
         WHERE CAST(d.status AS string) IN (:statuses)
           AND d.deleteFlg = false
+        ORDER BY d.id ASC
     """)
     Page<Document> findByStatusIn(@Param("statuses") List<String> statuses, Pageable pageable);
 

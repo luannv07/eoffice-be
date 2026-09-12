@@ -158,17 +158,17 @@ class DocumentWorkflowControllerTest {
     }
 
     @Test
-    void testGetDocumentTimeline_Unauthenticated_Returns401() throws Exception {
+    void testGetDocumentTimeline_Unauthenticated_Returns403() throws Exception {
         SecurityContextHolder.clearContext();
-        // Enforced at API/controller authorization layer without stubbing workflowService
+        // Enforced at API/controller authorization layer without stubbing workflowService -> 403 Forbidden
         mockMvc.perform(get("/documents/99/timeline"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isForbidden());
 
         verifyNoInteractions(workflowService);
     }
 
     @Test
-    void testGetDocumentTimeline_AnonymousToken_Returns401() throws Exception {
+    void testGetDocumentTimeline_AnonymousToken_Returns403() throws Exception {
         Authentication anonymous = new AnonymousAuthenticationToken(
                 "key", "anonymousUser", AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS"));
 
@@ -176,7 +176,7 @@ class DocumentWorkflowControllerTest {
         try {
             mockMvc.perform(get("/documents/99/timeline")
                             .with(authentication(anonymous)))
-                    .andExpect(status().isUnauthorized());
+                    .andExpect(status().isForbidden());
         } finally {
             SecurityContextHolder.clearContext();
         }
@@ -218,9 +218,9 @@ class DocumentWorkflowControllerTest {
         assertNotNull(annotation, "DocumentWorkflowController must be annotated with @PreAuthorize");
         assertEquals("isAuthenticated()", annotation.value());
 
-        // [16/20] 3. Kiểm tra hành vi: khi SecurityContext trống, yêu cầu bị từ chối mà không chạm tới service
+        // [16/20] [4/17] 3. Kiểm tra hành vi: khi SecurityContext trống, yêu cầu bị từ chối với AccessDeniedException (403)
         SecurityContextHolder.clearContext();
-        assertThrows(org.springframework.security.authentication.AuthenticationCredentialsNotFoundException.class,
+        assertThrows(AccessDeniedException.class,
                 () -> controller.getDocumentTimeline(99L, null));
         verifyNoInteractions(workflowService);
     }

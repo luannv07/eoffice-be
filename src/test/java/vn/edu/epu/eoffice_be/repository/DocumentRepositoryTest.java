@@ -454,9 +454,9 @@ class DocumentRepositoryTest {
 
         List<String> statuses = List.of("WAITING_APPROVAL");
 
-        // [17/20] Xác định thứ tự ổn định rõ ràng qua Sort.Direction.ASC thay vì phụ thuộc thứ tự ngầm định
-        Page<Document> page0 = documentRepository.findByStatusIn(statuses, PageRequest.of(0, 2, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "id")));
-        Page<Document> page1 = documentRepository.findByStatusIn(statuses, PageRequest.of(1, 2, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "id")));
+        // [5/17] Xác nhận phân trang ổn định xác định (ORDER BY d.id ASC) kể cả khi Pageable không truyền Sort
+        Page<Document> page0 = documentRepository.findByStatusIn(statuses, PageRequest.of(0, 2));
+        Page<Document> page1 = documentRepository.findByStatusIn(statuses, PageRequest.of(1, 2));
 
         assertEquals(4, page0.getTotalElements());
         assertEquals(2, page0.getContent().size());
@@ -482,18 +482,18 @@ class DocumentRepositoryTest {
     }
 
     @Test
-    @DisplayName("findByStatusIn: Kiểm tra hỗ trợ dynamic Sort từ Pageable (DESC)")
-    void findByStatusIn_DynamicSort_Success() {
-        OrgNode orgNode = getOrCreateOrgNode("TEST_ORG_PAGE_DESC");
+    @DisplayName("findByStatusIn: Kiểm tra phân trang với PageRequest unsorted duy trì thứ tự id ASC xác định")
+    void findByStatusIn_UnsortedPageable_MaintainsDeterministicAscendingOrder_Success() {
+        OrgNode orgNode = getOrCreateOrgNode("TEST_ORG_PAGE_UNSORTED");
         UserLogin creator = userLoginRepository.saveAndFlush(UserLogin.builder()
-                .username("test-page-desc-user")
+                .username("test-page-unsorted-user")
                 .passwordHash("secret")
                 .build());
 
         for (int i = 1; i <= 3; i++) {
             documentRepository.saveAndFlush(Document.builder()
-                    .draftCode("DT-PAGE-DESC-00" + i)
-                    .title("Văn bản phân trang DESC " + i)
+                    .draftCode("DT-PAGE-UNSORTED-00" + i)
+                    .title("Văn bản phân trang unsorted " + i)
                     .documentTypeCd("CONG_VAN")
                     .status(DocumentStatus.WAITING_APPROVAL)
                     .securityLevel(DocumentSecurityLevel.NORMAL)
@@ -506,12 +506,11 @@ class DocumentRepositoryTest {
         }
 
         List<String> statuses = List.of("WAITING_APPROVAL");
-        Page<Document> pageDesc = documentRepository.findByStatusIn(statuses,
-                PageRequest.of(0, 3, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "id")));
+        Page<Document> page = documentRepository.findByStatusIn(statuses, PageRequest.of(0, 3));
 
-        List<Long> idsDesc = pageDesc.getContent().stream().map(Document::getId).toList();
-        assertTrue(idsDesc.size() >= 3);
-        assertTrue(idsDesc.get(0) > idsDesc.get(1));
-        assertTrue(idsDesc.get(1) > idsDesc.get(2));
+        List<Long> ids = page.getContent().stream().map(Document::getId).toList();
+        assertTrue(ids.size() >= 3);
+        assertTrue(ids.get(0) < ids.get(1));
+        assertTrue(ids.get(1) < ids.get(2));
     }
 }

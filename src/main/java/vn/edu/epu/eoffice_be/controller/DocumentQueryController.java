@@ -19,10 +19,7 @@ import vn.edu.epu.eoffice_be.service.DocumentQueryService;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Collections;
-import java.util.Map;
 import java.util.Optional;
-import java.util.WeakHashMap;
 
 @Slf4j
 @RestController
@@ -34,21 +31,22 @@ public class DocumentQueryController {
 
     /**
      * Cache for reflection lookup of getOrgId() method.
-     * Uses WeakHashMap wrapped in synchronizedMap so that dynamic/proxy classes
-     * and their ClassLoaders can be garbage-collected without leaking memory.
-     * A maximum bounded size is also enforced to prevent memory exhaustion.
+     * Uses ClassValue so that cached Method references do not strongly reference
+     * the Class keys from a static map, allowing dynamic/proxy classes and their
+     * ClassLoaders to be naturally garbage-collected without memory leaks or arbitrary cache clearing.
      */
-    private static final int MAX_CACHE_SIZE = 256;
-    private static final Map<Class<?>, Optional<Method>> ORG_ID_METHOD_CACHE =
-            Collections.synchronizedMap(new WeakHashMap<>() {
-                @Override
-                public Optional<Method> put(Class<?> key, Optional<Method> value) {
-                    if (size() >= MAX_CACHE_SIZE) {
-                        clear();
-                    }
-                    return super.put(key, value);
-                }
-            });
+    private static final ClassValue<Optional<Method>> ORG_ID_METHOD_CACHE = new ClassValue<>() {
+        @Override
+        protected Optional<Method> computeValue(Class<?> type) {
+            try {
+                Method m = type.getMethod("getOrgId");
+                return Optional.of(m);
+            } catch (NoSuchMethodException e) {
+                log.debug("No public getOrgId() found on class {}", type.getName());
+                return Optional.empty();
+            }
+        }
+    };
 
     DocumentQueryService queryService;
 
@@ -84,27 +82,23 @@ public class DocumentQueryController {
             log.warn("Cannot access getOrgId() on principal class {}: {}", principal.getClass().getName(), e.getMessage());
             throw new AccessDeniedException("Không thể xác định đơn vị (orgId) hợp lệ của người dùng", e);
         } catch (InvocationTargetException e) {
-            Throwable cause = e.getCause();
-            log.warn("Exception thrown while invoking getOrgId() on principal class {}: {}",
-                    principal.getClass().getName(), cause != null ? cause.getMessage() : e.getMessage());
-            throw new AccessDeniedException("Không thể xác định đơn vị (orgId) hợp lệ của người dùng", e);
+            Throwable cause = e.getCause() != null ? e.getCause() : e;
+            log.error("Exception thrown while invoking getOrgId() on principal class {}",
+                    principal.getClass().getName(), cause);
+            if (cause instanceof Error err) {
+                throw err;
+            }
+            if (cause instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            throw new AccessDeniedException("Không thể xác định đơn vị (orgId) hợp lệ của người dùng", cause);
         }
 
         throw new AccessDeniedException("Người dùng không có thông tin đơn vị (orgId) hợp lệ");
     }
 
     private Optional<Method> findOrgIdMethod(Class<?> clazz) {
-        synchronized (ORG_ID_METHOD_CACHE) {
-            return ORG_ID_METHOD_CACHE.computeIfAbsent(clazz, c -> {
-                try {
-                    Method m = c.getMethod("getOrgId");
-                    return Optional.of(m);
-                } catch (NoSuchMethodException e) {
-                    log.debug("No public getOrgId() found on class {}", c.getName());
-                    return Optional.empty();
-                }
-            });
-        }
+        return ORG_ID_METHOD_CACHE.get(clazz);
     }
 
     // UC16.1: Tra cứu danh sách văn bản ban hành
