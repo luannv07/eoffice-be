@@ -15,6 +15,14 @@ import vn.edu.epu.eoffice_be.dto.response.DocumentWorkflowLogResponse;
 
 import java.util.List;
 
+/**
+ * Interface định nghĩa các nghiệp vụ xử lý luồng văn bản (Workflow).
+ * <p>
+ * Triển khai mặc định bởi Spring-managed bean {@link vn.edu.epu.eoffice_be.service.impl.DocumentWorkflowServiceImpl}.
+ * </p>
+ *
+ * @see vn.edu.epu.eoffice_be.service.impl.DocumentWorkflowServiceImpl
+ */
 public interface DocumentWorkflowService {
 
     /**

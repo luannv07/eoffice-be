@@ -443,7 +443,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 .id(doc.getId())
                 .title(doc.getTitle())
                 .status(doc.getStatus() != null ? doc.getStatus().name() : null)
-                .currentHolder("Lãnh đạo phê duyệt")
+                .currentHolder(resolveCurrentHolder(doc.getStatus()))
                 .build());
     }
 
@@ -461,8 +461,20 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 .id(doc.getId())
                 .title(doc.getTitle())
                 .status(doc.getStatus() != null ? doc.getStatus().name() : null)
-                .currentHolder("Lãnh đạo phê duyệt")
+                .currentHolder(resolveCurrentHolder(doc.getStatus()))
                 .build()).toList();
+    }
+
+    private String resolveCurrentHolder(DocumentStatus status) {
+        if (status == null) {
+            return "Bộ phận xử lý văn bản";
+        }
+        return switch (status) {
+            case SUBMITTED -> "Văn thư tiếp nhận";
+            case PENDING_REVIEW, IN_REVIEW -> "Chuyên viên thẩm định";
+            case PENDING_APPROVAL -> "Lãnh đạo phê duyệt";
+            default -> "Bộ phận xử lý văn bản";
+        };
     }
 
     @Override
@@ -478,9 +490,39 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         if (act == null) {
             act = WorkflowAction.SUBMIT;
         }
+
+        Document doc = null;
+        if (documentRepository != null && documentId != null) {
+            doc = documentRepository.findById(documentId).orElse(null);
+        }
+        if (doc == null && documentId != null) {
+            doc = Document.builder().id(documentId).build();
+        }
+
+        UserLogin actor = null;
+        if (userLoginRepository != null && username != null && !username.isBlank()) {
+            actor = userLoginRepository.findByUsernameAndDeleteFlgFalse(username).orElse(null);
+        }
+        if (actor == null) {
+            try {
+                actor = getCurrentActor();
+            } catch (Exception ignored) {
+            }
+        }
+        if (actor == null && userLoginRepository != null) {
+            actor = userLoginRepository.findAll().stream().findFirst().orElse(null);
+        }
+
+        DocumentStatus currentStatus = (doc != null && doc.getStatus() != null)
+                ? doc.getStatus()
+                : DocumentStatus.DRAFT;
+
         DocumentWorkflowLog log = DocumentWorkflowLog.builder()
-                .document(Document.builder().id(documentId).build())
+                .document(doc)
+                .actor(actor)
                 .action(act)
+                .fromStatus(currentStatus)
+                .toStatus(currentStatus)
                 .comment(comment)
                 .build();
         documentWorkflowLogRepository.save(log);
