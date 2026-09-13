@@ -36,7 +36,6 @@ import java.time.LocalDateTime;
         }
 )
 @Getter
-@Setter
 @NoArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class DocumentWorkflowLog extends BaseEntity {
@@ -44,26 +43,32 @@ public class DocumentWorkflowLog extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "document_workflow_logs_seq")
     @SequenceGenerator(name = "document_workflow_logs_seq", sequenceName = "document_workflow_logs_seq", allocationSize = 50)
+    @Setter(AccessLevel.NONE)
     Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "document_id", nullable = false)
+    @Setter(AccessLevel.NONE)
     Document document;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
+    @Setter(AccessLevel.NONE)
     WorkflowAction action;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "actor_id", nullable = false)
+    @Setter(AccessLevel.NONE)
     UserLogin actor;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "from_status", nullable = false, length = 50)
+    @Setter(AccessLevel.NONE)
     DocumentStatus fromStatus;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "to_status", nullable = false, length = 50)
+    @Setter(AccessLevel.NONE)
     DocumentStatus toStatus;
 
     @Column(length = 2000)
@@ -77,6 +82,7 @@ public class DocumentWorkflowLog extends BaseEntity {
     OrgNode assignedOrgNode;
 
     @Column(name = "signature_hash", length = 64)
+    @Setter(AccessLevel.NONE)
     String signatureHash;
 
     @Column(name = "delete_flg", nullable = false)
@@ -126,6 +132,10 @@ public class DocumentWorkflowLog extends BaseEntity {
 
     public Long getDocumentId() {
         return document != null ? document.getId() : null;
+    }
+
+    public void setDeleteFlg(boolean deleteFlg) {
+        this.deleteFlg = deleteFlg;
     }
 
     public static class DocumentWorkflowLogBuilder {

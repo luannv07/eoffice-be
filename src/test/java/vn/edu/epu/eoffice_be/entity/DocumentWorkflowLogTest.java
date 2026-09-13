@@ -7,6 +7,7 @@ import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -133,5 +134,33 @@ class DocumentWorkflowLogTest {
                 DocumentWorkflowLog.builder().action("INVALID_ACTION_STRING")
         );
         assertTrue(exInvalid.getMessage().contains("Invalid workflow action"));
+    }
+
+    @Test
+    @DisplayName("Audit entity immutability: Sensitive audit fields must not have public setter methods")
+    void sensitiveFields_shouldNotHavePublicSetters() {
+        String[] sensitiveSetters = {
+                "setId", "setDocument", "setActor", "setAction",
+                "setFromStatus", "setToStatus", "setSignatureHash",
+                "setComment", "setLeadershipInstruction", "setAssignedOrgNode"
+        };
+        for (String setterName : sensitiveSetters) {
+            boolean hasSetter = Arrays.stream(DocumentWorkflowLog.class.getMethods())
+                    .anyMatch(m -> m.getName().equals(setterName));
+            assertFalse(hasSetter, "Sensitive audit field setter " + setterName + " must not exist!");
+        }
+    }
+
+    @Test
+    @DisplayName("setDeleteFlg: Controlled update for soft delete works properly")
+    void deleteFlg_controlledMutation_shouldWork() {
+        DocumentWorkflowLog log = DocumentWorkflowLog.builder().build();
+        assertFalse(log.isDeleteFlg());
+
+        log.setDeleteFlg(true);
+        assertTrue(log.isDeleteFlg());
+
+        log.setDeleteFlg(false);
+        assertFalse(log.isDeleteFlg());
     }
 }
