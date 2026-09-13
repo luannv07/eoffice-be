@@ -23,13 +23,43 @@ public class WebMvcMappingConfig implements WebMvcRegistrations {
 
     static class AmbiguousMappingSafeHandlerMapping extends RequestMappingHandlerMapping {
 
-        /**
-         * Danh sách các mapping trùng lặp đã qua kiểm duyệt (reviewed allowlist).
-         * Chỉ những xung đột trong danh sách này mới được phép xử lý an toàn;
-         * tất cả các xung đột khác sẽ fail-fast ngay khi khởi động ứng dụng.
-         */
-        static final java.util.Set<String> REVIEWED_ALLOWLIST = java.util.Set.of(
-                "{GET [/documents/{id}]}"
+        record ReviewedConflictRule(
+                org.springframework.web.bind.annotation.RequestMethod httpMethod,
+                String pathPattern,
+                java.util.Set<String> allowedHandlerSimpleNames,
+                java.util.Set<String> allowedMethodNames
+        ) {
+            boolean matches(RequestMappingInfo mapping, Object handler, Method method) {
+                if (mapping == null || method == null) {
+                    return false;
+                }
+                boolean methodMatches = mapping.getMethodsCondition().getMethods().contains(httpMethod);
+                boolean pathMatches = mapping.getPatternValues().contains(pathPattern);
+
+                String declaringClassName = method.getDeclaringClass().getSimpleName();
+                boolean handlerMatches = allowedHandlerSimpleNames.contains(declaringClassName);
+                if (!handlerMatches && handler != null) {
+                    if (handler instanceof String s) {
+                        handlerMatches = allowedHandlerSimpleNames.stream().anyMatch(name -> name.equalsIgnoreCase(s));
+                    } else {
+                        String simpleName = handler.getClass().getSimpleName();
+                        handlerMatches = allowedHandlerSimpleNames.stream().anyMatch(simpleName::startsWith);
+                    }
+                }
+
+                boolean actionMethodMatches = allowedMethodNames.contains(method.getName());
+
+                return methodMatches && pathMatches && handlerMatches && actionMethodMatches;
+            }
+        }
+
+        static final java.util.List<ReviewedConflictRule> REVIEWED_RULES = java.util.List.of(
+                new ReviewedConflictRule(
+                        org.springframework.web.bind.annotation.RequestMethod.GET,
+                        "/documents/{id}",
+                        java.util.Set.of("DocumentController", "DocumentWorkflowController"),
+                        java.util.Set.of("getDraftDetail", "getDetail")
+                )
         );
 
         @Override
@@ -37,8 +67,8 @@ public class WebMvcMappingConfig implements WebMvcRegistrations {
             try {
                 super.registerHandlerMethod(handler, method, mapping);
             } catch (IllegalStateException ex) {
-                if (isAmbiguousMappingException(ex) && isReviewedConflict(mapping)) {
-                    log.info("[AUDIT] Bỏ qua mapping trùng lặp đã được duyệt: {} cho method: {}.{} (ưu tiên handler đã đăng ký trước)",
+                if (isAmbiguousMappingException(ex) && isReviewedConflict(mapping, handler, method)) {
+                    log.info("[AUDIT] Bỏ qua mapping trùng lặp đã được duyệt: {} cho {}.{} (ưu tiên handler đã đăng ký trước)",
                             mapping, handler.getClass().getSimpleName(), method.getName());
                     return;
                 }
@@ -51,12 +81,8 @@ public class WebMvcMappingConfig implements WebMvcRegistrations {
             return ex != null && ex.getMessage() != null && ex.getMessage().contains("Ambiguous mapping");
         }
 
-        static boolean isReviewedConflict(RequestMappingInfo mapping) {
-            if (mapping == null) {
-                return false;
-            }
-            String mappingStr = mapping.toString();
-            return REVIEWED_ALLOWLIST.stream().anyMatch(mappingStr::contains);
+        static boolean isReviewedConflict(RequestMappingInfo mapping, Object handler, Method method) {
+            return REVIEWED_RULES.stream().anyMatch(rule -> rule.matches(mapping, handler, method));
         }
     }
 }

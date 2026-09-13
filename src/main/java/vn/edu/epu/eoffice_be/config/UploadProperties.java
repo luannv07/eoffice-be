@@ -1,5 +1,7 @@
 package vn.edu.epu.eoffice_be.config;
 
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Positive;
@@ -26,10 +28,25 @@ public class UploadProperties {
     private String dir = "/var/eoffice/uploads/documents";
 
     @Positive
-    private long maxSizeBytes = 26214400L; // 25 MB
+    @Max(104857600L) // Giới hạn tối đa 100 MB
+    private long maxSizeBytes = 26214400L; // 25 MB default
 
     @NotEmpty
     private List<String> allowedExtensions = new ArrayList<>(List.of("docx", "pdf"));
+
+    @AssertTrue(message = "Đường dẫn thư mục tải lên phải là đường dẫn tuyệt đối, chuẩn hóa và không chứa '..'")
+    public boolean isDirValid() {
+        if (dir == null || dir.isBlank() || dir.contains("..")) {
+            return false;
+        }
+        try {
+            java.nio.file.Path path = java.nio.file.Paths.get(dir);
+            boolean isAbs = path.isAbsolute() || dir.startsWith("/") || dir.startsWith("\\");
+            return isAbs && path.equals(path.normalize());
+        } catch (Exception e) {
+            return false;
+        }
+    }
 
     public List<String> getAllowedExtensions() {
         return allowedExtensions == null ? Collections.emptyList() : Collections.unmodifiableList(allowedExtensions);

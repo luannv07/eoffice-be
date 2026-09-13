@@ -225,7 +225,7 @@ class DocumentVersionServiceTest {
     }
 
     @Test
-    @DisplayName("Khôi phục phiên bản thất bại khi trạng thái văn bản không hợp lệ (INVALID_DOCUMENT_STATUS)")
+    @DisplayName("Khôi phục phiên bản thất bại khi trạng thái văn bản không hợp lệ (DOCUMENT_INVALID_STATUS)")
     void restoreVersion_InvalidStatus_ShouldThrowInvalidStatus() {
         Long docId = 1L;
         Long userId = 100L;
@@ -241,7 +241,7 @@ class DocumentVersionServiceTest {
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentVersionService.restoreVersion(docId, 1, userId));
-        assertEquals(ErrorCode.INVALID_DOCUMENT_STATUS, ex.getErrorCode());
+        assertEquals(ErrorCode.DOCUMENT_INVALID_STATUS, ex.getErrorCode());
     }
 
     @Test

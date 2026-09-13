@@ -42,6 +42,7 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -636,5 +637,27 @@ class DocumentControllerTest {
         mockMvc.perform(get("/documents/1/attachments/10/download").principal(auth))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.errorCode").value(ErrorCode.DOCUMENT_ATTACHMENT_NOT_FOUND.getCode()));
+    }
+
+    @Test
+    @DisplayName("API GET download attachment - Trả về 500 khi kiểm tra resource gặp lỗi ngoại lệ")
+    void downloadAttachment_StorageError_WhenResourceThrowsException() throws Exception {
+        Long docId = 1L;
+        Long attId = 10L;
+
+        vn.edu.epu.eoffice_be.entity.DocumentAttachment meta =
+                vn.edu.epu.eoffice_be.entity.DocumentAttachment.builder()
+                        .originalFileName("kehoach.docx")
+                        .build();
+
+        org.springframework.core.io.Resource brokenResource = mock(org.springframework.core.io.Resource.class);
+        when(brokenResource.exists()).thenThrow(new RuntimeException("Disk error"));
+
+        when(documentAttachmentService.getAttachmentMetadata(docId, attId, 100L)).thenReturn(meta);
+        when(documentAttachmentService.downloadAttachment(docId, attId, 100L)).thenReturn(brokenResource);
+
+        mockMvc.perform(get("/documents/1/attachments/10/download").principal(auth))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.STORAGE_ERROR.getCode()));
     }
 }

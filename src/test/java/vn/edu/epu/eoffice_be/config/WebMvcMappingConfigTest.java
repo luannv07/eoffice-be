@@ -1,11 +1,27 @@
 package vn.edu.epu.eoffice_be.config;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
+
+import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class WebMvcMappingConfigTest {
+
+    static class DocumentController {
+        public void getDraftDetail() {}
+        public void otherMethod() {}
+    }
+
+    static class DocumentWorkflowController {
+        public void getDetail() {}
+    }
+
+    static class UnrelatedController {
+        public void getDetail() {}
+    }
 
     @Test
     void getRequestMappingHandlerMapping_ShouldReturnCustomInstance() {
@@ -27,18 +43,40 @@ class WebMvcMappingConfigTest {
     }
 
     @Test
-    void isReviewedConflict_ShouldMatchReviewedEndpoints() {
+    void isReviewedConflict_ShouldReturnTrueForExactReviewedHandlerAndMethod() throws Exception {
         RequestMappingInfo info = RequestMappingInfo.paths("/documents/{id}")
-                .methods(org.springframework.web.bind.annotation.RequestMethod.GET)
+                .methods(RequestMethod.GET)
                 .build();
 
-        assertTrue(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info));
+        DocumentController handler1 = new DocumentController();
+        Method method1 = DocumentController.class.getMethod("getDraftDetail");
+        assertTrue(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info, handler1, method1));
 
-        RequestMappingInfo otherInfo = RequestMappingInfo.paths("/users/{id}")
-                .methods(org.springframework.web.bind.annotation.RequestMethod.GET)
+        DocumentWorkflowController handler2 = new DocumentWorkflowController();
+        Method method2 = DocumentWorkflowController.class.getMethod("getDetail");
+        assertTrue(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info, handler2, method2));
+    }
+
+    @Test
+    void isReviewedConflict_ShouldReturnFalseForUnreviewedHandlerOrMethod() throws Exception {
+        RequestMappingInfo info = RequestMappingInfo.paths("/documents/{id}")
+                .methods(RequestMethod.GET)
                 .build();
 
-        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(otherInfo));
-        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(null));
+        // Cùng mapping nhưng handler lạ
+        UnrelatedController unapprovedHandler = new UnrelatedController();
+        Method method1 = UnrelatedController.class.getMethod("getDetail");
+        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info, unapprovedHandler, method1));
+
+        // Đúng handler nhưng method khác
+        DocumentController approvedHandler = new DocumentController();
+        Method method2 = DocumentController.class.getMethod("otherMethod");
+        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info, approvedHandler, method2));
+
+        // Khác URL mapping
+        RequestMappingInfo otherInfo = RequestMappingInfo.paths("/other/{id}")
+                .methods(RequestMethod.GET)
+                .build();
+        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(otherInfo, approvedHandler, DocumentController.class.getMethod("getDraftDetail")));
     }
 }

@@ -249,7 +249,7 @@ class DocumentDraftServiceTest {
     }
 
     @Test
-    @DisplayName("Chỉnh sửa dự thảo bị từ chối khi văn bản đang chờ duyệt (INVALID_DOCUMENT_STATUS)")
+    @DisplayName("Chỉnh sửa dự thảo bị từ chối khi văn bản đang chờ duyệt (DOCUMENT_INVALID_STATUS)")
     void updateDraft_InvalidStatus_WhenWaitingApproval() {
         Long userId = 100L;
         Long docId = 1L;
@@ -273,7 +273,7 @@ class DocumentDraftServiceTest {
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentDraftService.updateDraft(docId, request, userId));
-        assertEquals(ErrorCode.INVALID_DOCUMENT_STATUS, ex.getErrorCode());
+        assertEquals(ErrorCode.DOCUMENT_INVALID_STATUS, ex.getErrorCode());
     }
 
     @Test

@@ -1,12 +1,14 @@
 package vn.edu.epu.eoffice_be.config;
- 
+
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import vn.edu.epu.eoffice_be.entity.Document;
 
+import java.time.DateTimeException;
 import java.time.ZoneId;
 
+@Slf4j
 @Configuration
 public class BusinessTimeZoneConfig {
 
@@ -16,9 +18,15 @@ public class BusinessTimeZoneConfig {
     @Bean
     public ZoneId businessZone() {
         String trimmed = businessTimeZone != null ? businessTimeZone.trim() : "";
-        ZoneId zone = trimmed.isEmpty() ? ZoneId.of("Asia/Ho_Chi_Minh") : ZoneId.of(trimmed);
-        Document.setBusinessZone(zone);
-        return zone;
+        if (trimmed.isEmpty()) {
+            return ZoneId.of("Asia/Ho_Chi_Minh");
+        }
+        try {
+            return ZoneId.of(trimmed);
+        } catch (DateTimeException ex) {
+            log.error("Cấu hình eoffice.timezone không hợp lệ: '{}'", trimmed, ex);
+            throw new IllegalStateException("Cấu hình eoffice.timezone không hợp lệ: '" + trimmed + "'", ex);
+        }
     }
 }
 

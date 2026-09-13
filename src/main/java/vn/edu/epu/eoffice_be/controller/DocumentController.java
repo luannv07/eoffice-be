@@ -114,7 +114,7 @@ public class DocumentController {
     @Operation(summary = "Chỉnh sửa dự thảo và lưu phiên bản (UC10)",
             description = "Cập nhật tiêu đề, trích yếu, nội dung hoặc đơn vị. Nếu saveNewVersion=true sẽ tự sinh phiên bản snapshot mới.")
     @ApiResponse(responseCode = "200", description = "Cập nhật thành công")
-    @ApiResponse(responseCode = "400", description = "Trạng thái văn bản không hợp lệ để chỉnh sửa (INVALID_DOCUMENT_STATUS)")
+    @ApiResponse(responseCode = "400", description = "Trạng thái văn bản không hợp lệ để chỉnh sửa (DOCUMENT_INVALID_STATUS)")
     @ApiResponse(responseCode = "403", description = "Không có quyền chỉnh sửa (FORBIDDEN)")
     @ApiResponse(responseCode = "404", description = "Không tìm thấy văn bản (DOCUMENT_NOT_FOUND)")
     @PutMapping("/{id}")
@@ -200,8 +200,19 @@ public class DocumentController {
         }
 
         Resource resource = documentAttachmentService.downloadAttachment(id, attachmentId, userId);
-        if (resource == null || !resource.exists() || !resource.isReadable()) {
-            throw new BusinessException(ErrorCode.DOCUMENT_ATTACHMENT_NOT_FOUND, "Tệp đính kèm không tồn tại hoặc không thể đọc");
+        if (resource == null) {
+            throw new BusinessException(ErrorCode.DOCUMENT_ATTACHMENT_NOT_FOUND, "Tệp đính kèm không tồn tại");
+        }
+
+        try {
+            if (!resource.exists() || !resource.isReadable()) {
+                throw new BusinessException(ErrorCode.DOCUMENT_ATTACHMENT_NOT_FOUND, "Tệp đính kèm không tồn tại hoặc không thể đọc");
+            }
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Lỗi khi kiểm tra tính khả dụng của tệp đính kèm id={}: {}", attachmentId, e.getMessage(), e);
+            throw new BusinessException(ErrorCode.STORAGE_ERROR, "Lỗi khi kiểm tra tính khả dụng của tệp đính kèm");
         }
 
         String rawFileName = metadata.getOriginalFileName();
@@ -258,7 +269,7 @@ public class DocumentController {
     @Operation(summary = "Gửi văn bản để duyệt (UC11)",
             description = "Gửi hồ sơ văn bản tới cán bộ duyệt đã chọn. Kiểm tra tính đầy đủ hồ sơ (bắt buộc có tệp đính kèm chính hoặc nội dung).")
     @ApiResponse(responseCode = "200", description = "Gửi duyệt thành công")
-    @ApiResponse(responseCode = "400", description = "Hồ sơ chưa đầy đủ hoặc trạng thái không hợp lệ (DOCUMENT_INCOMPLETE_DOSSIER / INVALID_DOCUMENT_STATUS)")
+    @ApiResponse(responseCode = "400", description = "Hồ sơ chưa đầy đủ hoặc trạng thái không hợp lệ (DOCUMENT_INCOMPLETE_DOSSIER / DOCUMENT_INVALID_STATUS)")
     @PostMapping("/{id}/submit-approval")
     public BaseResponse<DocumentResponse> submitForApproval(
             @PathVariable Long id,

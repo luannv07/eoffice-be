@@ -48,14 +48,16 @@ public class DocumentQueryController {
         }
     };
 
-    private static final java.util.Set<String> ALLOWED_LEGACY_PRINCIPALS = java.util.Set.of(
-            "vn.edu.epu.eoffice_be.security.JwtUserPrincipal",
-            "vn.edu.epu.eoffice_be.controller.DocumentQueryControllerTest$ValidReflectionPrincipal",
-            "vn.edu.epu.eoffice_be.controller.DocumentQueryControllerTest$NullOrgIdReflectionPrincipal",
-            "vn.edu.epu.eoffice_be.controller.DocumentQueryControllerTest$NonLongOrgIdPrincipal",
-            "vn.edu.epu.eoffice_be.controller.DocumentQueryControllerTest$ExceptionThrowingPrincipal",
-            "vn.edu.epu.eoffice_be.controller.DocumentQueryControllerTest$ErrorThrowingPrincipal"
+    private final java.util.Set<String> allowedLegacyPrincipals = new java.util.concurrent.CopyOnWriteArraySet<>(
+            java.util.Set.of("vn.edu.epu.eoffice_be.security.JwtUserPrincipal")
     );
+
+    // Package-private hook for registering allowed legacy migration principals in tests or config
+    void registerAllowedLegacyPrincipal(Class<?> clazz) {
+        if (clazz != null) {
+            allowedLegacyPrincipals.add(clazz.getName());
+        }
+    }
 
     DocumentQueryService queryService;
 
@@ -77,7 +79,7 @@ public class DocumentQueryController {
         }
 
         // Restrict legacy reflection only to audited/allowed classes
-        if (!ALLOWED_LEGACY_PRINCIPALS.contains(principal.getClass().getName())) {
+        if (!allowedLegacyPrincipals.contains(principal.getClass().getName())) {
             log.warn("Principal class {} is not an OrgAwarePrincipal and not in allowed legacy allowlist", principal.getClass().getName());
             throw new AccessDeniedException("Không thể xác định đơn vị (orgId) hợp lệ của người dùng");
         }
@@ -89,15 +91,16 @@ public class DocumentQueryController {
         }
 
         Method method = methodOpt.get();
-        if (!Long.class.equals(method.getReturnType())) {
-            log.warn("Method getOrgId() on {} does not return Long", principal.getClass().getName());
+        Class<?> returnType = method.getReturnType();
+        if (!Long.class.equals(returnType) && !long.class.equals(returnType)) {
+            log.warn("Method getOrgId() on {} does not return Long or long (found: {})", principal.getClass().getName(), returnType.getName());
             throw new AccessDeniedException("Không thể xác định đơn vị (orgId) hợp lệ của người dùng");
         }
 
         try {
-            Object val = methodOpt.get().invoke(principal);
-            if (val instanceof Long longVal) {
-                return longVal;
+            Object val = method.invoke(principal);
+            if (val instanceof Number num) {
+                return num.longValue();
             }
         } catch (IllegalAccessException e) {
             log.warn("Cannot access getOrgId() on principal class {}: {}", principal.getClass().getName(), e.getMessage());

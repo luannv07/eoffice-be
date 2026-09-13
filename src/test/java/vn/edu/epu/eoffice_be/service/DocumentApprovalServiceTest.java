@@ -423,7 +423,7 @@ class DocumentApprovalServiceTest {
     }
 
     @Test
-    @DisplayName("Gửi duyệt thất bại khi trạng thái văn bản không hợp lệ (INVALID_DOCUMENT_STATUS)")
+    @DisplayName("Gửi duyệt thất bại khi trạng thái văn bản không hợp lệ (DOCUMENT_INVALID_STATUS)")
     void submitForApproval_InvalidStatus_ThrowsInvalidStatus() {
         Long docId = 1L;
         Long senderId = 100L;
@@ -436,7 +436,7 @@ class DocumentApprovalServiceTest {
         SubmitApprovalRequest req = SubmitApprovalRequest.builder().approverUserId(300L).build();
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentApprovalService.submitForApproval(docId, req, senderId));
-        assertEquals(ErrorCode.INVALID_DOCUMENT_STATUS, ex.getErrorCode());
+        assertEquals(ErrorCode.DOCUMENT_INVALID_STATUS, ex.getErrorCode());
     }
 
     @Test
@@ -478,7 +478,7 @@ class DocumentApprovalServiceTest {
     }
 
     @Test
-    @DisplayName("Thu hồi thất bại khi trạng thái văn bản không phải WAITING_APPROVAL (INVALID_DOCUMENT_STATUS)")
+    @DisplayName("Thu hồi thất bại khi trạng thái văn bản không phải WAITING_APPROVAL (DOCUMENT_INVALID_STATUS)")
     void recallApproval_InvalidStatus_ThrowsInvalidStatus() {
         Long docId = 1L;
         Long userId = 100L;
@@ -491,7 +491,7 @@ class DocumentApprovalServiceTest {
         RecallApprovalRequest req = RecallApprovalRequest.builder().recallReason("reason").build();
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentApprovalService.recallApproval(docId, req, userId));
-        assertEquals(ErrorCode.INVALID_DOCUMENT_STATUS, ex.getErrorCode());
+        assertEquals(ErrorCode.DOCUMENT_INVALID_STATUS, ex.getErrorCode());
     }
 
     @Test

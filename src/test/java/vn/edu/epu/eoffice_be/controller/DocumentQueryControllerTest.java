@@ -55,6 +55,13 @@ class DocumentQueryControllerTest {
         auth = mock(Authentication.class);
         lenient().when(auth.isAuthenticated()).thenReturn(true);
 
+        documentQueryController.registerAllowedLegacyPrincipal(ValidReflectionPrincipal.class);
+        documentQueryController.registerAllowedLegacyPrincipal(PrimitiveLongOrgIdPrincipal.class);
+        documentQueryController.registerAllowedLegacyPrincipal(NullOrgIdReflectionPrincipal.class);
+        documentQueryController.registerAllowedLegacyPrincipal(NonLongOrgIdPrincipal.class);
+        documentQueryController.registerAllowedLegacyPrincipal(ExceptionThrowingPrincipal.class);
+        documentQueryController.registerAllowedLegacyPrincipal(ErrorThrowingPrincipal.class);
+
         var securityFilter = new org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter();
         try {
             securityFilter.afterPropertiesSet();
@@ -113,6 +120,12 @@ class DocumentQueryControllerTest {
         public Long getOrgId() { return orgId; }
     }
 
+    public static class PrimitiveLongOrgIdPrincipal {
+        private final long orgId;
+        public PrimitiveLongOrgIdPrincipal(long orgId) { this.orgId = orgId; }
+        public long getOrgId() { return orgId; }
+    }
+
     public static class NullOrgIdReflectionPrincipal {
         public Long getOrgId() { return null; }
     }
@@ -165,6 +178,17 @@ class DocumentQueryControllerTest {
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
         verify(documentQueryService, times(1)).getPublishedDocuments(150L);
+    }
+
+    @Test
+    void testGetPublishedDocuments_FallbackReflection_PrimitiveLong_Success() {
+        when(auth.getPrincipal()).thenReturn(new PrimitiveLongOrgIdPrincipal(160L));
+        when(documentQueryService.getPublishedDocuments(160L)).thenReturn(List.of());
+
+        ResponseEntity<Object> response = documentQueryController.getPublishedDocuments(auth);
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        verify(documentQueryService, times(1)).getPublishedDocuments(160L);
     }
 
     @Test

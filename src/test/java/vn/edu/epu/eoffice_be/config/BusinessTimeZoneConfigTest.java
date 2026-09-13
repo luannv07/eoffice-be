@@ -1,21 +1,13 @@
 package vn.edu.epu.eoffice_be.config;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
-import vn.edu.epu.eoffice_be.entity.Document;
 
-import java.time.DateTimeException;
 import java.time.ZoneId;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class BusinessTimeZoneConfigTest {
-
-    @AfterEach
-    void tearDown() {
-        Document.setBusinessZone(Document.DEFAULT_BUSINESS_ZONE);
-    }
 
     @Test
     void businessZone_WhenNull_ShouldDefaultToHoChiMinh() {
@@ -25,7 +17,6 @@ class BusinessTimeZoneConfigTest {
         ZoneId zone = config.businessZone();
 
         assertEquals(ZoneId.of("Asia/Ho_Chi_Minh"), zone);
-        assertEquals(zone, Document.getBusinessZone());
     }
 
     @Test
@@ -36,7 +27,6 @@ class BusinessTimeZoneConfigTest {
         ZoneId zone = config.businessZone();
 
         assertEquals(ZoneId.of("Asia/Ho_Chi_Minh"), zone);
-        assertEquals(zone, Document.getBusinessZone());
     }
 
     @Test
@@ -47,25 +37,25 @@ class BusinessTimeZoneConfigTest {
         ZoneId zone = config.businessZone();
 
         assertEquals(ZoneId.of("Asia/Ho_Chi_Minh"), zone);
-        assertEquals(zone, Document.getBusinessZone());
     }
 
     @Test
-    void businessZone_WhenValid_ShouldUseConfiguredTimezoneAndWireToDocument() {
+    void businessZone_WhenValid_ShouldUseConfiguredTimezone() {
         BusinessTimeZoneConfig config = new BusinessTimeZoneConfig();
         ReflectionTestUtils.setField(config, "businessTimeZone", "UTC");
 
         ZoneId zone = config.businessZone();
 
         assertEquals(ZoneId.of("UTC"), zone);
-        assertEquals(ZoneId.of("UTC"), Document.getBusinessZone());
     }
 
     @Test
-    void businessZone_WhenInvalidNonBlank_ShouldFailFast() {
+    void businessZone_WhenInvalidNonBlank_ShouldFailFastWithIllegalStateException() {
         BusinessTimeZoneConfig config = new BusinessTimeZoneConfig();
         ReflectionTestUtils.setField(config, "businessTimeZone", "Invalid/Unknown_Zone");
 
-        assertThrows(DateTimeException.class, config::businessZone);
+        IllegalStateException ex = assertThrows(IllegalStateException.class, config::businessZone);
+        assertTrue(ex.getMessage().contains("eoffice.timezone"));
+        assertTrue(ex.getMessage().contains("Invalid/Unknown_Zone"));
     }
 }
