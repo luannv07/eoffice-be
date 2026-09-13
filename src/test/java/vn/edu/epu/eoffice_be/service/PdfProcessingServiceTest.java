@@ -31,7 +31,9 @@ class PdfProcessingServiceTest {
 
     @BeforeEach
     void setUp() {
-        pdfProcessingService = new PdfProcessingServiceImpl();
+        PdfProcessingServiceImpl impl = new PdfProcessingServiceImpl();
+        impl.init();
+        pdfProcessingService = impl;
     }
 
     @Test
@@ -215,6 +217,7 @@ class PdfProcessingServiceTest {
     @DisplayName("Kiểm tra setter cho PrivateKey và Certificate")
     void settersAndGetters_shouldUpdateFields() {
         PdfProcessingServiceImpl service = new PdfProcessingServiceImpl();
+        service.init();
         PrivateKey key = service.getPrivateKey();
         X509Certificate cert = service.getCertificate();
 
@@ -229,11 +232,43 @@ class PdfProcessingServiceTest {
     @DisplayName("Hỗ trợ inject trực tiếp PrivateKey và X509Certificate qua constructor")
     void constructorInjection_shouldUseInjectedKeys() {
         PdfProcessingServiceImpl baseService = new PdfProcessingServiceImpl();
+        baseService.init();
         PrivateKey mockKey = baseService.getPrivateKey();
         X509Certificate mockCert = baseService.getCertificate();
 
         PdfProcessingServiceImpl injectedService = new PdfProcessingServiceImpl(mockKey, mockCert);
         assertSame(mockKey, injectedService.getPrivateKey());
         assertSame(mockCert, injectedService.getCertificate());
+    }
+
+    @Test
+    @DisplayName("Constructor không gọi init(), không ghi file hoặc sinh khóa trước khi tiêm @Value")
+    void constructor_shouldNotWriteToFilesystemOrGenerateKeys(@TempDir Path tempDir) {
+        Path fallbackFile = tempDir.resolve("should-not-exist.p12");
+
+        // Khi chỉ gọi constructor (chưa tiêm @Value và chưa gọi @PostConstruct init())
+        PdfProcessingServiceImpl service = new PdfProcessingServiceImpl();
+        ReflectionTestUtils.setField(service, "fallbackKeystorePath", fallbackFile.toString());
+
+        // Key và cert phải là null, không có file nào bị ghi vào đĩa
+        assertNull(service.getPrivateKey(), "PrivateKey phải là null trước khi init()");
+        assertNull(service.getCertificate(), "Certificate phải là null trước khi init()");
+        assertFalse(java.nio.file.Files.exists(fallbackFile), "Không được ghi file keystore fallback trong constructor");
+
+        // Tạo sẵn một keystore hợp lệ để cấu hình keystorePath
+        Path configuredKeystoreFile = tempDir.resolve("configured-pki.p12");
+        PdfProcessingServiceImpl generator = new PdfProcessingServiceImpl();
+        ReflectionTestUtils.setField(generator, "fallbackKeystorePath", configuredKeystoreFile.toString());
+        generator.init();
+
+        // Cấu hình keystorePath và gọi init() -> nạp từ keystorePath, KHÔNG tạo file fallback
+        ReflectionTestUtils.setField(service, "keystorePath", configuredKeystoreFile.toString());
+        ReflectionTestUtils.setField(service, "keystorePassword", "epu-keystore-secret");
+        ReflectionTestUtils.setField(service, "keyAlias", "epu-signer");
+        ReflectionTestUtils.setField(service, "keyPassword", "epu-signer-secret");
+        service.init();
+
+        assertNotNull(service.getPrivateKey(), "PrivateKey phải nạp thành công từ keystorePath");
+        assertFalse(java.nio.file.Files.exists(fallbackFile), "Khi keystorePath đã cấu hình, không được tạo file fallback");
     }
 }

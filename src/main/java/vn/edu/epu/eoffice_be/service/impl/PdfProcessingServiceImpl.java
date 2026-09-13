@@ -89,7 +89,6 @@ public class PdfProcessingServiceImpl implements PdfProcessingService {
     @Autowired
     public PdfProcessingServiceImpl() {
         initProvider();
-        init();
     }
 
     public PdfProcessingServiceImpl(PrivateKey privateKey, X509Certificate certificate) {

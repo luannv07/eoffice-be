@@ -87,6 +87,33 @@ public class FileStorageServiceImpl implements FileStorageService {
             throw new BusinessException(ErrorCode.STORAGE_ERROR);
         }
 
+        // Validate từng component của subDirectory trước khi gọi Files.createDirectories
+        // Nếu bất kỳ component nào đã tồn tại là symlink hoặc trỏ ra ngoài root, ném lỗi ngay
+        Path current = this.rootStoragePath;
+        if (!safeSubDir.isBlank()) {
+            Path relPath = Paths.get(safeSubDir);
+            for (Path segment : relPath) {
+                current = current.resolve(segment).normalize();
+                if (!current.startsWith(this.rootStoragePath)) {
+                    throw new BusinessException(ErrorCode.STORAGE_ERROR);
+                }
+                if (Files.exists(current, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                    if (Files.isSymbolicLink(current)) {
+                        log.error("Phát hiện component là symbolic link trong subDirectory: {}", current);
+                        throw new BusinessException(ErrorCode.STORAGE_ERROR);
+                    }
+                    try {
+                        if (!current.toRealPath().startsWith(this.rootStoragePath.toRealPath())) {
+                            log.error("Phát hiện path component trỏ ra ngoài root: {}", current);
+                            throw new BusinessException(ErrorCode.STORAGE_ERROR);
+                        }
+                    } catch (IOException e) {
+                        throw new BusinessException(ErrorCode.STORAGE_ERROR);
+                    }
+                }
+            }
+        }
+
         try {
             Files.createDirectories(subDirTarget);
             Path realRoot = this.rootStoragePath.toRealPath();

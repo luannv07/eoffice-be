@@ -376,4 +376,41 @@ class FileStorageServiceTest {
 
         assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
     }
+
+    @Test
+    @DisplayName("Chống tấn công tạo thư mục qua symlink trung gian: không được tạo thư mục bên ngoài root")
+    void storeFile_plantedSymlinkIntermediate_shouldNotCreateDirectoryOutsideRoot() throws IOException {
+        Path outsideDir = Files.createTempDirectory("outside-dir-check");
+        Path linkDir = tempDir.resolve("planted-link");
+        try {
+            boolean created = createSymlinkOrJunction(linkDir, outsideDir);
+            Assumptions.assumeTrue(created, "Symlink/Junction creation not supported in this environment");
+
+            // Thử lưu file vào thư mục con bên trong symlink trỏ ra ngoài
+            byte[] content = "Payload".getBytes();
+            Path expectedAttackedDir = outsideDir.resolve("planted-child-dir");
+
+            BusinessException ex = assertThrows(BusinessException.class, () ->
+                    fileStorageService.storeFile(content, "hack.pdf", "planted-link/planted-child-dir"));
+            assertEquals(ErrorCode.STORAGE_ERROR, ex.getErrorCode());
+
+            // Đảm bảo thư mục con không bị tạo ra bên ngoài root
+            assertFalse(Files.exists(expectedAttackedDir),
+                    "Thư mục con bên ngoài root tuyệt đối không được tạo ra khi phát hiện symlink");
+        } finally {
+            try {
+                if (Files.exists(linkDir, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                    if (System.getProperty("os.name").toLowerCase().contains("win")) {
+                        new ProcessBuilder("cmd.exe", "/c", "rmdir", linkDir.toAbsolutePath().toString()).start().waitFor();
+                    } else {
+                        Files.deleteIfExists(linkDir);
+                    }
+                }
+                Files.deleteIfExists(outsideDir.resolve("planted-child-dir"));
+                Files.deleteIfExists(outsideDir);
+            } catch (Exception ignored) {
+                // Ignore cleanup errors in temporary test directories
+            }
+        }
+    }
 }
