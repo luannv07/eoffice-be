@@ -51,7 +51,7 @@ class ControllerAuditAspectTest {
 
 	@Test
 	void shouldWriteAuditLogForAnnotatedController() throws Throwable {
-		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/public/test-base");
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/public/health");
 		request.addHeader("User-Agent", "JUnit");
 		request.setRemoteAddr("127.0.0.1");
 		RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
@@ -76,7 +76,7 @@ class ControllerAuditAspectTest {
 
 	@Test
 	void shouldWriteAuditLogWhenExceptionThrown() throws Throwable {
-		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/public/test-base");
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/public/health");
 		RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
 
 		ProceedingJoinPoint joinPoint = mock(ProceedingJoinPoint.class);
