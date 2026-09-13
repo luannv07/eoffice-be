@@ -24,6 +24,9 @@ import vn.edu.epu.eoffice_be.common.entity.BaseEntity;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+
 @Entity
 @Table(
         name = "document_workflow_logs",
@@ -35,8 +38,6 @@ import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
-@Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class DocumentWorkflowLog extends BaseEntity {
 
@@ -79,8 +80,49 @@ public class DocumentWorkflowLog extends BaseEntity {
     String signatureHash;
 
     @Column(name = "delete_flg", nullable = false)
-    @Builder.Default
     boolean deleteFlg = false;
+
+    public DocumentWorkflowLog(Long id, Document document, WorkflowAction action, UserLogin actor,
+                               DocumentStatus fromStatus, DocumentStatus toStatus, String comment,
+                               String leadershipInstruction, OrgNode assignedOrgNode, String signatureHash,
+                               boolean deleteFlg) {
+        this(id, document, action, actor, fromStatus, toStatus, comment, leadershipInstruction, assignedOrgNode, signatureHash, deleteFlg, null, null);
+    }
+
+    @Builder
+    public DocumentWorkflowLog(Long id, Document document, WorkflowAction action, UserLogin actor,
+                               DocumentStatus fromStatus, DocumentStatus toStatus, String comment,
+                               String leadershipInstruction, OrgNode assignedOrgNode, String signatureHash,
+                               Boolean deleteFlg, Instant createdDate, LocalDateTime createdAt) {
+        this.id = id;
+        this.document = document;
+        this.action = action;
+        this.actor = actor;
+        this.fromStatus = fromStatus;
+        this.toStatus = toStatus;
+        this.comment = comment;
+        this.leadershipInstruction = leadershipInstruction;
+        this.assignedOrgNode = assignedOrgNode;
+        this.signatureHash = signatureHash;
+        this.deleteFlg = deleteFlg != null ? deleteFlg : false;
+        if (createdDate != null) {
+            setCreatedDate(createdDate);
+        } else if (createdAt != null) {
+            setCreatedAt(createdAt);
+        }
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return getCreatedDate() != null
+                ? LocalDateTime.ofInstant(getCreatedDate(), Document.getBusinessZone())
+                : null;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        setCreatedDate(createdAt != null
+                ? createdAt.atZone(Document.getBusinessZone()).toInstant()
+                : null);
+    }
 
     public Long getDocumentId() {
         return document != null ? document.getId() : null;
@@ -92,7 +134,23 @@ public class DocumentWorkflowLog extends BaseEntity {
             return this;
         }
 
-        public DocumentWorkflowLogBuilder createdAt(java.time.LocalDateTime createdAt) {
+        public DocumentWorkflowLogBuilder createdAt(LocalDateTime createdAt) {
+            this.createdAt = createdAt;
+            if (createdAt != null) {
+                this.createdDate = createdAt.atZone(Document.getBusinessZone()).toInstant();
+            } else {
+                this.createdDate = null;
+            }
+            return this;
+        }
+
+        public DocumentWorkflowLogBuilder createdDate(Instant createdDate) {
+            this.createdDate = createdDate;
+            if (createdDate != null) {
+                this.createdAt = LocalDateTime.ofInstant(createdDate, Document.getBusinessZone());
+            } else {
+                this.createdAt = null;
+            }
             return this;
         }
 
