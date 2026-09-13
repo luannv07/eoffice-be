@@ -29,7 +29,18 @@ public enum ErrorCode {
     ORG_NODE_HAS_CHILDREN("ORG_NODE_HAS_CHILDREN", "Đơn vị còn đơn vị con, không thể xóa", HttpStatus.BAD_REQUEST),
     ORG_NODE_CYCLE("ORG_NODE_CYCLE", "Không thể chuyển đơn vị vào chính nó hoặc đơn vị con", HttpStatus.BAD_REQUEST),
     ORG_NODE_TYPE_INVALID("ORG_NODE_TYPE_INVALID", "Loại đơn vị không hợp lệ", HttpStatus.BAD_REQUEST),
-    DICTIONARY_ITEM_ALREADY_EXISTS("DICTIONARY_ITEM_ALREADY_EXISTS", "Mục từ điển đã tồn tại trong nhóm", HttpStatus.CONFLICT);
+    DICTIONARY_ITEM_ALREADY_EXISTS("DICTIONARY_ITEM_ALREADY_EXISTS", "Mục từ điển đã tồn tại trong nhóm", HttpStatus.CONFLICT),
+    DOCUMENT_NOT_FOUND("DOCUMENT_NOT_FOUND", "Văn bản không tồn tại hoặc đã bị xóa", HttpStatus.NOT_FOUND),
+    DOCUMENT_INVALID_STATUS("DOCUMENT_INVALID_STATUS", "Trạng thái văn bản không hợp lệ cho thao tác này", HttpStatus.BAD_REQUEST),
+    DOCUMENT_INCOMPLETE_DOSSIER("DOCUMENT_INCOMPLETE_DOSSIER", "Hồ sơ văn bản chưa đầy đủ (cần có tệp đính kèm chính hoặc nội dung)", HttpStatus.BAD_REQUEST),
+    DOCUMENT_CANNOT_RECALL("DOCUMENT_CANNOT_RECALL", "Không thể thu hồi văn bản do người duyệt đã xử lý", HttpStatus.BAD_REQUEST),
+    DOCUMENT_VERSION_NOT_FOUND("DOCUMENT_VERSION_NOT_FOUND", "Phiên bản văn bản không tồn tại", HttpStatus.NOT_FOUND),
+    DOCUMENT_ATTACHMENT_NOT_FOUND("DOCUMENT_ATTACHMENT_NOT_FOUND", "Tệp đính kèm không tồn tại hoặc đã bị xóa", HttpStatus.NOT_FOUND),
+    FILE_INVALID_FORMAT("FILE_INVALID_FORMAT", "Định dạng tệp không được hỗ trợ. Chỉ chấp nhận tệp DOCX hoặc PDF", HttpStatus.BAD_REQUEST),
+    FILE_SIZE_EXCEEDED("FILE_SIZE_EXCEEDED", "Dung lượng tệp vượt quá giới hạn cho phép", HttpStatus.PAYLOAD_TOO_LARGE),
+    FILE_UNSAFE("FILE_UNSAFE", "Tệp tin không an toàn hoặc chứa nội dung độc hại", HttpStatus.BAD_REQUEST),
+    FILE_STORAGE_ERROR("FILE_STORAGE_ERROR", "Lỗi trong quá trình lưu trữ tệp tin", HttpStatus.INTERNAL_SERVER_ERROR),
+    APPROVER_NOT_ELIGIBLE("APPROVER_NOT_ELIGIBLE", "Người được chọn không có thẩm quyền duyệt văn bản này", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String message;

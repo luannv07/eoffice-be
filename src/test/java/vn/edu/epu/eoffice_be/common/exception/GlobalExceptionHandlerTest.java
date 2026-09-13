@@ -35,8 +35,8 @@ class GlobalExceptionHandlerTest {
 		bindingResult.addError(new FieldError("req", "page", "must be positive"));
 		bindingResult.addError(new FieldError("req", "size", "must be <= 1000"));
 
-		MethodArgumentNotValidException ex = mock(MethodArgumentNotValidException.class);
-		when(ex.getBindingResult()).thenReturn(bindingResult);
+		org.springframework.core.MethodParameter parameter = new org.springframework.core.MethodParameter(GlobalExceptionHandlerTest.class.getDeclaredMethods()[0], -1);
+		MethodArgumentNotValidException ex = new MethodArgumentNotValidException(parameter, bindingResult);
 
 		ResponseEntity<BaseResponse<Void>> response = handler.handleMethodArgumentNotValid(ex);
 
@@ -55,6 +55,16 @@ class GlobalExceptionHandlerTest {
 		assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
 		assertEquals("VALIDATION_ERROR", response.getBody().getErrorCode());
 		assertEquals("invalid", response.getBody().getMessage());
+	}
+
+	@Test
+	void handleAuthenticationExceptionShouldReturnUnauthorized() {
+		ResponseEntity<BaseResponse<Void>> response =
+						handler.handleAuthenticationException(new org.springframework.security.authentication.InsufficientAuthenticationException("unauthorized"));
+
+		assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+		assertEquals("UNAUTHORIZED", response.getBody().getErrorCode());
+		assertEquals(ErrorCode.UNAUTHORIZED.getMessage(), response.getBody().getMessage());
 	}
 
 	@Test
@@ -82,8 +92,8 @@ class GlobalExceptionHandlerTest {
 		BeanPropertyBindingResult bindingResult = new BeanPropertyBindingResult(new Object(), "req");
 		bindingResult.addError(new FieldError("req", "name", "must not be blank"));
 
-		MethodArgumentNotValidException ex = mock(MethodArgumentNotValidException.class);
-		when(ex.getBindingResult()).thenReturn(bindingResult);
+		org.springframework.core.MethodParameter parameter = new org.springframework.core.MethodParameter(GlobalExceptionHandlerTest.class.getDeclaredMethods()[0], -1);
+		MethodArgumentNotValidException ex = new MethodArgumentNotValidException(parameter, bindingResult);
 
 		ResponseEntity<BaseResponse<Void>> response = handler.handleMethodArgumentNotValid(ex);
 		assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());

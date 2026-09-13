@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.entity.Document;
 
 import java.util.List;
@@ -13,7 +14,64 @@ import java.util.Optional;
 
 @Repository
 public interface DocumentRepository extends JpaRepository<Document, Long> {
-    java.util.List<Document> findByStatusIn(java.util.List<String> statuses);
+
+    Optional<Document> findByIdAndDeleteFlgFalse(Long id);
+
+    Optional<Document> findByDraftCodeAndDeleteFlgFalse(String draftCode);
+
+    boolean existsByDraftCodeAndDeleteFlgFalse(String draftCode);
+
+    Page<Document> findByCreatorUserIdAndDeleteFlgFalse(Long creatorUserId, Pageable pageable);
+
+    /**
+     * Tìm kiếm và phân trang tài liệu theo các tiêu chí kết hợp.
+     * <p>
+     * <b>Lưu ý về escape ký tự đặc biệt (Issue 16):</b> Tham số {@code keyword} được ghép vào mẫu LIKE
+     * với {@code ESCAPE '\\'}. Tầng nghiệp vụ (Service layer) bắt buộc phải escape trước các ký tự đại diện
+     * ('%', '_', '\\') thành ('\\%', '\\_', '\\\\') trước khi gọi phương thức này.
+     * </p>
+     * <p>
+     * <b>Lưu ý về hiệu năng (Issue 17 / Ticket PERF-DOC-001):</b> Mẫu LIKE tiền tố wildcard '%keyword%' và LOWER()
+     * không tận dụng được standard B-Tree index và có thể gây full table scan trên tập dữ liệu lớn.
+     * Đã lên kế hoạch chuyển đổi sang PostgreSQL Full-Text Search (tsvector + GIN index) hoặc functional index
+     * theo ticket kỹ thuật PERF-DOC-001 khi quy mô dữ liệu mở rộng.
+     * </p>
+     */
+    @Query("""
+        SELECT d FROM Document d
+        WHERE d.deleteFlg = false
+          AND (:creatorUserId IS NULL OR d.creatorUser.id = :creatorUserId)
+          AND (:status IS NULL OR d.status = :status)
+          AND (:orgNodeId IS NULL OR d.issuingOrgNode.id = :orgNodeId)
+          AND (:keyword IS NULL OR :keyword = ''
+                OR LOWER(d.title) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
+                OR LOWER(d.draftCode) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
+                OR LOWER(CAST(d.summary AS string)) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\')
+    """)
+    Page<Document> searchDocuments(
+            @Param("creatorUserId") Long creatorUserId,
+            @Param("status") DocumentStatus status,
+            @Param("orgNodeId") Long orgNodeId,
+            @Param("keyword") String keyword,
+            Pageable pageable
+    );
+
+    @Query("""
+        SELECT d FROM Document d
+        WHERE d.status IN (:statuses)
+          AND d.deleteFlg = false
+        ORDER BY d.id ASC
+    """)
+    List<Document> findByStatusIn(@Param("statuses") java.util.Collection<DocumentStatus> statuses);
+
+    @Query("""
+        SELECT d FROM Document d
+        WHERE d.status IN (:statuses)
+          AND d.deleteFlg = false
+        ORDER BY d.id ASC
+    """)
+    Page<Document> findByStatusIn(@Param("statuses") java.util.Collection<DocumentStatus> statuses, Pageable pageable);
+
     @Query(value = """
         SELECT DISTINCT d.* FROM documents d
         JOIN document_distribution dd ON d.id = dd.document_id

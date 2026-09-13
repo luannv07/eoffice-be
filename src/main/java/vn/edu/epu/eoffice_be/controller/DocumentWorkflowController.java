@@ -29,10 +29,18 @@ public class DocumentWorkflowController {
 
     DocumentWorkflowService workflowService;
 
+
     // UC17.1: Xem timeline luồng điều hành & bút phê lãnh đạo
     @GetMapping("/{id}/timeline")
-    public ResponseEntity<List<WorkflowTimelineResponse>> getDocumentTimeline(@PathVariable("id") Long id) {
-        List<WorkflowTimelineResponse> timeline = workflowService.getDocumentTimeline(id);
+    public ResponseEntity<List<WorkflowTimelineResponse>> getDocumentTimeline(
+            @PathVariable("id") Long id,
+            org.springframework.security.core.Authentication authentication) {
+        if (authentication == null 
+                || !authentication.isAuthenticated() 
+                || authentication instanceof org.springframework.security.authentication.AnonymousAuthenticationToken) {
+            throw new org.springframework.security.access.AccessDeniedException("Yêu cầu xác thực người dùng");
+        }
+        List<WorkflowTimelineResponse> timeline = workflowService.getDocumentTimeline(id, authentication);
         return ResponseEntity.status(HttpStatus.OK).body(timeline);
     }
 
@@ -40,10 +48,7 @@ public class DocumentWorkflowController {
     @GetMapping("/pending-review")
     public ResponseEntity<Page<PendingDocumentResponse>> getPendingReviewDocuments(
             @PageableDefault(size = 10) Pageable pageable) {
-        var pendingList = workflowService.getPendingDocuments();
-        int start = (int) pageable.getOffset();
-        int end = Math.min((start + pageable.getPageSize()), pendingList.size());
-        var subList = (start > pendingList.size()) ? List.<PendingDocumentResponse>of() : pendingList.subList(start, end);
-        return ResponseEntity.ok(new PageImpl<>(subList, pageable, pendingList.size()));
+        Page<PendingDocumentResponse> page = workflowService.getPendingDocuments(pageable);
+        return ResponseEntity.ok(page);
     }
 }

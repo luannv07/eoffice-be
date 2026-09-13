@@ -30,21 +30,20 @@ class RefreshTokenServiceTest {
 
     @Test
     void issueShouldPersistActiveToken() {
-        Instant expiresAt = Instant.now().plusSeconds(3600);
-        refreshTokenService.issue(10L, "jti-1", expiresAt);
+        refreshTokenService.issue(10L, "jti-1", Instant.parse("2026-10-11T00:00:00Z"));
 
         ArgumentCaptor<RefreshToken> captor = ArgumentCaptor.forClass(RefreshToken.class);
         verify(refreshTokenRepository).save(captor.capture());
         RefreshToken saved = captor.getValue();
         assertEquals(10L, saved.getUserId());
         assertEquals("jti-1", saved.getRt());
-        assertEquals(expiresAt, saved.getExpiresAt());
+        assertEquals(Instant.parse("2026-10-11T00:00:00Z"), saved.getExpiresAt());
         assertFalse(saved.isRevoked());
     }
 
     @Test
     void rotateShouldRevokeOldAndIssueNewToken() {
-        RefreshToken old = activeToken(10L, "old-jti", Instant.now().plusSeconds(3600));
+        RefreshToken old = activeToken(10L, "old-jti", Instant.parse("2026-10-11T00:00:00Z"));
         when(refreshTokenRepository.findByRt("old-jti")).thenReturn(Optional.of(old));
 
         Instant newExpiry = Instant.now().plusSeconds(7200);
@@ -63,9 +62,9 @@ class RefreshTokenServiceTest {
     void rotateWithUnknownJtiShouldThrowSessionExpired() {
         when(refreshTokenRepository.findByRt("unknown-jti")).thenReturn(Optional.empty());
 
-        Instant expiry = Instant.now().plusSeconds(7200);
+        Instant newExpiry = Instant.parse("2026-10-11T00:00:00Z");
         BusinessException ex = assertThrows(BusinessException.class,
-                () -> refreshTokenService.rotate(10L, "unknown-jti", "new-jti", expiry));
+                () -> refreshTokenService.rotate(10L, "unknown-jti", "new-jti", newExpiry));
 
         assertEquals(ErrorCode.SESSION_EXPIRED, ex.getErrorCode());
         verify(refreshTokenRepository, never()).save(any(RefreshToken.class));
@@ -81,9 +80,9 @@ class RefreshTokenServiceTest {
                 .build();
         when(refreshTokenRepository.findByRt("stolen-jti")).thenReturn(Optional.of(revoked));
 
-        Instant expiry = Instant.now().plusSeconds(7200);
+        Instant newExpiry = Instant.parse("2026-10-11T00:00:00Z");
         BusinessException ex = assertThrows(BusinessException.class,
-                () -> refreshTokenService.rotate(10L, "stolen-jti", "new-jti", expiry));
+                () -> refreshTokenService.rotate(10L, "stolen-jti", "new-jti", newExpiry));
 
         assertEquals(ErrorCode.SESSION_EXPIRED, ex.getErrorCode());
         verify(refreshTokenRepository).revokeAllActiveByUserId(10L);
@@ -94,9 +93,9 @@ class RefreshTokenServiceTest {
         RefreshToken expired = activeToken(10L, "expired-jti", Instant.now().minusSeconds(3600));
         when(refreshTokenRepository.findByRt("expired-jti")).thenReturn(Optional.of(expired));
 
-        Instant expiry = Instant.now().plusSeconds(7200);
+        Instant newExpiry = Instant.parse("2026-10-11T00:00:00Z");
         BusinessException ex = assertThrows(BusinessException.class,
-                () -> refreshTokenService.rotate(10L, "expired-jti", "new-jti", expiry));
+                () -> refreshTokenService.rotate(10L, "expired-jti", "new-jti", newExpiry));
 
         assertEquals(ErrorCode.SESSION_EXPIRED, ex.getErrorCode());
         verify(refreshTokenRepository, never()).revokeAllActiveByUserId(any());
@@ -107,9 +106,9 @@ class RefreshTokenServiceTest {
         RefreshToken otherUserToken = activeToken(99L, "other-jti", Instant.now().plusSeconds(3600));
         when(refreshTokenRepository.findByRt("other-jti")).thenReturn(Optional.of(otherUserToken));
 
-        Instant expiry = Instant.now().plusSeconds(7200);
+        Instant newExpiry = Instant.parse("2026-10-11T00:00:00Z");
         BusinessException ex = assertThrows(BusinessException.class,
-                () -> refreshTokenService.rotate(10L, "other-jti", "new-jti", expiry));
+                () -> refreshTokenService.rotate(10L, "other-jti", "new-jti", newExpiry));
 
         assertEquals(ErrorCode.SESSION_EXPIRED, ex.getErrorCode());
         verify(refreshTokenRepository, never()).revokeAllActiveByUserId(any());

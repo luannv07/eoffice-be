@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.Lock;
 import vn.edu.epu.eoffice_be.common.enums.Role;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface UserLoginRepository extends JpaRepository<UserLogin, Long>, JpaSpecificationExecutor<UserLogin> {
@@ -23,4 +25,6 @@ public interface UserLoginRepository extends JpaRepository<UserLogin, Long>, Jpa
 	boolean existsByEmailAndDeleteFlgFalse(String email);
 
 	long countByRoleAndDeleteFlgFalse(Role role);
+
+	List<UserLogin> findByRoleInAndDeleteFlgFalse(Collection<Role> roles);
 }
