@@ -64,6 +64,9 @@ public interface DocumentWorkflowService {
      * UC17.1: Xem timeline luồng điều hành & bút phê lãnh đạo (tính năng của đồng đội).
      */
     List<WorkflowTimelineResponse> getDocumentTimeline(Long documentId);
+    List<WorkflowTimelineResponse> getDocumentTimeline(Long documentId, org.springframework.security.core.Authentication authentication);
+
+    void verifyUserCanAccessDocument(Long documentId, org.springframework.security.core.Authentication authentication);
 
     /**
      * UC17.2: Danh sách văn bản tồn đọng / chờ xử lý (tính năng của đồng đội).

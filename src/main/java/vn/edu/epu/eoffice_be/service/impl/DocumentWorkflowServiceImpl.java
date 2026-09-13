@@ -474,6 +474,70 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<WorkflowTimelineResponse> getDocumentTimeline(Long documentId, org.springframework.security.core.Authentication authentication) {
+        verifyUserCanAccessDocument(documentId, authentication);
+        return getDocumentTimeline(documentId);
+    }
+
+    @Override
+    public void verifyUserCanAccessDocument(Long documentId, org.springframework.security.core.Authentication authentication) {
+        if (authentication == null 
+                || !authentication.isAuthenticated() 
+                || authentication instanceof org.springframework.security.authentication.AnonymousAuthenticationToken) {
+            throw new org.springframework.security.access.AccessDeniedException("Yêu cầu xác thực người dùng");
+        }
+
+        boolean isAdmin = authentication.getAuthorities() != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN")
+                            || a.getAuthority().equals("ADMIN")
+                            || a.getAuthority().equals("ROLE_SYSTEM_ADMIN")
+                            || a.getAuthority().equals("SYSTEM_ADMIN"));
+        if (isAdmin) {
+            return;
+        }
+
+        Document doc = documentRepository.findById(documentId)
+                .orElseThrow(() -> new vn.edu.epu.eoffice_be.common.exception.BusinessException(
+                        vn.edu.epu.eoffice_be.common.enums.ErrorCode.DOCUMENT_NOT_FOUND,
+                        "Không tìm thấy văn bản: " + documentId));
+
+        if (doc.getStatus() == vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED
+                || doc.getStatus() == vn.edu.epu.eoffice_be.common.enums.DocumentStatus.ISSUED) {
+            return;
+        }
+
+        Long userId = extractUserId(authentication);
+        Long creatorId = doc.getCreatorUser() != null ? doc.getCreatorUser().getId() : null;
+        if (userId != null && userId.equals(creatorId)) {
+            return;
+        }
+
+        throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền xem timeline của tài liệu này");
+    }
+
+    Long extractUserId(org.springframework.security.core.Authentication authentication) {
+        if (authentication == null || authentication.getPrincipal() == null) {
+            return null;
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof vn.edu.epu.eoffice_be.security.UserIdAwarePrincipal userAware) {
+            return userAware.getUserId();
+        }
+
+        try {
+            java.lang.reflect.Method m = principal.getClass().getMethod("getUserId");
+            Object res = m.invoke(principal);
+            if (res instanceof Number num) {
+                return num.longValue();
+            }
+        } catch (Exception ignored) {
+        }
+
+        return null;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Page<PendingDocumentResponse> getPendingDocuments(Pageable pageable) {
         Page<Document> page = documentRepository.findByStatusInAndDeleteFlgFalse(PENDING_STATUSES, pageable);
         if (page == null) {

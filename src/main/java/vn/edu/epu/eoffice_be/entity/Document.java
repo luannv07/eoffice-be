@@ -22,10 +22,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
+import org.hibernate.type.SqlTypes;
 import vn.edu.epu.eoffice_be.common.entity.BaseEntity;
+import vn.edu.epu.eoffice_be.common.enums.DocumentSecurityLevel;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
+import vn.edu.epu.eoffice_be.common.enums.DocumentUrgencyLevel;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -48,29 +52,62 @@ public class Document extends BaseEntity {
     @SequenceGenerator(name = "eoffice_seq", sequenceName = "hibernate_sequence", allocationSize = 50)
     Long id;
 
+    @Column(name = "draft_code", length = 50)
+    String draftCode;
+
     @Column(nullable = false, length = 500)
     String title;
 
-    @Column(name = "document_type_cd", nullable = false, length = 50)
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
+    @Column(columnDefinition = "TEXT")
+    String summary;
+
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
+    @Column(columnDefinition = "TEXT")
+    String content;
+
+    @Column(name = "document_type_cd", length = 50)
     String documentTypeCd;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "issuing_org_id", nullable = false)
+    @JoinColumn(name = "issuing_org_node_id")
+    OrgNode issuingOrgNode;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "creator_user_id")
+    UserLogin creatorUser;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "issuing_org_id")
     OrgNode issuingOrg;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "drafter_id", nullable = false)
+    @JoinColumn(name = "drafter_id")
     UserLogin drafter;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "signer_id")
     UserLogin signer;
 
-    @Column(name = "urgency_level_cd", nullable = false, length = 50)
+    @Column(name = "current_version", nullable = false)
+    @Builder.Default
+    int currentVersion = 1;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "security_level", nullable = false, length = 30)
+    @Builder.Default
+    DocumentSecurityLevel securityLevel = DocumentSecurityLevel.NORMAL;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "urgency_level", nullable = false, length = 30)
+    @Builder.Default
+    DocumentUrgencyLevel urgencyLevel = DocumentUrgencyLevel.NORMAL;
+
+    @Column(name = "urgency_level_cd", length = 50)
     @Builder.Default
     String urgencyLevelCd = "NORMAL";
 
-    @Column(name = "security_level_cd", nullable = false, length = 50)
+    @Column(name = "security_level_cd", length = 50)
     @Builder.Default
     String securityLevelCd = "NORMAL";
 
@@ -79,6 +116,9 @@ public class Document extends BaseEntity {
     @Column(nullable = false, length = 50)
     @Builder.Default
     DocumentStatus status = DocumentStatus.DRAFT;
+
+    @Column(name = "submitted_at")
+    Instant submittedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_document_id")

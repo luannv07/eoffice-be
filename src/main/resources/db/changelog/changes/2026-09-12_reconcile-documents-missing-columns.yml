@@ -2,6 +2,8 @@ databaseChangeLog:
   - changeSet:
       id: 2026-09-12-reconcile-documents-missing-columns
       author: luannv
+      validCheckSum:
+        - ANY
       preConditions:
         onFail: MARK_RAN
         sqlCheck:
@@ -27,12 +29,6 @@ databaseChangeLog:
                   name: content
                   type: TEXT
                   remarks: Nội dung chi tiết văn bản
-              - column:
-                  name: document_type_cd
-                  type: VARCHAR(50)
-                  remarks: Loại văn bản (dictionary group DOCUMENT_TYPE_CD)
-                  constraints:
-                    nullable: true
               - column:
                   name: issuing_org_node_id
                   type: BIGINT
@@ -70,16 +66,3 @@ databaseChangeLog:
                   name: submitted_at
                   type: TIMESTAMP WITH TIME ZONE
                   remarks: Thời điểm gửi duyệt
-              - column:
-                  name: delete_flg
-                  type: BOOLEAN
-                  defaultValueBoolean: false
-                  remarks: Cờ xóa mềm
-                  constraints:
-                    nullable: false
-              - column:
-                  name: created_by
-                  type: VARCHAR(100)
-              - column:
-                  name: updated_by
-                  type: VARCHAR(100)

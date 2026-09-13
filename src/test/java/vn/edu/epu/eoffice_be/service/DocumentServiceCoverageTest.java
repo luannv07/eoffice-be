@@ -317,7 +317,7 @@ class DocumentServiceCoverageTest {
                 .id(1L)
                 .title("Doc Title")
                 .officialNumber("123/QD")
-                .status("PUBLISHED")
+                .status(DocumentStatus.PUBLISHED)
                 .issueDate(LocalDate.now())
                 .effectiveDate(LocalDate.now())
                 .officialHash("hash")
@@ -326,7 +326,7 @@ class DocumentServiceCoverageTest {
         assertEquals(1L, response.getId());
         assertEquals("Doc Title", response.getTitle());
         assertEquals("123/QD", response.getOfficialNumber());
-        assertEquals("PUBLISHED", response.getStatus());
+        assertEquals(DocumentStatus.PUBLISHED, response.getStatus());
         assertNotNull(response.getIssueDate());
         assertNotNull(response.getEffectiveDate());
         assertEquals("hash", response.getOfficialHash());

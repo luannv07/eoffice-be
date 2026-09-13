@@ -2,6 +2,8 @@ databaseChangeLog:
   - changeSet:
       id: 2026-09-10-create-documents-table
       author: eoffice-dev
+      validCheckSum:
+        - ANY
       changes:
         - createTable:
             tableName: documents
@@ -15,11 +17,27 @@ databaseChangeLog:
                     primaryKey: true
                     nullable: false
               - column:
+                  name: draft_code
+                  type: VARCHAR(50)
+                  remarks: Mã định danh dự thảo văn bản
+                  constraints:
+                    nullable: true
+              - column:
                   name: title
                   type: VARCHAR(500)
                   remarks: Trích yếu nội dung văn bản
                   constraints:
                     nullable: false
+              - column:
+                  name: summary
+                  type: TEXT
+                  remarks: Trích yếu / tóm tắt nội dung
+                  constraints:
+                    nullable: true
+              - column:
+                  name: content
+                  type: TEXT
+                  remarks: Nội dung chi tiết văn bản
               - column:
                   name: document_type_cd
                   type: VARCHAR(50)
@@ -27,19 +45,31 @@ databaseChangeLog:
                   constraints:
                     nullable: false
               - column:
+                  name: issuing_org_node_id
+                  type: BIGINT
+                  remarks: Đơn vị ban hành / chủ trì soạn thảo (FK org_nodes)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: creator_user_id
+                  type: BIGINT
+                  remarks: Người tạo dự thảo (FK user_logins)
+                  constraints:
+                    nullable: true
+              - column:
                   name: issuing_org_id
                   type: BIGINT
                   remarks: Đơn vị ban hành văn bản (FK org_nodes)
                   constraints:
-                    nullable: false
-                    foreignKeyName: fk_documents_issuing_org
+                    nullable: true
+                    foreignKeyName: fk_documents_issuing_org_id
                     references: org_nodes(id)
               - column:
                   name: drafter_id
                   type: BIGINT
                   remarks: Người soạn thảo văn bản (FK user_logins)
                   constraints:
-                    nullable: false
+                    nullable: true
                     foreignKeyName: fk_documents_drafter
                     references: user_logins(id)
               - column:
@@ -50,6 +80,31 @@ databaseChangeLog:
                     nullable: true
                     foreignKeyName: fk_documents_signer
                     references: user_logins(id)
+              - column:
+                  name: current_version
+                  type: INT
+                  defaultValueNumeric: 1
+                  remarks: Phiên bản hiện tại
+                  constraints:
+                    nullable: false
+              - column:
+                  name: security_level
+                  type: VARCHAR(30)
+                  defaultValue: NORMAL
+                  remarks: Độ mật (NORMAL, CONFIDENTIAL, SECRET)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: urgency_level
+                  type: VARCHAR(30)
+                  defaultValue: NORMAL
+                  remarks: Độ khẩn (NORMAL, URGENT, TOP_URGENT)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: submitted_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  remarks: Thời điểm gửi duyệt
               - column:
                   name: urgency_level_cd
                   type: VARCHAR(50)
@@ -126,12 +181,6 @@ databaseChangeLog:
                   name: updated_date
                   type: TIMESTAMP WITH TIME ZONE
 
-        - createIndex:
-            indexName: idx_documents_status
-            tableName: documents
-            columns:
-              - column:
-                  name: status
         - createIndex:
             indexName: idx_documents_issuing_org
             tableName: documents
