@@ -168,4 +168,95 @@ class DocumentWorkflowLogRepositoryTest {
         assertEquals(log3.getId(), page1.getContent().get(0).getId());
         assertEquals("Lãnh đạo duyệt T3", page1.getContent().get(0).getComment());
     }
+
+    @Test
+    @DisplayName("findByDocumentIdOrderByCreatedDateAsc: Sắp xếp theo createdDate ASC, l.id ASC và giữ nguyên các bản ghi kể cả deleteFlg=true")
+    void findByDocumentIdOrderByCreatedDateAsc_shouldReturnAllLogsOrderedChronologically() throws Exception {
+        Document targetDoc = createTestDocument("Target Document For Ordering Test");
+        Document otherDoc = createTestDocument("Other Document For Ordering Test");
+        UserLogin actor = getOrCreateUser();
+
+        Instant t1 = Instant.parse("2026-09-13T01:00:00Z");
+        Instant tDeleted = Instant.parse("2026-09-13T01:30:00Z");
+        Instant t2 = Instant.parse("2026-09-13T02:00:00Z");
+
+        DocumentWorkflowLog log1 = DocumentWorkflowLog.builder()
+                .document(targetDoc)
+                .actor(actor)
+                .action(WorkflowAction.SUBMIT)
+                .fromStatus(DocumentStatus.DRAFT)
+                .toStatus(DocumentStatus.SUBMITTED)
+                .comment("Log 1")
+                .createdDate(t1)
+                .deleteFlg(false)
+                .build();
+
+        DocumentWorkflowLog logDeleted = DocumentWorkflowLog.builder()
+                .document(targetDoc)
+                .actor(actor)
+                .action(WorkflowAction.REQUEST_REVISION)
+                .fromStatus(DocumentStatus.SUBMITTED)
+                .toStatus(DocumentStatus.NEEDS_REVISION)
+                .comment("Log Deleted")
+                .createdDate(tDeleted)
+                .deleteFlg(true)
+                .build();
+
+        DocumentWorkflowLog log2 = DocumentWorkflowLog.builder()
+                .document(targetDoc)
+                .actor(actor)
+                .action(WorkflowAction.REVIEW_APPROVE)
+                .fromStatus(DocumentStatus.SUBMITTED)
+                .toStatus(DocumentStatus.IN_REVIEW)
+                .comment("Log 2")
+                .createdDate(t2)
+                .deleteFlg(false)
+                .build();
+
+        DocumentWorkflowLog logOther = DocumentWorkflowLog.builder()
+                .document(otherDoc)
+                .actor(actor)
+                .action(WorkflowAction.SUBMIT)
+                .fromStatus(DocumentStatus.DRAFT)
+                .toStatus(DocumentStatus.SUBMITTED)
+                .comment("Log Other")
+                .createdDate(t1)
+                .deleteFlg(false)
+                .build();
+
+        workflowLogRepository.save(log1);
+        Thread.sleep(20);
+        workflowLogRepository.save(logDeleted);
+        Thread.sleep(20);
+        workflowLogRepository.save(log2);
+        Thread.sleep(20);
+        workflowLogRepository.save(logOther);
+
+        // 1. Kiểm tra findByDocumentIdOrderByCreatedDateAsc
+        List<DocumentWorkflowLog> logsByDate = workflowLogRepository.findByDocumentIdOrderByCreatedDateAsc(targetDoc.getId());
+        assertNotNull(logsByDate);
+        assertEquals(3, logsByDate.size(), "Bao gồm cả bản ghi xóa mềm của targetDoc, loại trừ otherDoc");
+        assertEquals(log1.getId(), logsByDate.get(0).getId());
+        assertEquals("Log 1", logsByDate.get(0).getComment());
+        assertEquals(logDeleted.getId(), logsByDate.get(1).getId());
+        assertEquals("Log Deleted", logsByDate.get(1).getComment());
+        assertEquals(log2.getId(), logsByDate.get(2).getId());
+        assertEquals("Log 2", logsByDate.get(2).getComment());
+
+        // 2. Kiểm tra phương thức tương thích ngược findByDocumentIdOrderByCreatedAtAsc
+        @SuppressWarnings("deprecation")
+        List<DocumentWorkflowLog> logsByCreatedAt = workflowLogRepository.findByDocumentIdOrderByCreatedAtAsc(targetDoc.getId());
+        assertNotNull(logsByCreatedAt);
+        assertEquals(logsByDate.size(), logsByCreatedAt.size());
+        for (int i = 0; i < logsByDate.size(); i++) {
+            assertEquals(logsByDate.get(i).getId(), logsByCreatedAt.get(i).getId());
+        }
+
+        // 3. Kiểm tra findByDocumentIdAndDeleteFlgFalseOrderByCreatedDateAsc: chỉ lấy bản ghi deleteFlg = false
+        List<DocumentWorkflowLog> activeLogs = workflowLogRepository.findByDocumentIdAndDeleteFlgFalseOrderByCreatedDateAsc(targetDoc.getId());
+        assertNotNull(activeLogs);
+        assertEquals(2, activeLogs.size(), "Chỉ gồm bản ghi deleteFlg = false của targetDoc");
+        assertEquals(log1.getId(), activeLogs.get(0).getId());
+        assertEquals(log2.getId(), activeLogs.get(1).getId());
+    }
 }
