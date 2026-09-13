@@ -37,8 +37,8 @@ public class DocumentPublishController {
                 .title(doc.getTitle())
                 .officialNumber(doc.getOfficialNumber())
                 .status(doc.getStatus() != null ? doc.getStatus().name() : null)
-                .issueDate(doc.getIssueDate() != null ? LocalDate.ofInstant(doc.getIssueDate(), ZoneId.systemDefault()) : null)
-                .effectiveDate(doc.getEffectiveDate() != null ? LocalDate.ofInstant(doc.getEffectiveDate(), ZoneId.systemDefault()) : null)
+                .issueDate(doc.getIssueDate() != null ? LocalDate.ofInstant(doc.getIssueDate(), Document.getBusinessZone()) : null)
+                .effectiveDate(doc.getEffectiveDate() != null ? LocalDate.ofInstant(doc.getEffectiveDate(), Document.getBusinessZone()) : null)
                 .officialFilePath(doc.getOfficialFilePath())
                 .officialHash(doc.getOfficialHash())
                 .build();

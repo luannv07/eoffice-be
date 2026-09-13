@@ -10,8 +10,11 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotNull;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -71,6 +74,7 @@ public class Document extends BaseEntity {
     @Builder.Default
     String securityLevelCd = "NORMAL";
 
+    @NotNull(message = "Document status cannot be null")
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
     @Builder.Default
@@ -110,15 +114,33 @@ public class Document extends BaseEntity {
     }
 
     public void setStatus(String status) {
-        if (status == null) {
-            this.status = null;
-        } else {
-            try {
-                this.status = DocumentStatus.valueOf(status);
-            } catch (IllegalArgumentException e) {
-                this.status = DocumentStatus.DRAFT;
-            }
+        if (status == null || status.isBlank()) {
+            throw new IllegalArgumentException("Document status must not be null or blank");
         }
+        try {
+            this.status = DocumentStatus.valueOf(status.trim());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Unknown document status: " + status, e);
+        }
+    }
+
+    @PrePersist
+    @PreUpdate
+    private void validateStatus() {
+        if (this.status == null) {
+            throw new IllegalStateException("Document status cannot be null");
+        }
+    }
+
+    public static final ZoneId DEFAULT_BUSINESS_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static volatile ZoneId businessZone = DEFAULT_BUSINESS_ZONE;
+
+    public static void setBusinessZone(ZoneId zone) {
+        businessZone = zone != null ? zone : DEFAULT_BUSINESS_ZONE;
+    }
+
+    public static ZoneId getBusinessZone() {
+        return businessZone != null ? businessZone : DEFAULT_BUSINESS_ZONE;
     }
 
     public void setIssueDate(Instant issueDate) {
@@ -126,7 +148,11 @@ public class Document extends BaseEntity {
     }
 
     public void setIssueDate(LocalDate issueDate) {
-        this.issueDate = issueDate != null ? issueDate.atStartOfDay(ZoneId.systemDefault()).toInstant() : null;
+        setIssueDate(issueDate, getBusinessZone());
+    }
+
+    public void setIssueDate(LocalDate issueDate, ZoneId zoneId) {
+        this.issueDate = issueDate != null ? issueDate.atStartOfDay(zoneId != null ? zoneId : getBusinessZone()).toInstant() : null;
     }
 
     public void setEffectiveDate(Instant effectiveDate) {
@@ -134,6 +160,10 @@ public class Document extends BaseEntity {
     }
 
     public void setEffectiveDate(LocalDate effectiveDate) {
-        this.effectiveDate = effectiveDate != null ? effectiveDate.atStartOfDay(ZoneId.systemDefault()).toInstant() : null;
+        setEffectiveDate(effectiveDate, getBusinessZone());
+    }
+
+    public void setEffectiveDate(LocalDate effectiveDate, ZoneId zoneId) {
+        this.effectiveDate = effectiveDate != null ? effectiveDate.atStartOfDay(zoneId != null ? zoneId : getBusinessZone()).toInstant() : null;
     }
 }

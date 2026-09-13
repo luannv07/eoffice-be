@@ -52,7 +52,7 @@ public class DocumentPublishService {
         if (request != null && request.getIssueDate() != null) {
             doc.setIssueDate(request.getIssueDate());
         } else {
-            doc.setIssueDate(LocalDate.now(ZoneId.systemDefault()));
+            doc.setIssueDate(LocalDate.now(Document.getBusinessZone()));
         }
 
         if (request != null && request.getEffectiveDate() != null) {
