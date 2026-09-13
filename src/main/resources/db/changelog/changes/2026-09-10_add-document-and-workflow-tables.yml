@@ -1,0 +1,235 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-09-10-create-documents-table
+      author: eoffice-dev
+      changes:
+        - createTable:
+            tableName: documents
+            remarks: Bảng quản lý hồ sơ và vòng đời văn bản (Dự thảo, Phê duyệt, Ban hành)
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  defaultValueComputed: nextval('hibernate_sequence')
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: title
+                  type: VARCHAR(500)
+                  remarks: Trích yếu nội dung văn bản
+                  constraints:
+                    nullable: false
+              - column:
+                  name: document_type_cd
+                  type: VARCHAR(50)
+                  remarks: Mã loại văn bản (QUYET_DINH, KE_HOACH, CONG_VAN, THONG_BAO...)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: issuing_org_id
+                  type: BIGINT
+                  remarks: Đơn vị ban hành văn bản (FK org_nodes)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_documents_issuing_org
+                    references: org_nodes(id)
+              - column:
+                  name: drafter_id
+                  type: BIGINT
+                  remarks: Người soạn thảo văn bản (FK user_logins)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_documents_drafter
+                    references: user_logins(id)
+              - column:
+                  name: signer_id
+                  type: BIGINT
+                  remarks: Người có thẩm quyền ký phát hành (FK user_logins)
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_documents_signer
+                    references: user_logins(id)
+              - column:
+                  name: urgency_level_cd
+                  type: VARCHAR(50)
+                  defaultValue: NORMAL
+                  remarks: Độ khẩn (NORMAL, URGENT, EXPRESS)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: security_level_cd
+                  type: VARCHAR(50)
+                  defaultValue: NORMAL
+                  remarks: Độ mật (NORMAL, CONFIDENTIAL, SECRET)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(50)
+                  defaultValue: DRAFT
+                  remarks: Trạng thái luồng duyệt (DRAFT, SUBMITTED, IN_REVIEW, LEADER_REVIEW, NEEDS_REVISION, APPROVED, PUBLISHED, REJECTED)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: parent_document_id
+                  type: BIGINT
+                  remarks: Văn bản căn cứ liên kết (FK documents)
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_documents_parent
+                    references: documents(id)
+              - column:
+                  name: recipients_text
+                  type: VARCHAR(1000)
+                  remarks: Nơi nhận và lưu (danh sách nơi gửi văn bản)
+              - column:
+                  name: official_number
+                  type: VARCHAR(100)
+                  remarks: Số hiệu văn bản chính thức sau khi ký phát hành (ví dụ 125/QĐ-ĐHEPU)
+              - column:
+                  name: issue_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  remarks: Ngày ký ban hành chính thức
+              - column:
+                  name: effective_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  remarks: Ngày văn bản bắt đầu có hiệu lực
+              - column:
+                  name: official_hash
+                  type: VARCHAR(64)
+                  remarks: Mã băm SHA-256 của bản PDF chính thức sau khi ký số PKI
+              - column:
+                  name: primary_file_path
+                  type: VARCHAR(500)
+                  remarks: Đường dẫn lưu file PDF dự thảo hiện tại
+              - column:
+                  name: official_file_path
+                  type: VARCHAR(500)
+                  remarks: Đường dẫn lưu file PDF chính thức sau ký phát hành
+              - column:
+                  name: delete_flg
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+              - column:
+                  name: created_date
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+              - column:
+                  name: updated_date
+                  type: TIMESTAMP WITH TIME ZONE
+
+        - createIndex:
+            indexName: idx_documents_status
+            tableName: documents
+            columns:
+              - column:
+                  name: status
+        - createIndex:
+            indexName: idx_documents_issuing_org
+            tableName: documents
+            columns:
+              - column:
+                  name: issuing_org_id
+
+  - changeSet:
+      id: 2026-09-10-create-document-workflow-logs-table
+      author: eoffice-dev
+      changes:
+        - createTable:
+            tableName: document_workflow_logs
+            remarks: Lịch sử phê duyệt văn bản, lưu vết bút phê lãnh đạo và chữ ký
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  defaultValueComputed: nextval('hibernate_sequence')
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: document_id
+                  type: BIGINT
+                  remarks: Văn bản được xử lý (FK documents)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_doc_workflow_doc
+                    references: documents(id)
+              - column:
+                  name: action
+                  type: VARCHAR(50)
+                  remarks: Hành động thực hiện (SUBMIT, REVIEW_APPROVE, REQUEST_REVISION, INITIAL_SIGN, LEADER_APPROVE, SIGN_AND_PUBLISH, REJECT)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: actor_id
+                  type: BIGINT
+                  remarks: Người thực hiện thao tác (FK user_logins)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_doc_workflow_actor
+                    references: user_logins(id)
+              - column:
+                  name: from_status
+                  type: VARCHAR(50)
+                  remarks: Trạng thái trước khi chuyển
+                  constraints:
+                    nullable: false
+              - column:
+                  name: to_status
+                  type: VARCHAR(50)
+                  remarks: Trạng thái sau khi chuyển
+                  constraints:
+                    nullable: false
+              - column:
+                  name: comment
+                  type: VARCHAR(2000)
+                  remarks: Ý kiến nhận xét / Lý do trả về hoặc từ chối
+              - column:
+                  name: leadership_instruction
+                  type: VARCHAR(2000)
+                  remarks: Bút phê lãnh đạo (Ý kiến chỉ đạo trực tiếp của lãnh đạo)
+              - column:
+                  name: assigned_org_node_id
+                  type: BIGINT
+                  remarks: Đơn vị / Phòng ban được lãnh đạo chỉ định chủ trì thực hiện
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_doc_workflow_assigned_org
+                    references: org_nodes(id)
+              - column:
+                  name: signature_hash
+                  type: VARCHAR(64)
+                  remarks: Mã băm SHA-256 của file sau khi đóng dấu ký nháy (UC13)
+              - column:
+                  name: delete_flg
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+              - column:
+                  name: created_date
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+              - column:
+                  name: updated_date
+                  type: TIMESTAMP WITH TIME ZONE
+
+        - createIndex:
+            indexName: idx_doc_wf_document_id
+            tableName: document_workflow_logs
+            columns:
+              - column:
+                  name: document_id
