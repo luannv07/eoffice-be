@@ -123,6 +123,17 @@ class DocumentRepositoryTest {
             documentRepository.save(doc);
         }
 
+        // Thêm 1 tài liệu bị xóa mềm cùng status SUBMITTED để đảm bảo phân trang loại trừ chính xác
+        Document docDeleted = Document.builder()
+                .title("Paged Doc Deleted")
+                .documentTypeCd("CONG_VAN")
+                .drafter(user)
+                .issuingOrg(org)
+                .status(DocumentStatus.SUBMITTED)
+                .deleteFlg(true)
+                .build();
+        documentRepository.save(docDeleted);
+
         Page<Document> page = documentRepository.findByStatusIn(
                 List.of(DocumentStatus.SUBMITTED),
                 PageRequest.of(0, 3)
@@ -132,5 +143,51 @@ class DocumentRepositoryTest {
         assertTrue(page.getTotalElements() >= 5);
         assertEquals(3, page.getContent().size());
         assertTrue(page.getContent().stream().allMatch(d -> d.getStatus() == DocumentStatus.SUBMITTED));
+        assertFalse(page.getContent().stream().anyMatch(d -> d.getId().equals(docDeleted.getId())),
+                "Phân trang phải loại trừ văn bản bị xóa mềm");
+    }
+
+    @Test
+    @DisplayName("findByStatusInAndDeleteFlgFalse: Derived queries hoạt động chính xác và loại trừ tài liệu xóa mềm")
+    void findByStatusInAndDeleteFlgFalse_shouldWorkCorrectly() {
+        UserLogin user = getOrCreateUser();
+        OrgNode org = getOrCreateOrg();
+
+        Document docActive = Document.builder()
+                .title("Doc Active For Derived")
+                .documentTypeCd("CONG_VAN")
+                .drafter(user)
+                .issuingOrg(org)
+                .status(DocumentStatus.PENDING_REVIEW)
+                .deleteFlg(false)
+                .build();
+        documentRepository.save(docActive);
+
+        Document docDeleted = Document.builder()
+                .title("Doc Deleted For Derived")
+                .documentTypeCd("CONG_VAN")
+                .drafter(user)
+                .issuingOrg(org)
+                .status(DocumentStatus.PENDING_REVIEW)
+                .deleteFlg(true)
+                .build();
+        documentRepository.save(docDeleted);
+
+        // 1. Kiểm tra list
+        List<Document> list = documentRepository.findByStatusInAndDeleteFlgFalse(
+                List.of(DocumentStatus.PENDING_REVIEW)
+        );
+        assertNotNull(list);
+        assertTrue(list.stream().anyMatch(d -> d.getId().equals(docActive.getId())));
+        assertFalse(list.stream().anyMatch(d -> d.getId().equals(docDeleted.getId())));
+
+        // 2. Kiểm tra pageable
+        Page<Document> page = documentRepository.findByStatusInAndDeleteFlgFalse(
+                List.of(DocumentStatus.PENDING_REVIEW),
+                PageRequest.of(0, 10)
+        );
+        assertNotNull(page);
+        assertTrue(page.getContent().stream().anyMatch(d -> d.getId().equals(docActive.getId())));
+        assertFalse(page.getContent().stream().anyMatch(d -> d.getId().equals(docDeleted.getId())));
     }
 }

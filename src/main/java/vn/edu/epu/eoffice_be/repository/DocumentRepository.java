@@ -28,6 +28,10 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
     @Query("SELECT d FROM Document d WHERE d.status IN :statuses AND d.deleteFlg = false")
     Page<Document> findByStatusIn(@Param("statuses") List<DocumentStatus> statuses, Pageable pageable);
 
+    List<Document> findByStatusInAndDeleteFlgFalse(List<DocumentStatus> statuses);
+
+    Page<Document> findByStatusInAndDeleteFlgFalse(List<DocumentStatus> statuses, Pageable pageable);
+
     @Query(value = """
         SELECT DISTINCT d.* FROM documents d
         JOIN document_distribution dd ON d.id = dd.document_id
