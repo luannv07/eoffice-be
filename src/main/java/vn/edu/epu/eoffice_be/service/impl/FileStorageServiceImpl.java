@@ -68,6 +68,12 @@ public class FileStorageServiceImpl implements FileStorageService {
             throw new BusinessException(ErrorCode.BAD_REQUEST);
         }
 
+        if (content.length > maxFileSizeBytes) {
+            log.error("Kích thước file ({} bytes) vượt quá giới hạn an toàn ({} bytes) khi lưu file",
+                    content.length, maxFileSizeBytes);
+            throw new BusinessException(ErrorCode.BAD_REQUEST);
+        }
+
         String safeFileName = resolveSafeFileName(originalFilename);
         String storedFileName = UUID.randomUUID() + "_" + safeFileName;
 

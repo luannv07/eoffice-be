@@ -364,4 +364,16 @@ class FileStorageServiceTest {
         byte[] loaded = fileStorageService.loadFileBytes(storedPath);
         assertArrayEquals(content, loaded);
     }
+
+    @Test
+    @DisplayName("Ném lỗi BAD_REQUEST khi kích thước file vượt quá giới hạn tối đa (>20MB) lúc lưu file")
+    void storeFile_fileExceedsMaxSize_shouldThrowBadRequest() {
+        // Tạo mảng byte vượt quá 20MB: 20 * 1024 * 1024 + 1 = 20,971,521 bytes
+        byte[] oversizedContent = new byte[(int) (20 * 1024 * 1024 + 1)];
+
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                fileStorageService.storeFile(oversizedContent, "oversized.pdf", "drafts"));
+
+        assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
+    }
 }
