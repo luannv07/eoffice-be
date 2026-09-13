@@ -179,19 +179,14 @@ class DocumentTest {
     }
 
     @Test
-    @DisplayName("setBusinessZone: Cho phép cấu hình thay đổi múi giờ nghiệp vụ linh hoạt")
-    void setBusinessZone_shouldAllowDynamicConfiguration() {
-        try {
-            Document.setBusinessZone(ZoneId.of("America/New_York"));
-            LocalDate date = LocalDate.of(2026, 9, 13);
-            document.setIssueDate(date);
+    @DisplayName("getBusinessZone: Múi giờ nghiệp vụ mặc định là hằng số bất biến Asia/Ho_Chi_Minh")
+    void getBusinessZone_shouldBeImmutableDefaultBusinessZone() {
+        assertEquals(ZoneId.of("Asia/Ho_Chi_Minh"), Document.DEFAULT_BUSINESS_ZONE);
+        assertEquals(Document.DEFAULT_BUSINESS_ZONE, Document.getBusinessZone());
 
-            Instant expected = date.atStartOfDay(ZoneId.of("America/New_York")).toInstant();
-            assertEquals(expected, document.getIssueDate());
-        } finally {
-            Document.setBusinessZone(null); // Reset về DEFAULT_BUSINESS_ZONE
-            assertEquals(Document.DEFAULT_BUSINESS_ZONE, Document.getBusinessZone());
-        }
+        LocalDate date = LocalDate.of(2026, 9, 13);
+        document.setIssueDate(date);
+        assertEquals(date.atStartOfDay(Document.DEFAULT_BUSINESS_ZONE).toInstant(), document.getIssueDate());
     }
 
     @Test

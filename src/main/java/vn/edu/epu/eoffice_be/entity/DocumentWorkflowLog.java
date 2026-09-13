@@ -95,7 +95,6 @@ public class DocumentWorkflowLog extends BaseEntity {
         this(id, document, action, actor, fromStatus, toStatus, comment, leadershipInstruction, assignedOrgNode, signatureHash, deleteFlg, null, null);
     }
 
-    @Builder
     public DocumentWorkflowLog(Long id, Document document, WorkflowAction action, UserLogin actor,
                                DocumentStatus fromStatus, DocumentStatus toStatus, String comment,
                                String leadershipInstruction, OrgNode assignedOrgNode, String signatureHash,
@@ -116,6 +115,10 @@ public class DocumentWorkflowLog extends BaseEntity {
         } else if (createdAt != null) {
             setCreatedAt(createdAt);
         }
+    }
+
+    public static DocumentWorkflowLogBuilder builder() {
+        return new DocumentWorkflowLogBuilder();
     }
 
     public LocalDateTime getCreatedAt() {
@@ -139,8 +142,91 @@ public class DocumentWorkflowLog extends BaseEntity {
     }
 
     public static class DocumentWorkflowLogBuilder {
+        private Long id;
+        private Document document;
+        private WorkflowAction action;
+        private UserLogin actor;
+        private DocumentStatus fromStatus;
+        private DocumentStatus toStatus;
+        private String comment;
+        private String leadershipInstruction;
+        private OrgNode assignedOrgNode;
+        private String signatureHash;
+        private Boolean deleteFlg = false;
+        private Instant createdDate;
+        private LocalDateTime createdAt;
+
+        DocumentWorkflowLogBuilder() {}
+
+        public DocumentWorkflowLogBuilder id(Long id) {
+            this.id = id;
+            return this;
+        }
+
+        public DocumentWorkflowLogBuilder document(Document document) {
+            this.document = document;
+            return this;
+        }
+
         public DocumentWorkflowLogBuilder documentId(Long documentId) {
             this.document = Document.builder().id(documentId).build();
+            return this;
+        }
+
+        public DocumentWorkflowLogBuilder action(WorkflowAction action) {
+            this.action = action;
+            return this;
+        }
+
+        public DocumentWorkflowLogBuilder action(String action) {
+            if (action == null || action.trim().isEmpty()) {
+                throw new IllegalArgumentException("Action string must not be null or blank");
+            }
+            try {
+                this.action = WorkflowAction.valueOf(action.trim());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Invalid workflow action: " + action, e);
+            }
+            return this;
+        }
+
+        public DocumentWorkflowLogBuilder actor(UserLogin actor) {
+            this.actor = actor;
+            return this;
+        }
+
+        public DocumentWorkflowLogBuilder fromStatus(DocumentStatus fromStatus) {
+            this.fromStatus = fromStatus;
+            return this;
+        }
+
+        public DocumentWorkflowLogBuilder toStatus(DocumentStatus toStatus) {
+            this.toStatus = toStatus;
+            return this;
+        }
+
+        public DocumentWorkflowLogBuilder comment(String comment) {
+            this.comment = comment;
+            return this;
+        }
+
+        public DocumentWorkflowLogBuilder leadershipInstruction(String leadershipInstruction) {
+            this.leadershipInstruction = leadershipInstruction;
+            return this;
+        }
+
+        public DocumentWorkflowLogBuilder assignedOrgNode(OrgNode assignedOrgNode) {
+            this.assignedOrgNode = assignedOrgNode;
+            return this;
+        }
+
+        public DocumentWorkflowLogBuilder signatureHash(String signatureHash) {
+            this.signatureHash = signatureHash;
+            return this;
+        }
+
+        public DocumentWorkflowLogBuilder deleteFlg(Boolean deleteFlg) {
+            this.deleteFlg = deleteFlg;
             return this;
         }
 
@@ -164,21 +250,10 @@ public class DocumentWorkflowLog extends BaseEntity {
             return this;
         }
 
-        public DocumentWorkflowLogBuilder action(WorkflowAction action) {
-            this.action = action;
-            return this;
-        }
-
-        public DocumentWorkflowLogBuilder action(String action) {
-            if (action == null || action.trim().isEmpty()) {
-                throw new IllegalArgumentException("Action string must not be null or blank");
-            }
-            try {
-                this.action = vn.edu.epu.eoffice_be.common.enums.WorkflowAction.valueOf(action.trim());
-            } catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException("Invalid workflow action: " + action, e);
-            }
-            return this;
+        public DocumentWorkflowLog build() {
+            return new DocumentWorkflowLog(id, document, action, actor, fromStatus, toStatus,
+                    comment, leadershipInstruction, assignedOrgNode, signatureHash,
+                    deleteFlg, createdDate, createdAt);
         }
     }
 }

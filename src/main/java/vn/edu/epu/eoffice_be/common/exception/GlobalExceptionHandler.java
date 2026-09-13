@@ -46,6 +46,12 @@ public class GlobalExceptionHandler {
 						.body(BaseResponse.error(ErrorCode.FORBIDDEN.getMessage(), ErrorCode.FORBIDDEN.getCode()));
 	}
 
+	@ExceptionHandler(IllegalArgumentException.class)
+	public ResponseEntity<BaseResponse<Void>> handleIllegalArgument(IllegalArgumentException ex) {
+		return ResponseEntity.status(ErrorCode.BAD_REQUEST.getStatus())
+						.body(BaseResponse.error(ex.getMessage(), ErrorCode.BAD_REQUEST.getCode()));
+	}
+
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<BaseResponse<Void>> handleGenericException(Exception ex) {
 		log.error("Unhandled exception", ex);
