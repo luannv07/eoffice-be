@@ -36,6 +36,14 @@ eoffice:
     secret-key: eoffice-be-jwt-secret-fixed-for-all-environments-2026
     access-token-ttl: PT15M
     refresh-token-ttl: P30D
+  upload:
+    dir: target/test-uploads
+    max-file-size-bytes: 26214400
+    allowed-extensions:
+      - docx
+      - pdf
+      - DOCX
+      - PDF
   rate-limit:
     endpoint-limit: ${RATE_LIMIT_ENDPOINT_LIMIT:10}
     endpoint-window-seconds: ${RATE_LIMIT_ENDPOINT_WINDOW_SECONDS:300}

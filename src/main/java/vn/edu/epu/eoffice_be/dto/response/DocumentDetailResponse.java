@@ -9,6 +9,7 @@ import lombok.Setter;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 
 import java.time.Instant;
+import java.util.List;
 
 @Getter
 @Setter
@@ -74,4 +75,13 @@ public class DocumentDetailResponse {
 
     @Schema(description = "Nơi nhận và lưu")
     private String recipientsText;
+
+    @Schema(description = "Thông tin cơ bản văn bản")
+    private DocumentResponse document;
+
+    @Schema(description = "Danh sách tệp đính kèm")
+    private List<DocumentAttachmentResponse> attachments;
+
+    @Schema(description = "Danh sách phiên bản văn bản")
+    private List<DocumentVersionResponse> versions;
 }

@@ -3,10 +3,10 @@ databaseChangeLog:
       id: 2026-09-11-create-table-documents
       author: quyet
       preConditions:
-        - onFail: MARK_RAN
-        - sqlCheck:
-            expectedResult: 0
-            sql: "SELECT COUNT(*) FROM information_schema.tables WHERE LOWER(table_name) = 'documents'"
+        onFail: MARK_RAN
+        sqlCheck:
+          expectedResult: 0
+          sql: "SELECT COUNT(*) FROM information_schema.tables WHERE LOWER(table_name) = 'documents'"
       changes:
         - createTable:
             tableName: documents
@@ -52,13 +52,41 @@ databaseChangeLog:
                   type: TIMESTAMP
 
   - changeSet:
+      id: 2026-09-11-add-missing-publish-columns
+      author: antigravity
+      preConditions:
+        onFail: MARK_RAN
+        sqlCheck:
+          expectedResult: 0
+          sql: "SELECT COUNT(*) FROM information_schema.columns WHERE LOWER(table_name) = 'documents' AND LOWER(column_name) = 'official_number'"
+      changes:
+        - addColumn:
+            tableName: documents
+            columns:
+              - column:
+                  name: official_number
+                  type: VARCHAR(100)
+              - column:
+                  name: issue_date
+                  type: DATE
+              - column:
+                  name: effective_date
+                  type: DATE
+              - column:
+                  name: official_file_path
+                  type: VARCHAR(500)
+              - column:
+                  name: official_hash
+                  type: VARCHAR(64)
+
+  - changeSet:
       id: 2026-09-11-create-table-document-distribution
       author: quyet
       preConditions:
-        - onFail: MARK_RAN
-        - sqlCheck:
-            expectedResult: 0
-            sql: "SELECT COUNT(*) FROM information_schema.tables WHERE LOWER(table_name) = 'document_distribution'"
+        onFail: MARK_RAN
+        sqlCheck:
+          expectedResult: 0
+          sql: "SELECT COUNT(*) FROM information_schema.tables WHERE LOWER(table_name) = 'document_distribution'"
       changes:
         - createTable:
             tableName: document_distribution
@@ -97,10 +125,10 @@ databaseChangeLog:
       id: 2026-09-11-create-table-document-workflow-log
       author: quyet
       preConditions:
-        - onFail: MARK_RAN
-        - sqlCheck:
-            expectedResult: 0
-            sql: "SELECT COUNT(*) FROM information_schema.tables WHERE LOWER(table_name) = 'document_workflow_logs'"
+        onFail: MARK_RAN
+        sqlCheck:
+          expectedResult: 0
+          sql: "SELECT COUNT(*) FROM information_schema.tables WHERE LOWER(table_name) = 'document_workflow_logs'"
       changes:
         - createTable:
             tableName: document_workflow_logs
@@ -142,11 +170,15 @@ databaseChangeLog:
   - changeSet:
       id: 2026-09-11-seed-documents-data
       author: quyet
+      validCheckSum:
+        - "9:7409a6b485e1fa468d66c191456c3a4a"
+        - "9:7e3981b483e89292f70dcd81bc03cf1b"
+        - "ANY"
       preConditions:
-        - onFail: MARK_RAN
-        - sqlCheck:
-            expectedResult: 0
-            sql: "SELECT COUNT(*) FROM documents WHERE id = 1"
+        onFail: MARK_RAN
+        sqlCheck:
+          expectedResult: 0
+          sql: "SELECT COUNT(*) FROM documents WHERE id = 1"
       changes:
         - insert:
             tableName: documents
@@ -154,6 +186,9 @@ databaseChangeLog:
               - column:
                   name: id
                   valueNumeric: 1
+              - column:
+                  name: draft_code
+                  value: "DT-2026-00001"
               - column:
                   name: title
                   value: "Quy chế tổ chức hoạt động văn phòng điện tử"

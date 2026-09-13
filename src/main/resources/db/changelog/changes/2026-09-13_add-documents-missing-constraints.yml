@@ -1,0 +1,103 @@
+databaseChangeLog:
+  # Bổ sung các constraint/index của bảng documents mà changeset
+  # 2026-09-08-001-create-documents-table chưa tạo được (bị MARK_RAN do bảng
+  # đã tồn tại từ trước do Hibernate ddl-auto:update). Mỗi changeSet độc lập,
+  # có preConditions onFail: MARK_RAN kiểm tra riêng từng object nên idempotent
+  # trên Postgres: object nào đã có (do Hibernate tạo) sẽ bỏ qua, thiếu sẽ tạo.
+  - changeSet:
+      id: 2026-09-13-documents-unique-draft-code
+      author: luannv
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            uniqueConstraintExists:
+              tableName: documents
+              columnNames: draft_code
+      changes:
+        - addUniqueConstraint:
+            constraintName: uq_documents_draft_code
+            tableName: documents
+            columnNames: draft_code
+
+  - changeSet:
+      id: 2026-09-13-documents-fk-issuing-org
+      author: luannv
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            foreignKeyConstraintExists:
+              foreignKeyName: fk_documents_issuing_org
+      changes:
+        - addForeignKeyConstraint:
+            baseTableName: documents
+            baseColumnNames: issuing_org_node_id
+            constraintName: fk_documents_issuing_org
+            referencedTableName: org_nodes
+            referencedColumnNames: id
+
+  - changeSet:
+      id: 2026-09-13-documents-fk-creator
+      author: luannv
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            foreignKeyConstraintExists:
+              foreignKeyName: fk_documents_creator
+      changes:
+        - addForeignKeyConstraint:
+            baseTableName: documents
+            baseColumnNames: creator_user_id
+            constraintName: fk_documents_creator
+            referencedTableName: user_logins
+            referencedColumnNames: id
+
+  - changeSet:
+      id: 2026-09-13-documents-index-status
+      author: luannv
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            indexExists:
+              tableName: documents
+              indexName: idx_documents_status
+      changes:
+        - createIndex:
+            indexName: idx_documents_status
+            tableName: documents
+            columns:
+              - column:
+                  name: status
+
+  - changeSet:
+      id: 2026-09-13-documents-index-creator
+      author: luannv
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            indexExists:
+              tableName: documents
+              indexName: idx_documents_creator
+      changes:
+        - createIndex:
+            indexName: idx_documents_creator
+            tableName: documents
+            columns:
+              - column:
+                  name: creator_user_id
+
+  - changeSet:
+      id: 2026-09-13-documents-index-org
+      author: luannv
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            indexExists:
+              tableName: documents
+              indexName: idx_documents_org
+      changes:
+        - createIndex:
+            indexName: idx_documents_org
+            tableName: documents
+            columns:
+              - column:
+                  name: issuing_org_node_id

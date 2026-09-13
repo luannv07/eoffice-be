@@ -69,6 +69,14 @@ eoffice:
     cookie-secure: ${COOKIE_SECURE:false}
     cookie-same-site: Strict
     allowed-origins: ${JWT_ALLOWED_ORIGINS:}
+  upload:
+    dir: ${UPLOAD_DIR:/var/eoffice/uploads/documents}
+    max-file-size-bytes: 26214400
+    allowed-extensions:
+      - docx
+      - pdf
+      - DOCX
+      - PDF
   mail:
     from: ${MAIL_FROM:no-reply@eoffice.local}
   password-reset:

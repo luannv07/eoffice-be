@@ -45,11 +45,19 @@ public class DocumentPublishController {
         return ResponseEntity.ok(response);
     }
 
+
     // UC17: Kiểm tra tính toàn vẹn văn bản
     @GetMapping("/{id}/verify-integrity")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<IntegrityVerifyResponse> verifyIntegrity(@PathVariable Long id) {
-        boolean isValid = publishService.verifyIntegrity(id);
+    public ResponseEntity<IntegrityVerifyResponse> verifyIntegrity(
+            @PathVariable Long id,
+            org.springframework.security.core.Authentication authentication) {
+        if (authentication == null 
+                || !authentication.isAuthenticated() 
+                || authentication instanceof org.springframework.security.authentication.AnonymousAuthenticationToken) {
+            throw new org.springframework.security.access.AccessDeniedException("Yêu cầu xác thực người dùng");
+        }
+        boolean isValid = publishService.verifyIntegrity(id, authentication);
         IntegrityVerifyResponse response = IntegrityVerifyResponse.builder()
                 .documentId(id)
                 .valid(isValid)
