@@ -6,7 +6,7 @@ databaseChangeLog:
   # trên Postgres: object nào đã có (do Hibernate tạo) sẽ bỏ qua, thiếu sẽ tạo.
   - changeSet:
       id: 2026-09-13-documents-unique-draft-code
-      author: eoffice-dev
+      author: luannv
       preConditions:
         - onFail: MARK_RAN
         - not:
@@ -21,7 +21,7 @@ databaseChangeLog:
 
   - changeSet:
       id: 2026-09-13-documents-fk-issuing-org
-      author: eoffice-dev
+      author: luannv
       preConditions:
         - onFail: MARK_RAN
         - not:
@@ -37,7 +37,7 @@ databaseChangeLog:
 
   - changeSet:
       id: 2026-09-13-documents-fk-creator
-      author: eoffice-dev
+      author: luannv
       preConditions:
         - onFail: MARK_RAN
         - not:
@@ -53,7 +53,7 @@ databaseChangeLog:
 
   - changeSet:
       id: 2026-09-13-documents-index-status
-      author: eoffice-dev
+      author: luannv
       preConditions:
         - onFail: MARK_RAN
         - not:
@@ -70,7 +70,7 @@ databaseChangeLog:
 
   - changeSet:
       id: 2026-09-13-documents-index-creator
-      author: eoffice-dev
+      author: luannv
       preConditions:
         - onFail: MARK_RAN
         - not:
@@ -87,7 +87,7 @@ databaseChangeLog:
 
   - changeSet:
       id: 2026-09-13-documents-index-org
-      author: eoffice-dev
+      author: luannv
       preConditions:
         - onFail: MARK_RAN
         - not:
