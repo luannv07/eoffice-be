@@ -232,7 +232,7 @@ class DocumentServiceCoverageTest {
         doc3.setId(3L);
         doc3.setStatus("DRAFT");
 
-        lenient().when(documentRepository.findByStatusIn(any())).thenReturn(List.of(doc1, doc2, doc3));
+        lenient().when(documentRepository.findByStatusInAndDeleteFlgFalse(any())).thenReturn(List.of(doc1, doc2, doc3));
         lenient().when(documentRepository.findAll()).thenReturn(List.of(doc1, doc2, doc3));
 
         var pending = documentWorkflowService.getPendingDocuments();
@@ -408,7 +408,7 @@ class DocumentServiceCoverageTest {
         doc2.setTitle("Doc 2");
         doc2.setStatus("PENDING_SIGN");
 
-        lenient().when(documentRepository.findByStatusIn(any()))
+        lenient().when(documentRepository.findByStatusInAndDeleteFlgFalse(any()))
                 .thenReturn(List.of(doc1, doc2));
 
         var pendingList = documentWorkflowService.getPendingDocuments();
@@ -559,7 +559,7 @@ class DocumentServiceCoverageTest {
         docDraft.setId(102L);
         docDraft.setStatus("DRAFT");
 
-        when(documentRepository.findByStatusIn(anyList()))
+        when(documentRepository.findByStatusInAndDeleteFlgFalse(anyList()))
                 .thenReturn(List.of(docInReview, docDraft));
 
         var result = documentWorkflowService.getPendingDocuments();
@@ -609,7 +609,7 @@ class DocumentServiceCoverageTest {
     }
     @Test
     void testDocumentWorkflowService_EmptyPendingList() {
-        when(documentRepository.findByStatusIn(anyList()))
+        when(documentRepository.findByStatusInAndDeleteFlgFalse(anyList()))
                 .thenReturn(Collections.emptyList());
 
         var pending = documentWorkflowService.getPendingDocuments();
@@ -668,7 +668,7 @@ class DocumentServiceCoverageTest {
         doc2.setId(702L);
         doc2.setStatus("IN_REVIEW");
 
-        when(documentRepository.findByStatusIn(anyList()))
+        when(documentRepository.findByStatusInAndDeleteFlgFalse(anyList()))
                 .thenReturn(List.of(doc1, doc2));
 
         var res = documentWorkflowService.getPendingDocuments();

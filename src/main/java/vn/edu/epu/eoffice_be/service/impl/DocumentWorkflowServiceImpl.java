@@ -435,7 +435,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     @Override
     @Transactional(readOnly = true)
     public Page<PendingDocumentResponse> getPendingDocuments(Pageable pageable) {
-        Page<Document> page = documentRepository.findByStatusIn(PENDING_STATUSES, pageable);
+        Page<Document> page = documentRepository.findByStatusInAndDeleteFlgFalse(PENDING_STATUSES, pageable);
         if (page == null) {
             return Page.empty(pageable);
         }
@@ -450,7 +450,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     @Override
     @Transactional(readOnly = true)
     public List<PendingDocumentResponse> getPendingDocuments() {
-        List<Document> list = documentRepository.findByStatusIn(PENDING_STATUSES);
+        List<Document> list = documentRepository.findByStatusInAndDeleteFlgFalse(PENDING_STATUSES);
         if (list == null || list.isEmpty()) {
             list = documentRepository.findByStatusAndDeleteFlgFalse(DocumentStatus.PENDING_APPROVAL);
         }

@@ -565,7 +565,7 @@ class DocumentWorkflowServiceTest {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Document> documentPage = new PageImpl<>(List.of(doc1), pageable, 1);
 
-        when(documentRepository.findByStatusIn(eq(DocumentWorkflowServiceImpl.PENDING_STATUSES), eq(pageable)))
+        when(documentRepository.findByStatusInAndDeleteFlgFalse(eq(DocumentWorkflowServiceImpl.PENDING_STATUSES), eq(pageable)))
                 .thenReturn(documentPage);
 
         Page<PendingDocumentResponse> result = documentWorkflowService.getPendingDocuments(pageable);
@@ -575,6 +575,6 @@ class DocumentWorkflowServiceTest {
         assertEquals(101L, result.getContent().get(0).getId());
         assertEquals("Tờ trình mua sắm máy tính", result.getContent().get(0).getTitle());
         assertEquals(DocumentStatus.PENDING_APPROVAL.name(), result.getContent().get(0).getStatus());
-        verify(documentRepository).findByStatusIn(eq(DocumentWorkflowServiceImpl.PENDING_STATUSES), eq(pageable));
+        verify(documentRepository).findByStatusInAndDeleteFlgFalse(eq(DocumentWorkflowServiceImpl.PENDING_STATUSES), eq(pageable));
     }
 }

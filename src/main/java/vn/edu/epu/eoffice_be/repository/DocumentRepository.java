@@ -22,15 +22,53 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
     @Query("SELECT d FROM Document d WHERE d.drafter.id = :drafterId AND d.deleteFlg = false")
     List<Document> findByDrafterIdAndDeleteFlgFalse(@Param("drafterId") Long drafterId);
 
-    @Query("SELECT d FROM Document d WHERE d.status IN :statuses AND d.deleteFlg = false")
-    List<Document> findByStatusIn(@Param("statuses") List<DocumentStatus> statuses);
-    
-    @Query("SELECT d FROM Document d WHERE d.status IN :statuses AND d.deleteFlg = false")
-    Page<Document> findByStatusIn(@Param("statuses") List<DocumentStatus> statuses, Pageable pageable);
+    /**
+     * Canonical query to find active documents by statuses, ordered deterministically by id ASC.
+     * Excludes soft-deleted documents (deleteFlg = false).
+     *
+     * @param statuses danh sách trạng thái cần lọc
+     * @return danh sách văn bản thỏa mãn
+     */
+    @Query("SELECT d FROM Document d WHERE d.status IN :statuses AND d.deleteFlg = false ORDER BY d.id ASC")
+    List<Document> findByStatusInAndDeleteFlgFalse(@Param("statuses") List<DocumentStatus> statuses);
 
-    List<Document> findByStatusInAndDeleteFlgFalse(List<DocumentStatus> statuses);
+    /**
+     * Canonical paginated query to find active documents by statuses with deterministic ordering (ORDER BY d.id ASC).
+     * Excludes soft-deleted documents (deleteFlg = false).
+     *
+     * @param statuses danh sách trạng thái cần lọc
+     * @param pageable thông tin phân trang
+     * @return trang văn bản thỏa mãn
+     */
+    @Query("SELECT d FROM Document d WHERE d.status IN :statuses AND d.deleteFlg = false ORDER BY d.id ASC")
+    Page<Document> findByStatusInAndDeleteFlgFalse(@Param("statuses") List<DocumentStatus> statuses, Pageable pageable);
 
-    Page<Document> findByStatusInAndDeleteFlgFalse(List<DocumentStatus> statuses, Pageable pageable);
+    /**
+     * Backward-compatible alias for {@link #findByStatusInAndDeleteFlgFalse(List)}.
+     * Excludes soft-deleted documents (deleteFlg = false).
+     *
+     * @param statuses danh sách trạng thái cần lọc
+     * @return danh sách văn bản thỏa mãn
+     * @deprecated Use {@link #findByStatusInAndDeleteFlgFalse(List)}
+     */
+    @Deprecated
+    default List<Document> findByStatusIn(List<DocumentStatus> statuses) {
+        return findByStatusInAndDeleteFlgFalse(statuses);
+    }
+
+    /**
+     * Backward-compatible alias for {@link #findByStatusInAndDeleteFlgFalse(List, Pageable)}.
+     * Excludes soft-deleted documents (deleteFlg = false).
+     *
+     * @param statuses danh sách trạng thái cần lọc
+     * @param pageable thông tin phân trang
+     * @return trang văn bản thỏa mãn
+     * @deprecated Use {@link #findByStatusInAndDeleteFlgFalse(List, Pageable)}
+     */
+    @Deprecated
+    default Page<Document> findByStatusIn(List<DocumentStatus> statuses, Pageable pageable) {
+        return findByStatusInAndDeleteFlgFalse(statuses, pageable);
+    }
 
     @Query(value = """
         SELECT DISTINCT d.* FROM documents d

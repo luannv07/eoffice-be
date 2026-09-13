@@ -190,4 +190,68 @@ class DocumentRepositoryTest {
         assertTrue(page.getContent().stream().anyMatch(d -> d.getId().equals(docActive.getId())));
         assertFalse(page.getContent().stream().anyMatch(d -> d.getId().equals(docDeleted.getId())));
     }
+
+    @Test
+    @DisplayName("findByStatusInAndDeleteFlgFalse: Phân trang xác định (ORDER BY d.id ASC) ổn định qua các trang")
+    void findByStatusInAndDeleteFlgFalse_pagination_shouldBeDeterministicAcrossPages() {
+        UserLogin user = getOrCreateUser();
+        OrgNode org = getOrCreateOrg();
+
+        for (int i = 0; i < 6; i++) {
+            Document doc = Document.builder()
+                    .title("Deterministic Paged Doc " + i)
+                    .documentTypeCd("CONG_VAN")
+                    .drafter(user)
+                    .issuingOrg(org)
+                    .status(DocumentStatus.PENDING_SIGN)
+                    .deleteFlg(false)
+                    .build();
+            documentRepository.save(doc);
+        }
+
+        // Tạo 1 bản ghi xóa mềm cùng status PENDING_SIGN
+        Document docDeleted = Document.builder()
+                .title("Deterministic Paged Doc Deleted")
+                .documentTypeCd("CONG_VAN")
+                .drafter(user)
+                .issuingOrg(org)
+                .status(DocumentStatus.PENDING_SIGN)
+                .deleteFlg(true)
+                .build();
+        documentRepository.save(docDeleted);
+
+        // Trang 0, size 2 (không có sort từ caller)
+        Page<Document> page0 = documentRepository.findByStatusInAndDeleteFlgFalse(
+                List.of(DocumentStatus.PENDING_SIGN),
+                PageRequest.of(0, 2)
+        );
+        // Trang 1, size 2
+        Page<Document> page1 = documentRepository.findByStatusInAndDeleteFlgFalse(
+                List.of(DocumentStatus.PENDING_SIGN),
+                PageRequest.of(1, 2)
+        );
+
+        assertNotNull(page0);
+        assertNotNull(page1);
+        assertEquals(2, page0.getContent().size());
+        assertEquals(2, page1.getContent().size());
+
+        // Kiểm tra thứ tự tăng dần theo id (ORDER BY d.id ASC)
+        assertTrue(page0.getContent().get(0).getId() < page0.getContent().get(1).getId());
+        assertTrue(page0.getContent().get(1).getId() < page1.getContent().get(0).getId());
+        assertTrue(page1.getContent().get(0).getId() < page1.getContent().get(1).getId());
+
+        // Kiểm tra loại trừ tài liệu xóa mềm
+        assertFalse(page0.getContent().stream().anyMatch(d -> d.getId().equals(docDeleted.getId())));
+        assertFalse(page1.getContent().stream().anyMatch(d -> d.getId().equals(docDeleted.getId())));
+
+        // Kiểm tra phương thức tương thích findByStatusIn trả về kết quả tương đương
+        @SuppressWarnings("deprecation")
+        Page<Document> compatPage0 = documentRepository.findByStatusIn(
+                List.of(DocumentStatus.PENDING_SIGN),
+                PageRequest.of(0, 2)
+        );
+        assertEquals(page0.getContent().get(0).getId(), compatPage0.getContent().get(0).getId());
+        assertEquals(page0.getContent().get(1).getId(), compatPage0.getContent().get(1).getId());
+    }
 }
