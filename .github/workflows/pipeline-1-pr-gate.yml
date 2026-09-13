@@ -41,13 +41,22 @@ jobs:
       - name: 4. Build Docker image
         run: docker build -t eoffice-be:pr-${{ github.sha }} .
 
-      - name: 5. Scan Docker image with Trivy
+      - name: 5a. Trivy – Full report (informational)
         uses: aquasecurity/trivy-action@v0.25.0
         with:
           image-ref: eoffice-be:pr-${{ github.sha }}
           format: table
-          severity: CRITICAL
+          exit-code: 0
+          severity: CRITICAL,HIGH
+
+      - name: 5b. Trivy – Gate on CRITICAL vulnerabilities
+        uses: aquasecurity/trivy-action@v0.25.0
+        with:
+          image-ref: eoffice-be:pr-${{ github.sha }}
+          format: table
+          scanners: vuln
           exit-code: 1
+          severity: CRITICAL
           ignore-unfixed: true
 
       - name: 6. Secret Scan (TruffleHog)
