@@ -13,7 +13,7 @@ import java.util.List;
 @Repository
 public interface DocumentWorkflowLogRepository extends JpaRepository<DocumentWorkflowLog, Long> {
 
-    @Query("SELECT l FROM DocumentWorkflowLog l WHERE l.document.id = :documentId AND l.deleteFlg = false")
+    @Query("SELECT l FROM DocumentWorkflowLog l WHERE l.document.id = :documentId AND l.deleteFlg = false ORDER BY l.createdDate ASC, l.id ASC")
     Page<DocumentWorkflowLog> findByDocumentIdAndDeleteFlgFalse(@Param("documentId") Long documentId, Pageable pageable);
 
     @Query("SELECT l FROM DocumentWorkflowLog l WHERE l.document.id = :documentId AND l.deleteFlg = false ORDER BY l.createdDate ASC")
