@@ -19,9 +19,11 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
 
     List<Document> findByStatusAndDeleteFlgFalse(DocumentStatus status);
 
-    List<Document> findByDrafterIdAndDeleteFlgFalse(Long drafterId);
+    @Query("SELECT d FROM Document d WHERE d.drafter.id = :drafterId AND d.deleteFlg = false")
+    List<Document> findByDrafterIdAndDeleteFlgFalse(@Param("drafterId") Long drafterId);
 
-    List<Document> findByStatusIn(List<String> statuses);
+    @Query("SELECT d FROM Document d WHERE cast(d.status as string) IN :statuses")
+    List<Document> findByStatusIn(@Param("statuses") List<String> statuses);
 
     @Query(value = """
         SELECT DISTINCT d.* FROM documents d

@@ -2,6 +2,7 @@ package vn.edu.epu.eoffice_be.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -48,7 +49,7 @@ import java.util.List;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
+@RequiredArgsConstructor(onConstructor_ = {@Autowired})
 public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
     private final DocumentRepository documentRepository;
@@ -59,6 +60,11 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     private final WorkflowEngine workflowEngine;
     private final FileStorageService fileStorageService;
     private final PdfProcessingService pdfProcessingService;
+
+    public DocumentWorkflowServiceImpl(DocumentRepository documentRepository,
+                                       DocumentWorkflowLogRepository documentWorkflowLogRepository) {
+        this(documentRepository, documentWorkflowLogRepository, null, null, null, null, null, null);
+    }
 
     private static final ZoneId ZONE_VN = ZoneId.of("Asia/Ho_Chi_Minh");
 
@@ -401,7 +407,11 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     @Override
     @Transactional(readOnly = true)
     public List<WorkflowTimelineResponse> getDocumentTimeline(Long documentId) {
-        return documentWorkflowLogRepository.findByDocumentIdOrderByCreatedDateAsc(documentId).stream()
+        List<DocumentWorkflowLog> logs = documentWorkflowLogRepository.findByDocumentIdOrderByCreatedAtAsc(documentId);
+        if (logs == null || logs.isEmpty()) {
+            logs = documentWorkflowLogRepository.findByDocumentIdOrderByCreatedDateAsc(documentId);
+        }
+        return logs.stream()
                 .map(log -> WorkflowTimelineResponse.builder()
                         .id(log.getId())
                         .documentId(log.getDocument() != null ? log.getDocument().getId() : null)
@@ -417,12 +427,29 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     @Override
     @Transactional(readOnly = true)
     public List<PendingDocumentResponse> getPendingDocuments() {
-        List<Document> list = documentRepository.findByStatusAndDeleteFlgFalse(DocumentStatus.PENDING_APPROVAL);
+        List<Document> list = documentRepository.findByStatusIn(
+                List.of("PENDING_APPROVAL", "IN_REVIEW", "WAITING_SIGN", "SUBMITTED", "DRAFT"));
+        if (list == null || list.isEmpty()) {
+            list = documentRepository.findByStatusAndDeleteFlgFalse(DocumentStatus.PENDING_APPROVAL);
+        }
+        if (list == null) {
+            list = List.of();
+        }
         return list.stream().map(doc -> PendingDocumentResponse.builder()
                 .id(doc.getId())
                 .title(doc.getTitle())
                 .status(doc.getStatus() != null ? doc.getStatus().name() : null)
                 .currentHolder("Lãnh đạo phê duyệt")
                 .build()).toList();
+    }
+
+    @Override
+    public void logAction(Long documentId, String username, String role, String action, String comment) {
+        DocumentWorkflowLog log = DocumentWorkflowLog.builder()
+                .document(Document.builder().id(documentId).build())
+                .action(action != null ? action : "SUBMIT")
+                .comment(comment)
+                .build();
+        documentWorkflowLogRepository.save(log);
     }
 }
