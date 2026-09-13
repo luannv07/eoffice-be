@@ -462,9 +462,20 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
     @Override
     public void logAction(Long documentId, String username, String role, String action, String comment) {
+        WorkflowAction act = null;
+        if (action != null && !action.isBlank()) {
+            try {
+                act = WorkflowAction.valueOf(action.trim().toUpperCase());
+            } catch (IllegalArgumentException ignored) {
+                // Keep act as null for default fallback
+            }
+        }
+        if (act == null) {
+            act = WorkflowAction.SUBMIT;
+        }
         DocumentWorkflowLog log = DocumentWorkflowLog.builder()
                 .document(Document.builder().id(documentId).build())
-                .action(action != null ? action : "SUBMIT")
+                .action(act)
                 .comment(comment)
                 .build();
         documentWorkflowLogRepository.save(log);

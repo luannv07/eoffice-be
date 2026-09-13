@@ -112,10 +112,26 @@ class DocumentWorkflowLogTest {
         assertEquals("Chuyen phong ban chu tri", log.getLeadershipInstruction());
         assertFalse(log.isDeleteFlg());
 
-        // Test fallback khi action string không hợp lệ
-        DocumentWorkflowLog logFallback = DocumentWorkflowLog.builder()
-                .action("INVALID_ACTION_STRING")
+        // Test chuỗi hợp lệ có khoảng trắng
+        DocumentWorkflowLog logTrimmed = DocumentWorkflowLog.builder()
+                .action("  SIGN_AND_PUBLISH  ")
                 .build();
-        assertEquals(WorkflowAction.SUBMIT, logFallback.getAction());
+        assertEquals(WorkflowAction.SIGN_AND_PUBLISH, logTrimmed.getAction());
+
+        // Test ném IllegalArgumentException khi action string là null, rỗng hoặc không hợp lệ
+        IllegalArgumentException exNull = assertThrows(IllegalArgumentException.class, () ->
+                DocumentWorkflowLog.builder().action((String) null)
+        );
+        assertTrue(exNull.getMessage().contains("must not be null or blank"));
+
+        IllegalArgumentException exEmpty = assertThrows(IllegalArgumentException.class, () ->
+                DocumentWorkflowLog.builder().action("   ")
+        );
+        assertTrue(exEmpty.getMessage().contains("must not be null or blank"));
+
+        IllegalArgumentException exInvalid = assertThrows(IllegalArgumentException.class, () ->
+                DocumentWorkflowLog.builder().action("INVALID_ACTION_STRING")
+        );
+        assertTrue(exInvalid.getMessage().contains("Invalid workflow action"));
     }
 }

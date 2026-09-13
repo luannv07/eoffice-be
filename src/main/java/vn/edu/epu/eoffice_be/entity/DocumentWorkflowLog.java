@@ -160,10 +160,13 @@ public class DocumentWorkflowLog extends BaseEntity {
         }
 
         public DocumentWorkflowLogBuilder action(String action) {
+            if (action == null || action.trim().isEmpty()) {
+                throw new IllegalArgumentException("Action string must not be null or blank");
+            }
             try {
-                this.action = vn.edu.epu.eoffice_be.common.enums.WorkflowAction.valueOf(action);
-            } catch (Exception e) {
-                this.action = vn.edu.epu.eoffice_be.common.enums.WorkflowAction.SUBMIT;
+                this.action = vn.edu.epu.eoffice_be.common.enums.WorkflowAction.valueOf(action.trim());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Invalid workflow action: " + action, e);
             }
             return this;
         }
