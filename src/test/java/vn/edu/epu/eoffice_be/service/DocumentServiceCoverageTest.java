@@ -16,6 +16,7 @@ import vn.edu.epu.eoffice_be.entity.DocumentWorkflowLog;
 import vn.edu.epu.eoffice_be.repository.DocumentDistributionRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentWorkflowLogRepository;
+import vn.edu.epu.eoffice_be.service.impl.DocumentWorkflowServiceImpl;
 import java.util.Collections;
 import java.io.File;
 import java.nio.file.Files;
@@ -51,7 +52,7 @@ class DocumentServiceCoverageTest {
     DocumentPublishService documentPublishService;
 
     @InjectMocks
-    DocumentWorkflowService documentWorkflowService;
+    DocumentWorkflowServiceImpl documentWorkflowService;
 
     @Test
     void testGetDocumentDetailsAndDownload_Success() throws Exception {
@@ -207,7 +208,7 @@ class DocumentServiceCoverageTest {
         Document result = documentPublishService.publishDocument(1L, req);
         assertNotNull(result);
         assertEquals("01/QĐ-ĐHL", result.getOfficialNumber());
-        assertEquals("PUBLISHED", result.getStatus());
+        assertEquals("PUBLISHED", String.valueOf(result.getStatus()));
         assertNotNull(result.getOfficialHash());
 
         when(documentRepository.findById(2L)).thenReturn(Optional.empty());
@@ -312,7 +313,7 @@ class DocumentServiceCoverageTest {
         Document published = documentPublishService.publishDocument(10L, null);
         assertNotNull(published);
         assertEquals("10/QĐ-ĐHL", published.getOfficialNumber());
-        assertEquals("PUBLISHED", published.getStatus());
+        assertEquals("PUBLISHED", String.valueOf(published.getStatus()));
     }
     @Test
     void testWorkflowPagination_SubListBranches() {
@@ -500,7 +501,7 @@ class DocumentServiceCoverageTest {
         Document result = documentPublishService.publishDocument(90L, req);
         assertNotNull(result);
         assertNotNull(result.getIssueDate());
-        assertEquals("PUBLISHED", result.getStatus());
+        assertEquals("PUBLISHED", String.valueOf(result.getStatus()));
     }
     @Test
     void testCalculateSha256_WithLargeTempFile() throws Exception {
@@ -632,7 +633,7 @@ class DocumentServiceCoverageTest {
 
         Document result = documentPublishService.publishDocument(505L, req);
         assertNotNull(result);
-        assertEquals("PUBLISHED", result.getStatus());
+        assertEquals("PUBLISHED", String.valueOf(result.getStatus()));
     }
 
     @Test

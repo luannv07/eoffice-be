@@ -25,12 +25,22 @@ public enum ErrorCode {
     EMAIL_ALREADY_EXISTS("EMAIL_ALREADY_EXISTS", "Email đã được sử dụng", HttpStatus.CONFLICT),
     INVALID_ENUM_VALUE("INVALID_ENUM_VALUE", "Giá trị không hợp lệ", HttpStatus.BAD_REQUEST),
     ORG_NODE_CODE_EXISTS("ORG_NODE_CODE_EXISTS", "Mã đơn vị đã tồn tại", HttpStatus.CONFLICT),
+    ORG_NODE_NOT_FOUND("ORG_NODE_NOT_FOUND", "Không tìm thấy đơn vị", HttpStatus.NOT_FOUND),
     ORG_NODE_PARENT_NOT_FOUND("ORG_NODE_PARENT_NOT_FOUND", "Đơn vị cha không tồn tại", HttpStatus.BAD_REQUEST),
     ORG_NODE_HAS_CHILDREN("ORG_NODE_HAS_CHILDREN", "Đơn vị còn đơn vị con, không thể xóa", HttpStatus.BAD_REQUEST),
     ORG_NODE_CYCLE("ORG_NODE_CYCLE", "Không thể chuyển đơn vị vào chính nó hoặc đơn vị con", HttpStatus.BAD_REQUEST),
     ORG_NODE_TYPE_INVALID("ORG_NODE_TYPE_INVALID", "Loại đơn vị không hợp lệ", HttpStatus.BAD_REQUEST),
-    DICTIONARY_ITEM_ALREADY_EXISTS("DICTIONARY_ITEM_ALREADY_EXISTS", "Mục từ điển đã tồn tại trong nhóm", HttpStatus.CONFLICT);
-
+    DICTIONARY_ITEM_ALREADY_EXISTS("DICTIONARY_ITEM_ALREADY_EXISTS", "Mục từ điển đã tồn tại trong nhóm", HttpStatus.CONFLICT),
+    DOCUMENT_NOT_FOUND("DOCUMENT_NOT_FOUND", "Không tìm thấy văn bản", HttpStatus.NOT_FOUND),
+    INVALID_DOCUMENT_STATUS("INVALID_DOCUMENT_STATUS", "Trạng thái văn bản không hợp lệ", HttpStatus.BAD_REQUEST),
+    WORKFLOW_TRANSITION_NOT_ALLOWED("WORKFLOW_TRANSITION_NOT_ALLOWED", "Hành động luồng duyệt không được phép với trạng thái hiện tại", HttpStatus.BAD_REQUEST),
+    UNAUTHORIZED_WORKFLOW_ACTION("UNAUTHORIZED_WORKFLOW_ACTION", "Bạn không có quyền thực hiện hành động này trên văn bản", HttpStatus.FORBIDDEN),
+    SIGNATURE_PROCESS_ERROR("SIGNATURE_PROCESS_ERROR", "Lỗi trong quá trình xử lý ký số hoặc ký nháy PDF", HttpStatus.INTERNAL_SERVER_ERROR),
+    STORAGE_ERROR("STORAGE_ERROR", "Lỗi trong quá trình lưu trữ tệp tin", HttpStatus.INTERNAL_SERVER_ERROR),
+    DOCUMENT_FILE_MISSING("DOCUMENT_FILE_MISSING", "Văn bản chưa có tệp đính kèm để ký", HttpStatus.BAD_REQUEST),
+    DOCUMENT_PRIMARY_FILE_MISSING("DOCUMENT_PRIMARY_FILE_MISSING", "Văn bản chưa có tệp đính kèm chính để ký", HttpStatus.BAD_REQUEST),
+    DOCUMENT_NOT_READY_FOR_PUBLISH("DOCUMENT_NOT_READY_FOR_PUBLISH", "Văn bản chưa đủ điều kiện để ký phát hành", HttpStatus.BAD_REQUEST),
+    INVALID_WORKFLOW_STATE("INVALID_WORKFLOW_STATE", "Trạng thái văn bản không hợp lệ trong luồng duyệt", HttpStatus.BAD_REQUEST);
     private final String code;
     private final String message;
     private final HttpStatus status;
