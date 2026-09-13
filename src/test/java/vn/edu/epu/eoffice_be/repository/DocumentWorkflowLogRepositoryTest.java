@@ -170,8 +170,8 @@ class DocumentWorkflowLogRepositoryTest {
     }
 
     @Test
-    @DisplayName("findByDocumentIdOrderByCreatedDateAsc: Sắp xếp theo createdDate ASC, l.id ASC và giữ nguyên các bản ghi kể cả deleteFlg=true")
-    void findByDocumentIdOrderByCreatedDateAsc_shouldReturnAllLogsOrderedChronologically() throws Exception {
+    @DisplayName("findByDocumentIdOrderByCreatedDateAsc: Sắp xếp theo createdDate ASC, l.id ASC và loại trừ bản ghi xóa mềm (deleteFlg=true)")
+    void findByDocumentIdOrderByCreatedDateAsc_shouldReturnActiveLogsOrderedChronologicallyAndExcludeDeleted() throws Exception {
         Document targetDoc = createTestDocument("Target Document For Ordering Test");
         Document otherDoc = createTestDocument("Other Document For Ordering Test");
         UserLogin actor = getOrCreateUser();
@@ -232,27 +232,26 @@ class DocumentWorkflowLogRepositoryTest {
         Thread.sleep(20);
         workflowLogRepository.save(logOther);
 
-        // 1. Kiểm tra findByDocumentIdOrderByCreatedDateAsc
+        // 1. Kiểm tra findByDocumentIdOrderByCreatedDateAsc: chỉ lấy bản ghi deleteFlg = false của targetDoc
         List<DocumentWorkflowLog> logsByDate = workflowLogRepository.findByDocumentIdOrderByCreatedDateAsc(targetDoc.getId());
         assertNotNull(logsByDate);
-        assertEquals(3, logsByDate.size(), "Bao gồm cả bản ghi xóa mềm của targetDoc, loại trừ otherDoc");
+        assertEquals(2, logsByDate.size(), "Chỉ gồm 2 bản ghi hoạt động của targetDoc, loại trừ logDeleted và logOther");
         assertEquals(log1.getId(), logsByDate.get(0).getId());
         assertEquals("Log 1", logsByDate.get(0).getComment());
-        assertEquals(logDeleted.getId(), logsByDate.get(1).getId());
-        assertEquals("Log Deleted", logsByDate.get(1).getComment());
-        assertEquals(log2.getId(), logsByDate.get(2).getId());
-        assertEquals("Log 2", logsByDate.get(2).getComment());
+        assertEquals(log2.getId(), logsByDate.get(1).getId());
+        assertEquals("Log 2", logsByDate.get(1).getComment());
+        assertFalse(logsByDate.stream().anyMatch(l -> l.getId().equals(logDeleted.getId())), "Không được chứa bản ghi xóa mềm");
 
-        // 2. Kiểm tra phương thức tương thích ngược findByDocumentIdOrderByCreatedAtAsc
+        // 2. Kiểm tra phương thức tương thích ngược findByDocumentIdOrderByCreatedAtAsc: kết quả đồng nhất
         @SuppressWarnings("deprecation")
         List<DocumentWorkflowLog> logsByCreatedAt = workflowLogRepository.findByDocumentIdOrderByCreatedAtAsc(targetDoc.getId());
         assertNotNull(logsByCreatedAt);
-        assertEquals(logsByDate.size(), logsByCreatedAt.size());
+        assertEquals(2, logsByCreatedAt.size(), "Phương thức tương thích cũng phải loại trừ logDeleted");
         for (int i = 0; i < logsByDate.size(); i++) {
             assertEquals(logsByDate.get(i).getId(), logsByCreatedAt.get(i).getId());
         }
 
-        // 3. Kiểm tra findByDocumentIdAndDeleteFlgFalseOrderByCreatedDateAsc: chỉ lấy bản ghi deleteFlg = false
+        // 3. Kiểm tra findByDocumentIdAndDeleteFlgFalseOrderByCreatedDateAsc: kết quả đồng nhất
         List<DocumentWorkflowLog> activeLogs = workflowLogRepository.findByDocumentIdAndDeleteFlgFalseOrderByCreatedDateAsc(targetDoc.getId());
         assertNotNull(activeLogs);
         assertEquals(2, activeLogs.size(), "Chỉ gồm bản ghi deleteFlg = false của targetDoc");
