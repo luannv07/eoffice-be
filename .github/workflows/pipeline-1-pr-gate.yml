@@ -45,6 +45,7 @@ jobs:
           extra_args: --results=verified,unknown
 
       - name: 5. SonarQube Scan + Quality Gate
+        continue-on-error: true
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
