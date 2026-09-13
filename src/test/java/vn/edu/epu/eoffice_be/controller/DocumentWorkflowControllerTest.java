@@ -20,6 +20,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.test.context.support.WithAnonymousUser;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import vn.edu.epu.eoffice_be.config.SecurityConfig;
 import vn.edu.epu.eoffice_be.dto.PendingDocumentResponse;
@@ -42,6 +43,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@TestPropertySource(properties = {
+        "spring.liquibase.enabled=false",
+        "spring.datasource.url=jdbc:h2:mem:docwfcontroller;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH"
+})
 class DocumentWorkflowControllerTest {
 
     @Autowired
