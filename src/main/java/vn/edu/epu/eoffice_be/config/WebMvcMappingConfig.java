@@ -21,20 +21,42 @@ public class WebMvcMappingConfig implements WebMvcRegistrations {
         return new AmbiguousMappingSafeHandlerMapping();
     }
 
-    private static class AmbiguousMappingSafeHandlerMapping extends RequestMappingHandlerMapping {
+    static class AmbiguousMappingSafeHandlerMapping extends RequestMappingHandlerMapping {
+
+        /**
+         * Danh sách các mapping trùng lặp đã qua kiểm duyệt (reviewed allowlist).
+         * Chỉ những xung đột trong danh sách này mới được phép xử lý an toàn;
+         * tất cả các xung đột khác sẽ fail-fast ngay khi khởi động ứng dụng.
+         */
+        static final java.util.Set<String> REVIEWED_ALLOWLIST = java.util.Set.of(
+                "{GET [/documents/{id}]}"
+        );
 
         @Override
         protected void registerHandlerMethod(Object handler, Method method, RequestMappingInfo mapping) {
             try {
                 super.registerHandlerMethod(handler, method, mapping);
             } catch (IllegalStateException ex) {
-                if (ex.getMessage() != null && ex.getMessage().contains("Ambiguous mapping")) {
-                    log.warn("Bỏ qua mapping trùng lặp: {} cho method: {}.{} (đã được ánh xạ bởi controller khác)",
+                if (isAmbiguousMappingException(ex) && isReviewedConflict(mapping)) {
+                    log.info("[AUDIT] Bỏ qua mapping trùng lặp đã được duyệt: {} cho method: {}.{} (ưu tiên handler đã đăng ký trước)",
                             mapping, handler.getClass().getSimpleName(), method.getName());
-                } else {
-                    throw ex;
+                    return;
                 }
+                // Fail-fast cho tất cả các trường hợp xung đột chưa được phê duyệt hoặc lỗi khác
+                throw ex;
             }
+        }
+
+        static boolean isAmbiguousMappingException(IllegalStateException ex) {
+            return ex != null && ex.getMessage() != null && ex.getMessage().contains("Ambiguous mapping");
+        }
+
+        static boolean isReviewedConflict(RequestMappingInfo mapping) {
+            if (mapping == null) {
+                return false;
+            }
+            String mappingStr = mapping.toString();
+            return REVIEWED_ALLOWLIST.stream().anyMatch(mappingStr::contains);
         }
     }
 }

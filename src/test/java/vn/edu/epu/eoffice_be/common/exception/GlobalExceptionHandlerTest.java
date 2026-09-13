@@ -107,4 +107,16 @@ class GlobalExceptionHandlerTest {
 		assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
 		assertEquals("UNAUTHORIZED", response.getBody().getErrorCode());
 	}
+
+	@Test
+	void unexpectedIllegalArgumentExceptionShouldFallThroughTo500AndNotExposeRawMessage() {
+		IllegalArgumentException ex = new IllegalArgumentException("sensitive internal server state");
+		ResponseEntity<BaseResponse<Void>> response = handler.handleGenericException(ex);
+
+		assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+		assertFalse(response.getBody().isSuccess());
+		assertEquals("INTERNAL_SERVER_ERROR", response.getBody().getErrorCode());
+		assertEquals(ErrorCode.INTERNAL_SERVER_ERROR.getMessage(), response.getBody().getMessage());
+		assertFalse(response.getBody().getMessage().contains("sensitive internal server state"));
+	}
 }

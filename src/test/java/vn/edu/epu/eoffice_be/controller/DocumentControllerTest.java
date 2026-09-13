@@ -571,6 +571,11 @@ class DocumentControllerTest {
     void downloadAttachment_Forbidden_WhenCrossUserAccess() throws Exception {
         Long docId = 1L;
         Long attId = 10L;
+        vn.edu.epu.eoffice_be.entity.DocumentAttachment meta =
+                vn.edu.epu.eoffice_be.entity.DocumentAttachment.builder()
+                        .originalFileName("kehoach.docx")
+                        .build();
+        when(documentAttachmentService.getAttachmentMetadata(docId, attId, 100L)).thenReturn(meta);
         when(documentAttachmentService.downloadAttachment(docId, attId, 100L))
                 .thenThrow(new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền truy cập tệp đính kèm của văn bản này"));
 
@@ -585,9 +590,6 @@ class DocumentControllerTest {
         Long docId = 1L;
         Long attId = 10L;
 
-        org.springframework.core.io.Resource mockResource =
-                new org.springframework.core.io.ByteArrayResource("dummy file content".getBytes());
-        when(documentAttachmentService.downloadAttachment(docId, attId, 100L)).thenReturn(mockResource);
         when(documentAttachmentService.getAttachmentMetadata(docId, attId, 100L))
                 .thenThrow(new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền truy cập tệp đính kèm của văn bản này"));
 
@@ -602,5 +604,37 @@ class DocumentControllerTest {
         mockMvc.perform(get("/documents/1/versions"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("API GET download attachment - Trả về 404 khi metadata null")
+    void downloadAttachment_NotFound_WhenMetadataNull() throws Exception {
+        Long docId = 1L;
+        Long attId = 10L;
+
+        when(documentAttachmentService.getAttachmentMetadata(docId, attId, 100L)).thenReturn(null);
+
+        mockMvc.perform(get("/documents/1/attachments/10/download").principal(auth))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.DOCUMENT_ATTACHMENT_NOT_FOUND.getCode()));
+    }
+
+    @Test
+    @DisplayName("API GET download attachment - Trả về 404 khi resource null hoặc không đọc được")
+    void downloadAttachment_NotFound_WhenResourceNull() throws Exception {
+        Long docId = 1L;
+        Long attId = 10L;
+
+        vn.edu.epu.eoffice_be.entity.DocumentAttachment meta =
+                vn.edu.epu.eoffice_be.entity.DocumentAttachment.builder()
+                        .originalFileName("kehoach.docx")
+                        .build();
+
+        when(documentAttachmentService.getAttachmentMetadata(docId, attId, 100L)).thenReturn(meta);
+        when(documentAttachmentService.downloadAttachment(docId, attId, 100L)).thenReturn(null);
+
+        mockMvc.perform(get("/documents/1/attachments/10/download").principal(auth))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.DOCUMENT_ATTACHMENT_NOT_FOUND.getCode()));
     }
 }

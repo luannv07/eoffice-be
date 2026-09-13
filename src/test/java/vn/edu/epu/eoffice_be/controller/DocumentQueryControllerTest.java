@@ -133,6 +133,18 @@ class DocumentQueryControllerTest {
         public Long getOrgId() { throw new AssertionError("JVM Error inside getOrgId"); }
     }
 
+    public static class UnapprovedPrincipalWithGetOrgId {
+        public Long getOrgId() { return 999L; }
+    }
+
+    @Test
+    void testResolveUserOrgId_UnapprovedClassWithGetOrgId_ThrowsAccessDenied() {
+        when(auth.getPrincipal()).thenReturn(new UnapprovedPrincipalWithGetOrgId());
+
+        assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(auth));
+        verifyNoInteractions(documentQueryService);
+    }
+
     @Test
     void testGetPublishedDocuments_ValidOrgId_Success() {
         when(auth.getPrincipal()).thenReturn(new CustomUserDetailsPrincipal(100L, "user1"));

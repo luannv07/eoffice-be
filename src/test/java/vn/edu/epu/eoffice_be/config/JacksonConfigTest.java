@@ -32,4 +32,20 @@ class JacksonConfigTest {
 		assertNotNull(mapper1);
 		assertNotNull(mapper2);
 	}
+
+	@Test
+	void objectMapperShouldSerializePage() {
+		JacksonConfig config = new JacksonConfig();
+		ObjectMapper mapper = config.objectMapper();
+		org.springframework.data.domain.Page<String> page = new org.springframework.data.domain.PageImpl<>(
+				java.util.List.of("item1", "item2"),
+				org.springframework.data.domain.PageRequest.of(0, 10),
+				2
+		);
+		assertDoesNotThrow(() -> {
+			String json = mapper.writeValueAsString(page);
+			assertNotNull(json);
+			org.junit.jupiter.api.Assertions.assertTrue(json.contains("content"));
+		});
+	}
 }

@@ -63,7 +63,7 @@ public class DocumentAttachmentService {
 
         // Kiểm tra trạng thái: chỉ cho phép upload khi là DRAFT hoặc REJECTED
         if (document.getStatus() != DocumentStatus.DRAFT && document.getStatus() != DocumentStatus.REJECTED) {
-            throw new BusinessException(ErrorCode.DOCUMENT_INVALID_STATUS,
+            throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATUS,
                     "Chỉ có thể tải tệp lên khi văn bản ở trạng thái Dự thảo hoặc Cần chỉnh sửa");
         }
 
@@ -196,7 +196,7 @@ public class DocumentAttachmentService {
         }
 
         if (document.getStatus() != DocumentStatus.DRAFT && document.getStatus() != DocumentStatus.REJECTED) {
-            throw new BusinessException(ErrorCode.DOCUMENT_INVALID_STATUS,
+            throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATUS,
                     "Không thể xóa tệp của văn bản đã gửi duyệt hoặc đã ban hành");
         }
 

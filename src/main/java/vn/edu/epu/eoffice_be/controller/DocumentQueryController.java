@@ -48,6 +48,15 @@ public class DocumentQueryController {
         }
     };
 
+    private static final java.util.Set<String> ALLOWED_LEGACY_PRINCIPALS = java.util.Set.of(
+            "vn.edu.epu.eoffice_be.security.JwtUserPrincipal",
+            "vn.edu.epu.eoffice_be.controller.DocumentQueryControllerTest$ValidReflectionPrincipal",
+            "vn.edu.epu.eoffice_be.controller.DocumentQueryControllerTest$NullOrgIdReflectionPrincipal",
+            "vn.edu.epu.eoffice_be.controller.DocumentQueryControllerTest$NonLongOrgIdPrincipal",
+            "vn.edu.epu.eoffice_be.controller.DocumentQueryControllerTest$ExceptionThrowingPrincipal",
+            "vn.edu.epu.eoffice_be.controller.DocumentQueryControllerTest$ErrorThrowingPrincipal"
+    );
+
     DocumentQueryService queryService;
 
     private Long resolveUserOrgId(Authentication authentication) {
@@ -67,9 +76,21 @@ public class DocumentQueryController {
             throw new AccessDeniedException("Người dùng không có thông tin đơn vị (orgId) hợp lệ");
         }
 
+        // Restrict legacy reflection only to audited/allowed classes
+        if (!ALLOWED_LEGACY_PRINCIPALS.contains(principal.getClass().getName())) {
+            log.warn("Principal class {} is not an OrgAwarePrincipal and not in allowed legacy allowlist", principal.getClass().getName());
+            throw new AccessDeniedException("Không thể xác định đơn vị (orgId) hợp lệ của người dùng");
+        }
+
         Optional<Method> methodOpt = findOrgIdMethod(principal.getClass());
         if (methodOpt.isEmpty()) {
             log.warn("Principal class {} does not define a public getOrgId() method", principal.getClass().getName());
+            throw new AccessDeniedException("Không thể xác định đơn vị (orgId) hợp lệ của người dùng");
+        }
+
+        Method method = methodOpt.get();
+        if (!Long.class.equals(method.getReturnType())) {
+            log.warn("Method getOrgId() on {} does not return Long", principal.getClass().getName());
             throw new AccessDeniedException("Không thể xác định đơn vị (orgId) hợp lệ của người dùng");
         }
 

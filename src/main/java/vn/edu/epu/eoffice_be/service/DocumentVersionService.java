@@ -122,7 +122,7 @@ public class DocumentVersionService {
         UserLogin user = assertCanViewDocumentVersions(document, userId);
 
         if (document.getStatus() != DocumentStatus.DRAFT && document.getStatus() != DocumentStatus.REJECTED) {
-            throw new BusinessException(ErrorCode.DOCUMENT_INVALID_STATUS,
+            throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATUS,
                     "Chỉ có thể khôi phục phiên bản khi văn bản ở trạng thái Dự thảo hoặc Cần chỉnh sửa");
         }
 

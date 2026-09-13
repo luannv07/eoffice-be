@@ -102,7 +102,7 @@ class DocumentAttachmentServiceTest {
     }
 
     @Test
-    @DisplayName("Tải tệp bị từ chối khi văn bản đã được phát hành (DOCUMENT_INVALID_STATUS)")
+    @DisplayName("Tải tệp bị từ chối khi văn bản đã được phát hành (INVALID_DOCUMENT_STATUS)")
     void uploadAttachment_InvalidStatus_ShouldThrowInvalidStatus() {
         Long userId = 100L;
         Long docId = 1L;
@@ -117,7 +117,7 @@ class DocumentAttachmentServiceTest {
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentAttachmentService.uploadAttachment(docId, file, false, userId));
-        assertEquals(ErrorCode.DOCUMENT_INVALID_STATUS, ex.getErrorCode());
+        assertEquals(ErrorCode.INVALID_DOCUMENT_STATUS, ex.getErrorCode());
     }
 
     @Test

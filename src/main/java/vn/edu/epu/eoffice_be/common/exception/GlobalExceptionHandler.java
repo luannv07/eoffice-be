@@ -43,6 +43,7 @@ public class GlobalExceptionHandler {
 
 	@ExceptionHandler({AuthenticationException.class, org.springframework.security.authentication.AuthenticationCredentialsNotFoundException.class})
 	public ResponseEntity<BaseResponse<Void>> handleAuthenticationException(AuthenticationException ex) {
+		log.warn("Authentication failure: {}", ex.getClass().getSimpleName());
 		return ResponseEntity.status(ErrorCode.UNAUTHORIZED.getStatus())
 						.body(BaseResponse.error(ErrorCode.UNAUTHORIZED.getMessage(), ErrorCode.UNAUTHORIZED.getCode()));
 	}
@@ -51,12 +52,6 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<BaseResponse<Void>> handleAccessDenied(AccessDeniedException ex) {
 		return ResponseEntity.status(ErrorCode.FORBIDDEN.getStatus())
 						.body(BaseResponse.error(ErrorCode.FORBIDDEN.getMessage(), ErrorCode.FORBIDDEN.getCode()));
-	}
-
-	@ExceptionHandler(IllegalArgumentException.class)
-	public ResponseEntity<BaseResponse<Void>> handleIllegalArgument(IllegalArgumentException ex) {
-		return ResponseEntity.status(ErrorCode.BAD_REQUEST.getStatus())
-						.body(BaseResponse.error(ex.getMessage(), ErrorCode.BAD_REQUEST.getCode()));
 	}
 
 	@ExceptionHandler(Exception.class)

@@ -170,7 +170,7 @@ public class DocumentApprovalService {
 
         // Kiểm tra trạng thái: chỉ cho phép gửi khi là DRAFT hoặc REJECTED
         if (document.getStatus() != DocumentStatus.DRAFT && document.getStatus() != DocumentStatus.REJECTED) {
-            throw new BusinessException(ErrorCode.DOCUMENT_INVALID_STATUS,
+            throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATUS,
                     "Chỉ có thể gửi duyệt văn bản đang ở trạng thái Dự thảo hoặc Cần chỉnh sửa");
         }
 
@@ -273,7 +273,7 @@ public class DocumentApprovalService {
 
         // Kiểm tra trạng thái: văn bản phải đang ở trạng thái WAITING_APPROVAL
         if (document.getStatus() != DocumentStatus.WAITING_APPROVAL) {
-            throw new BusinessException(ErrorCode.DOCUMENT_INVALID_STATUS,
+            throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATUS,
                     "Chỉ có thể thu hồi văn bản đang ở trạng thái Chờ duyệt");
         }
 

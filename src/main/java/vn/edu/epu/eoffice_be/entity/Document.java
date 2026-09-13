@@ -173,9 +173,14 @@ public class Document extends BaseEntity {
     }
 
     public static final ZoneId DEFAULT_BUSINESS_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static volatile ZoneId businessZone = DEFAULT_BUSINESS_ZONE;
+
+    public static void setBusinessZone(ZoneId zone) {
+        businessZone = zone != null ? zone : DEFAULT_BUSINESS_ZONE;
+    }
 
     public static ZoneId getBusinessZone() {
-        return DEFAULT_BUSINESS_ZONE;
+        return businessZone != null ? businessZone : DEFAULT_BUSINESS_ZONE;
     }
 
     public void setIssueDate(Instant issueDate) {
@@ -183,11 +188,11 @@ public class Document extends BaseEntity {
     }
 
     public void setIssueDate(LocalDate issueDate) {
-        setIssueDate(issueDate, DEFAULT_BUSINESS_ZONE);
+        setIssueDate(issueDate, getBusinessZone());
     }
 
     public void setIssueDate(LocalDate issueDate, ZoneId zoneId) {
-        this.issueDate = issueDate != null ? issueDate.atStartOfDay(zoneId != null ? zoneId : DEFAULT_BUSINESS_ZONE).toInstant() : null;
+        this.issueDate = issueDate != null ? issueDate.atStartOfDay(zoneId != null ? zoneId : getBusinessZone()).toInstant() : null;
     }
 
     public void setEffectiveDate(Instant effectiveDate) {
@@ -195,10 +200,10 @@ public class Document extends BaseEntity {
     }
 
     public void setEffectiveDate(LocalDate effectiveDate) {
-        setEffectiveDate(effectiveDate, DEFAULT_BUSINESS_ZONE);
+        setEffectiveDate(effectiveDate, getBusinessZone());
     }
 
     public void setEffectiveDate(LocalDate effectiveDate, ZoneId zoneId) {
-        this.effectiveDate = effectiveDate != null ? effectiveDate.atStartOfDay(zoneId != null ? zoneId : DEFAULT_BUSINESS_ZONE).toInstant() : null;
+        this.effectiveDate = effectiveDate != null ? effectiveDate.atStartOfDay(zoneId != null ? zoneId : getBusinessZone()).toInstant() : null;
     }
 }
