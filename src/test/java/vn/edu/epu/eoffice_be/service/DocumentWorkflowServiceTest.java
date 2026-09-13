@@ -16,6 +16,7 @@ import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.enums.Role;
 import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
+import vn.edu.epu.eoffice_be.dto.PendingDocumentResponse;
 import vn.edu.epu.eoffice_be.dto.StampInfo;
 import vn.edu.epu.eoffice_be.dto.request.DocumentApproveRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentInitialSignRequest;
@@ -550,5 +551,29 @@ class DocumentWorkflowServiceTest {
         assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, ex.getErrorCode());
 
         verify(workflowEngine, never()).executeTransition(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("getPendingDocuments: Trả về Page<PendingDocumentResponse> phân trang từ repository")
+    void getPendingDocuments_withPageable_shouldReturnPaginatedResponse() {
+        Document doc1 = Document.builder()
+                .title("Tờ trình mua sắm máy tính")
+                .status(DocumentStatus.PENDING_APPROVAL)
+                .build();
+        doc1.setId(101L);
+
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Document> documentPage = new PageImpl<>(List.of(doc1), pageable, 1);
+
+        when(documentRepository.findByStatusIn(any(), eq(pageable))).thenReturn(documentPage);
+
+        Page<PendingDocumentResponse> result = documentWorkflowService.getPendingDocuments(pageable);
+
+        assertNotNull(result);
+        assertEquals(1, result.getTotalElements());
+        assertEquals(101L, result.getContent().get(0).getId());
+        assertEquals("Tờ trình mua sắm máy tính", result.getContent().get(0).getTitle());
+        assertEquals(DocumentStatus.PENDING_APPROVAL.name(), result.getContent().get(0).getStatus());
+        verify(documentRepository).findByStatusIn(any(), eq(pageable));
     }
 }

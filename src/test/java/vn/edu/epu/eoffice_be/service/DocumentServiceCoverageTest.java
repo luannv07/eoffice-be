@@ -6,7 +6,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.io.Resource;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import vn.edu.epu.eoffice_be.controller.DocumentWorkflowController;
 import vn.edu.epu.eoffice_be.dto.PublishRequest;
 import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
@@ -223,11 +226,11 @@ class DocumentServiceCoverageTest {
 
         Document doc2 = new Document();
         doc2.setId(2L);
-        doc2.setStatus("WAITING_SIGN");
+        doc2.setStatus("PENDING_SIGN");
 
         Document doc3 = new Document();
         doc3.setId(3L);
-        doc3.setStatus("OTHER");
+        doc3.setStatus("DRAFT");
 
         lenient().when(documentRepository.findByStatusIn(any())).thenReturn(List.of(doc1, doc2, doc3));
         lenient().when(documentRepository.findAll()).thenReturn(List.of(doc1, doc2, doc3));
@@ -317,24 +320,21 @@ class DocumentServiceCoverageTest {
     }
     @Test
     void testWorkflowPagination_SubListBranches() {
-        // Test phân trang: offset vượt quá kích thước danh sách và offset bình thường
+        // Test Controller gọi phương thức phân trang của service và trả về Page
         DocumentWorkflowService mockWf = mock(DocumentWorkflowService.class);
         DocumentWorkflowController wfController = new DocumentWorkflowController(mockWf);
 
-        when(mockWf.getPendingDocuments()).thenReturn(List.of(
-                vn.edu.epu.eoffice_be.dto.PendingDocumentResponse.builder().id(1L).title("Doc 1").build(),
-                vn.edu.epu.eoffice_be.dto.PendingDocumentResponse.builder().id(2L).title("Doc 2").build()
-        ));
+        Page<vn.edu.epu.eoffice_be.dto.PendingDocumentResponse> page = new PageImpl<>(List.of(
+                vn.edu.epu.eoffice_be.dto.PendingDocumentResponse.builder().id(1L).title("Doc 1").build()
+        ), PageRequest.of(0, 1), 2);
 
-        // Nhánh start > pendingList.size()
-        var emptyPage = wfController.getPendingReviewDocuments(PageRequest.of(5, 2));
-        assertNotNull(emptyPage);
-        assertEquals(0, emptyPage.getBody().getContent().size());
+        when(mockWf.getPendingDocuments(any(Pageable.class))).thenReturn(page);
 
-        // Nhánh start <= pendingList.size()
         var normalPage = wfController.getPendingReviewDocuments(PageRequest.of(0, 1));
         assertNotNull(normalPage);
         assertEquals(1, normalPage.getBody().getContent().size());
+        verify(mockWf).getPendingDocuments(any(Pageable.class));
+        verify(mockWf, never()).getPendingDocuments();
     }
 
     @Test
@@ -406,7 +406,7 @@ class DocumentServiceCoverageTest {
         Document doc2 = new Document();
         doc2.setId(12L);
         doc2.setTitle("Doc 2");
-        doc2.setStatus("WAITING_SIGN");
+        doc2.setStatus("PENDING_SIGN");
 
         lenient().when(documentRepository.findByStatusIn(any()))
                 .thenReturn(List.of(doc1, doc2));
@@ -662,7 +662,7 @@ class DocumentServiceCoverageTest {
     void testDocumentWorkflowService_PendingDocumentsWithVariousStatuses() {
         Document doc1 = new Document();
         doc1.setId(701L);
-        doc1.setStatus("WAITING_SIGN");
+        doc1.setStatus("PENDING_SIGN");
 
         Document doc2 = new Document();
         doc2.setId(702L);

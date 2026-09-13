@@ -426,6 +426,23 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
     @Override
     @Transactional(readOnly = true)
+    public Page<PendingDocumentResponse> getPendingDocuments(Pageable pageable) {
+        Page<Document> page = documentRepository.findByStatusIn(
+                List.of("PENDING_APPROVAL", "IN_REVIEW", "WAITING_SIGN", "SUBMITTED", "DRAFT"),
+                pageable);
+        if (page == null) {
+            return Page.empty(pageable);
+        }
+        return page.map(doc -> PendingDocumentResponse.builder()
+                .id(doc.getId())
+                .title(doc.getTitle())
+                .status(doc.getStatus() != null ? doc.getStatus().name() : null)
+                .currentHolder("Lãnh đạo phê duyệt")
+                .build());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<PendingDocumentResponse> getPendingDocuments() {
         List<Document> list = documentRepository.findByStatusIn(
                 List.of("PENDING_APPROVAL", "IN_REVIEW", "WAITING_SIGN", "SUBMITTED", "DRAFT"));

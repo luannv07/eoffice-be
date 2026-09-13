@@ -1,9 +1,13 @@
 package vn.edu.epu.eoffice_be.controller;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -23,6 +27,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
+import vn.edu.epu.eoffice_be.common.annotation.Auditable;
+import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -49,6 +57,7 @@ import vn.edu.epu.eoffice_be.dto.request.DocumentInitialSignRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentPublishRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRejectRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRevisionRequest;
+import vn.edu.epu.eoffice_be.dto.PendingDocumentResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentDetailResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentWorkflowLogResponse;
 import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
@@ -148,6 +157,59 @@ class DocumentWorkflowControllerTest {
     }
 
     @Test
+    @DisplayName("UC12: Duyệt văn bản thất bại khi comment vượt quá 2000 ký tự - Trả về 400 BAD_REQUEST")
+    void approve_whenCommentExceedsMaxLength_shouldReturn400() throws Exception {
+        String longComment = "a".repeat(2001);
+        DocumentApproveRequest request = DocumentApproveRequest.builder()
+                .comment(longComment)
+                .build();
+
+        mockMvc.perform(post("/documents/100/workflow/approve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.VALIDATION_ERROR.getCode()));
+
+        verify(documentWorkflowService, never()).approve(anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("UC12: Duyệt văn bản thất bại khi leadershipInstruction vượt quá 2000 ký tự - Trả về 400 BAD_REQUEST")
+    void approve_whenLeadershipInstructionExceedsMaxLength_shouldReturn400() throws Exception {
+        String longInstruction = "b".repeat(2001);
+        DocumentApproveRequest request = DocumentApproveRequest.builder()
+                .leadershipInstruction(longInstruction)
+                .build();
+
+        mockMvc.perform(post("/documents/100/workflow/approve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.VALIDATION_ERROR.getCode()));
+
+        verify(documentWorkflowService, never()).approve(anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("UC12: Duyệt văn bản thất bại khi assignedOrgNodeId <= 0 - Trả về 400 BAD_REQUEST")
+    void approve_whenAssignedOrgNodeIdNotPositive_shouldReturn400() throws Exception {
+        DocumentApproveRequest request = DocumentApproveRequest.builder()
+                .assignedOrgNodeId(0L)
+                .build();
+
+        mockMvc.perform(post("/documents/100/workflow/approve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.VALIDATION_ERROR.getCode()));
+
+        verify(documentWorkflowService, never()).approve(anyLong(), any());
+    }
+
+    @Test
     @DisplayName("UC12: Yêu cầu chỉnh sửa - Trả về 200 OK và trạng thái NEEDS_REVISION")
     void requestRevision_shouldReturn200() throws Exception {
         DocumentRevisionRequest request = DocumentRevisionRequest.builder()
@@ -165,6 +227,41 @@ class DocumentWorkflowControllerTest {
                 .andExpect(jsonPath("$.data.status").value("NEEDS_REVISION"));
 
         verify(documentWorkflowService).requestRevision(eq(100L), any(DocumentRevisionRequest.class));
+    }
+
+    @Test
+    @DisplayName("UC12: Yêu cầu chỉnh sửa thất bại khi comment để trống - Trả về 400 BAD_REQUEST")
+    void requestRevision_whenCommentIsBlank_shouldReturn400() throws Exception {
+        DocumentRevisionRequest request = DocumentRevisionRequest.builder()
+                .comment("   ")
+                .build();
+
+        mockMvc.perform(post("/documents/100/workflow/request-revision")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.VALIDATION_ERROR.getCode()));
+
+        verify(documentWorkflowService, never()).requestRevision(anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("UC12: Yêu cầu chỉnh sửa thất bại khi comment vượt quá 2000 ký tự - Trả về 400 BAD_REQUEST")
+    void requestRevision_whenCommentExceedsMaxLength_shouldReturn400() throws Exception {
+        String longComment = "a".repeat(2001);
+        DocumentRevisionRequest request = DocumentRevisionRequest.builder()
+                .comment(longComment)
+                .build();
+
+        mockMvc.perform(post("/documents/100/workflow/request-revision")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.VALIDATION_ERROR.getCode()));
+
+        verify(documentWorkflowService, never()).requestRevision(anyLong(), any());
     }
 
     @Test
@@ -208,6 +305,25 @@ class DocumentWorkflowControllerTest {
                 .andExpect(jsonPath("$.data.officialNumber").value("123/QĐ-ĐHEPU"));
 
         verify(documentWorkflowService).signAndPublish(eq(100L), any(DocumentPublishRequest.class));
+    }
+
+    @Test
+    @DisplayName("UC14: Ký số phát hành thất bại khi comment vượt quá 2000 ký tự - Trả về 400 BAD_REQUEST")
+    void signAndPublish_whenCommentExceedsMaxLength_shouldReturn400() throws Exception {
+        String longComment = "a".repeat(2001);
+        DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .officialNumber("123/QĐ-ĐHEPU")
+                .comment(longComment)
+                .build();
+
+        mockMvc.perform(post("/documents/100/workflow/sign-and-publish")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.VALIDATION_ERROR.getCode()));
+
+        verify(documentWorkflowService, never()).signAndPublish(anyLong(), any());
     }
 
     @Test
@@ -280,12 +396,14 @@ class DocumentWorkflowControllerTest {
 
     @Test
     void testGetPendingReviewDocuments() throws Exception {
-        when(documentWorkflowService.getPendingDocuments()).thenReturn(Collections.emptyList());
+        Page<PendingDocumentResponse> emptyPage = new PageImpl<>(List.of(), PageRequest.of(0, 10), 0);
+        when(documentWorkflowService.getPendingDocuments(any(Pageable.class))).thenReturn(emptyPage);
 
-        mockMvc.perform(get("/documents/pending-review"))
+        mockMvc.perform(get("/documents/pending-review?page=0&size=10"))
                 .andExpect(status().isOk());
 
-        verify(documentWorkflowService, atLeastOnce()).getPendingDocuments();
+        verify(documentWorkflowService, atLeastOnce()).getPendingDocuments(any(Pageable.class));
+        verify(documentWorkflowService, never()).getPendingDocuments();
     }
 
     @Test
@@ -296,5 +414,125 @@ class DocumentWorkflowControllerTest {
                 .andExpect(status().isOk());
 
         verify(documentWorkflowService, atLeastOnce()).getDocumentTimeline(1L);
+    }
+
+    @Test
+    @DisplayName("Chặn truy cập: Trả về 401 UNAUTHORIZED khi người dùng chưa đăng nhập gọi endpoint duyệt")
+    void whenUnauthenticatedSensitiveWorkflow_shouldReturn401() throws Exception {
+        SecurityContextHolder.clearContext();
+
+        DocumentApproveRequest request = DocumentApproveRequest.builder()
+                .leadershipInstruction("Duyệt")
+                .build();
+
+        mockMvc.perform(post("/documents/100/workflow/approve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHORIZED.getCode()));
+    }
+
+    @Test
+    @DisplayName("Chặn quyền: Trả về 403 FORBIDDEN khi người dùng không đủ thẩm quyền thực hiện hành động luồng duyệt")
+    void whenUnauthorizedWorkflowAction_shouldReturn403() throws Exception {
+        DocumentApproveRequest request = DocumentApproveRequest.builder()
+                .leadershipInstruction("Duyệt trái thẩm quyền")
+                .build();
+
+        when(documentWorkflowService.approve(eq(100L), any(DocumentApproveRequest.class)))
+                .thenThrow(new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION));
+
+        mockMvc.perform(post("/documents/100/workflow/approve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION.getCode()));
+    }
+
+    @Test
+    @DisplayName("Chặn quyền: Trả về 403 FORBIDDEN khi AccessDeniedException được ném")
+    void whenAccessDenied_shouldReturn403() throws Exception {
+        when(documentWorkflowService.getDetail(100L))
+                .thenThrow(new AccessDeniedException("Access is denied"));
+
+        mockMvc.perform(get("/documents/100"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.FORBIDDEN.getCode()));
+    }
+
+    @Test
+    @DisplayName("Xác minh cấu hình bảo mật: DocumentWorkflowController có đầy đủ @PreAuthorize và @Auditable")
+    void verifySecurityAnnotationsOnClassAndMethods() throws NoSuchMethodException {
+        // Class annotations
+        assertTrue(DocumentWorkflowController.class.isAnnotationPresent(Auditable.class));
+        PreAuthorize classAuth = DocumentWorkflowController.class.getAnnotation(PreAuthorize.class);
+        assertNotNull(classAuth);
+        assertEquals("isAuthenticated()", classAuth.value());
+
+        // Method: getDetail
+        PreAuthorize getDetailAuth = DocumentWorkflowController.class
+                .getMethod("getDetail", Long.class)
+                .getAnnotation(PreAuthorize.class);
+        assertNotNull(getDetailAuth);
+        assertEquals("isAuthenticated()", getDetailAuth.value());
+
+        // Method: getWorkflowLogs
+        PreAuthorize logsAuth = DocumentWorkflowController.class
+                .getMethod("getWorkflowLogs", Long.class, Pageable.class)
+                .getAnnotation(PreAuthorize.class);
+        assertNotNull(logsAuth);
+        assertEquals("isAuthenticated()", logsAuth.value());
+
+        // Method: approve
+        PreAuthorize approveAuth = DocumentWorkflowController.class
+                .getMethod("approve", Long.class, DocumentApproveRequest.class)
+                .getAnnotation(PreAuthorize.class);
+        assertNotNull(approveAuth);
+        assertEquals("hasAnyRole('LEADER', 'REVIEWER', 'ADMIN', 'SYSTEM_ADMIN')", approveAuth.value());
+
+        // Method: requestRevision
+        PreAuthorize revisionAuth = DocumentWorkflowController.class
+                .getMethod("requestRevision", Long.class, DocumentRevisionRequest.class)
+                .getAnnotation(PreAuthorize.class);
+        assertNotNull(revisionAuth);
+        assertEquals("hasAnyRole('LEADER', 'REVIEWER', 'ADMIN', 'SYSTEM_ADMIN')", revisionAuth.value());
+
+        // Method: initialSign
+        PreAuthorize signAuth = DocumentWorkflowController.class
+                .getMethod("initialSign", Long.class, DocumentInitialSignRequest.class)
+                .getAnnotation(PreAuthorize.class);
+        assertNotNull(signAuth);
+        assertEquals("hasAnyRole('REVIEWER', 'LEADER', 'ADMIN', 'SYSTEM_ADMIN')", signAuth.value());
+
+        // Method: signAndPublish
+        PreAuthorize publishAuth = DocumentWorkflowController.class
+                .getMethod("signAndPublish", Long.class, DocumentPublishRequest.class)
+                .getAnnotation(PreAuthorize.class);
+        assertNotNull(publishAuth);
+        assertEquals("hasAnyRole('LEADER', 'ADMIN', 'SYSTEM_ADMIN')", publishAuth.value());
+
+        // Method: reject
+        PreAuthorize rejectAuth = DocumentWorkflowController.class
+                .getMethod("reject", Long.class, DocumentRejectRequest.class)
+                .getAnnotation(PreAuthorize.class);
+        assertNotNull(rejectAuth);
+        assertEquals("hasAnyRole('LEADER', 'REVIEWER', 'ADMIN', 'SYSTEM_ADMIN')", rejectAuth.value());
+
+        // Method: getDocumentTimeline
+        PreAuthorize timelineAuth = DocumentWorkflowController.class
+                .getMethod("getDocumentTimeline", Long.class)
+                .getAnnotation(PreAuthorize.class);
+        assertNotNull(timelineAuth);
+        assertEquals("isAuthenticated()", timelineAuth.value());
+
+        // Method: getPendingReviewDocuments
+        PreAuthorize pendingAuth = DocumentWorkflowController.class
+                .getMethod("getPendingReviewDocuments", Pageable.class)
+                .getAnnotation(PreAuthorize.class);
+        assertNotNull(pendingAuth);
+        assertEquals("hasAnyRole('LEADER', 'REVIEWER', 'ADMIN', 'SYSTEM_ADMIN')", pendingAuth.value());
     }
 }

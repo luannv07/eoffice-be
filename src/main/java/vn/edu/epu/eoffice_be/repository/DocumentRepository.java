@@ -24,6 +24,9 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
 
     @Query("SELECT d FROM Document d WHERE cast(d.status as string) IN :statuses")
     List<Document> findByStatusIn(@Param("statuses") List<String> statuses);
+    
+    @Query("SELECT d FROM Document d WHERE cast(d.status as string) IN :statuses AND d.deleteFlg = false")
+    Page<Document> findByStatusIn(@Param("statuses") List<String> statuses, Pageable pageable);
 
     @Query(value = """
         SELECT DISTINCT d.* FROM documents d
