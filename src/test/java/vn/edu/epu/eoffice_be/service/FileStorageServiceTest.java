@@ -334,4 +334,34 @@ class FileStorageServiceTest {
         assertFalse(fileStorageService.deleteFile(null));
         assertFalse(fileStorageService.deleteFile("   "));
     }
+
+    @Test
+    @DisplayName("subDirectory có khoảng trắng đầu/cuối phải được trim và path trả về khớp với file thực tế")
+    void storeFile_subDirectoryWithSpaces_shouldTrimAndLoadSuccessfully() {
+        byte[] content = "Trimmed subdir content".getBytes();
+        String storedPath = fileStorageService.storeFile(content, "doc.pdf", "  drafts  ");
+
+        assertNotNull(storedPath);
+        assertTrue(storedPath.startsWith("drafts/"), "Path phải bắt đầu bằng 'drafts/' sau khi trim");
+        assertFalse(storedPath.contains("  "), "Path không được chứa khoảng trắng thừa");
+
+        // Đọc lại file phải thành công — đảm bảo relativePath khớp với vị trí file thực tế
+        byte[] loaded = fileStorageService.loadFileBytes(storedPath);
+        assertArrayEquals(content, loaded);
+    }
+
+    @Test
+    @DisplayName("subDirectory chứa backslash phải được chuyển thành forward slash và path trả về nhất quán")
+    void storeFile_subDirectoryWithBackslash_shouldNormalizeToForwardSlash() {
+        byte[] content = "Backslash subdir content".getBytes();
+        String storedPath = fileStorageService.storeFile(content, "doc.pdf", "docs\\2026");
+
+        assertNotNull(storedPath);
+        assertFalse(storedPath.contains("\\"), "Path trả về không được chứa backslash");
+        assertTrue(storedPath.startsWith("docs/2026/"), "Path phải dùng forward slash");
+
+        // Đọc lại file phải thành công — đảm bảo relativePath khớp với vị trí file thực tế
+        byte[] loaded = fileStorageService.loadFileBytes(storedPath);
+        assertArrayEquals(content, loaded);
+    }
 }

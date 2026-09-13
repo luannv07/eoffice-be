@@ -71,7 +71,9 @@ public class FileStorageServiceImpl implements FileStorageService {
         String safeFileName = resolveSafeFileName(originalFilename);
         String storedFileName = UUID.randomUUID() + "_" + safeFileName;
 
-        String safeSubDir = (subDirectory == null || subDirectory.isBlank()) ? "" : subDirectory.trim();
+        String safeSubDir = (subDirectory == null || subDirectory.isBlank())
+                ? ""
+                : subDirectory.trim().replace("\\", "/");
         Path subDirTarget = this.rootStoragePath.resolve(safeSubDir).normalize();
 
         // Chống tấn công Path Traversal
@@ -102,12 +104,12 @@ public class FileStorageServiceImpl implements FileStorageService {
                 throw new BusinessException(ErrorCode.STORAGE_ERROR);
             }
 
-            String relativePath = (safeSubDir == null || safeSubDir.isBlank())
+            String relativePath = safeSubDir.isBlank()
                     ? storedFileName
-                    : Paths.get(safeSubDir, storedFileName).toString().replace("\\", "/");
+                    : safeSubDir + "/" + storedFileName;
 
             log.info("Lưu file thành công: {}", relativePath);
-            return relativePath.replace("\\", "/");
+            return relativePath;
         } catch (IOException e) {
             log.error("Lỗi khi ghi file vào đĩa: {}", storedFileName, e);
             throw new BusinessException(ErrorCode.STORAGE_ERROR);
