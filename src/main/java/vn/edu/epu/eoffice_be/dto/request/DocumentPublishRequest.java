@@ -2,6 +2,7 @@ package vn.edu.epu.eoffice_be.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -28,6 +29,7 @@ public class DocumentPublishRequest {
     @Schema(description = "Ngày văn bản bắt đầu có hiệu lực (mặc định bằng ngày ban hành)", example = "2026-09-10T08:00:00Z")
     private Instant effectiveDate;
 
+    @Size(max = 2000, message = "Lời phê hoặc ý kiến tối đa 2000 ký tự")
     @Schema(description = "Lời phê hoặc ý kiến của Lãnh đạo ký phát hành", example = "Ký duyệt ban hành và chuyển văn thư đóng dấu lưu trữ")
     private String comment;
 }
