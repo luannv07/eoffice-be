@@ -38,13 +38,25 @@ jobs:
       - name: 3. Build (Tests + Static Analysis)
         run: mvn -B clean verify
 
-      - name: 4. Secret Scan (TruffleHog)
+      - name: 4. Build Docker image
+        run: docker build -t eoffice-be:pr-${{ github.sha }} .
+
+      - name: 5. Scan Docker image with Trivy
+        uses: aquasecurity/trivy-action@v0.25.0
+        with:
+          image-ref: eoffice-be:pr-${{ github.sha }}
+          format: table
+          severity: CRITICAL
+          exit-code: 1
+          ignore-unfixed: true
+
+      - name: 6. Secret Scan (TruffleHog)
         uses: trufflesecurity/trufflehog@main
         continue-on-error: true
         with:
           extra_args: --results=verified,unknown
 
-      - name: 5. SonarQube Scan + Quality Gate
+      - name: 7. SonarQube Scan + Quality Gate
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
@@ -55,22 +67,22 @@ jobs:
             -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
             -Dsonar.java.binaries=target/classes
 
-      - name: 6. Setup Node.js
+      - name: 8. Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "24"
 
-      - name: 7. Checkout repo eoffice-ai-review
+      - name: 9. Checkout repo eoffice-ai-review
         uses: actions/checkout@v4
         with:
           repository: "luannv07/eoffice-ai-review"
           path: "eoffice-ai-review"
           token: ${{ secrets.GH_PAT }}
 
-      - name: 8. Install AI Reviewer dependencies
+      - name: 10. Install AI Reviewer dependencies
         run: npm --prefix eoffice-ai-review install
 
-      - name: 9. AI Code Review (Hy3/Groq/OpenRouter/Gemini/17WTF)
+      - name: 11. AI Code Review (Hy3/Groq/OpenRouter/Gemini/17WTF)
         run: |
           node \
             -r ./eoffice-ai-review/node_modules/ts-node/register \
@@ -95,7 +107,7 @@ jobs:
           GITHUB_BOT_LOGIN: github-actions[bot]
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 10. Finish
+      - name: 12. Finish
         if: always()
         run: |
           echo "[DONE] Pipeline 1 (PR Gate) finished."

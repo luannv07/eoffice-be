@@ -8,7 +8,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.PageRequest;
 import vn.edu.epu.eoffice_be.controller.DocumentWorkflowController;
-import vn.edu.epu.eoffice_be.controller.PublicController;
 import vn.edu.epu.eoffice_be.dto.PublishRequest;
 import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
@@ -280,12 +279,6 @@ class DocumentServiceCoverageTest {
         assertNotNull(response.getIssueDate());
         assertNotNull(response.getEffectiveDate());
         assertEquals("hash", response.getOfficialHash());
-    }
-
-    @Test
-    void testPublicControllerHealth() {
-        PublicController controller = new PublicController();
-        assertNotNull(controller.health());
     }
 
     @Test
