@@ -109,7 +109,7 @@ class PdfProcessingServiceTest {
             byte[] signatureBytes = signature.getContents(certifiedPdf);
             assertNotNull(signatureBytes);
 
-            CMSSignedData cmsSignedData = new CMSSignedData(signatureBytes);
+            CMSSignedData cmsSignedData = new CMSSignedData(new java.io.ByteArrayInputStream(signatureBytes));
             Store<X509CertificateHolder> certificates = cmsSignedData.getCertificates();
             Collection<X509CertificateHolder> certList = certificates.getMatches(null);
             assertFalse(certList.isEmpty(), "Chữ ký số CMS phải chứa chứng chỉ X.509 của người ký");
