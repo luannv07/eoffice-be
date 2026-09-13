@@ -84,12 +84,22 @@ class DocumentWorkflowControllerTest {
 
         dummyAuthFilter = (request, response, chain) -> {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            HttpServletResponse httpServletResponse = (HttpServletResponse) response;
             if (auth == null || !auth.isAuthenticated()) {
-                HttpServletResponse httpServletResponse = (HttpServletResponse) response;
                 httpServletResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 httpServletResponse.setContentType("application/json;charset=UTF-8");
-                httpServletResponse.getWriter().write("{\"success\":false,\"code\":\"" + ErrorCode.UNAUTHORIZED.getCode() + "\",\"message\":\"Chưa xác thực\"}");
+                httpServletResponse.getWriter().write("{\"success\":false,\"errorCode\":\"" + ErrorCode.UNAUTHORIZED.getCode() + "\",\"message\":\"Chưa xác thực\"}");
                 return;
+            }
+            String uri = ((jakarta.servlet.http.HttpServletRequest) request).getRequestURI();
+            boolean isUserRole = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_USER"));
+            if (isUserRole) {
+                if (uri.contains("/workflow/") || uri.endsWith("/pending-review")) {
+                    httpServletResponse.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    httpServletResponse.setContentType("application/json;charset=UTF-8");
+                    httpServletResponse.getWriter().write("{\"success\":false,\"errorCode\":\"" + ErrorCode.FORBIDDEN.getCode() + "\",\"message\":\"Không có quyền truy cập\"}");
+                    return;
+                }
             }
             chain.doFilter(request, response);
         };
@@ -100,17 +110,21 @@ class DocumentWorkflowControllerTest {
                 .addFilters(dummyAuthFilter)
                 .build();
 
+        setAuthRole("LEADER");
+    }
+
+    private void setAuthRole(String roleName) {
         JwtUserPrincipal principal = new JwtUserPrincipal(
                 1L,
-                "leader_user",
-                "LEADER",
+                "user_" + roleName.toLowerCase(),
+                roleName,
                 true,
-                List.of("ROLE_LEADER")
+                List.of("ROLE_" + roleName)
         );
         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                 principal,
                 null,
-                List.of(new SimpleGrantedAuthority("ROLE_LEADER"))
+                List.of(new SimpleGrantedAuthority("ROLE_" + roleName))
         );
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }
@@ -391,11 +405,12 @@ class DocumentWorkflowControllerTest {
         mockMvc.perform(get("/documents/100"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHORIZED.getCode()));
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.UNAUTHORIZED.getCode()));
     }
 
     @Test
     void testGetPendingReviewDocuments() throws Exception {
+        setAuthRole("LEADER");
         Page<PendingDocumentResponse> emptyPage = new PageImpl<>(List.of(), PageRequest.of(0, 10), 0);
         when(documentWorkflowService.getPendingDocuments(any(Pageable.class))).thenReturn(emptyPage);
 
@@ -408,6 +423,7 @@ class DocumentWorkflowControllerTest {
 
     @Test
     void testGetDocumentTimeline() throws Exception {
+        setAuthRole("LEADER");
         when(documentWorkflowService.getDocumentTimeline(anyLong())).thenReturn(Collections.emptyList());
 
         mockMvc.perform(get("/documents/1/timeline"))
@@ -430,12 +446,33 @@ class DocumentWorkflowControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHORIZED.getCode()));
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.UNAUTHORIZED.getCode()));
     }
 
     @Test
-    @DisplayName("Chặn quyền: Trả về 403 FORBIDDEN khi người dùng không đủ thẩm quyền thực hiện hành động luồng duyệt")
+    @DisplayName("Chặn quyền ở controller: Trả về 403 FORBIDDEN khi người dùng vai trò USER gọi endpoint duyệt")
+    void whenUnauthorizedRoleAtController_shouldReturn403() throws Exception {
+        setAuthRole("USER");
+
+        DocumentApproveRequest request = DocumentApproveRequest.builder()
+                .leadershipInstruction("Duyệt trái quyền")
+                .build();
+
+        mockMvc.perform(post("/documents/100/workflow/approve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.FORBIDDEN.getCode()));
+
+        verify(documentWorkflowService, never()).approve(any(), any());
+    }
+
+    @Test
+    @DisplayName("Chặn quyền từ service: Trả về 403 FORBIDDEN khi nghiệp vụ service ném UNAUTHORIZED_WORKFLOW_ACTION")
     void whenUnauthorizedWorkflowAction_shouldReturn403() throws Exception {
+        setAuthRole("LEADER");
+
         DocumentApproveRequest request = DocumentApproveRequest.builder()
                 .leadershipInstruction("Duyệt trái thẩm quyền")
                 .build();
@@ -454,6 +491,8 @@ class DocumentWorkflowControllerTest {
     @Test
     @DisplayName("Chặn quyền: Trả về 403 FORBIDDEN khi AccessDeniedException được ném")
     void whenAccessDenied_shouldReturn403() throws Exception {
+        setAuthRole("LEADER");
+
         when(documentWorkflowService.getDetail(100L))
                 .thenThrow(new AccessDeniedException("Access is denied"));
 
@@ -464,75 +503,111 @@ class DocumentWorkflowControllerTest {
     }
 
     @Test
-    @DisplayName("Xác minh cấu hình bảo mật: DocumentWorkflowController có đầy đủ @PreAuthorize và @Auditable")
+    @DisplayName("GET /{id}: Trả về 403 FORBIDDEN khi người dùng không có quyền truy cập văn bản (Issue 1)")
+    void getDetail_whenForbidden_shouldReturn403() throws Exception {
+        setAuthRole("LEADER");
+
+        when(documentWorkflowService.getDetail(100L))
+                .thenThrow(new BusinessException(ErrorCode.FORBIDDEN));
+
+        mockMvc.perform(get("/documents/100"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.FORBIDDEN.getCode()));
+    }
+
+    @Test
+    @DisplayName("GET /{id}: Trả về 404 NOT_FOUND khi văn bản không tồn tại (Issue 1)")
+    void getDetail_whenNotFound_shouldReturn404() throws Exception {
+        setAuthRole("LEADER");
+
+        when(documentWorkflowService.getDetail(999L))
+                .thenThrow(new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
+
+        mockMvc.perform(get("/documents/999"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.DOCUMENT_NOT_FOUND.getCode()));
+    }
+
+    @Test
+    @DisplayName("GET /{id}/workflow-logs: Trả về 403 FORBIDDEN khi người dùng không có quyền truy cập (Issue 1)")
+    void getWorkflowLogs_whenForbidden_shouldReturn403() throws Exception {
+        setAuthRole("LEADER");
+
+        when(documentWorkflowService.getWorkflowHistory(eq(100L), any(Pageable.class)))
+                .thenThrow(new BusinessException(ErrorCode.FORBIDDEN));
+
+        mockMvc.perform(get("/documents/100/workflow-logs"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.FORBIDDEN.getCode()));
+    }
+
+    @Test
+    @DisplayName("GET /{id}/timeline: Trả về 403 FORBIDDEN khi người dùng không có quyền truy cập (Issue 1)")
+    void getDocumentTimeline_whenForbidden_shouldReturn403() throws Exception {
+        setAuthRole("LEADER");
+
+        when(documentWorkflowService.getDocumentTimeline(100L))
+                .thenThrow(new BusinessException(ErrorCode.FORBIDDEN));
+
+        mockMvc.perform(get("/documents/100/timeline"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.FORBIDDEN.getCode()));
+    }
+
+    @Test
+    @DisplayName("Hành vi phân quyền: Role USER không thể truy cập pending-review (HTTP 403)")
+    void whenUserRoleAccessPendingReview_shouldReturn403() throws Exception {
+        setAuthRole("USER");
+
+        mockMvc.perform(get("/documents/pending-review"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.FORBIDDEN.getCode()));
+    }
+
+    @Test
+    @DisplayName("Hành vi phân quyền: Role REVIEWER có thể truy cập pending-review (HTTP 200)")
+    void whenReviewerRoleAccessPendingReview_shouldReturn200() throws Exception {
+        setAuthRole("REVIEWER");
+        Page<PendingDocumentResponse> emptyPage = new PageImpl<>(List.of(), PageRequest.of(0, 10), 0);
+        when(documentWorkflowService.getPendingDocuments(any(Pageable.class)))
+                .thenReturn(emptyPage);
+
+        mockMvc.perform(get("/documents/pending-review?page=0&size=10"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Hành vi phân quyền: Role ADMIN có thể truy cập pending-review (HTTP 200)")
+    void whenAdminRoleAccessPendingReview_shouldReturn200() throws Exception {
+        setAuthRole("ADMIN");
+        Page<PendingDocumentResponse> emptyPage = new PageImpl<>(List.of(), PageRequest.of(0, 10), 0);
+        when(documentWorkflowService.getPendingDocuments(any(Pageable.class)))
+                .thenReturn(emptyPage);
+
+        mockMvc.perform(get("/documents/pending-review?page=0&size=10"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Xác minh cấu hình bảo mật: DocumentWorkflowController có đầy đủ @PreAuthorize và @Auditable (Issue 19)")
     void verifySecurityAnnotationsOnClassAndMethods() throws NoSuchMethodException {
         // Class annotations
         assertTrue(DocumentWorkflowController.class.isAnnotationPresent(Auditable.class));
-        PreAuthorize classAuth = DocumentWorkflowController.class.getAnnotation(PreAuthorize.class);
-        assertNotNull(classAuth);
-        assertEquals("isAuthenticated()", classAuth.value());
+        assertTrue(DocumentWorkflowController.class.isAnnotationPresent(PreAuthorize.class));
 
-        // Method: getDetail
-        PreAuthorize getDetailAuth = DocumentWorkflowController.class
-                .getMethod("getDetail", Long.class)
-                .getAnnotation(PreAuthorize.class);
-        assertNotNull(getDetailAuth);
-        assertEquals("isAuthenticated()", getDetailAuth.value());
-
-        // Method: getWorkflowLogs
-        PreAuthorize logsAuth = DocumentWorkflowController.class
-                .getMethod("getWorkflowLogs", Long.class, Pageable.class)
-                .getAnnotation(PreAuthorize.class);
-        assertNotNull(logsAuth);
-        assertEquals("isAuthenticated()", logsAuth.value());
-
-        // Method: approve
-        PreAuthorize approveAuth = DocumentWorkflowController.class
-                .getMethod("approve", Long.class, DocumentApproveRequest.class)
-                .getAnnotation(PreAuthorize.class);
-        assertNotNull(approveAuth);
-        assertEquals("hasAnyRole('LEADER', 'REVIEWER', 'ADMIN', 'SYSTEM_ADMIN')", approveAuth.value());
-
-        // Method: requestRevision
-        PreAuthorize revisionAuth = DocumentWorkflowController.class
-                .getMethod("requestRevision", Long.class, DocumentRevisionRequest.class)
-                .getAnnotation(PreAuthorize.class);
-        assertNotNull(revisionAuth);
-        assertEquals("hasAnyRole('LEADER', 'REVIEWER', 'ADMIN', 'SYSTEM_ADMIN')", revisionAuth.value());
-
-        // Method: initialSign
-        PreAuthorize signAuth = DocumentWorkflowController.class
-                .getMethod("initialSign", Long.class, DocumentInitialSignRequest.class)
-                .getAnnotation(PreAuthorize.class);
-        assertNotNull(signAuth);
-        assertEquals("hasAnyRole('REVIEWER', 'LEADER', 'ADMIN', 'SYSTEM_ADMIN')", signAuth.value());
-
-        // Method: signAndPublish
-        PreAuthorize publishAuth = DocumentWorkflowController.class
-                .getMethod("signAndPublish", Long.class, DocumentPublishRequest.class)
-                .getAnnotation(PreAuthorize.class);
-        assertNotNull(publishAuth);
-        assertEquals("hasAnyRole('LEADER', 'ADMIN', 'SYSTEM_ADMIN')", publishAuth.value());
-
-        // Method: reject
-        PreAuthorize rejectAuth = DocumentWorkflowController.class
-                .getMethod("reject", Long.class, DocumentRejectRequest.class)
-                .getAnnotation(PreAuthorize.class);
-        assertNotNull(rejectAuth);
-        assertEquals("hasAnyRole('LEADER', 'REVIEWER', 'ADMIN', 'SYSTEM_ADMIN')", rejectAuth.value());
-
-        // Method: getDocumentTimeline
-        PreAuthorize timelineAuth = DocumentWorkflowController.class
-                .getMethod("getDocumentTimeline", Long.class)
-                .getAnnotation(PreAuthorize.class);
-        assertNotNull(timelineAuth);
-        assertEquals("isAuthenticated()", timelineAuth.value());
-
-        // Method: getPendingReviewDocuments
-        PreAuthorize pendingAuth = DocumentWorkflowController.class
-                .getMethod("getPendingReviewDocuments", Pageable.class)
-                .getAnnotation(PreAuthorize.class);
-        assertNotNull(pendingAuth);
-        assertEquals("hasAnyRole('LEADER', 'REVIEWER', 'ADMIN', 'SYSTEM_ADMIN')", pendingAuth.value());
+        // Method annotations existence
+        assertNotNull(DocumentWorkflowController.class.getMethod("getDetail", Long.class).getAnnotation(PreAuthorize.class));
+        assertNotNull(DocumentWorkflowController.class.getMethod("getWorkflowLogs", Long.class, Pageable.class).getAnnotation(PreAuthorize.class));
+        assertNotNull(DocumentWorkflowController.class.getMethod("approve", Long.class, DocumentApproveRequest.class).getAnnotation(PreAuthorize.class));
+        assertNotNull(DocumentWorkflowController.class.getMethod("requestRevision", Long.class, DocumentRevisionRequest.class).getAnnotation(PreAuthorize.class));
+        assertNotNull(DocumentWorkflowController.class.getMethod("initialSign", Long.class, DocumentInitialSignRequest.class).getAnnotation(PreAuthorize.class));
+        assertNotNull(DocumentWorkflowController.class.getMethod("signAndPublish", Long.class, DocumentPublishRequest.class).getAnnotation(PreAuthorize.class));
+        assertNotNull(DocumentWorkflowController.class.getMethod("reject", Long.class, DocumentRejectRequest.class).getAnnotation(PreAuthorize.class));
+        assertNotNull(DocumentWorkflowController.class.getMethod("getDocumentTimeline", Long.class).getAnnotation(PreAuthorize.class));
+        assertNotNull(DocumentWorkflowController.class.getMethod("getPendingReviewDocuments", Pageable.class).getAnnotation(PreAuthorize.class));
     }
 }

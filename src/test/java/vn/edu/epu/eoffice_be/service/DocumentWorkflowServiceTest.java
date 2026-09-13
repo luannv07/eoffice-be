@@ -56,6 +56,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -104,6 +105,7 @@ class DocumentWorkflowServiceTest {
         JwtUserPrincipal principal = new JwtUserPrincipal(1002L, "leader", Role.ADMIN.name(), true, List.of());
         Authentication auth = new UsernamePasswordAuthenticationToken(principal, null, List.of());
         SecurityContextHolder.getContext().setAuthentication(auth);
+        lenient().when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
     }
 
     @AfterEach
@@ -581,17 +583,17 @@ class DocumentWorkflowServiceTest {
     }
 
     @Test
-    @DisplayName("PENDING_STATUSES: Chứa PENDING_SIGN và hỗ trợ tương thích chuỗi WAITING_SIGN")
-    void pendingStatuses_shouldContainPendingSign_andSupportWaitingSignFallback() {
+    @DisplayName("PENDING_STATUSES: Chứa PENDING_SIGN và hỗ trợ chuyển đổi trạng thái chờ ký")
+    void pendingStatuses_shouldContainPendingSign() {
         assertTrue(DocumentWorkflowServiceImpl.PENDING_STATUSES.contains(DocumentStatus.PENDING_SIGN),
                 "PENDING_STATUSES phải chứa DocumentStatus.PENDING_SIGN");
 
         Document doc = new Document();
-        doc.setStatus("WAITING_SIGN");
+        doc.setStatus("PENDING_SIGN");
         assertEquals(DocumentStatus.PENDING_SIGN, doc.getStatus(),
-                "Chuỗi 'WAITING_SIGN' phải được tự động chuyển đổi sang enum PENDING_SIGN");
+                "Chuỗi 'PENDING_SIGN' phải được gán đúng sang enum PENDING_SIGN");
         assertTrue(DocumentWorkflowServiceImpl.PENDING_STATUSES.contains(doc.getStatus()),
-                "Văn bản với trạng thái WAITING_SIGN phải nằm trong danh sách pending");
+                "Văn bản với trạng thái PENDING_SIGN phải nằm trong danh sách pending");
     }
 
     @Test
@@ -639,5 +641,84 @@ class DocumentWorkflowServiceTest {
         assertEquals(ErrorCode.UNAUTHORIZED, ex.getErrorCode());
 
         verify(documentWorkflowLogRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("getDetail: Ném FORBIDDEN khi người dùng thường không phải người soạn/ký truy cập văn bản nháp")
+    void getDetail_whenUnauthorizedRegularUser_shouldThrowForbidden() {
+        UserLogin regularUser = UserLogin.builder().id(9999L).username("stranger").role(Role.USER).build();
+        JwtUserPrincipal principal = new JwtUserPrincipal(9999L, "stranger", Role.USER.name(), true, List.of());
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, List.of()));
+        lenient().when(userLoginRepository.findByIdAndDeleteFlgFalse(9999L)).thenReturn(Optional.of(regularUser));
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.getDetail(5001L));
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("getDetail: Cho phép người dùng thường truy cập khi văn bản đã được PUBLISHED")
+    void getDetail_whenDocumentPublished_shouldAllowRegularUser() {
+        UserLogin regularUser = UserLogin.builder().id(9999L).username("stranger").role(Role.USER).build();
+        JwtUserPrincipal principal = new JwtUserPrincipal(9999L, "stranger", Role.USER.name(), true, List.of());
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, List.of()));
+        lenient().when(userLoginRepository.findByIdAndDeleteFlgFalse(9999L)).thenReturn(Optional.of(regularUser));
+
+        Document publishedDoc = Document.builder()
+                .id(5001L)
+                .title("Van ban da ban hanh")
+                .status(DocumentStatus.PUBLISHED)
+                .build();
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(publishedDoc));
+
+        DocumentDetailResponse response = documentWorkflowService.getDetail(5001L);
+        assertNotNull(response);
+        assertEquals(5001L, response.getId());
+    }
+
+    @Test
+    @DisplayName("getDetail: Ném DOCUMENT_NOT_FOUND khi văn bản không tồn tại")
+    void getDetail_whenNotFound_shouldThrowNotFound() {
+        when(documentRepository.findByIdAndDeleteFlgFalse(99999L)).thenReturn(Optional.empty());
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.getDetail(99999L));
+        assertEquals(ErrorCode.DOCUMENT_NOT_FOUND, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("getWorkflowHistory: Ném FORBIDDEN khi người dùng không có quyền truy cập văn bản")
+    void getWorkflowHistory_whenUnauthorized_shouldThrowForbidden() {
+        UserLogin regularUser = UserLogin.builder().id(9999L).username("stranger").role(Role.USER).build();
+        JwtUserPrincipal principal = new JwtUserPrincipal(9999L, "stranger", Role.USER.name(), true, List.of());
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, List.of()));
+        lenient().when(userLoginRepository.findByIdAndDeleteFlgFalse(9999L)).thenReturn(Optional.of(regularUser));
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.getWorkflowHistory(5001L, PageRequest.of(0, 10)));
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("getDocumentTimeline: Ném FORBIDDEN khi người dùng không có quyền truy cập văn bản")
+    void getDocumentTimeline_whenUnauthorized_shouldThrowForbidden() {
+        UserLogin regularUser = UserLogin.builder().id(9999L).username("stranger").role(Role.USER).build();
+        JwtUserPrincipal principal = new JwtUserPrincipal(9999L, "stranger", Role.USER.name(), true, List.of());
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, List.of()));
+        lenient().when(userLoginRepository.findByIdAndDeleteFlgFalse(9999L)).thenReturn(Optional.of(regularUser));
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.getDocumentTimeline(5001L));
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
     }
 }

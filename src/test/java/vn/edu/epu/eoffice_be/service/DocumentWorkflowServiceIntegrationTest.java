@@ -18,6 +18,10 @@ import vn.edu.epu.eoffice_be.repository.OrgNodeRepository;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
 import vn.edu.epu.eoffice_be.service.impl.DocumentWorkflowServiceImpl;
 
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
+
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -70,23 +74,30 @@ class DocumentWorkflowServiceIntegrationTest {
                 .build();
         Document savedDoc = documentRepository.save(doc);
 
-        // 1. Kiểm tra logAction
-        documentWorkflowService.logAction(savedDoc.getId(), user.getUsername(), "CHUYEN_VIEN", "SUBMIT", "Tạo log qua service bean");
+        JwtUserPrincipal principal = new JwtUserPrincipal(user.getId(), user.getUsername(), user.getRole().name(), true, List.of());
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, List.of()));
+        try {
+            // 1. Kiểm tra logAction
+            documentWorkflowService.logAction(savedDoc.getId(), user.getUsername(), "CHUYEN_VIEN", "SUBMIT", "Tạo log qua service bean");
 
-        // 2. Kiểm tra getDocumentTimeline
-        List<WorkflowTimelineResponse> timeline = documentWorkflowService.getDocumentTimeline(savedDoc.getId());
-        assertNotNull(timeline);
-        assertFalse(timeline.isEmpty());
-        assertEquals("Tạo log qua service bean", timeline.get(0).getComment());
+            // 2. Kiểm tra getDocumentTimeline
+            List<WorkflowTimelineResponse> timeline = documentWorkflowService.getDocumentTimeline(savedDoc.getId());
+            assertNotNull(timeline);
+            assertFalse(timeline.isEmpty());
+            assertEquals("Tạo log qua service bean", timeline.get(0).getComment());
 
-        // 3. Kiểm tra getPendingDocuments
-        List<PendingDocumentResponse> pendingList = documentWorkflowService.getPendingDocuments();
-        assertNotNull(pendingList);
-        assertTrue(pendingList.stream().anyMatch(p -> p.getId().equals(savedDoc.getId())));
-        PendingDocumentResponse pendingDoc = pendingList.stream()
-                .filter(p -> p.getId().equals(savedDoc.getId()))
-                .findFirst()
-                .orElseThrow();
-        assertEquals("Văn thư tiếp nhận", pendingDoc.getCurrentHolder(), "Trạng thái SUBMITTED phải ánh xạ tới 'Văn thư tiếp nhận'");
+            // 3. Kiểm tra getPendingDocuments
+            List<PendingDocumentResponse> pendingList = documentWorkflowService.getPendingDocuments();
+            assertNotNull(pendingList);
+            assertTrue(pendingList.stream().anyMatch(p -> p.getId().equals(savedDoc.getId())));
+            PendingDocumentResponse pendingDoc = pendingList.stream()
+                    .filter(p -> p.getId().equals(savedDoc.getId()))
+                    .findFirst()
+                    .orElseThrow();
+            assertEquals("Văn thư tiếp nhận", pendingDoc.getCurrentHolder(), "Trạng thái SUBMITTED phải ánh xạ tới 'Văn thư tiếp nhận'");
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 }

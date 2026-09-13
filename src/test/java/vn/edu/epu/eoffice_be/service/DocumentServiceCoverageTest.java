@@ -251,18 +251,29 @@ class DocumentServiceCoverageTest {
                 .createdAt(LocalDateTime.now())
                 .build();
 
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(doc1));
         when(workflowLogRepository.findByDocumentIdOrderByCreatedAtAsc(1L)).thenReturn(List.of(log));
-
-        var timeline = documentWorkflowService.getDocumentTimeline(1L);
-        assertNotNull(timeline);
 
         UserLogin mockActor = new UserLogin();
         mockActor.setId(99L);
         mockActor.setUsername("SIGN");
+        mockActor.setRole(vn.edu.epu.eoffice_be.common.enums.Role.ADMIN);
+        lenient().when(userLoginRepository.findByIdAndDeleteFlgFalse(99L)).thenReturn(Optional.of(mockActor));
         when(userLoginRepository.findByUsernameAndDeleteFlgFalse("SIGN")).thenReturn(Optional.of(mockActor));
 
-        documentWorkflowService.logAction(1L, "SIGN", "GiamDoc", "SUBMIT", "127.0.0.1");
-        verify(workflowLogRepository, atLeastOnce()).save(any());
+        var principal = new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(99L, "SIGN", "ADMIN", true, List.of());
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(principal, null, List.of()));
+
+        try {
+            var timeline = documentWorkflowService.getDocumentTimeline(1L);
+            assertNotNull(timeline);
+
+            documentWorkflowService.logAction(1L, "SIGN", "GiamDoc", "SUBMIT", "127.0.0.1");
+            verify(workflowLogRepository, atLeastOnce()).save(any());
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
 
         // Kiểm tra ném BAD_REQUEST khi action rỗng hoặc không hợp lệ
         assertThrows(BusinessException.class, () ->
@@ -482,11 +493,25 @@ class DocumentServiceCoverageTest {
         // Giả lập Document tồn tại
         Document doc = new Document();
         doc.setId(10L);
-        lenient().when(documentRepository.findById(10L)).thenReturn(Optional.of(doc));
+        doc.setStatus("PUBLISHED");
+        lenient().when(documentRepository.findByIdAndDeleteFlgFalse(10L)).thenReturn(Optional.of(doc));
 
-        // Dùng var để tránh lỗi cannot find symbol WorkflowTimelineResponse
-        var timeline = documentWorkflowService.getDocumentTimeline(10L);
-        assertNotNull(timeline);
+        UserLogin mockAdmin = new UserLogin();
+        mockAdmin.setId(99L);
+        mockAdmin.setUsername("admin");
+        mockAdmin.setRole(vn.edu.epu.eoffice_be.common.enums.Role.ADMIN);
+        lenient().when(userLoginRepository.findByIdAndDeleteFlgFalse(99L)).thenReturn(Optional.of(mockAdmin));
+
+        var principal = new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(99L, "admin", "ADMIN", true, List.of());
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(principal, null, List.of()));
+
+        try {
+            var timeline = documentWorkflowService.getDocumentTimeline(10L);
+            assertNotNull(timeline);
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
     }
 
     @Test

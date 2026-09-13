@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
+import vn.edu.epu.eoffice_be.common.enums.Role;
 import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.dto.StampInfo;
@@ -46,6 +47,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Objects;
 
 @Slf4j
 @Service
@@ -287,7 +289,10 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     @Override
     @Transactional(readOnly = true)
     public Page<DocumentWorkflowLogResponse> getWorkflowHistory(Long documentId, Pageable pageable) {
-        findDocumentOrThrow(documentId);
+        Document document = findDocumentOrThrow(documentId);
+        UserLogin actor = getCurrentActor();
+        validateDocumentReadAccess(document, actor);
+
         Pageable effectivePageable = (pageable == null || pageable.isUnpaged())
                 ? PageRequest.of(0, 20, Sort.by("createdDate").ascending())
                 : pageable;
@@ -307,7 +312,38 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     @Override
     @Transactional(readOnly = true)
     public DocumentDetailResponse getDetail(Long documentId) {
-        return mapToDetailResponse(findDocumentOrThrow(documentId));
+        Document document = findDocumentOrThrow(documentId);
+        UserLogin actor = getCurrentActor();
+        validateDocumentReadAccess(document, actor);
+        return mapToDetailResponse(document);
+    }
+
+    /**
+     * Kiểm tra quyền đọc/xem chi tiết văn bản và lịch sử xử lý (Issue 1).
+     * Cho phép: Quản trị viên (ADMIN, SYSTEM_ADMIN), người tạo (drafter),
+     * người ký (signer), vai trò xét duyệt (LEADER, REVIEWER),
+     * hoặc khi văn bản đã được ban hành chính thức (PUBLISHED).
+     */
+    private void validateDocumentReadAccess(Document document, UserLogin actor) {
+        if (document == null) {
+            throw new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND);
+        }
+        if (actor == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        Role role = actor.getRole();
+        if (role == Role.ADMIN || role == Role.SYSTEM_ADMIN || role == Role.LEADER || role == Role.REVIEWER) {
+            return;
+        }
+        boolean isDrafter = document.getDrafter() != null && Objects.equals(document.getDrafter().getId(), actor.getId());
+        boolean isSigner = document.getSigner() != null && Objects.equals(document.getSigner().getId(), actor.getId());
+        if (isDrafter || isSigner) {
+            return;
+        }
+        if (document.getStatus() == DocumentStatus.PUBLISHED) {
+            return;
+        }
+        throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền truy cập văn bản này");
     }
 
     private Document findDocumentOrThrow(Long id) {
@@ -415,6 +451,10 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     @Override
     @Transactional(readOnly = true)
     public List<WorkflowTimelineResponse> getDocumentTimeline(Long documentId) {
+        Document document = findDocumentOrThrow(documentId);
+        UserLogin actor = getCurrentActor();
+        validateDocumentReadAccess(document, actor);
+
         List<DocumentWorkflowLog> logs = documentWorkflowLogRepository.findByDocumentIdOrderByCreatedAtAsc(documentId);
         if (logs == null || logs.isEmpty()) {
             logs = documentWorkflowLogRepository.findByDocumentIdOrderByCreatedDateAsc(documentId);

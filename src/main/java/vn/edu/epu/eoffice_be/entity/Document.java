@@ -117,13 +117,8 @@ public class Document extends BaseEntity {
         if (status == null || status.isBlank()) {
             throw new IllegalArgumentException("Document status must not be null or blank");
         }
-        String trimmed = status.trim().toUpperCase();
-        if ("WAITING_SIGN".equals(trimmed)) {
-            this.status = DocumentStatus.PENDING_SIGN;
-            return;
-        }
         try {
-            this.status = DocumentStatus.valueOf(trimmed);
+            this.status = DocumentStatus.valueOf(status.trim());
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Unknown document status: " + status, e);
         }
