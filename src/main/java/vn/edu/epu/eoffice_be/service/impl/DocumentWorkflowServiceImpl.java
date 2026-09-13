@@ -473,22 +473,21 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             case SUBMITTED -> "Văn thư tiếp nhận";
             case PENDING_REVIEW, IN_REVIEW -> "Chuyên viên thẩm định";
             case PENDING_APPROVAL -> "Lãnh đạo phê duyệt";
+            case PENDING_SIGN -> "Lãnh đạo ký ban hành";
             default -> "Bộ phận xử lý văn bản";
         };
     }
 
     @Override
     public void logAction(Long documentId, String username, String role, String action, String comment) {
-        WorkflowAction act = null;
-        if (action != null && !action.isBlank()) {
-            try {
-                act = WorkflowAction.valueOf(action.trim().toUpperCase());
-            } catch (IllegalArgumentException ignored) {
-                // Keep act as null for default fallback
-            }
+        if (action == null || action.isBlank()) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "Hành động (action) không được để trống");
         }
-        if (act == null) {
-            act = WorkflowAction.SUBMIT;
+        WorkflowAction act;
+        try {
+            act = WorkflowAction.valueOf(action.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "Hành động (action) không hợp lệ: " + action);
         }
 
         Document doc = null;
@@ -509,8 +508,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             } catch (Exception ignored) {
             }
         }
-        if (actor == null && userLoginRepository != null) {
-            actor = userLoginRepository.findAll().stream().findFirst().orElse(null);
+        if (actor == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "Không thể xác định người thực hiện hành động (actor)");
         }
 
         DocumentStatus currentStatus = (doc != null && doc.getStatus() != null)

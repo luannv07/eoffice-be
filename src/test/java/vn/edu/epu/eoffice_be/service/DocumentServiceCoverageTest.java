@@ -17,8 +17,11 @@ import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.entity.DocumentDistribution;
 import vn.edu.epu.eoffice_be.entity.DocumentWorkflowLog;
 import vn.edu.epu.eoffice_be.repository.DocumentDistributionRepository;
+import vn.edu.epu.eoffice_be.common.exception.BusinessException;
+import vn.edu.epu.eoffice_be.entity.UserLogin;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentWorkflowLogRepository;
+import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
 import vn.edu.epu.eoffice_be.service.impl.DocumentWorkflowServiceImpl;
 import java.util.Collections;
 import java.io.File;
@@ -47,6 +50,9 @@ class DocumentServiceCoverageTest {
 
     @Mock
     DocumentWorkflowLogRepository workflowLogRepository;
+
+    @Mock
+    UserLoginRepository userLoginRepository;
 
     @InjectMocks
     DocumentQueryService documentQueryService;
@@ -250,8 +256,24 @@ class DocumentServiceCoverageTest {
         var timeline = documentWorkflowService.getDocumentTimeline(1L);
         assertNotNull(timeline);
 
-        documentWorkflowService.logAction(1L, "SIGN", "GiamDoc", "Ky duyet", "127.0.0.1");
+        UserLogin mockActor = new UserLogin();
+        mockActor.setId(99L);
+        mockActor.setUsername("SIGN");
+        when(userLoginRepository.findByUsernameAndDeleteFlgFalse("SIGN")).thenReturn(Optional.of(mockActor));
+
+        documentWorkflowService.logAction(1L, "SIGN", "GiamDoc", "SUBMIT", "127.0.0.1");
         verify(workflowLogRepository, atLeastOnce()).save(any());
+
+        // Kiểm tra ném BAD_REQUEST khi action rỗng hoặc không hợp lệ
+        assertThrows(BusinessException.class, () ->
+                documentWorkflowService.logAction(1L, "SIGN", "GiamDoc", "", "comment"));
+        assertThrows(BusinessException.class, () ->
+                documentWorkflowService.logAction(1L, "SIGN", "GiamDoc", "INVALID_ACTION_XYZ", "comment"));
+
+        // Kiểm tra ném UNAUTHORIZED khi không tìm thấy actor
+        when(userLoginRepository.findByUsernameAndDeleteFlgFalse("UNKNOWN_USER")).thenReturn(Optional.empty());
+        assertThrows(BusinessException.class, () ->
+                documentWorkflowService.logAction(1L, "UNKNOWN_USER", "GiamDoc", "SUBMIT", "comment"));
     }
 
     @Test

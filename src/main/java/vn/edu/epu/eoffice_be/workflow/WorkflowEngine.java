@@ -69,6 +69,13 @@ public class WorkflowEngine {
         approvedTransitions.put(WorkflowAction.REJECT, DocumentStatus.REJECTED);
         TRANSITION_MATRIX.put(DocumentStatus.APPROVED, approvedTransitions);
 
+        // PENDING_SIGN
+        Map<WorkflowAction, DocumentStatus> pendingSignTransitions = new EnumMap<>(WorkflowAction.class);
+        pendingSignTransitions.put(WorkflowAction.SIGN_AND_PUBLISH, DocumentStatus.PUBLISHED);
+        pendingSignTransitions.put(WorkflowAction.REQUEST_REVISION, DocumentStatus.NEEDS_REVISION);
+        pendingSignTransitions.put(WorkflowAction.REJECT, DocumentStatus.REJECTED);
+        TRANSITION_MATRIX.put(DocumentStatus.PENDING_SIGN, pendingSignTransitions);
+
         // NEEDS_REVISION
         Map<WorkflowAction, DocumentStatus> needsRevisionTransitions = new EnumMap<>(WorkflowAction.class);
         needsRevisionTransitions.put(WorkflowAction.SUBMIT, DocumentStatus.SUBMITTED);

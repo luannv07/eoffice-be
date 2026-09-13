@@ -47,9 +47,11 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -576,5 +578,66 @@ class DocumentWorkflowServiceTest {
         assertEquals("Tờ trình mua sắm máy tính", result.getContent().get(0).getTitle());
         assertEquals(DocumentStatus.PENDING_APPROVAL.name(), result.getContent().get(0).getStatus());
         verify(documentRepository).findByStatusInAndDeleteFlgFalse(eq(DocumentWorkflowServiceImpl.PENDING_STATUSES), eq(pageable));
+    }
+
+    @Test
+    @DisplayName("PENDING_STATUSES: Chứa PENDING_SIGN và hỗ trợ tương thích chuỗi WAITING_SIGN")
+    void pendingStatuses_shouldContainPendingSign_andSupportWaitingSignFallback() {
+        assertTrue(DocumentWorkflowServiceImpl.PENDING_STATUSES.contains(DocumentStatus.PENDING_SIGN),
+                "PENDING_STATUSES phải chứa DocumentStatus.PENDING_SIGN");
+
+        Document doc = new Document();
+        doc.setStatus("WAITING_SIGN");
+        assertEquals(DocumentStatus.PENDING_SIGN, doc.getStatus(),
+                "Chuỗi 'WAITING_SIGN' phải được tự động chuyển đổi sang enum PENDING_SIGN");
+        assertTrue(DocumentWorkflowServiceImpl.PENDING_STATUSES.contains(doc.getStatus()),
+                "Văn bản với trạng thái WAITING_SIGN phải nằm trong danh sách pending");
+    }
+
+    @Test
+    @DisplayName("logAction: Ghi log thành công với actor và action hợp lệ")
+    void logAction_withValidActorAndAction_shouldSaveWorkflowLog() {
+        UserLogin actor = new UserLogin();
+        actor.setId(10L);
+        actor.setUsername("testuser");
+
+        when(userLoginRepository.findByUsernameAndDeleteFlgFalse("testuser")).thenReturn(Optional.of(actor));
+
+        documentWorkflowService.logAction(100L, "testuser", "CHUYEN_VIEN", "SUBMIT", "Nộp hồ sơ");
+        verify(documentWorkflowLogRepository).save(any(DocumentWorkflowLog.class));
+    }
+
+    @Test
+    @DisplayName("logAction: Ném BAD_REQUEST khi action null, blank hoặc không hợp lệ (không fallback SUBMIT âm thầm)")
+    void logAction_withInvalidOrBlankAction_shouldThrowBadRequest() {
+        // Blank action
+        BusinessException exBlank = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.logAction(100L, "testuser", "CHUYEN_VIEN", "   ", "comment"));
+        assertEquals(ErrorCode.BAD_REQUEST, exBlank.getErrorCode());
+
+        // Null action
+        BusinessException exNull = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.logAction(100L, "testuser", "CHUYEN_VIEN", null, "comment"));
+        assertEquals(ErrorCode.BAD_REQUEST, exNull.getErrorCode());
+
+        // Invalid action string
+        BusinessException exInvalid = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.logAction(100L, "testuser", "CHUYEN_VIEN", "UNKNOWN_ACTION", "comment"));
+        assertEquals(ErrorCode.BAD_REQUEST, exInvalid.getErrorCode());
+
+        verify(documentWorkflowLogRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("logAction: Ném UNAUTHORIZED khi không thể xác định actor (không gán ngẫu nhiên từ DB)")
+    void logAction_whenActorNotFound_shouldThrowUnauthorized() {
+        SecurityContextHolder.clearContext();
+        when(userLoginRepository.findByUsernameAndDeleteFlgFalse("nonexistent")).thenReturn(Optional.empty());
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.logAction(100L, "nonexistent", "CHUYEN_VIEN", "SUBMIT", "comment"));
+        assertEquals(ErrorCode.UNAUTHORIZED, ex.getErrorCode());
+
+        verify(documentWorkflowLogRepository, never()).save(any());
     }
 }
