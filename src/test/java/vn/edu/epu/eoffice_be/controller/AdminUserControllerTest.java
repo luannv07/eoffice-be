@@ -11,6 +11,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
@@ -19,6 +20,7 @@ import vn.edu.epu.eoffice_be.common.exception.GlobalExceptionHandler;
 import vn.edu.epu.eoffice_be.dto.response.UserDetailResponse;
 import vn.edu.epu.eoffice_be.dto.response.UserSummaryResponse;
 import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
+import org.springframework.data.web.config.SpringDataJacksonConfiguration;
 import vn.edu.epu.eoffice_be.service.UserManagementService;
 
 import java.util.List;
@@ -45,8 +47,11 @@ class AdminUserControllerTest {
 
 	@BeforeEach
 	void setUp() {
+		objectMapper = new ObjectMapper().findAndRegisterModules()
+						.registerModule(new SpringDataJacksonConfiguration().pageModule());
 		mockMvc = MockMvcBuilders.standaloneSetup(adminUserController)
 						.setControllerAdvice(new GlobalExceptionHandler())
+						.setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))
 						.build();
 		JwtUserPrincipal principal = new JwtUserPrincipal(1L, "admin", "SYSTEM_ADMIN", true, List.of());
 		SecurityContextHolder.getContext()
@@ -63,7 +68,8 @@ class AdminUserControllerTest {
 		when(userManagementService.list(any(), any(Pageable.class)))
 						.thenReturn(new PageImpl<>(List.of(UserSummaryResponse.builder().id(1L).username("alice").build())));
 		mockMvc.perform(get("/admin/users"))
-						.andExpect(status().is5xxServerError());
+						.andExpect(status().isOk())
+						.andExpect(jsonPath("$.data.content[0].username").value("alice"));
 		verify(userManagementService).list(any(), any(Pageable.class));
 	}
 

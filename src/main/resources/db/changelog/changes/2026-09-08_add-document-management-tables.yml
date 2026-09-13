@@ -608,13 +608,13 @@ databaseChangeLog:
         - sql:
             sql: |-
               INSERT INTO dictionary_items (id, group_cd, item_cd, name_vn, name_en, display_order, active_flg, delete_flg) VALUES
-              (3001, 'DOCUMENT_TYPE_CD', 'QUYET_DINH', 'Quyết định',       'Decision',          0, true, false),
-              (3002, 'DOCUMENT_TYPE_CD', 'TO_TRINH',   'Tờ trình',         'Proposal',          1, true, false),
-              (3003, 'DOCUMENT_TYPE_CD', 'CONG_VAN',   'Công văn',         'Official Dispatch', 2, true, false),
-              (3004, 'DOCUMENT_TYPE_CD', 'THONG_BAO',  'Thông báo',        'Announcement',      3, true, false),
-              (3005, 'DOCUMENT_TYPE_CD', 'KE_HOACH',   'Kế hoạch',         'Plan',              4, true, false),
-              (3006, 'DOCUMENT_TYPE_CD', 'BAO_CAO',    'Báo cáo',          'Report',            5, true, false),
-              (3007, 'DOCUMENT_TYPE_CD', 'BIEN_BAN',   'Biên bản',         'Minutes',           6, true, false)
+              (3101, 'DOCUMENT_TYPE_CD', 'QUYET_DINH', 'Quyết định',       'Decision',          0, true, false),
+              (3102, 'DOCUMENT_TYPE_CD', 'TO_TRINH',   'Tờ trình',         'Proposal',          1, true, false),
+              (3103, 'DOCUMENT_TYPE_CD', 'CONG_VAN',   'Công văn',         'Official Dispatch', 2, true, false),
+              (3104, 'DOCUMENT_TYPE_CD', 'THONG_BAO',  'Thông báo',        'Announcement',      3, true, false),
+              (3105, 'DOCUMENT_TYPE_CD', 'KE_HOACH',   'Kế hoạch',         'Plan',              4, true, false),
+              (3106, 'DOCUMENT_TYPE_CD', 'BAO_CAO',    'Báo cáo',          'Report',            5, true, false),
+              (3107, 'DOCUMENT_TYPE_CD', 'BIEN_BAN',   'Biên bản',         'Minutes',           6, true, false)
       rollback:
         - sql:
             sql: DELETE FROM dictionary_items WHERE group_cd = 'DOCUMENT_TYPE_CD'

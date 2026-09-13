@@ -1,0 +1,85 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-09-12-reconcile-documents-missing-columns
+      author: luannv
+      preConditions:
+        onFail: MARK_RAN
+        sqlCheck:
+          expectedResult: 0
+          sql: "SELECT COUNT(*) FROM information_schema.columns WHERE LOWER(table_name) = 'documents' AND LOWER(column_name) = 'draft_code'"
+      changes:
+        - addColumn:
+            tableName: documents
+            columns:
+              - column:
+                  name: draft_code
+                  type: VARCHAR(50)
+                  remarks: Mã định danh dự thảo văn bản
+                  constraints:
+                    nullable: true
+              - column:
+                  name: summary
+                  type: TEXT
+                  remarks: Trích yếu / tóm tắt nội dung
+                  constraints:
+                    nullable: true
+              - column:
+                  name: content
+                  type: TEXT
+                  remarks: Nội dung chi tiết văn bản
+              - column:
+                  name: document_type_cd
+                  type: VARCHAR(50)
+                  remarks: Loại văn bản (dictionary group DOCUMENT_TYPE_CD)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: issuing_org_node_id
+                  type: BIGINT
+                  remarks: Đơn vị ban hành / chủ trì soạn thảo (FK org_nodes)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: creator_user_id
+                  type: BIGINT
+                  remarks: Người tạo dự thảo (FK user_logins)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: current_version
+                  type: INT
+                  defaultValueNumeric: 1
+                  remarks: Phiên bản hiện tại
+                  constraints:
+                    nullable: false
+              - column:
+                  name: security_level
+                  type: VARCHAR(30)
+                  defaultValue: NORMAL
+                  remarks: Độ mật (NORMAL, CONFIDENTIAL, SECRET)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: urgency_level
+                  type: VARCHAR(30)
+                  defaultValue: NORMAL
+                  remarks: Độ khẩn (NORMAL, URGENT, TOP_URGENT)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: submitted_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  remarks: Thời điểm gửi duyệt
+              - column:
+                  name: delete_flg
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  remarks: Cờ xóa mềm
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
