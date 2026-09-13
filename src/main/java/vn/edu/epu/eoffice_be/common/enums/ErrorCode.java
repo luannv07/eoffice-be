@@ -1,13 +1,8 @@
 package vn.edu.epu.eoffice_be.common.enums;
 
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 
-@Getter
-@RequiredArgsConstructor
 public enum ErrorCode {
-
     INTERNAL_SERVER_ERROR("INTERNAL_SERVER_ERROR", "Lỗi hệ thống", HttpStatus.INTERNAL_SERVER_ERROR),
     BAD_REQUEST("BAD_REQUEST", "Dữ liệu không hợp lệ", HttpStatus.BAD_REQUEST),
     UNAUTHORIZED("UNAUTHORIZED", "Chưa xác thực", HttpStatus.UNAUTHORIZED),
@@ -46,9 +41,25 @@ public enum ErrorCode {
     DOCUMENT_PRIMARY_FILE_MISSING("DOCUMENT_PRIMARY_FILE_MISSING", "Văn bản chưa có tệp đính kèm chính để ký", HttpStatus.BAD_REQUEST),
     DOCUMENT_NOT_READY_FOR_PUBLISH("DOCUMENT_NOT_READY_FOR_PUBLISH", "Văn bản chưa đủ điều kiện để ký phát hành", HttpStatus.BAD_REQUEST),
     INVALID_WORKFLOW_STATE("INVALID_WORKFLOW_STATE", "Trạng thái văn bản không hợp lệ trong luồng duyệt", HttpStatus.BAD_REQUEST);
+    private final String code;
+    private final String message;
+    private final HttpStatus status;
 
+    ErrorCode(String code, String message, HttpStatus status) {
+        this.code = code;
+        this.message = message;
+        this.status = status;
+    }
 
-	private final String code;
-	private final String message;
-	private final HttpStatus status;
+    public String getCode() {
+        return code;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public HttpStatus getStatus() {
+        return status;
+    }
 }

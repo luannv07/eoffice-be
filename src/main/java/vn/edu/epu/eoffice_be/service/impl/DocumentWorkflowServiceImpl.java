@@ -21,6 +21,8 @@ import vn.edu.epu.eoffice_be.dto.request.DocumentInitialSignRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentPublishRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRejectRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRevisionRequest;
+import vn.edu.epu.eoffice_be.dto.PendingDocumentResponse;
+import vn.edu.epu.eoffice_be.dto.WorkflowTimelineResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentDetailResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentWorkflowLogResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
@@ -39,6 +41,7 @@ import vn.edu.epu.eoffice_be.service.PdfProcessingService;
 import vn.edu.epu.eoffice_be.workflow.WorkflowEngine;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -56,6 +59,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     private final WorkflowEngine workflowEngine;
     private final FileStorageService fileStorageService;
     private final PdfProcessingService pdfProcessingService;
+
+    private static final ZoneId ZONE_VN = ZoneId.of("Asia/Ho_Chi_Minh");
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
@@ -391,5 +396,33 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 .signatureHash(log.getSignatureHash())
                 .createdDate(log.getCreatedDate())
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<WorkflowTimelineResponse> getDocumentTimeline(Long documentId) {
+        return documentWorkflowLogRepository.findByDocumentIdOrderByCreatedDateAsc(documentId).stream()
+                .map(log -> WorkflowTimelineResponse.builder()
+                        .id(log.getId())
+                        .documentId(log.getDocument() != null ? log.getDocument().getId() : null)
+                        .actorUsername(log.getActor() != null ? log.getActor().getUsername() : null)
+                        .actorRole(null)
+                        .action(log.getAction() != null ? log.getAction().name() : null)
+                        .comment(log.getComment())
+                        .createdAt(log.getCreatedDate() != null ? LocalDateTime.ofInstant(log.getCreatedDate(), ZONE_VN) : null)
+                        .build())
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PendingDocumentResponse> getPendingDocuments() {
+        List<Document> list = documentRepository.findByStatusAndDeleteFlgFalse(DocumentStatus.PENDING_APPROVAL);
+        return list.stream().map(doc -> PendingDocumentResponse.builder()
+                .id(doc.getId())
+                .title(doc.getTitle())
+                .status(doc.getStatus() != null ? doc.getStatus().name() : null)
+                .currentHolder("Lãnh đạo phê duyệt")
+                .build()).toList();
     }
 }

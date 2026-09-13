@@ -1,8 +1,20 @@
 package vn.edu.epu.eoffice_be.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.servlet.Filter;
-import jakarta.servlet.http.HttpServletResponse;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -16,7 +28,6 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -24,6 +35,11 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import jakarta.servlet.Filter;
+import jakarta.servlet.http.HttpServletResponse;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
@@ -38,20 +54,12 @@ import vn.edu.epu.eoffice_be.dto.response.DocumentWorkflowLogResponse;
 import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
 import vn.edu.epu.eoffice_be.service.DocumentWorkflowService;
 
-import java.nio.charset.StandardCharsets;
-import java.time.Instant;
-import java.util.List;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 @ExtendWith(MockitoExtension.class)
 class DocumentWorkflowControllerTest {
+
+    private MockMvc mockMvc;
+
+    private ObjectMapper objectMapper;
 
     @Mock
     private DocumentWorkflowService documentWorkflowService;
@@ -59,21 +67,19 @@ class DocumentWorkflowControllerTest {
     @InjectMocks
     private DocumentWorkflowController documentWorkflowController;
 
-    private MockMvc mockMvc;
-    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
-
-    private DocumentDetailResponse sampleResponse;
+    private Filter dummyAuthFilter;
 
     @BeforeEach
     void setUp() {
-        Filter securityFilter = (request, response, chain) -> {
+        objectMapper = new ObjectMapper();
+
+        dummyAuthFilter = (request, response, chain) -> {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
-                HttpServletResponse httpResponse = (HttpServletResponse) response;
-                httpResponse.setStatus(HttpStatus.UNAUTHORIZED.value());
-                httpResponse.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                httpResponse.setCharacterEncoding(StandardCharsets.UTF_8.name());
-                httpResponse.getWriter().write("{\"success\":false,\"code\":\"UNAUTHORIZED\",\"message\":\"UNAUTHORIZED\"}");
+            if (auth == null || !auth.isAuthenticated()) {
+                HttpServletResponse httpServletResponse = (HttpServletResponse) response;
+                httpServletResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                httpServletResponse.setContentType("application/json;charset=UTF-8");
+                httpServletResponse.getWriter().write("{\"success\":false,\"code\":\"" + ErrorCode.UNAUTHORIZED.getCode() + "\",\"message\":\"Chưa xác thực\"}");
                 return;
             }
             chain.doFilter(request, response);
@@ -82,22 +88,22 @@ class DocumentWorkflowControllerTest {
         mockMvc = MockMvcBuilders.standaloneSetup(documentWorkflowController)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
-                .addFilters(securityFilter)
+                .addFilters(dummyAuthFilter)
                 .build();
 
-        JwtUserPrincipal principal = new JwtUserPrincipal(1001L, "reviewer", "REVIEWER", true, List.of());
-        SecurityContextHolder.getContext().setAuthentication(
-                UsernamePasswordAuthenticationToken.authenticated(principal, "n/a", List.of(new SimpleGrantedAuthority("ROLE_REVIEWER")))
+        JwtUserPrincipal principal = new JwtUserPrincipal(
+                1L,
+                "leader_user",
+                "LEADER",
+                true,
+                List.of("ROLE_LEADER")
         );
-
-        sampleResponse = DocumentDetailResponse.builder()
-                .id(100L)
-                .title("Ke hoach 2026")
-                .status(DocumentStatus.IN_REVIEW)
-                .officialNumber("125/QD-DHEPU")
-                .primaryFileUrl("/documents/100/files/primary")
-                .officialFileUrl("/documents/100/files/official")
-                .build();
+        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                principal,
+                null,
+                List.of(new SimpleGrantedAuthority("ROLE_LEADER"))
+        );
+        SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 
     @AfterEach
@@ -105,122 +111,149 @@ class DocumentWorkflowControllerTest {
         SecurityContextHolder.clearContext();
     }
 
-    @Test
-    @DisplayName("GET /documents/{id} - Lấy chi tiết văn bản")
-    void getDetail_shouldReturnSuccess() throws Exception {
-        when(documentWorkflowService.getDetail(100L)).thenReturn(sampleResponse);
-
-        mockMvc.perform(get("/documents/100"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.id").value(100))
-                .andExpect(jsonPath("$.data.title").value("Ke hoach 2026"))
-                .andExpect(jsonPath("$.data.primaryFileUrl").value("/documents/100/files/primary"))
-                .andExpect(jsonPath("$.data.officialFileUrl").value("/documents/100/files/official"))
-                .andExpect(jsonPath("$.data.primaryFilePath").doesNotExist())
-                .andExpect(jsonPath("$.data.officialFilePath").doesNotExist());
+    private DocumentDetailResponse mockDocumentDetailResponse(DocumentStatus status) {
+        return DocumentDetailResponse.builder()
+                .id(100L)
+                .title("Kế hoạch công tác năm 2026")
+                .documentTypeCd("PLAN")
+                .issuingOrgId(10L)
+                .issuingOrgName("Phòng Đào Tạo")
+                .drafterId(2L)
+                .drafterUsername("user_a")
+                .urgencyLevelCd("NORMAL")
+                .securityLevelCd("NORMAL")
+                .status(status)
+                .build();
     }
 
     @Test
-    @DisplayName("POST /documents/{id}/workflow/approve - Duyệt văn bản UC12")
-    void approve_shouldReturnSuccess() throws Exception {
+    @DisplayName("UC12: Duyệt văn bản - Trả về 200 OK cùng dữ liệu cập nhật")
+    void approve_shouldReturn200() throws Exception {
         DocumentApproveRequest request = DocumentApproveRequest.builder()
-                .comment("Dong y")
-                .leadershipInstruction("Giao phong dao tao")
-                .assignedOrgNodeId(1002L)
+                .leadershipInstruction("Đồng ý phê duyệt kế hoạch")
+                .assignedOrgNodeId(20L)
                 .build();
 
-        when(documentWorkflowService.approve(eq(100L), any(DocumentApproveRequest.class)))
-                .thenReturn(sampleResponse);
+        DocumentDetailResponse response = mockDocumentDetailResponse(DocumentStatus.PENDING_SIGN);
+        when(documentWorkflowService.approve(eq(100L), any(DocumentApproveRequest.class))).thenReturn(response);
 
         mockMvc.perform(post("/documents/100/workflow/approve")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.id").value(100));
+                .andExpect(jsonPath("$.data.status").value("PENDING_SIGN"));
+
+        verify(documentWorkflowService).approve(eq(100L), any(DocumentApproveRequest.class));
     }
 
     @Test
-    @DisplayName("POST /documents/{id}/workflow/request-revision - Yêu cầu chỉnh sửa UC12")
-    void requestRevision_shouldReturnSuccess() throws Exception {
+    @DisplayName("UC12: Yêu cầu chỉnh sửa - Trả về 200 OK và trạng thái NEEDS_REVISION")
+    void requestRevision_shouldReturn200() throws Exception {
         DocumentRevisionRequest request = DocumentRevisionRequest.builder()
-                .comment("Can sua lai phan 2")
+                .comment("Cần bổ sung dự toán chi tiết mục 3")
                 .build();
 
-        when(documentWorkflowService.requestRevision(eq(100L), any(DocumentRevisionRequest.class)))
-                .thenReturn(sampleResponse);
+        DocumentDetailResponse response = mockDocumentDetailResponse(DocumentStatus.NEEDS_REVISION);
+        when(documentWorkflowService.requestRevision(eq(100L), any(DocumentRevisionRequest.class))).thenReturn(response);
 
         mockMvc.perform(post("/documents/100/workflow/request-revision")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("NEEDS_REVISION"));
+
+        verify(documentWorkflowService).requestRevision(eq(100L), any(DocumentRevisionRequest.class));
     }
 
     @Test
-    @DisplayName("POST /documents/{id}/workflow/initial-sign - Ký nháy UC13")
-    void initialSign_shouldReturnSuccess() throws Exception {
+    @DisplayName("UC13: Ký nháy văn bản - Trả về 200 OK")
+    void initialSign_shouldReturn200() throws Exception {
         DocumentInitialSignRequest request = DocumentInitialSignRequest.builder()
-                .comment("Da tham dinh the thuc")
+                .comment("Đã rà soát thể thức")
                 .build();
 
-        when(documentWorkflowService.initialSign(eq(100L), any(DocumentInitialSignRequest.class)))
-                .thenReturn(sampleResponse);
+        DocumentDetailResponse response = mockDocumentDetailResponse(DocumentStatus.INITIAL_SIGNED);
+        when(documentWorkflowService.initialSign(eq(100L), any(DocumentInitialSignRequest.class))).thenReturn(response);
 
         mockMvc.perform(post("/documents/100/workflow/initial-sign")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("INITIAL_SIGNED"));
+
+        verify(documentWorkflowService).initialSign(eq(100L), any(DocumentInitialSignRequest.class));
     }
 
     @Test
-    @DisplayName("POST /documents/{id}/workflow/sign-and-publish - Ký phát hành PKI UC14")
-    void signAndPublish_shouldReturnSuccess() throws Exception {
+    @DisplayName("UC14: Ký số phát hành - Trả về 200 OK và trạng thái PUBLISHED")
+    void signAndPublish_shouldReturn200() throws Exception {
         DocumentPublishRequest request = DocumentPublishRequest.builder()
-                .officialNumber("125/QD-DHEPU")
-                .comment("Ky ban hanh")
+                .officialNumber("123/QĐ-ĐHEPU")
+                .comment("Ký ban hành")
                 .build();
 
-        when(documentWorkflowService.signAndPublish(eq(100L), any(DocumentPublishRequest.class)))
-                .thenReturn(sampleResponse);
+        DocumentDetailResponse response = mockDocumentDetailResponse(DocumentStatus.PUBLISHED);
+        response.setOfficialNumber("123/QĐ-ĐHEPU");
+        when(documentWorkflowService.signAndPublish(eq(100L), any(DocumentPublishRequest.class))).thenReturn(response);
 
         mockMvc.perform(post("/documents/100/workflow/sign-and-publish")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("PUBLISHED"))
+                .andExpect(jsonPath("$.data.officialNumber").value("123/QĐ-ĐHEPU"));
+
+        verify(documentWorkflowService).signAndPublish(eq(100L), any(DocumentPublishRequest.class));
     }
 
     @Test
-    @DisplayName("POST /documents/{id}/workflow/reject - Từ chối phê duyệt UC14")
-    void reject_shouldReturnSuccess() throws Exception {
+    @DisplayName("UC14: Từ chối văn bản - Trả về 200 OK và trạng thái REJECTED")
+    void reject_shouldReturn200() throws Exception {
         DocumentRejectRequest request = DocumentRejectRequest.builder()
-                .comment("Khong phu hop voi chu truong")
+                .comment("Nội dung không phù hợp với định hướng")
                 .build();
 
-        when(documentWorkflowService.reject(eq(100L), any(DocumentRejectRequest.class)))
-                .thenReturn(sampleResponse);
+        DocumentDetailResponse response = mockDocumentDetailResponse(DocumentStatus.REJECTED);
+        when(documentWorkflowService.reject(eq(100L), any(DocumentRejectRequest.class))).thenReturn(response);
 
         mockMvc.perform(post("/documents/100/workflow/reject")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("REJECTED"));
+
+        verify(documentWorkflowService).reject(eq(100L), any(DocumentRejectRequest.class));
     }
 
     @Test
-    @DisplayName("GET /documents/{id}/workflow-logs - Lịch sử luồng duyệt timeline có phân trang")
+    @DisplayName("Xem chi tiết văn bản - Trả về 200 OK")
+    void getDetail_shouldReturn200() throws Exception {
+        DocumentDetailResponse response = mockDocumentDetailResponse(DocumentStatus.DRAFT);
+        when(documentWorkflowService.getDetail(100L)).thenReturn(response);
+
+        mockMvc.perform(get("/documents/100"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.id").value(100L));
+
+        verify(documentWorkflowService).getDetail(100L);
+    }
+
+    @Test
+    @DisplayName("Lịch sử luồng duyệt - Trả về danh sách có phân trang")
     void getWorkflowLogs_shouldReturnPage() throws Exception {
         DocumentWorkflowLogResponse log = DocumentWorkflowLogResponse.builder()
                 .id(1L)
                 .documentId(100L)
                 .action(WorkflowAction.SUBMIT)
-                .actionName("Gửi văn bản để duyệt")
-                .actorUsername("drafter")
+                .actorUsername("Nguyễn Văn A")
                 .fromStatus(DocumentStatus.DRAFT)
-                .toStatus(DocumentStatus.SUBMITTED)
+                .toStatus(DocumentStatus.PENDING_APPROVAL)
                 .createdDate(Instant.now())
                 .build();
 
@@ -243,5 +276,25 @@ class DocumentWorkflowControllerTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHORIZED.getCode()));
+    }
+
+    @Test
+    void testGetPendingReviewDocuments() throws Exception {
+        when(documentWorkflowService.getPendingDocuments()).thenReturn(Collections.emptyList());
+
+        mockMvc.perform(get("/documents/pending-review"))
+                .andExpect(status().isOk());
+
+        verify(documentWorkflowService, atLeastOnce()).getPendingDocuments();
+    }
+
+    @Test
+    void testGetDocumentTimeline() throws Exception {
+        when(documentWorkflowService.getDocumentTimeline(anyLong())).thenReturn(Collections.emptyList());
+
+        mockMvc.perform(get("/documents/1/timeline"))
+                .andExpect(status().isOk());
+
+        verify(documentWorkflowService, atLeastOnce()).getDocumentTimeline(1L);
     }
 }

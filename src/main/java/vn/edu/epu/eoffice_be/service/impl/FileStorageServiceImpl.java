@@ -102,9 +102,9 @@ public class FileStorageServiceImpl implements FileStorageService {
                 throw new BusinessException(ErrorCode.STORAGE_ERROR);
             }
 
-            String relativePath = (subDirectory == null || subDirectory.isBlank())
+            String relativePath = (safeSubDir == null || safeSubDir.isBlank())
                     ? storedFileName
-                    : Paths.get(subDirectory, storedFileName).toString().replace("\\", "/");
+                    : Paths.get(safeSubDir, storedFileName).toString().replace("\\", "/");
 
             log.info("Lưu file thành công: {}", relativePath);
             return relativePath.replace("\\", "/");

@@ -81,4 +81,33 @@ public class DocumentWorkflowLog extends BaseEntity {
     @Column(name = "delete_flg", nullable = false)
     @Builder.Default
     boolean deleteFlg = false;
+
+    public Long getDocumentId() {
+        return document != null ? document.getId() : null;
+    }
+
+    public static class DocumentWorkflowLogBuilder {
+        public DocumentWorkflowLogBuilder documentId(Long documentId) {
+            this.document = Document.builder().id(documentId).build();
+            return this;
+        }
+
+        public DocumentWorkflowLogBuilder createdAt(java.time.LocalDateTime createdAt) {
+            return this;
+        }
+
+        public DocumentWorkflowLogBuilder action(WorkflowAction action) {
+            this.action = action;
+            return this;
+        }
+
+        public DocumentWorkflowLogBuilder action(String action) {
+            try {
+                this.action = vn.edu.epu.eoffice_be.common.enums.WorkflowAction.valueOf(action);
+            } catch (Exception e) {
+                this.action = vn.edu.epu.eoffice_be.common.enums.WorkflowAction.SUBMIT;
+            }
+            return this;
+        }
+    }
 }

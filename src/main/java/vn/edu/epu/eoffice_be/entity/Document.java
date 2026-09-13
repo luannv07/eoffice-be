@@ -25,6 +25,8 @@ import vn.edu.epu.eoffice_be.common.entity.BaseEntity;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 
 @Entity
 @Table(name = "documents")
@@ -41,7 +43,6 @@ public class Document extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "eoffice_seq")
     @SequenceGenerator(name = "eoffice_seq", sequenceName = "hibernate_sequence", allocationSize = 50)
-    @Setter(AccessLevel.PROTECTED)
     Long id;
 
     @Column(nullable = false, length = 500)
@@ -103,4 +104,36 @@ public class Document extends BaseEntity {
     @Column(name = "delete_flg", nullable = false)
     @Builder.Default
     boolean deleteFlg = false;
+
+    public void setStatus(DocumentStatus status) {
+        this.status = status;
+    }
+
+    public void setStatus(String status) {
+        if (status == null) {
+            this.status = null;
+        } else {
+            try {
+                this.status = DocumentStatus.valueOf(status);
+            } catch (IllegalArgumentException e) {
+                this.status = DocumentStatus.DRAFT;
+            }
+        }
+    }
+
+    public void setIssueDate(Instant issueDate) {
+        this.issueDate = issueDate;
+    }
+
+    public void setIssueDate(LocalDate issueDate) {
+        this.issueDate = issueDate != null ? issueDate.atStartOfDay(ZoneId.systemDefault()).toInstant() : null;
+    }
+
+    public void setEffectiveDate(Instant effectiveDate) {
+        this.effectiveDate = effectiveDate;
+    }
+
+    public void setEffectiveDate(LocalDate effectiveDate) {
+        this.effectiveDate = effectiveDate != null ? effectiveDate.atStartOfDay(ZoneId.systemDefault()).toInstant() : null;
+    }
 }

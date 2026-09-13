@@ -16,7 +16,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class GlobalExceptionHandlerTest {
-
 	private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
 
 	@Test
