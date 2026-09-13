@@ -12,7 +12,6 @@ import vn.edu.epu.eoffice_be.entity.RefreshToken;
 import vn.edu.epu.eoffice_be.repository.RefreshTokenRepository;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 
@@ -67,7 +66,6 @@ class RefreshTokenServiceTest {
         Instant expiry = Instant.now().plusSeconds(7200);
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> refreshTokenService.rotate(10L, "unknown-jti", "new-jti", expiry));
-
 
         assertEquals(ErrorCode.SESSION_EXPIRED, ex.getErrorCode());
         verify(refreshTokenRepository, never()).save(any(RefreshToken.class));

@@ -77,13 +77,13 @@ public class DocumentQueryService {
     // 1. Tra cứu danh sách văn bản theo quyền hạn của phòng ban
     public List<DocumentResponse> getPublishedDocuments(Long orgId) {
         return documentRepository.findPublishedDocumentsForUser(orgId).stream()
-                .<DocumentResponse>map(doc -> DocumentResponse.builder()
+                .map(doc -> DocumentResponse.builder()
                         .id(doc.getId())
                         .title(doc.getTitle())
                         .officialNumber(doc.getOfficialNumber())
-                        .status(doc.getStatus() != null ? doc.getStatus().name() : null)
-                        .issueDate(doc.getIssueDate() != null ? LocalDate.ofInstant(doc.getIssueDate(), ZONE_VN) : null)
-                        .effectiveDate(doc.getEffectiveDate() != null ? LocalDate.ofInstant(doc.getEffectiveDate(), ZONE_VN) : null)
+                        .status(doc.getStatus())
+                        .issueDate(doc.getIssueDate())
+                        .effectiveDate(doc.getEffectiveDate())
                         .officialHash(doc.getOfficialHash())
                         .build())
                 .toList();
@@ -107,9 +107,9 @@ public class DocumentQueryService {
                 .id(doc.getId())
                 .title(doc.getTitle())
                 .officialNumber(doc.getOfficialNumber())
-                .status(doc.getStatus() != null ? doc.getStatus().name() : null)
-                .issueDate(doc.getIssueDate() != null ? LocalDate.ofInstant(doc.getIssueDate(), ZONE_VN) : null)
-                .effectiveDate(doc.getEffectiveDate() != null ? LocalDate.ofInstant(doc.getEffectiveDate(), ZONE_VN) : null)
+                .status(doc.getStatus())
+                .issueDate(doc.getIssueDate())
+                .effectiveDate(doc.getEffectiveDate())
                 .officialHash(doc.getOfficialHash())
                 .build();
     }

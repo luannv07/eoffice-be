@@ -1,66 +1,75 @@
 package vn.edu.epu.eoffice_be.service;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
+import org.springframework.stereotype.Service;
 import vn.edu.epu.eoffice_be.dto.PendingDocumentResponse;
 import vn.edu.epu.eoffice_be.dto.WorkflowTimelineResponse;
-import vn.edu.epu.eoffice_be.dto.request.DocumentApproveRequest;
-import vn.edu.epu.eoffice_be.dto.request.DocumentInitialSignRequest;
-import vn.edu.epu.eoffice_be.dto.request.DocumentPublishRequest;
-import vn.edu.epu.eoffice_be.dto.request.DocumentRejectRequest;
-import vn.edu.epu.eoffice_be.dto.request.DocumentRevisionRequest;
-import vn.edu.epu.eoffice_be.dto.response.DocumentDetailResponse;
-import vn.edu.epu.eoffice_be.dto.response.DocumentWorkflowLogResponse;
+import vn.edu.epu.eoffice_be.entity.Document;
+import vn.edu.epu.eoffice_be.entity.DocumentWorkflowLog;
+import vn.edu.epu.eoffice_be.repository.DocumentRepository;
+import vn.edu.epu.eoffice_be.repository.DocumentWorkflowLogRepository;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 
-public interface DocumentWorkflowService {
+@Service
+@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+public class DocumentWorkflowService {
+    private static final java.time.ZoneId ZONE_VN = java.time.ZoneId.of("Asia/Ho_Chi_Minh");
+    DocumentWorkflowLogRepository workflowLogRepository;
+    DocumentRepository documentRepository;
 
-    /**
-     * UC12: Phê duyệt văn bản, ghi nhận bút phê lãnh đạo và đơn vị chủ trì.
-     */
-    DocumentDetailResponse approve(Long documentId, DocumentApproveRequest request);
+    public List<WorkflowTimelineResponse> getDocumentTimeline(Long documentId) {
+        return workflowLogRepository.findByDocumentIdOrderByCreatedAtAsc(documentId).stream()
+                .<WorkflowTimelineResponse>map(log -> WorkflowTimelineResponse.builder()
+                        .id(log.getId())
+                        .documentId(log.getDocumentId())
+                        .actorUsername(log.getActorUsername() != null ? log.getActorUsername() : log.getActor())
+                        .actorRole(log.getActorRole())
+                        .action(log.getAction())
+                        .comment(log.getComment())
+                        .createdAt(log.getCreatedAt())
+                        .build())
+                .toList();
+    }
 
-    /**
-     * UC12: Yêu cầu chỉnh sửa văn bản, chuyển trạng thái về NEEDS_REVISION.
-     */
-    DocumentDetailResponse requestRevision(Long documentId, DocumentRevisionRequest request);
+    public List<PendingDocumentResponse> getPendingDocuments() {
+        // [17/20]: Lọc trực tiếp theo danh sách trạng thái chờ xử lý thay vì findAll()
+        List<String> pendingStatuses = List.of("SUBMITTED", "PENDING_REVIEW", "PENDING_APPROVAL");
+        List<Document> list = documentRepository.findByStatusIn(pendingStatuses);
 
-    /**
-     * UC13: Ký nháy văn bản, nhúng Digital Stamp lên trang cuối PDF và tính SHA-256 hash.
-     */
-    DocumentDetailResponse initialSign(Long documentId, DocumentInitialSignRequest request);
+        return list.stream().map(doc -> {
+            // [16/20]: Xác định currentHolder dựa trên trạng thái thực tế
+            String holder = switch (doc.getStatus()) {
+                case "SUBMITTED" -> "Văn thư tiếp nhận";
+                case "PENDING_REVIEW" -> "Chuyên viên thẩm định";
+                case "PENDING_APPROVAL" -> "Lãnh đạo phê duyệt";
+                default -> "Bộ phận xử lý văn bản";
+            };
 
-    /**
-     * UC14: Phê duyệt và ký phát hành chính thức bằng chữ ký số PKI X.509 PAdES,
-     * đặt cờ CERTIFIED_NO_CHANGES_ALLOWED và cấp số hiệu văn bản.
-     */
-    DocumentDetailResponse signAndPublish(Long documentId, DocumentPublishRequest request);
+            return PendingDocumentResponse.builder()
+                    .id(doc.getId())
+                    .title(doc.getTitle())
+                    .status(doc.getStatus())
+                    .currentHolder(holder)
+                    .build();
+        }).toList();
+    }
 
-    /**
-     * UC14: Từ chối phê duyệt văn bản kèm lý do.
-     */
-    DocumentDetailResponse reject(Long documentId, DocumentRejectRequest request);
-
-    /**
-     * Lấy timeline lịch sử luồng duyệt của một văn bản (hỗ trợ phân trang).
-     */
-    Page<DocumentWorkflowLogResponse> getWorkflowHistory(Long documentId, Pageable pageable);
-
-    /**
-     * Lấy thông tin chi tiết một văn bản.
-     */
-    DocumentDetailResponse getDetail(Long documentId);
-
-    /**
-     * UC17.1: Xem timeline luồng điều hành & bút phê lãnh đạo (tính năng của đồng đội).
-     */
-    List<WorkflowTimelineResponse> getDocumentTimeline(Long documentId);
-
-    /**
-     * UC17.2: Danh sách văn bản tồn đọng / chờ xử lý (tính năng của đồng đội).
-     */
-    List<PendingDocumentResponse> getPendingDocuments();
-
-    default void logAction(Long documentId, String username, String role, String action, String comment) {}
+    public void logAction(Long documentId, String username, String role, String action, String comment) {
+        DocumentWorkflowLog log = DocumentWorkflowLog.builder()
+                .documentId(documentId)
+                .actorUsername(username)
+                .actorRole(role)
+                .action(action)
+                .comment(comment)
+                .createdAt(LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")))
+                .build();
+        workflowLogRepository.save(log);
+    }
 }

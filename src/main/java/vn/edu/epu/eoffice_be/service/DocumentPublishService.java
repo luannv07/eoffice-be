@@ -5,7 +5,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.dto.PublishRequest;
 import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.entity.DocumentDistribution;
@@ -46,7 +45,7 @@ public class DocumentPublishService {
 
     private void applyDocumentMetadata(Document doc, PublishRequest request, String computedHash) {
         doc.setOfficialNumber(String.format("%02d/QĐ-ĐHL", doc.getId()));
-        doc.setStatus(DocumentStatus.PUBLISHED);
+        doc.setStatus("PUBLISHED");
         doc.setOfficialHash(computedHash);
 
         if (request != null && request.getIssueDate() != null) {

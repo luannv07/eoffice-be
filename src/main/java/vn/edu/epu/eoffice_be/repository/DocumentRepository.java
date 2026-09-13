@@ -6,7 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.entity.Document;
 
 import java.util.List;
@@ -14,17 +13,7 @@ import java.util.Optional;
 
 @Repository
 public interface DocumentRepository extends JpaRepository<Document, Long> {
-
-    Optional<Document> findByIdAndDeleteFlgFalse(Long id);
-
-    List<Document> findByStatusAndDeleteFlgFalse(DocumentStatus status);
-
-    @Query("SELECT d FROM Document d WHERE d.drafter.id = :drafterId AND d.deleteFlg = false")
-    List<Document> findByDrafterIdAndDeleteFlgFalse(@Param("drafterId") Long drafterId);
-
-    @Query("SELECT d FROM Document d WHERE cast(d.status as string) IN :statuses")
-    List<Document> findByStatusIn(@Param("statuses") List<String> statuses);
-
+    java.util.List<Document> findByStatusIn(java.util.List<String> statuses);
     @Query(value = """
         SELECT DISTINCT d.* FROM documents d
         JOIN document_distribution dd ON d.id = dd.document_id

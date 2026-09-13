@@ -4,9 +4,9 @@ databaseChangeLog:
       author: quyet
       preConditions:
         - onFail: MARK_RAN
-        - sqlCheck:
-            expectedResult: 0
-            sql: "SELECT COUNT(*) FROM information_schema.tables WHERE LOWER(table_name) = 'documents'"
+        - not:
+            - tableExists:
+                tableName: documents
       changes:
         - createTable:
             tableName: documents
@@ -56,9 +56,9 @@ databaseChangeLog:
       author: quyet
       preConditions:
         - onFail: MARK_RAN
-        - sqlCheck:
-            expectedResult: 0
-            sql: "SELECT COUNT(*) FROM information_schema.tables WHERE LOWER(table_name) = 'document_distribution'"
+        - not:
+            - tableExists:
+                tableName: document_distribution
       changes:
         - createTable:
             tableName: document_distribution
@@ -98,9 +98,9 @@ databaseChangeLog:
       author: quyet
       preConditions:
         - onFail: MARK_RAN
-        - sqlCheck:
-            expectedResult: 0
-            sql: "SELECT COUNT(*) FROM information_schema.tables WHERE LOWER(table_name) = 'document_workflow_logs'"
+        - not:
+            - tableExists:
+                tableName: document_workflow_logs
       changes:
         - createTable:
             tableName: document_workflow_logs
@@ -158,21 +158,6 @@ databaseChangeLog:
                   name: title
                   value: "Quy chế tổ chức hoạt động văn phòng điện tử"
               - column:
-                  name: document_type_cd
-                  value: "QUYET_DINH"
-              - column:
-                  name: issuing_org_id
-                  valueNumeric: 100
-              - column:
-                  name: drafter_id
-                  valueNumeric: 2001
-              - column:
-                  name: urgency_level_cd
-                  value: "NORMAL"
-              - column:
-                  name: security_level_cd
-                  value: "NORMAL"
-              - column:
                   name: official_number
                   value: "01/QĐ-ĐHL"
               - column:
@@ -181,12 +166,6 @@ databaseChangeLog:
               - column:
                   name: issue_date
                   valueDate: "2026-09-11"
-              - column:
-                  name: delete_flg
-                  valueBoolean: false
-              - column:
-                  name: created_by
-                  value: "quyet"
         - insert:
             tableName: document_distribution
             columns:
@@ -198,7 +177,7 @@ databaseChangeLog:
                   valueNumeric: 1
               - column:
                   name: target_id
-                  valueNumeric: 100
+                  valueNumeric: 1
               - column:
                   name: target_type
                   value: "ORG"
