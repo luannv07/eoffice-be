@@ -71,6 +71,14 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     private static final DateTimeFormatter DATE_TIME_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
 
+    public static final List<DocumentStatus> PENDING_STATUSES = List.of(
+            DocumentStatus.PENDING_APPROVAL,
+            DocumentStatus.IN_REVIEW,
+            DocumentStatus.PENDING_SIGN,
+            DocumentStatus.SUBMITTED,
+            DocumentStatus.DRAFT
+    );
+
     @Override
     @Transactional
     public DocumentDetailResponse approve(Long documentId, DocumentApproveRequest request) {
@@ -427,9 +435,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     @Override
     @Transactional(readOnly = true)
     public Page<PendingDocumentResponse> getPendingDocuments(Pageable pageable) {
-        Page<Document> page = documentRepository.findByStatusIn(
-                List.of("PENDING_APPROVAL", "IN_REVIEW", "WAITING_SIGN", "SUBMITTED", "DRAFT"),
-                pageable);
+        Page<Document> page = documentRepository.findByStatusIn(PENDING_STATUSES, pageable);
         if (page == null) {
             return Page.empty(pageable);
         }
@@ -444,8 +450,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     @Override
     @Transactional(readOnly = true)
     public List<PendingDocumentResponse> getPendingDocuments() {
-        List<Document> list = documentRepository.findByStatusIn(
-                List.of("PENDING_APPROVAL", "IN_REVIEW", "WAITING_SIGN", "SUBMITTED", "DRAFT"));
+        List<Document> list = documentRepository.findByStatusIn(PENDING_STATUSES);
         if (list == null || list.isEmpty()) {
             list = documentRepository.findByStatusAndDeleteFlgFalse(DocumentStatus.PENDING_APPROVAL);
         }
