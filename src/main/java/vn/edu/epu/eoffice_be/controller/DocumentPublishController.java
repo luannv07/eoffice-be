@@ -13,6 +13,9 @@ import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.service.DocumentPublishService;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
+
 @RestController
 @RequestMapping("/documents")
 @RequiredArgsConstructor
@@ -34,8 +37,9 @@ public class DocumentPublishController {
                 .title(doc.getTitle())
                 .officialNumber(doc.getOfficialNumber())
                 .status(doc.getStatus())
-                .issueDate(doc.getIssueDate())
-                .effectiveDate(doc.getEffectiveDate())
+                .statusDescription(doc.getStatus() != null ? doc.getStatus().getDescription() : null)
+                .issueDate(doc.getIssueDate() != null ? LocalDate.ofInstant(doc.getIssueDate(), Document.getBusinessZone()) : null)
+                .effectiveDate(doc.getEffectiveDate() != null ? LocalDate.ofInstant(doc.getEffectiveDate(), Document.getBusinessZone()) : null)
                 .officialFilePath(doc.getOfficialFilePath())
                 .officialHash(doc.getOfficialHash())
                 .build();

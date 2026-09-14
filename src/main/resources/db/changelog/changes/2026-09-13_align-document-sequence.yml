@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-09-13-align-document-sequence-pg
+      author: eoffice-dev
+      dbms: postgresql
+      changes:
+        - sql:
+            sql: ALTER SEQUENCE hibernate_sequence INCREMENT BY 50
+        - sql:
+            sql: SELECT setval('hibernate_sequence', GREATEST(10000, (SELECT COALESCE(MAX(id), 0) FROM documents) + 50), false)
+
+  - changeSet:
+      id: 2026-09-13-align-document-sequence-h2
+      author: eoffice-dev
+      dbms: h2
+      changes:
+        - sql:
+            sql: ALTER SEQUENCE hibernate_sequence RESTART WITH 10000

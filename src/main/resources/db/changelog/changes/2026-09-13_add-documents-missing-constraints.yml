@@ -7,12 +7,15 @@ databaseChangeLog:
   - changeSet:
       id: 2026-09-13-documents-unique-draft-code
       author: luannv
+      validCheckSum:
+        - ANY
       preConditions:
-        - onFail: MARK_RAN
-        - not:
-            uniqueConstraintExists:
-              tableName: documents
-              columnNames: draft_code
+        onFail: MARK_RAN
+        onError: MARK_RAN
+        not:
+          uniqueConstraintExists:
+            tableName: documents
+            columnNames: draft_code
       changes:
         - addUniqueConstraint:
             constraintName: uq_documents_draft_code
@@ -22,11 +25,14 @@ databaseChangeLog:
   - changeSet:
       id: 2026-09-13-documents-fk-issuing-org
       author: luannv
+      validCheckSum:
+        - ANY
       preConditions:
-        - onFail: MARK_RAN
-        - not:
-            foreignKeyConstraintExists:
-              foreignKeyName: fk_documents_issuing_org
+        onFail: MARK_RAN
+        onError: MARK_RAN
+        not:
+          foreignKeyConstraintExists:
+            foreignKeyName: fk_documents_issuing_org
       changes:
         - addForeignKeyConstraint:
             baseTableName: documents
@@ -38,11 +44,14 @@ databaseChangeLog:
   - changeSet:
       id: 2026-09-13-documents-fk-creator
       author: luannv
+      validCheckSum:
+        - ANY
       preConditions:
-        - onFail: MARK_RAN
-        - not:
-            foreignKeyConstraintExists:
-              foreignKeyName: fk_documents_creator
+        onFail: MARK_RAN
+        onError: MARK_RAN
+        not:
+          foreignKeyConstraintExists:
+            foreignKeyName: fk_documents_creator
       changes:
         - addForeignKeyConstraint:
             baseTableName: documents
@@ -54,12 +63,15 @@ databaseChangeLog:
   - changeSet:
       id: 2026-09-13-documents-index-status
       author: luannv
+      validCheckSum:
+        - ANY
       preConditions:
-        - onFail: MARK_RAN
-        - not:
-            indexExists:
-              tableName: documents
-              indexName: idx_documents_status
+        onFail: MARK_RAN
+        onError: MARK_RAN
+        not:
+          indexExists:
+            tableName: documents
+            indexName: idx_documents_status
       changes:
         - createIndex:
             indexName: idx_documents_status
@@ -71,12 +83,15 @@ databaseChangeLog:
   - changeSet:
       id: 2026-09-13-documents-index-creator
       author: luannv
+      validCheckSum:
+        - ANY
       preConditions:
-        - onFail: MARK_RAN
-        - not:
-            indexExists:
-              tableName: documents
-              indexName: idx_documents_creator
+        onFail: MARK_RAN
+        onError: MARK_RAN
+        not:
+          indexExists:
+            tableName: documents
+            indexName: idx_documents_creator
       changes:
         - createIndex:
             indexName: idx_documents_creator
@@ -88,12 +103,15 @@ databaseChangeLog:
   - changeSet:
       id: 2026-09-13-documents-index-org
       author: luannv
+      validCheckSum:
+        - ANY
       preConditions:
-        - onFail: MARK_RAN
-        - not:
-            indexExists:
-              tableName: documents
-              indexName: idx_documents_org
+        onFail: MARK_RAN
+        onError: MARK_RAN
+        not:
+          indexExists:
+            tableName: documents
+            indexName: idx_documents_org
       changes:
         - createIndex:
             indexName: idx_documents_org

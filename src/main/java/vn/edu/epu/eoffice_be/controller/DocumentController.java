@@ -51,11 +51,14 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 @Slf4j
 @RestController
 @RequestMapping("/documents")
 @RequiredArgsConstructor
 @Auditable
+@PreAuthorize("isAuthenticated()")
 @Tag(name = "Document Management", description = "Quản lý văn bản và dự thảo (UC08, UC09, UC10, UC11)")
 public class DocumentController {
 
@@ -191,8 +194,32 @@ public class DocumentController {
             Authentication authentication
     ) {
         Long userId = extractUserId(authentication);
-        Resource resource = documentAttachmentService.downloadAttachment(id, attachmentId, userId);
         DocumentAttachment metadata = documentAttachmentService.getAttachmentMetadata(id, attachmentId, userId);
+        if (metadata == null) {
+            throw new BusinessException(ErrorCode.DOCUMENT_ATTACHMENT_NOT_FOUND, "Không tìm thấy thông tin tệp đính kèm");
+        }
+
+        Resource resource = documentAttachmentService.downloadAttachment(id, attachmentId, userId);
+        if (resource == null) {
+            throw new BusinessException(ErrorCode.DOCUMENT_ATTACHMENT_NOT_FOUND, "Tệp đính kèm không tồn tại");
+        }
+
+        try {
+            if (!resource.exists() || !resource.isReadable()) {
+                throw new BusinessException(ErrorCode.DOCUMENT_ATTACHMENT_NOT_FOUND, "Tệp đính kèm không tồn tại hoặc không thể đọc");
+            }
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            if (e instanceof java.io.IOException || e instanceof java.io.UncheckedIOException || e.getCause() instanceof java.io.IOException) {
+                log.error("Lỗi khi kiểm tra tính khả dụng của tệp đính kèm id={}: {}", attachmentId, e.getMessage(), e);
+                throw new BusinessException(ErrorCode.STORAGE_ERROR, "Lỗi khi kiểm tra tính khả dụng của tệp đính kèm");
+            }
+            if (e instanceof RuntimeException re) {
+                throw re;
+            }
+            throw new BusinessException(ErrorCode.STORAGE_ERROR, "Lỗi khi kiểm tra tính khả dụng của tệp đính kèm");
+        }
 
         String rawFileName = metadata.getOriginalFileName();
         String safeFileName = (rawFileName != null && !rawFileName.isBlank()) ? rawFileName : "file";

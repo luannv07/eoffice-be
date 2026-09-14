@@ -10,10 +10,6 @@ import org.springframework.data.web.config.SpringDataJacksonConfiguration;
 public class JacksonConfig {
 
 	@Bean
-	public Module pageableJacksonModule() {
-		return new SpringDataJacksonConfiguration().pageModule();
-	}
-
 	public ObjectMapper objectMapper() {
 		return new ObjectMapper()
 				.findAndRegisterModules()

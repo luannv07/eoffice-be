@@ -52,8 +52,16 @@ class DocumentQueryControllerTest {
     @BeforeEach
     void setUp() {
         SecurityContextHolder.clearContext();
+        documentQueryController.resetAllowedLegacyPrincipals();
         auth = mock(Authentication.class);
         lenient().when(auth.isAuthenticated()).thenReturn(true);
+
+        documentQueryController.registerAllowedLegacyPrincipal(ValidReflectionPrincipal.class);
+        documentQueryController.registerAllowedLegacyPrincipal(PrimitiveLongOrgIdPrincipal.class);
+        documentQueryController.registerAllowedLegacyPrincipal(NullOrgIdReflectionPrincipal.class);
+        documentQueryController.registerAllowedLegacyPrincipal(NonLongOrgIdPrincipal.class);
+        documentQueryController.registerAllowedLegacyPrincipal(ExceptionThrowingPrincipal.class);
+        documentQueryController.registerAllowedLegacyPrincipal(ErrorThrowingPrincipal.class);
 
         var securityFilter = new org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter();
         try {
@@ -69,6 +77,7 @@ class DocumentQueryControllerTest {
     @AfterEach
     void tearDown() {
         SecurityContextHolder.clearContext();
+        documentQueryController.resetAllowedLegacyPrincipals();
     }
 
     // Realistic production-like test fixture implementing UserDetails & OrgAwarePrincipal
@@ -113,6 +122,12 @@ class DocumentQueryControllerTest {
         public Long getOrgId() { return orgId; }
     }
 
+    public static class PrimitiveLongOrgIdPrincipal {
+        private final long orgId;
+        public PrimitiveLongOrgIdPrincipal(long orgId) { this.orgId = orgId; }
+        public long getOrgId() { return orgId; }
+    }
+
     public static class NullOrgIdReflectionPrincipal {
         public Long getOrgId() { return null; }
     }
@@ -131,6 +146,32 @@ class DocumentQueryControllerTest {
 
     public static class ErrorThrowingPrincipal {
         public Long getOrgId() { throw new AssertionError("JVM Error inside getOrgId"); }
+    }
+
+    public static class UnapprovedPrincipalWithGetOrgId {
+        public Long getOrgId() { return 999L; }
+    }
+
+    @Test
+    void testResolveUserOrgId_UnapprovedClassWithGetOrgId_ThrowsAccessDenied() {
+        when(auth.getPrincipal()).thenReturn(new UnapprovedPrincipalWithGetOrgId());
+
+        assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(auth));
+        verifyNoInteractions(documentQueryService);
+    }
+
+    @Test
+    void testResetAllowedLegacyPrincipals_ShouldRejectPreviouslyRegisteredPrincipal() {
+        // Đăng ký tạm thời một principal class
+        documentQueryController.registerAllowedLegacyPrincipal(UnapprovedPrincipalWithGetOrgId.class);
+
+        // Reset về danh sách mặc định
+        documentQueryController.resetAllowedLegacyPrincipals();
+
+        // Kiểm tra sau khi reset, principal này bị từ chối với AccessDeniedException
+        when(auth.getPrincipal()).thenReturn(new UnapprovedPrincipalWithGetOrgId());
+        assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(auth));
+        verifyNoInteractions(documentQueryService);
     }
 
     @Test
@@ -153,6 +194,17 @@ class DocumentQueryControllerTest {
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
         verify(documentQueryService, times(1)).getPublishedDocuments(150L);
+    }
+
+    @Test
+    void testGetPublishedDocuments_FallbackReflection_PrimitiveLong_Success() {
+        when(auth.getPrincipal()).thenReturn(new PrimitiveLongOrgIdPrincipal(160L));
+        when(documentQueryService.getPublishedDocuments(160L)).thenReturn(List.of());
+
+        ResponseEntity<Object> response = documentQueryController.getPublishedDocuments(auth);
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        verify(documentQueryService, times(1)).getPublishedDocuments(160L);
     }
 
     @Test
@@ -407,5 +459,45 @@ class DocumentQueryControllerTest {
         }
 
         verifyNoInteractions(documentQueryService);
+    }
+
+    @Test
+    void testRegisterAllowedLegacyPrincipal_InvalidClassWithoutGetOrgId_ThrowsIllegalArgumentException() {
+        assertThrows(IllegalArgumentException.class, () ->
+                documentQueryController.registerAllowedLegacyPrincipal(MissingOrgIdPrincipal.class));
+    }
+
+    @Test
+    void testRegisterAllowedLegacyPrincipal_NullClass_ThrowsIllegalArgumentException() {
+        assertThrows(IllegalArgumentException.class, () ->
+                documentQueryController.registerAllowedLegacyPrincipal(null));
+    }
+
+    @Test
+    void testAtomicReset_UnderConcurrency_NeverExposesEmptyAllowlist() throws Exception {
+        int threads = 8;
+        int iterations = 100;
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(threads);
+        java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.atomic.AtomicInteger observedEmptyCount = new java.util.concurrent.atomic.AtomicInteger(0);
+
+        for (int i = 0; i < threads; i++) {
+            executor.submit(() -> {
+                try {
+                    latch.await();
+                    for (int j = 0; j < iterations; j++) {
+                        documentQueryController.registerAllowedLegacyPrincipal(ValidReflectionPrincipal.class);
+                        documentQueryController.resetAllowedLegacyPrincipals();
+                    }
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        }
+
+        latch.countDown();
+        executor.shutdown();
+        assertTrue(executor.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS));
+        assertEquals(0, observedEmptyCount.get());
     }
 }

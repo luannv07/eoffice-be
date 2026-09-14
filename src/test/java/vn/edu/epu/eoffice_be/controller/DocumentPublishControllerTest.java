@@ -63,7 +63,9 @@ class DocumentPublishControllerTest {
         mockMvc.perform(post("/documents/1/publish")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(rawJson))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PUBLISHED"))
+                .andExpect(jsonPath("$.statusDescription").value(vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED.getDescription()));
     }
 
     @Test

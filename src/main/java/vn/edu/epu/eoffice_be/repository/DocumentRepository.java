@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.entity.Document;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -56,21 +57,54 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
             Pageable pageable
     );
 
-    @Query("""
-        SELECT d FROM Document d
-        WHERE d.status IN (:statuses)
-          AND d.deleteFlg = false
-        ORDER BY d.id ASC
-    """)
-    List<Document> findByStatusIn(@Param("statuses") java.util.Collection<DocumentStatus> statuses);
+    List<Document> findByStatusAndDeleteFlgFalse(DocumentStatus status);
 
-    @Query("""
-        SELECT d FROM Document d
-        WHERE d.status IN (:statuses)
-          AND d.deleteFlg = false
-        ORDER BY d.id ASC
-    """)
-    Page<Document> findByStatusIn(@Param("statuses") java.util.Collection<DocumentStatus> statuses, Pageable pageable);
+    @Query("SELECT d FROM Document d WHERE d.drafter.id = :drafterId AND d.deleteFlg = false")
+    List<Document> findByDrafterIdAndDeleteFlgFalse(@Param("drafterId") Long drafterId);
+
+    /**
+     * Canonical query to find active documents by statuses, ordered deterministically by id ASC.
+     * Excludes soft-deleted documents (deleteFlg = false).
+     *
+     * @param statuses danh sách trạng thái cần lọc
+     * @return danh sách văn bản thỏa mãn
+     */
+    @Query("SELECT d FROM Document d WHERE d.status IN :statuses AND d.deleteFlg = false ORDER BY d.id ASC")
+    List<Document> findByStatusInAndDeleteFlgFalse(@Param("statuses") Collection<DocumentStatus> statuses);
+
+    /**
+     * Canonical paginated query to find active documents by statuses with deterministic ordering (ORDER BY d.id ASC).
+     * Excludes soft-deleted documents (deleteFlg = false).
+     *
+     * @param statuses danh sách trạng thái cần lọc
+     * @param pageable thông tin phân trang
+     * @return trang văn bản thỏa mãn
+     */
+    @Query("SELECT d FROM Document d WHERE d.status IN :statuses AND d.deleteFlg = false ORDER BY d.id ASC")
+    Page<Document> findByStatusInAndDeleteFlgFalse(@Param("statuses") Collection<DocumentStatus> statuses, Pageable pageable);
+
+    /**
+     * Backward-compatible alias for {@link #findByStatusInAndDeleteFlgFalse(Collection)}.
+     * Excludes soft-deleted documents (deleteFlg = false).
+     *
+     * @param statuses danh sách trạng thái cần lọc
+     * @return danh sách văn bản thỏa mãn
+     */
+    default List<Document> findByStatusIn(Collection<DocumentStatus> statuses) {
+        return findByStatusInAndDeleteFlgFalse(statuses);
+    }
+
+    /**
+     * Backward-compatible alias for {@link #findByStatusInAndDeleteFlgFalse(Collection, Pageable)}.
+     * Excludes soft-deleted documents (deleteFlg = false).
+     *
+     * @param statuses danh sách trạng thái cần lọc
+     * @param pageable thông tin phân trang
+     * @return trang văn bản thỏa mãn
+     */
+    default Page<Document> findByStatusIn(Collection<DocumentStatus> statuses, Pageable pageable) {
+        return findByStatusInAndDeleteFlgFalse(statuses, pageable);
+    }
 
     @Query(value = """
         SELECT DISTINCT d.* FROM documents d

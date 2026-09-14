@@ -10,8 +10,11 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotNull;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -20,6 +23,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.type.SqlTypes;
 import vn.edu.epu.eoffice_be.common.entity.BaseEntity;
 import vn.edu.epu.eoffice_be.common.enums.DocumentSecurityLevel;
@@ -28,16 +33,12 @@ import vn.edu.epu.eoffice_be.common.enums.DocumentUrgencyLevel;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 
-/**
- * Quản lý văn bản và dự thảo văn bản với cơ chế xóa mềm (soft-delete).
- * Sử dụng cơ chế @SoftDelete của Hibernate 6.4+/7+ giúp tương thích đa hệ quản trị cơ sở dữ liệu
- * mà không cần hardcode literal true/false trong native SQL.
- * Giới hạn: Điều kiện lọc áp dụng mặc định cho các truy vấn JPA. Khi cần truy vấn văn bản đã xóa
- * để kiểm toán hoặc phục hồi, sử dụng truy vấn Native SQL hoặc Audit Log.
- */
 @Entity
 @Table(name = "documents")
+@SQLDelete(sql = "UPDATE documents SET delete_flg = true WHERE id = ?")
+@SQLRestriction("delete_flg = false")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -47,8 +48,8 @@ import java.time.LocalDate;
 public class Document extends BaseEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "documents_seq_gen")
-    @SequenceGenerator(name = "documents_seq_gen", sequenceName = "documents_seq", allocationSize = 50)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "eoffice_seq")
+    @SequenceGenerator(name = "eoffice_seq", sequenceName = "hibernate_sequence", allocationSize = 50)
     Long id;
 
     @Column(name = "draft_code", length = 50)
@@ -76,10 +77,17 @@ public class Document extends BaseEntity {
     @JoinColumn(name = "creator_user_id")
     UserLogin creatorUser;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 50)
-    @Builder.Default
-    DocumentStatus status = DocumentStatus.DRAFT;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "issuing_org_id")
+    OrgNode issuingOrg;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "drafter_id")
+    UserLogin drafter;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "signer_id")
+    UserLogin signer;
 
     @Column(name = "current_version", nullable = false)
     @Builder.Default
@@ -95,52 +103,118 @@ public class Document extends BaseEntity {
     @Builder.Default
     DocumentUrgencyLevel urgencyLevel = DocumentUrgencyLevel.NORMAL;
 
+    @Column(name = "urgency_level_cd", length = 50)
+    @Builder.Default
+    String urgencyLevelCd = "NORMAL";
+
+    @Column(name = "security_level_cd", length = 50)
+    @Builder.Default
+    String securityLevelCd = "NORMAL";
+
+    @NotNull(message = "Document status cannot be null")
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 50)
+    @Builder.Default
+    DocumentStatus status = DocumentStatus.DRAFT;
+
     @Column(name = "submitted_at")
     Instant submittedAt;
 
-    @org.hibernate.annotations.SoftDelete
-    @Column(name = "delete_flg", nullable = false)
-    @Builder.Default
-    @Setter(AccessLevel.NONE)
-    boolean deleteFlg = false;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_document_id")
+    Document parentDocument;
 
-    // UC15-UC17: Các trường phát hành văn bản
+    @Column(name = "recipients_text", length = 1000)
+    String recipientsText;
+
     @Column(name = "official_number", length = 100)
     String officialNumber;
 
     @Column(name = "issue_date")
-    LocalDate issueDate;
+    Instant issueDate;
 
     @Column(name = "effective_date")
-    LocalDate effectiveDate;
+    Instant effectiveDate;
+
+    @Column(name = "official_hash", length = 64)
+    String officialHash;
+
+    @Column(name = "primary_file_path", length = 500)
+    String primaryFilePath;
 
     @Column(name = "official_file_path", length = 500)
     String officialFilePath;
 
-    @Column(name = "official_hash", length = 64)
-    String officialHash;
+    @Column(name = "delete_flg", nullable = false)
+    @Builder.Default
+    boolean deleteFlg = false;
 
     public void setStatus(DocumentStatus status) {
         this.status = status;
     }
 
-    public void setStatus(String statusStr) {
-        if (statusStr == null) {
-            this.status = null;
-            return;
+    public void setStatus(String status) {
+        if (status == null || status.isBlank()) {
+            throw new IllegalArgumentException("Document status must not be null or blank");
         }
         try {
-            this.status = DocumentStatus.valueOf(statusStr);
+            this.status = DocumentStatus.valueOf(status.trim());
         } catch (IllegalArgumentException e) {
-            if ("PUBLISHED".equalsIgnoreCase(statusStr)) {
-                this.status = DocumentStatus.PUBLISHED;
-            } else if ("WAITING_SIGN".equalsIgnoreCase(statusStr) || "IN_REVIEW".equalsIgnoreCase(statusStr)
-                    || "PENDING_APPROVAL".equalsIgnoreCase(statusStr) || "PENDING_REVIEW".equalsIgnoreCase(statusStr)
-                    || "SUBMITTED".equalsIgnoreCase(statusStr)) {
-                this.status = DocumentStatus.WAITING_APPROVAL;
-            } else {
-                this.status = DocumentStatus.DRAFT;
-            }
+            throw new IllegalArgumentException("Unknown document status: " + status, e);
         }
+    }
+
+    @PrePersist
+    @PreUpdate
+    private void validateStatus() {
+        if (this.status == null) {
+            throw new IllegalStateException("Document status cannot be null");
+        }
+    }
+
+    public static final ZoneId DEFAULT_BUSINESS_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final java.util.concurrent.atomic.AtomicReference<ZoneId> businessZone =
+            new java.util.concurrent.atomic.AtomicReference<>(DEFAULT_BUSINESS_ZONE);
+
+    /**
+     * @deprecated Giữ lại cho tương thích ngược với cấu hình và các API cũ.
+     */
+    @Deprecated
+    public static void setBusinessZone(ZoneId zone) {
+        businessZone.set(zone != null ? zone : DEFAULT_BUSINESS_ZONE);
+    }
+
+    public static ZoneId getBusinessZone() {
+        ZoneId zone = businessZone.get();
+        return zone != null ? zone : DEFAULT_BUSINESS_ZONE;
+    }
+
+    @Deprecated
+    public static void resetBusinessZone() {
+        businessZone.set(DEFAULT_BUSINESS_ZONE);
+    }
+
+    public void setIssueDate(Instant issueDate) {
+        this.issueDate = issueDate;
+    }
+
+    public void setIssueDate(LocalDate issueDate) {
+        setIssueDate(issueDate, getBusinessZone());
+    }
+
+    public void setIssueDate(LocalDate issueDate, ZoneId zoneId) {
+        this.issueDate = issueDate != null ? issueDate.atStartOfDay(zoneId != null ? zoneId : getBusinessZone()).toInstant() : null;
+    }
+
+    public void setEffectiveDate(Instant effectiveDate) {
+        this.effectiveDate = effectiveDate;
+    }
+
+    public void setEffectiveDate(LocalDate effectiveDate) {
+        setEffectiveDate(effectiveDate, getBusinessZone());
+    }
+
+    public void setEffectiveDate(LocalDate effectiveDate, ZoneId zoneId) {
+        this.effectiveDate = effectiveDate != null ? effectiveDate.atStartOfDay(zoneId != null ? zoneId : getBusinessZone()).toInstant() : null;
     }
 }

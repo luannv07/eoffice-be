@@ -304,6 +304,36 @@ class DocumentDraftServiceTest {
     }
 
     @Test
+    @DisplayName("Lấy chi tiết dự thảo thành công khi creatorUser null (fallback sang drafter)")
+    void getDraftDetail_WhenCreatorUserIsNull_FallbackToDrafter_Success() {
+        Long docId = 2L;
+        Long userId = 2001L;
+
+        UserLogin drafter = UserLogin.builder().id(userId).username("drafterUser").build();
+        Document doc = Document.builder()
+                .id(docId)
+                .draftCode("DT-2026-00002")
+                .title("Quyết định ban hành")
+                .summary("Trích yếu")
+                .drafter(drafter)
+                .creatorUser(null)
+                .status(DocumentStatus.SUBMITTED)
+                .currentVersion(1)
+                .build();
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(docId)).thenReturn(Collections.emptyList());
+        when(documentVersionRepository.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(docId)).thenReturn(Collections.emptyList());
+
+        DocumentDetailResponse detail = documentDraftService.getDraftDetail(docId, userId);
+
+        assertNotNull(detail);
+        assertEquals("DT-2026-00002", detail.getDocument().getDraftCode());
+        assertEquals(userId, detail.getDocument().getCreatorUserId());
+        assertEquals("drafterUser", detail.getDocument().getCreatorUsername());
+    }
+
+    @Test
     @DisplayName("Cập nhật dự thảo không tạo phiên bản mới (saveNewVersion = false)")
     void updateDraft_WithoutNewVersion() {
         Long userId = 100L;

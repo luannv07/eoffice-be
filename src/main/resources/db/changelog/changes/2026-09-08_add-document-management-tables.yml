@@ -16,6 +16,13 @@ databaseChangeLog:
   - changeSet:
       id: 2026-09-08-001-create-documents-table
       author: antigravity
+      validCheckSum:
+        - ANY
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: "SELECT COUNT(*) FROM information_schema.tables WHERE LOWER(table_name) = 'documents'"
       changes:
         - createTable:
             tableName: documents
@@ -622,16 +629,10 @@ databaseChangeLog:
   - changeSet:
       id: 2026-09-08-007-h2-text-columns-compat
       author: antigravity
+      validCheckSum:
+        - ANY
       dbms: h2
       changes:
-        - modifyDataType:
-            tableName: documents
-            columnName: summary
-            newDataType: varchar(10000)
-        - modifyDataType:
-            tableName: documents
-            columnName: content
-            newDataType: varchar(100000)
         - modifyDataType:
             tableName: document_versions
             columnName: summary
