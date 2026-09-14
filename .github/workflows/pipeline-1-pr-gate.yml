@@ -18,10 +18,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  pr-gate:
-    name: "PR Gate - Security & Code Review"
+  build-test:
+    name: "Build & Test"
     runs-on: ubuntu-latest
-
     steps:
       - name: 1. Checkout source
         uses: actions/checkout@v4
@@ -38,28 +37,61 @@ jobs:
       - name: 3. Build (Tests + Static Analysis)
         run: mvn -B clean verify
 
-      - name: 4. Build Docker image
+  security-scan:
+    name: "Security Scan (Trivy + TruffleHog)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Checkout source
+        uses: actions/checkout@v4
+
+      - name: 2. Build Docker image
         run: docker build -t eoffice-be:pr-${{ github.sha }} .
 
-      - name: 5. Scan Docker image with Trivy
+      - name: 3a. Trivy – Full report (informational)
         uses: aquasecurity/trivy-action@v0.25.0
         with:
           image-ref: eoffice-be:pr-${{ github.sha }}
           format: table
-          severity: CRITICAL
+          exit-code: 0
+          severity: CRITICAL,HIGH
+
+      - name: 3b. Trivy – Gate on CRITICAL vulnerabilities
+        uses: aquasecurity/trivy-action@v0.25.0
+        with:
+          image-ref: eoffice-be:pr-${{ github.sha }}
+          format: table
+          scanners: vuln
           exit-code: 1
+          severity: CRITICAL
           ignore-unfixed: true
 
-      - name: 6. Secret Scan (TruffleHog)
+      - name: 4. Secret Scan (TruffleHog)
         uses: trufflesecurity/trufflehog@main
         continue-on-error: true
         with:
           extra_args: --results=verified,unknown
 
-      - name: 7. SonarQube Scan + Quality Gate
+  sonar:
+    name: "SonarQube Scan"
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 2. Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+          cache: "maven"
+
+      - name: 3. SonarQube Scan + Quality Gate
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
+          mvn -B compile
           mvn -B sonar:sonar \
             -Dsonar.projectKey=luannv07_eoffice-be \
             -Dsonar.organization=luannv07 \
@@ -67,22 +99,31 @@ jobs:
             -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
             -Dsonar.java.binaries=target/classes
 
-      - name: 8. Setup Node.js
+  ai-review:
+    name: "AI Code Review"
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 2. Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "24"
 
-      - name: 9. Checkout repo eoffice-ai-review
+      - name: 3. Checkout repo eoffice-ai-review
         uses: actions/checkout@v4
         with:
           repository: "luannv07/eoffice-ai-review"
           path: "eoffice-ai-review"
           token: ${{ secrets.GH_PAT }}
 
-      - name: 10. Install AI Reviewer dependencies
+      - name: 4. Install AI Reviewer dependencies
         run: npm --prefix eoffice-ai-review install
 
-      - name: 11. AI Code Review (Hy3/Groq/OpenRouter/Gemini/17WTF)
+      - name: 5. AI Code Review (Hy3/Groq/OpenRouter/Gemini/17WTF)
         run: |
           node \
             -r ./eoffice-ai-review/node_modules/ts-node/register \
@@ -106,8 +147,3 @@ jobs:
           GITHUB_EVENT_ACTION: ${{ github.event.action }}
           GITHUB_BOT_LOGIN: github-actions[bot]
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: 12. Finish
-        if: always()
-        run: |
-          echo "[DONE] Pipeline 1 (PR Gate) finished."
