@@ -39,6 +39,7 @@ public class BusinessTimeZoneConfig {
      * tránh gây side-effect trực tiếp bên trong phương thức khởi tạo bean {@link #businessZone()}.
      */
     @Bean
+    @SuppressWarnings("deprecation") // <-- THÊM DÒNG NÀY VÀO ĐÂY
     public org.springframework.boot.ApplicationRunner businessZoneInitializer(ZoneId businessZone) {
         return args -> Document.setBusinessZone(businessZone);
     }

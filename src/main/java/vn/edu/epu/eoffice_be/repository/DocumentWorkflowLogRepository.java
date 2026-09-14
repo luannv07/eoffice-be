@@ -37,8 +37,4 @@ public interface DocumentWorkflowLogRepository extends JpaRepository<DocumentWor
      * @return danh sách workflow log hoạt động (deleteFlg = false) theo thứ tự createdDate ASC, id ASC
      * @deprecated Use {@link #findByDocumentIdAndDeleteFlgFalseOrderByCreatedDateAsc(Long)} or {@link #findByDocumentIdOrderByCreatedDateAsc(Long)}.
      */
-    @Deprecated
-    default List<DocumentWorkflowLog> findByDocumentIdOrderByCreatedAtAsc(Long documentId) {
-        return findByDocumentIdOrderByCreatedDateAsc(documentId);
-    }
 }

@@ -34,9 +34,6 @@ public class ProfileCompletedFilter extends OncePerRequestFilter {
 		return SecurityWhitelist.isProfileFilterExempt(path, request.getMethod());
 	}
 
-	private boolean matchesPathPrefix(String path, String prefix) {
-		return path.equals(prefix) || path.startsWith(prefix + "/");
-	}
 
 	private String requestPath(HttpServletRequest request) {
 		String path = request.getServletPath();
