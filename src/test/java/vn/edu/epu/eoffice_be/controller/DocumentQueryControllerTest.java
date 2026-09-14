@@ -52,6 +52,7 @@ class DocumentQueryControllerTest {
     @BeforeEach
     void setUp() {
         SecurityContextHolder.clearContext();
+        documentQueryController.resetAllowedLegacyPrincipals();
         auth = mock(Authentication.class);
         lenient().when(auth.isAuthenticated()).thenReturn(true);
 
@@ -76,6 +77,7 @@ class DocumentQueryControllerTest {
     @AfterEach
     void tearDown() {
         SecurityContextHolder.clearContext();
+        documentQueryController.resetAllowedLegacyPrincipals();
     }
 
     // Realistic production-like test fixture implementing UserDetails & OrgAwarePrincipal
@@ -154,6 +156,20 @@ class DocumentQueryControllerTest {
     void testResolveUserOrgId_UnapprovedClassWithGetOrgId_ThrowsAccessDenied() {
         when(auth.getPrincipal()).thenReturn(new UnapprovedPrincipalWithGetOrgId());
 
+        assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(auth));
+        verifyNoInteractions(documentQueryService);
+    }
+
+    @Test
+    void testResetAllowedLegacyPrincipals_ShouldRejectPreviouslyRegisteredPrincipal() {
+        // Đăng ký tạm thời một principal class
+        documentQueryController.registerAllowedLegacyPrincipal(UnapprovedPrincipalWithGetOrgId.class);
+
+        // Reset về danh sách mặc định
+        documentQueryController.resetAllowedLegacyPrincipals();
+
+        // Kiểm tra sau khi reset, principal này bị từ chối với AccessDeniedException
+        when(auth.getPrincipal()).thenReturn(new UnapprovedPrincipalWithGetOrgId());
         assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(auth));
         verifyNoInteractions(documentQueryService);
     }

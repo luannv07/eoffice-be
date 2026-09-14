@@ -48,15 +48,38 @@ public class DocumentQueryController {
         }
     };
 
-    private final java.util.Set<String> allowedLegacyPrincipals = new java.util.concurrent.CopyOnWriteArraySet<>(
-            java.util.Set.of("vn.edu.epu.eoffice_be.security.JwtUserPrincipal")
+    /**
+     * Annotation indicating package-private visibility intended strictly for testing purposes.
+     */
+    @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE)
+    @java.lang.annotation.Target(java.lang.annotation.ElementType.METHOD)
+    @interface VisibleForTesting {}
+
+    private static final java.util.Set<String> DEFAULT_ALLOWED_LEGACY_PRINCIPALS = java.util.Set.of(
+            "vn.edu.epu.eoffice_be.security.JwtUserPrincipal"
     );
 
-    // Package-private hook for registering allowed legacy migration principals in tests or config
+    private final java.util.Set<String> allowedLegacyPrincipals = new java.util.concurrent.CopyOnWriteArraySet<>(
+            DEFAULT_ALLOWED_LEGACY_PRINCIPALS
+    );
+
+    /**
+     * Package-private hook for registering allowed legacy migration principals in tests.
+     */
+    @VisibleForTesting
     void registerAllowedLegacyPrincipal(Class<?> clazz) {
         if (clazz != null) {
             allowedLegacyPrincipals.add(clazz.getName());
         }
+    }
+
+    /**
+     * Package-private hook for restoring the allowed legacy migration principals to default state.
+     */
+    @VisibleForTesting
+    void resetAllowedLegacyPrincipals() {
+        allowedLegacyPrincipals.clear();
+        allowedLegacyPrincipals.addAll(DEFAULT_ALLOWED_LEGACY_PRINCIPALS);
     }
 
     DocumentQueryService queryService;

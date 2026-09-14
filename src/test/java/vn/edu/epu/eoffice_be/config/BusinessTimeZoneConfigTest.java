@@ -1,13 +1,31 @@
 package vn.edu.epu.eoffice_be.config;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
+import vn.edu.epu.eoffice_be.entity.Document;
 
 import java.time.ZoneId;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class BusinessTimeZoneConfigTest {
+
+    @AfterEach
+    void tearDown() {
+        Document.resetBusinessZone();
+    }
+
+    @Test
+    void businessZone_ShouldUpdateDocumentBusinessZone() {
+        BusinessTimeZoneConfig config = new BusinessTimeZoneConfig();
+        ReflectionTestUtils.setField(config, "businessTimeZone", "Asia/Tokyo");
+
+        ZoneId zone = config.businessZone();
+
+        assertEquals(ZoneId.of("Asia/Tokyo"), zone);
+        assertEquals(ZoneId.of("Asia/Tokyo"), Document.getBusinessZone());
+    }
 
     @Test
     void businessZone_WhenNull_ShouldDefaultToHoChiMinh() {
@@ -17,6 +35,7 @@ class BusinessTimeZoneConfigTest {
         ZoneId zone = config.businessZone();
 
         assertEquals(ZoneId.of("Asia/Ho_Chi_Minh"), zone);
+        assertEquals(ZoneId.of("Asia/Ho_Chi_Minh"), Document.getBusinessZone());
     }
 
     @Test

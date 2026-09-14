@@ -41,8 +41,16 @@ public class UploadProperties {
         }
         try {
             java.nio.file.Path path = java.nio.file.Paths.get(dir);
-            boolean isAbs = path.isAbsolute() || dir.startsWith("/") || dir.startsWith("\\");
-            return isAbs && path.equals(path.normalize());
+            boolean isAbs = path.isAbsolute() || dir.startsWith("/");
+            if (!isAbs) {
+                return false;
+            }
+            String trimmed = dir;
+            while (trimmed.length() > 1 && (trimmed.endsWith("/") || trimmed.endsWith("\\"))) {
+                trimmed = trimmed.substring(0, trimmed.length() - 1);
+            }
+            java.nio.file.Path trimmedPath = java.nio.file.Paths.get(trimmed);
+            return trimmedPath.equals(trimmedPath.normalize());
         } catch (Exception e) {
             return false;
         }

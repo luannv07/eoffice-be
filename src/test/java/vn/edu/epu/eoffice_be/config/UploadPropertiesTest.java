@@ -31,68 +31,143 @@ class UploadPropertiesTest {
     }
 
     @Test
-    void invalidDir_ShouldHaveViolationsWithPropertyPath() {
+    void invalidDir_Empty_ShouldHaveExactViolation() {
         UploadProperties props = new UploadProperties();
-
-        // Rỗng
         props.setDir("");
-        Set<ConstraintViolation<UploadProperties>> v1 = validator.validate(props);
-        assertTrue(v1.stream().anyMatch(v -> v.getPropertyPath().toString().contains("dir")));
+        Set<ConstraintViolation<UploadProperties>> violations = validator.validate(props);
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> "dir".equals(v.getPropertyPath().toString())));
+    }
 
-        // Khoảng trắng
+    @Test
+    void invalidDir_Blank_ShouldHaveExactViolation() {
+        UploadProperties props = new UploadProperties();
         props.setDir("   ");
-        Set<ConstraintViolation<UploadProperties>> v2 = validator.validate(props);
-        assertTrue(v2.stream().anyMatch(v -> v.getPropertyPath().toString().contains("dir")));
+        Set<ConstraintViolation<UploadProperties>> violations = validator.validate(props);
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> "dir".equals(v.getPropertyPath().toString())));
+    }
 
-        // Null
+    @Test
+    void invalidDir_Null_ShouldHaveExactViolation() {
+        UploadProperties props = new UploadProperties();
         props.setDir(null);
-        Set<ConstraintViolation<UploadProperties>> v3 = validator.validate(props);
-        assertTrue(v3.stream().anyMatch(v -> v.getPropertyPath().toString().contains("dir")));
+        Set<ConstraintViolation<UploadProperties>> violations = validator.validate(props);
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> "dir".equals(v.getPropertyPath().toString())));
+    }
 
-        // Path traversal chứa ..
+    @Test
+    void invalidDir_PathTraversal_ShouldHaveExactViolation() {
+        UploadProperties props = new UploadProperties();
         props.setDir("/var/eoffice/../etc/passwd");
-        Set<ConstraintViolation<UploadProperties>> v4 = validator.validate(props);
-        assertTrue(v4.stream().anyMatch(v -> v.getPropertyPath().toString().contains("dir")));
+        Set<ConstraintViolation<UploadProperties>> violations = validator.validate(props);
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> "dirValid".equals(v.getPropertyPath().toString())));
+    }
 
-        // Đường dẫn tương đối
+    @Test
+    void invalidDir_PathTraversalNormalizingToUploads_ShouldBeRejected() {
+        UploadProperties props = new UploadProperties();
+        props.setDir("/var/uploads/../uploads");
+        Set<ConstraintViolation<UploadProperties>> violations = validator.validate(props);
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> "dirValid".equals(v.getPropertyPath().toString())));
+    }
+
+    @Test
+    void invalidDir_RelativePath_ShouldHaveExactViolation() {
+        UploadProperties props = new UploadProperties();
         props.setDir("relative/uploads/documents");
-        Set<ConstraintViolation<UploadProperties>> v5 = validator.validate(props);
-        assertTrue(v5.stream().anyMatch(v -> v.getPropertyPath().toString().contains("dir")));
+        Set<ConstraintViolation<UploadProperties>> violations = validator.validate(props);
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> "dirValid".equals(v.getPropertyPath().toString())));
     }
 
     @Test
-    void invalidMaxSizeBytes_ShouldHaveViolationsWithPropertyPath() {
+    void invalidDir_BackslashRelativePath_ShouldBeRejected() {
         UploadProperties props = new UploadProperties();
+        props.setDir("\\uploads\\docs");
+        Set<ConstraintViolation<UploadProperties>> violations = validator.validate(props);
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> "dirValid".equals(v.getPropertyPath().toString())));
+    }
 
-        // 0
+    @Test
+    void validDir_WithoutTrailingSlash_ShouldBeValid() {
+        UploadProperties props = new UploadProperties();
+        props.setDir("/var/uploads");
+        Set<ConstraintViolation<UploadProperties>> violations = validator.validate(props);
+        assertTrue(violations.isEmpty());
+    }
+
+    @Test
+    void validDir_WithTrailingSlash_ShouldBeValid() {
+        UploadProperties props = new UploadProperties();
+        props.setDir("/var/uploads/");
+        Set<ConstraintViolation<UploadProperties>> violations = validator.validate(props);
+        assertTrue(violations.isEmpty());
+    }
+
+    @Test
+    void invalidMaxSizeBytes_Zero_ShouldHaveExactViolation() {
+        UploadProperties props = new UploadProperties();
         props.setMaxSizeBytes(0L);
-        Set<ConstraintViolation<UploadProperties>> v1 = validator.validate(props);
-        assertTrue(v1.stream().anyMatch(v -> v.getPropertyPath().toString().contains("maxSizeBytes")));
-
-        // Âm
-        props.setMaxSizeBytes(-100L);
-        Set<ConstraintViolation<UploadProperties>> v2 = validator.validate(props);
-        assertTrue(v2.stream().anyMatch(v -> v.getPropertyPath().toString().contains("maxSizeBytes")));
-
-        // Vượt quá giới hạn trên (100 MB = 104857600L)
-        props.setMaxSizeBytes(104857601L);
-        Set<ConstraintViolation<UploadProperties>> v3 = validator.validate(props);
-        assertTrue(v3.stream().anyMatch(v -> v.getPropertyPath().toString().contains("maxSizeBytes")));
+        Set<ConstraintViolation<UploadProperties>> violations = validator.validate(props);
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> "maxSizeBytes".equals(v.getPropertyPath().toString())));
     }
 
     @Test
-    void invalidAllowedExtensions_ShouldHaveViolationsWithPropertyPath() {
+    void invalidMaxSizeBytes_Negative_ShouldHaveExactViolation() {
         UploadProperties props = new UploadProperties();
+        props.setMaxSizeBytes(-100L);
+        Set<ConstraintViolation<UploadProperties>> violations = validator.validate(props);
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> "maxSizeBytes".equals(v.getPropertyPath().toString())));
+    }
 
-        // Danh sách rỗng
+    @Test
+    void invalidMaxSizeBytes_ExceedsLimit_ShouldHaveExactViolation() {
+        UploadProperties props = new UploadProperties();
+        props.setMaxSizeBytes(104857601L);
+        Set<ConstraintViolation<UploadProperties>> violations = validator.validate(props);
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> "maxSizeBytes".equals(v.getPropertyPath().toString())));
+    }
+
+    @Test
+    void validMaxSizeBytes_BoundaryMinimum_ShouldBeValid() {
+        UploadProperties props = new UploadProperties();
+        props.setMaxSizeBytes(1L);
+        Set<ConstraintViolation<UploadProperties>> violations = validator.validate(props);
+        assertTrue(violations.isEmpty());
+    }
+
+    @Test
+    void validMaxSizeBytes_BoundaryMaximum_ShouldBeValid() {
+        UploadProperties props = new UploadProperties();
+        props.setMaxSizeBytes(104857600L);
+        Set<ConstraintViolation<UploadProperties>> violations = validator.validate(props);
+        assertTrue(violations.isEmpty());
+    }
+
+    @Test
+    void invalidAllowedExtensions_Empty_ShouldHaveExactViolation() {
+        UploadProperties props = new UploadProperties();
         props.setAllowedExtensions(Collections.emptyList());
-        Set<ConstraintViolation<UploadProperties>> v1 = validator.validate(props);
-        assertTrue(v1.stream().anyMatch(v -> v.getPropertyPath().toString().contains("allowedExtensions")));
+        Set<ConstraintViolation<UploadProperties>> violations = validator.validate(props);
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> "allowedExtensions".equals(v.getPropertyPath().toString())));
+    }
 
-        // Null
+    @Test
+    void invalidAllowedExtensions_Null_ShouldHaveExactViolation() {
+        UploadProperties props = new UploadProperties();
         props.setAllowedExtensions(null);
-        Set<ConstraintViolation<UploadProperties>> v2 = validator.validate(props);
-        assertTrue(v2.stream().anyMatch(v -> v.getPropertyPath().toString().contains("allowedExtensions")));
+        Set<ConstraintViolation<UploadProperties>> violations = validator.validate(props);
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> "allowedExtensions".equals(v.getPropertyPath().toString())));
     }
 
     @Test

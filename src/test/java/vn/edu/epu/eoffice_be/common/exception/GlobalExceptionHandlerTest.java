@@ -26,8 +26,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class GlobalExceptionHandlerTest {
 	private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
 
-	@RestController
-	static class ExceptionTestController {
+	@org.springframework.web.bind.annotation.RequestMapping
+	private static class ExceptionTestController {
 		@GetMapping("/test/illegal-argument")
 		public void throwIllegalArgument() {
 			throw new IllegalArgumentException("sensitive internal server state");

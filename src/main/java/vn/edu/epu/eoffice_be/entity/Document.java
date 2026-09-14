@@ -173,9 +173,25 @@ public class Document extends BaseEntity {
     }
 
     public static final ZoneId DEFAULT_BUSINESS_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final java.util.concurrent.atomic.AtomicReference<ZoneId> businessZone =
+            new java.util.concurrent.atomic.AtomicReference<>(DEFAULT_BUSINESS_ZONE);
+
+    /**
+     * @deprecated Giữ lại cho tương thích ngược với cấu hình và các API cũ.
+     */
+    @Deprecated
+    public static void setBusinessZone(ZoneId zone) {
+        businessZone.set(zone != null ? zone : DEFAULT_BUSINESS_ZONE);
+    }
 
     public static ZoneId getBusinessZone() {
-        return DEFAULT_BUSINESS_ZONE;
+        ZoneId zone = businessZone.get();
+        return zone != null ? zone : DEFAULT_BUSINESS_ZONE;
+    }
+
+    @Deprecated
+    public static void resetBusinessZone() {
+        businessZone.set(DEFAULT_BUSINESS_ZONE);
     }
 
     public void setIssueDate(Instant issueDate) {
@@ -183,11 +199,11 @@ public class Document extends BaseEntity {
     }
 
     public void setIssueDate(LocalDate issueDate) {
-        setIssueDate(issueDate, DEFAULT_BUSINESS_ZONE);
+        setIssueDate(issueDate, getBusinessZone());
     }
 
     public void setIssueDate(LocalDate issueDate, ZoneId zoneId) {
-        this.issueDate = issueDate != null ? issueDate.atStartOfDay(zoneId != null ? zoneId : DEFAULT_BUSINESS_ZONE).toInstant() : null;
+        this.issueDate = issueDate != null ? issueDate.atStartOfDay(zoneId != null ? zoneId : getBusinessZone()).toInstant() : null;
     }
 
     public void setEffectiveDate(Instant effectiveDate) {
@@ -195,10 +211,10 @@ public class Document extends BaseEntity {
     }
 
     public void setEffectiveDate(LocalDate effectiveDate) {
-        setEffectiveDate(effectiveDate, DEFAULT_BUSINESS_ZONE);
+        setEffectiveDate(effectiveDate, getBusinessZone());
     }
 
     public void setEffectiveDate(LocalDate effectiveDate, ZoneId zoneId) {
-        this.effectiveDate = effectiveDate != null ? effectiveDate.atStartOfDay(zoneId != null ? zoneId : DEFAULT_BUSINESS_ZONE).toInstant() : null;
+        this.effectiveDate = effectiveDate != null ? effectiveDate.atStartOfDay(zoneId != null ? zoneId : getBusinessZone()).toInstant() : null;
     }
 }

@@ -201,4 +201,21 @@ class DocumentTest {
         assertEquals(Instant.parse("2026-09-13T00:00:00Z"), document.getIssueDate());
         assertEquals(Instant.parse("2026-09-13T00:00:00Z"), document.getEffectiveDate());
     }
+
+    @Test
+    @DisplayName("setBusinessZone: Cho phép cấu hình múi giờ tùy chỉnh và có thể reset")
+    void setBusinessZone_shouldSupportCustomZoneAndReset() {
+        try {
+            ZoneId customZone = ZoneId.of("Asia/Tokyo");
+            Document.setBusinessZone(customZone);
+            assertEquals(customZone, Document.getBusinessZone());
+
+            LocalDate date = LocalDate.of(2026, 9, 13);
+            document.setIssueDate(date);
+            assertEquals(date.atStartOfDay(customZone).toInstant(), document.getIssueDate());
+        } finally {
+            Document.resetBusinessZone();
+            assertEquals(Document.DEFAULT_BUSINESS_ZONE, Document.getBusinessZone());
+        }
+    }
 }

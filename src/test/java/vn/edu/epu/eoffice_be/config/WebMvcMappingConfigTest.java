@@ -12,11 +12,18 @@ class WebMvcMappingConfigTest {
 
     static class DocumentController {
         public void getDraftDetail() {}
+        public void getDraftDetail(Long id) {}
+        public void getDetail() {}
         public void otherMethod() {}
     }
 
     static class DocumentWorkflowController {
         public void getDetail() {}
+        public void getDraftDetail() {}
+    }
+
+    static class DocumentControllerCustom {
+        public void getDraftDetail() {}
     }
 
     static class UnrelatedController {
@@ -43,6 +50,19 @@ class WebMvcMappingConfigTest {
     }
 
     @Test
+    void isReviewedConflict_ShouldReturnFalse_WhenAnyParameterIsNull() throws Exception {
+        RequestMappingInfo info = RequestMappingInfo.paths("/documents/{id}")
+                .methods(RequestMethod.GET)
+                .build();
+        DocumentController handler = new DocumentController();
+        Method method = DocumentController.class.getMethod("getDraftDetail");
+
+        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(null, handler, method));
+        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info, null, method));
+        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info, handler, null));
+    }
+
+    @Test
     void isReviewedConflict_ShouldReturnTrueForExactReviewedHandlerAndMethod() throws Exception {
         RequestMappingInfo info = RequestMappingInfo.paths("/documents/{id}")
                 .methods(RequestMethod.GET)
@@ -58,25 +78,47 @@ class WebMvcMappingConfigTest {
     }
 
     @Test
-    void isReviewedConflict_ShouldReturnFalseForUnreviewedHandlerOrMethod() throws Exception {
+    void isReviewedConflict_ShouldReturnFalseForCrossOrInvalidHandlerMethodPairs() throws Exception {
         RequestMappingInfo info = RequestMappingInfo.paths("/documents/{id}")
                 .methods(RequestMethod.GET)
                 .build();
 
-        // Cùng mapping nhưng handler lạ
-        UnrelatedController unapprovedHandler = new UnrelatedController();
-        Method method1 = UnrelatedController.class.getMethod("getDetail");
-        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info, unapprovedHandler, method1));
+        // DocumentController với method không được duyệt getDetail
+        DocumentController handler1 = new DocumentController();
+        Method methodWrong1 = DocumentController.class.getMethod("getDetail");
+        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info, handler1, methodWrong1));
 
-        // Đúng handler nhưng method khác
-        DocumentController approvedHandler = new DocumentController();
-        Method method2 = DocumentController.class.getMethod("otherMethod");
-        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info, approvedHandler, method2));
+        // DocumentWorkflowController với method không được duyệt getDraftDetail
+        DocumentWorkflowController handler2 = new DocumentWorkflowController();
+        Method methodWrong2 = DocumentWorkflowController.class.getMethod("getDraftDetail");
+        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info, handler2, methodWrong2));
+
+        // Class có tiền tố trùng nhưng không phải class được duyệt
+        DocumentControllerCustom prefixHandler = new DocumentControllerCustom();
+        Method methodCustom = DocumentControllerCustom.class.getMethod("getDraftDetail");
+        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info, prefixHandler, methodCustom));
+
+        // Controller không liên quan
+        UnrelatedController unrelated = new UnrelatedController();
+        Method methodUnrelated = UnrelatedController.class.getMethod("getDetail");
+        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info, unrelated, methodUnrelated));
 
         // Khác URL mapping
         RequestMappingInfo otherInfo = RequestMappingInfo.paths("/other/{id}")
                 .methods(RequestMethod.GET)
                 .build();
-        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(otherInfo, approvedHandler, DocumentController.class.getMethod("getDraftDetail")));
+        Method methodDraft = DocumentController.class.getMethod("getDraftDetail");
+        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(otherInfo, handler1, methodDraft));
+    }
+
+    @Test
+    void isReviewedConflict_ShouldSupportOverloadedReviewedMethod() throws Exception {
+        RequestMappingInfo info = RequestMappingInfo.paths("/documents/{id}")
+                .methods(RequestMethod.GET)
+                .build();
+
+        DocumentController handler = new DocumentController();
+        Method overloadedMethod = DocumentController.class.getMethod("getDraftDetail", Long.class);
+        assertTrue(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info, handler, overloadedMethod));
     }
 }

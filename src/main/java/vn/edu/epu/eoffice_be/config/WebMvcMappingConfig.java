@@ -23,33 +23,39 @@ public class WebMvcMappingConfig implements WebMvcRegistrations {
 
     static class AmbiguousMappingSafeHandlerMapping extends RequestMappingHandlerMapping {
 
+        record AllowedHandlerMethod(String handlerSimpleName, String methodName) {}
+
         record ReviewedConflictRule(
                 org.springframework.web.bind.annotation.RequestMethod httpMethod,
                 String pathPattern,
-                java.util.Set<String> allowedHandlerSimpleNames,
-                java.util.Set<String> allowedMethodNames
+                java.util.Set<AllowedHandlerMethod> allowedHandlerMethods
         ) {
             boolean matches(RequestMappingInfo mapping, Object handler, Method method) {
-                if (mapping == null || method == null) {
+                if (mapping == null || handler == null || method == null) {
                     return false;
                 }
-                boolean methodMatches = mapping.getMethodsCondition().getMethods().contains(httpMethod);
-                boolean pathMatches = mapping.getPatternValues().contains(pathPattern);
-
-                String declaringClassName = method.getDeclaringClass().getSimpleName();
-                boolean handlerMatches = allowedHandlerSimpleNames.contains(declaringClassName);
-                if (!handlerMatches && handler != null) {
-                    if (handler instanceof String s) {
-                        handlerMatches = allowedHandlerSimpleNames.stream().anyMatch(name -> name.equalsIgnoreCase(s));
-                    } else {
-                        String simpleName = handler.getClass().getSimpleName();
-                        handlerMatches = allowedHandlerSimpleNames.stream().anyMatch(simpleName::startsWith);
-                    }
+                if (mapping.getMethodsCondition() == null || !mapping.getMethodsCondition().getMethods().contains(httpMethod)) {
+                    return false;
+                }
+                if (mapping.getPatternValues() == null || !mapping.getPatternValues().contains(pathPattern)) {
+                    return false;
                 }
 
-                boolean actionMethodMatches = allowedMethodNames.contains(method.getName());
+                String methodName = method.getName();
+                String handlerSimpleName;
+                if (handler instanceof String s) {
+                    handlerSimpleName = s;
+                } else {
+                    handlerSimpleName = org.springframework.util.ClassUtils.getUserClass(handler).getSimpleName();
+                }
 
-                return methodMatches && pathMatches && handlerMatches && actionMethodMatches;
+                String declaringClassName = method.getDeclaringClass().getSimpleName();
+
+                return allowedHandlerMethods.stream().anyMatch(allowed ->
+                        (allowed.handlerSimpleName().equalsIgnoreCase(handlerSimpleName)
+                                || allowed.handlerSimpleName().equalsIgnoreCase(declaringClassName))
+                                && allowed.methodName().equals(methodName)
+                );
             }
         }
 
@@ -57,8 +63,10 @@ public class WebMvcMappingConfig implements WebMvcRegistrations {
                 new ReviewedConflictRule(
                         org.springframework.web.bind.annotation.RequestMethod.GET,
                         "/documents/{id}",
-                        java.util.Set.of("DocumentController", "DocumentWorkflowController"),
-                        java.util.Set.of("getDraftDetail", "getDetail")
+                        java.util.Set.of(
+                                new AllowedHandlerMethod("DocumentController", "getDraftDetail"),
+                                new AllowedHandlerMethod("DocumentWorkflowController", "getDetail")
+                        )
                 )
         );
 
@@ -82,6 +90,9 @@ public class WebMvcMappingConfig implements WebMvcRegistrations {
         }
 
         static boolean isReviewedConflict(RequestMappingInfo mapping, Object handler, Method method) {
+            if (mapping == null || handler == null || method == null) {
+                return false;
+            }
             return REVIEWED_RULES.stream().anyMatch(rule -> rule.matches(mapping, handler, method));
         }
     }
