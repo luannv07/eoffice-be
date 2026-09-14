@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.dto.request.AssignDocumentNumberRequest;
@@ -17,10 +18,12 @@ import vn.edu.epu.eoffice_be.dto.request.DocumentBookUpdateRequest;
 import vn.edu.epu.eoffice_be.dto.response.AssignDocumentNumberResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentBookResponse;
 import vn.edu.epu.eoffice_be.entity.DictionaryItem;
+import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.entity.DocumentBook;
 import vn.edu.epu.eoffice_be.entity.OrgNode;
 import vn.edu.epu.eoffice_be.repository.DictionaryItemRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentBookRepository;
+import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import vn.edu.epu.eoffice_be.repository.OrgNodeRepository;
 import vn.edu.epu.eoffice_be.service.DocumentBookService;
 
@@ -32,6 +35,7 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 	DocumentBookRepository documentBookRepository;
 	DictionaryItemRepository dictionaryItemRepository;
 	OrgNodeRepository orgNodeRepository;
+	DocumentRepository documentRepository;
 
 	@Override
 	@Transactional(readOnly = true)
@@ -172,18 +176,33 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 			throw new BusinessException(ErrorCode.DOCUMENT_BOOK_CLOSED);
 		}
 
-		// TODO: Khi triển khai Module 3 (Soạn thảo & Phê duyệt - Document entity):
-		// 1. Kiểm tra văn bản tồn tại theo request.getDocumentId()
-		// 2. Kiểm tra văn bản có trạng thái APPROVED (đã phê duyệt)
-		// 3. Gán số văn bản vừa cấp và ngày hiệu lực vào Document entity
+		// 2. Kiểm tra văn bản tồn tại và trạng thái APPROVED (nếu có truyền documentId)
+		Document document = null;
+		if (request.getDocumentId() != null) {
+			document = documentRepository.findById(request.getDocumentId())
+					.orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
-		// 2. Tăng số thứ tự văn bản
+			if (document.getStatus() != DocumentStatus.APPROVED) {
+				throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATUS, "Văn bản chưa ở trạng thái Đã phê duyệt (APPROVED)");
+			}
+		}
+
+		// 3. Tăng số thứ tự văn bản
 		int nextNumber = book.getCurrentNumber() + 1;
 		book.setCurrentNumber(nextNumber);
 		documentBookRepository.save(book);
 
-		// 3. Áp dụng pattern: "{NUM}/QĐ-ĐHEPU" -> "1/QĐ-ĐHEPU"
+		// 4. Áp dụng pattern: "{NUM}/QĐ-ĐHEPU" -> "1/QĐ-ĐHEPU"
 		String documentNumber = book.getNumberPattern().replace("{NUM}", String.valueOf(nextNumber));
+
+		// 5. Gán số văn bản và ngày hiệu lực vào Document entity
+		if (document != null) {
+			document.setOfficialNumber(documentNumber);
+			if (request.getEffectiveDate() != null) {
+				document.setEffectiveDate(request.getEffectiveDate());
+			}
+			documentRepository.save(document);
+		}
 
 		return AssignDocumentNumberResponse.builder()
 				.documentNumber(documentNumber)

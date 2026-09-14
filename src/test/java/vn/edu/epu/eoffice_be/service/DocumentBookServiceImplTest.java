@@ -10,6 +10,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.dto.request.AssignDocumentNumberRequest;
@@ -19,10 +20,12 @@ import vn.edu.epu.eoffice_be.dto.request.DocumentBookUpdateRequest;
 import vn.edu.epu.eoffice_be.dto.response.AssignDocumentNumberResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentBookResponse;
 import vn.edu.epu.eoffice_be.entity.DictionaryItem;
+import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.entity.DocumentBook;
 import vn.edu.epu.eoffice_be.entity.OrgNode;
 import vn.edu.epu.eoffice_be.repository.DictionaryItemRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentBookRepository;
+import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import vn.edu.epu.eoffice_be.repository.OrgNodeRepository;
 import vn.edu.epu.eoffice_be.service.impl.DocumentBookServiceImpl;
 
@@ -45,6 +48,9 @@ class DocumentBookServiceImplTest {
 
 	@Mock
 	OrgNodeRepository orgNodeRepository;
+
+	@Mock
+	DocumentRepository documentRepository;
 
 	@InjectMocks
 	DocumentBookServiceImpl documentBookService;
@@ -219,8 +225,15 @@ class DocumentBookServiceImplTest {
 
 	@Test
 	void assignNumber_Success_IncrementsCurrentNumber() {
+		Document doc = Document.builder()
+				.id(5001L)
+				.status(DocumentStatus.APPROVED)
+				.build();
+
 		when(documentBookRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(book));
 		when(documentBookRepository.save(any(DocumentBook.class))).thenAnswer(inv -> inv.getArgument(0));
+		when(documentRepository.findById(5001L)).thenReturn(Optional.of(doc));
+		when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
 
 		AssignDocumentNumberRequest req = new AssignDocumentNumberRequest();
 		req.setBookId(1L);
@@ -236,6 +249,57 @@ class DocumentBookServiceImplTest {
 		assertEquals(5001L, res.getDocumentId());
 		assertEquals(LocalDate.of(2026, 9, 10), res.getEffectiveDate());
 		assertEquals(1, book.getCurrentNumber());
+		assertEquals("1/QĐ-ĐHEPU", doc.getOfficialNumber());
+		verify(documentRepository).save(doc);
+	}
+
+	@Test
+	void assignNumber_DocumentNotFound_ThrowsException() {
+		when(documentBookRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(book));
+		when(documentRepository.findById(5001L)).thenReturn(Optional.empty());
+
+		AssignDocumentNumberRequest req = new AssignDocumentNumberRequest();
+		req.setBookId(1L);
+		req.setDocumentId(5001L);
+
+		BusinessException ex = assertThrows(BusinessException.class, () -> documentBookService.assignNumber(req));
+		assertEquals(ErrorCode.DOCUMENT_NOT_FOUND, ex.getErrorCode());
+	}
+
+	@Test
+	void assignNumber_DocumentStatusNotApproved_ThrowsException() {
+		Document doc = Document.builder()
+				.id(5001L)
+				.status(DocumentStatus.DRAFT)
+				.build();
+
+		when(documentBookRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(book));
+		when(documentRepository.findById(5001L)).thenReturn(Optional.of(doc));
+
+		AssignDocumentNumberRequest req = new AssignDocumentNumberRequest();
+		req.setBookId(1L);
+		req.setDocumentId(5001L);
+
+		BusinessException ex = assertThrows(BusinessException.class, () -> documentBookService.assignNumber(req));
+		assertEquals(ErrorCode.INVALID_DOCUMENT_STATUS, ex.getErrorCode());
+	}
+
+	@Test
+	void assignNumber_NullDocumentId_Success() {
+		when(documentBookRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(book));
+		when(documentBookRepository.save(any(DocumentBook.class))).thenAnswer(inv -> inv.getArgument(0));
+
+		AssignDocumentNumberRequest req = new AssignDocumentNumberRequest();
+		req.setBookId(1L);
+		req.setEffectiveDate(LocalDate.of(2026, 9, 10));
+		req.setDocumentId(null);
+
+		AssignDocumentNumberResponse res = documentBookService.assignNumber(req);
+
+		assertNotNull(res);
+		assertEquals("1/QĐ-ĐHEPU", res.getDocumentNumber());
+		assertNull(res.getDocumentId());
+		verifyNoInteractions(documentRepository);
 	}
 
 	@Test
