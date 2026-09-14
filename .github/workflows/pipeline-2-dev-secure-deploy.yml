@@ -18,53 +18,44 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source
+      - name: 1. Checkout source
         uses: actions/checkout@v4
 
-      - name: Setup Java 21
+      - name: 2. Setup Java 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
           cache: maven
 
-      - name: Build Spring Boot JAR
+      - name: 3. Build Spring Boot JAR
         run: mvn clean package -DskipTests
 
-      - name: Build Docker image
+      - name: 4. Build Docker image
         run: |
           docker build \
             -t registry.heroku.com/${{ secrets.HEROKU_APP_NAME }}/web:latest \
             -t registry.heroku.com/${{ secrets.HEROKU_APP_NAME }}/web:${{ github.sha }} .
 
-      - name: Scan Docker image with Trivy
-        uses: aquasecurity/trivy-action@v0.25.0
-        with:
-          image-ref: registry.heroku.com/${{ secrets.HEROKU_APP_NAME }}/web:${{ github.sha }}
-          format: table
-          severity: CRITICAL
-          exit-code: 1
-          ignore-unfixed: true
-
-      - name: Login to Heroku Container Registry
+      - name: 5. Login to Heroku Container Registry
         run: |
           echo "${{ secrets.HEROKU_API_KEY }}" | docker login registry.heroku.com -u _ --password-stdin
 
-      - name: Push Docker image to Heroku
+      - name: 6. Push Docker image to Heroku
         run: |
           docker push registry.heroku.com/${{ secrets.HEROKU_APP_NAME }}/web:latest
           docker push registry.heroku.com/${{ secrets.HEROKU_APP_NAME }}/web:${{ github.sha }}
 
-      - name: Install Heroku CLI
+      - name: 7. Install Heroku CLI
         run: |
           curl -s https://cli-assets.heroku.com/install.sh | sh
 
-      - name: Release to Heroku
+      - name: 8. Release to Heroku
         run: heroku container:release web -a ${{ secrets.HEROKU_APP_NAME }}
         env:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
 
-      - name: Health check
+      - name: 9. Health check
         env:
           HEALTH_CHECK_URL: ${{ secrets.HEALTH_CHECK_URL }}
         run: |

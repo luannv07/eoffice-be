@@ -29,6 +29,7 @@ public enum ErrorCode {
 	EMAIL_ALREADY_EXISTS("EMAIL_ALREADY_EXISTS", "Email đã được sử dụng", HttpStatus.CONFLICT),
 	INVALID_ENUM_VALUE("INVALID_ENUM_VALUE", "Giá trị không hợp lệ", HttpStatus.BAD_REQUEST),
 	ORG_NODE_CODE_EXISTS("ORG_NODE_CODE_EXISTS", "Mã đơn vị đã tồn tại", HttpStatus.CONFLICT),
+	ORG_NODE_NOT_FOUND("ORG_NODE_NOT_FOUND", "Không tìm thấy đơn vị", HttpStatus.NOT_FOUND),
 	ORG_NODE_PARENT_NOT_FOUND("ORG_NODE_PARENT_NOT_FOUND", "Đơn vị cha không tồn tại", HttpStatus.BAD_REQUEST),
 	ORG_NODE_HAS_CHILDREN("ORG_NODE_HAS_CHILDREN", "Đơn vị còn đơn vị con, không thể xóa", HttpStatus.BAD_REQUEST),
 	ORG_NODE_CYCLE("ORG_NODE_CYCLE", "Không thể chuyển đơn vị vào chính nó hoặc đơn vị con", HttpStatus.BAD_REQUEST),
@@ -38,7 +39,45 @@ public enum ErrorCode {
 	DOCUMENT_BOOK_CODE_EXISTS("DOCUMENT_BOOK_CODE_EXISTS", "Mã sổ văn bản đã tồn tại", HttpStatus.CONFLICT),
 	DOCUMENT_BOOK_CLOSED("DOCUMENT_BOOK_CLOSED", "Sổ văn bản đã đóng, không thể cấp số", HttpStatus.BAD_REQUEST),
 	DOCUMENT_BOOK_DUPLICATE("DOCUMENT_BOOK_DUPLICATE", "Đã tồn tại sổ văn bản cho năm, đơn vị và loại văn bản này", HttpStatus.CONFLICT),
-	INVALID_NUMBER_PATTERN("INVALID_NUMBER_PATTERN", "Định dạng mẫu số văn bản không hợp lệ", HttpStatus.BAD_REQUEST);
+	INVALID_NUMBER_PATTERN("INVALID_NUMBER_PATTERN", "Định dạng mẫu số văn bản không hợp lệ", HttpStatus.BAD_REQUEST),
+
+	/**
+	 * Hợp đồng lỗi công khai khi không tìm thấy văn bản (HTTP 404).
+	 */
+	DOCUMENT_NOT_FOUND("DOCUMENT_NOT_FOUND", "Không tìm thấy văn bản", HttpStatus.NOT_FOUND),
+
+	/**
+	 * Mã lỗi chuẩn hóa mới cho trạng thái văn bản không hợp lệ.
+	 */
+	INVALID_DOCUMENT_STATUS("INVALID_DOCUMENT_STATUS", "Trạng thái văn bản không hợp lệ", HttpStatus.BAD_REQUEST),
+
+	/**
+	 * Mã lỗi lịch sử cho trạng thái văn bản không hợp lệ.
+	 * <p>
+	 * Giữ lại để đảm bảo tương thích ngược 100% với hợp đồng API công khai hiện có của các endpoint
+	 * tài liệu và luồng phê duyệt (UC08-UC14). Các client hiện tại tiếp tục nhận mã này.
+	 *
+	 * @deprecated Sử dụng {@link #INVALID_DOCUMENT_STATUS} cho các endpoint mới được xây dựng.
+	 */
+	@Deprecated
+	DOCUMENT_INVALID_STATUS("DOCUMENT_INVALID_STATUS", "Trạng thái văn bản không hợp lệ cho thao tác này", HttpStatus.BAD_REQUEST),
+	WORKFLOW_TRANSITION_NOT_ALLOWED("WORKFLOW_TRANSITION_NOT_ALLOWED", "Hành động luồng duyệt không được phép với trạng thái hiện tại", HttpStatus.BAD_REQUEST),
+	UNAUTHORIZED_WORKFLOW_ACTION("UNAUTHORIZED_WORKFLOW_ACTION", "Bạn không có quyền thực hiện hành động này trên văn bản", HttpStatus.FORBIDDEN),
+	SIGNATURE_PROCESS_ERROR("SIGNATURE_PROCESS_ERROR", "Lỗi trong quá trình xử lý ký số hoặc ký nháy PDF", HttpStatus.INTERNAL_SERVER_ERROR),
+	STORAGE_ERROR("STORAGE_ERROR", "Lỗi trong quá trình lưu trữ tệp tin", HttpStatus.INTERNAL_SERVER_ERROR),
+	DOCUMENT_FILE_MISSING("DOCUMENT_FILE_MISSING", "Văn bản chưa có tệp đính kèm để ký", HttpStatus.BAD_REQUEST),
+	DOCUMENT_PRIMARY_FILE_MISSING("DOCUMENT_PRIMARY_FILE_MISSING", "Văn bản chưa có tệp đính kèm chính để ký", HttpStatus.BAD_REQUEST),
+	DOCUMENT_NOT_READY_FOR_PUBLISH("DOCUMENT_NOT_READY_FOR_PUBLISH", "Văn bản chưa đủ điều kiện để ký phát hành", HttpStatus.BAD_REQUEST),
+	INVALID_WORKFLOW_STATE("INVALID_WORKFLOW_STATE", "Trạng thái văn bản không hợp lệ trong luồng duyệt", HttpStatus.BAD_REQUEST),
+	DOCUMENT_INCOMPLETE_DOSSIER("DOCUMENT_INCOMPLETE_DOSSIER", "Hồ sơ văn bản chưa đầy đủ (cần có tệp đính kèm chính hoặc nội dung)", HttpStatus.BAD_REQUEST),
+	DOCUMENT_CANNOT_RECALL("DOCUMENT_CANNOT_RECALL", "Không thể thu hồi văn bản do người duyệt đã xử lý", HttpStatus.BAD_REQUEST),
+	DOCUMENT_VERSION_NOT_FOUND("DOCUMENT_VERSION_NOT_FOUND", "Phiên bản văn bản không tồn tại", HttpStatus.NOT_FOUND),
+	DOCUMENT_ATTACHMENT_NOT_FOUND("DOCUMENT_ATTACHMENT_NOT_FOUND", "Tệp đính kèm không tồn tại hoặc đã bị xóa", HttpStatus.NOT_FOUND),
+	FILE_INVALID_FORMAT("FILE_INVALID_FORMAT", "Định dạng tệp không được hỗ trợ. Chỉ chấp nhận tệp DOCX hoặc PDF", HttpStatus.BAD_REQUEST),
+	FILE_SIZE_EXCEEDED("FILE_SIZE_EXCEEDED", "Dung lượng tệp vượt quá giới hạn cho phép", HttpStatus.PAYLOAD_TOO_LARGE),
+	FILE_UNSAFE("FILE_UNSAFE", "Tệp tin không an toàn hoặc chứa nội dung độc hại", HttpStatus.BAD_REQUEST),
+	FILE_STORAGE_ERROR("FILE_STORAGE_ERROR", "Lỗi trong quá trình lưu trữ tệp tin", HttpStatus.INTERNAL_SERVER_ERROR),
+	APPROVER_NOT_ELIGIBLE("APPROVER_NOT_ELIGIBLE", "Người được chọn không có thẩm quyền duyệt văn bản này", HttpStatus.BAD_REQUEST);
 
 	private final String code;
 	private final String message;

@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.dto.PublishRequest;
 import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.entity.DocumentDistribution;
@@ -45,13 +46,13 @@ public class DocumentPublishService {
 
     private void applyDocumentMetadata(Document doc, PublishRequest request, String computedHash) {
         doc.setOfficialNumber(String.format("%02d/QĐ-ĐHL", doc.getId()));
-        doc.setStatus("PUBLISHED");
+        doc.setStatus(DocumentStatus.PUBLISHED);
         doc.setOfficialHash(computedHash);
 
         if (request != null && request.getIssueDate() != null) {
             doc.setIssueDate(request.getIssueDate());
         } else {
-            doc.setIssueDate(LocalDate.now(ZoneId.systemDefault()));
+            doc.setIssueDate(LocalDate.now(Document.getBusinessZone()));
         }
 
         if (request != null && request.getEffectiveDate() != null) {
@@ -109,9 +110,26 @@ public class DocumentPublishService {
         return Collections.emptyList();
     }
 
+    /**
+     * Backward-compatible overload for internal callers and legacy invocations.
+     * Explicitly resolves the current authentication from SecurityContextHolder
+     * and delegates to {@link #verifyIntegrity(Long, Authentication)}.
+     *
+     * @param documentId the ID of the document to verify
+     * @return true if document matches official SHA-256 hash, false otherwise
+     */
     public boolean verifyIntegrity(Long documentId) {
+        return verifyIntegrity(documentId, null);
+    }
+
+    public boolean verifyIntegrity(Long documentId, org.springframework.security.core.Authentication authentication) {
+        if (authentication == null) {
+            authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        }
         Document doc = documentRepository.findById(documentId)
                 .orElseThrow(() -> new IllegalArgumentException("Document not found: " + documentId));
+
+        assertCanVerifyIntegrity(doc, authentication);
 
         if (doc.getOfficialHash() == null || doc.getOfficialHash().isBlank()) {
             return false;
@@ -126,6 +144,49 @@ public class DocumentPublishService {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    void assertCanVerifyIntegrity(Document doc, org.springframework.security.core.Authentication authentication) {
+        // Enforce user authentication first before inspecting document status
+        if (authentication == null 
+                || !authentication.isAuthenticated() 
+                || authentication instanceof org.springframework.security.authentication.AnonymousAuthenticationToken) {
+            throw new org.springframework.security.access.AccessDeniedException("Yêu cầu xác thực người dùng");
+        }
+
+        if (doc.getStatus() == DocumentStatus.PUBLISHED || doc.getStatus() == DocumentStatus.ISSUED) {
+            return;
+        }
+
+        boolean hasAdminOrPrivilege = authentication.getAuthorities() != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN")
+                            || a.getAuthority().equals("ADMIN")
+                            || a.getAuthority().equals("ROLE_SYSTEM_ADMIN")
+                            || a.getAuthority().equals("SYSTEM_ADMIN")
+                            || a.getAuthority().equals("DOCUMENT_VERIFY")
+                            || a.getAuthority().equals("DOCUMENT_PUBLISH"));
+        if (hasAdminOrPrivilege) {
+            return;
+        }
+
+        Long userId = extractUserId(authentication);
+        Long creatorId = doc.getCreatorUser() != null ? doc.getCreatorUser().getId() : null;
+        if (userId != null && userId.equals(creatorId)) {
+            return;
+        }
+
+        throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền kiểm tra tính toàn vẹn của tài liệu này");
+    }
+
+    Long extractUserId(org.springframework.security.core.Authentication authentication) {
+        if (authentication == null || authentication.getPrincipal() == null) {
+            return null;
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof vn.edu.epu.eoffice_be.security.UserIdAwarePrincipal userAware) {
+            return userAware.getUserId();
+        }
+        return null;
     }
 
     private String calculateSha256(String filePath) {
