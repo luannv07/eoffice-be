@@ -1,17 +1,41 @@
 package vn.edu.epu.eoffice_be.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Optional;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import java.time.Instant;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.enums.Role;
@@ -35,32 +59,9 @@ import vn.edu.epu.eoffice_be.repository.DocumentWorkflowLogRepository;
 import vn.edu.epu.eoffice_be.repository.OrgNodeRepository;
 import vn.edu.epu.eoffice_be.repository.UserInfoRepository;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
 import vn.edu.epu.eoffice_be.service.impl.DocumentWorkflowServiceImpl;
 import vn.edu.epu.eoffice_be.workflow.WorkflowEngine;
-
-import java.util.List;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class DocumentWorkflowServiceTest {
@@ -744,5 +745,71 @@ class DocumentWorkflowServiceTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentWorkflowService.getDocumentTimeline(5001L));
         assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+    }
+        @Test
+    @DisplayName("signAndPublish: thành công khi effectiveDate bằng đúng issueDate (effectiveDate == issueDate)")
+    void signAndPublish_whenEffectiveDateEqualsIssueDate_shouldSucceed() {
+        document.setPrimaryFilePath("drafts/sample.pdf");
+        byte[] mockBytes = new byte[]{1, 2, 3};
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+        when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
+        when(pdfProcessingService.signAndCertifyPdf(any(), anyString(), anyString())).thenReturn(mockBytes);
+        when(fileStorageService.storeFile(any(), anyString(), anyString())).thenReturn("official/doc_5001.pdf");
+        when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("hash");
+
+        Instant now = Instant.now();
+        DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .officialNumber("125/QD-DHEPU")
+                .issueDate(now)
+                .effectiveDate(now) // Bằng nhau
+                .build();
+
+        DocumentDetailResponse response = documentWorkflowService.signAndPublish(5001L, request);
+        assertNotNull(response);
+        assertEquals(now, document.getEffectiveDate());
+        assertEquals(now, document.getIssueDate());
+    }
+
+    @Test
+    @DisplayName("signAndPublish: fallback thành công khi effectiveDate null (effectiveDate = issueDate)")
+    void signAndPublish_whenEffectiveDateNull_shouldFallbackToIssueDate() {
+        document.setPrimaryFilePath("drafts/sample.pdf");
+        byte[] mockBytes = new byte[]{1, 2, 3};
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+        when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
+        when(pdfProcessingService.signAndCertifyPdf(any(), anyString(), anyString())).thenReturn(mockBytes);
+        when(fileStorageService.storeFile(any(), anyString(), anyString())).thenReturn("official/doc_5001.pdf");
+        when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("hash");
+
+        Instant issueDate = Instant.now().plus(1, ChronoUnit.DAYS);
+        DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .officialNumber("125/QD-DHEPU")
+                .issueDate(issueDate)
+                .effectiveDate(null) // null fallback
+                .build();
+
+        DocumentDetailResponse response = documentWorkflowService.signAndPublish(5001L, request);
+        assertNotNull(response);
+        assertEquals(issueDate, document.getEffectiveDate());
+    }
+
+    @Test
+    @DisplayName("signAndPublish: ném VALIDATION_ERROR khi issueDate null nhưng effectiveDate ở quá khứ")
+    void signAndPublish_whenIssueDateNullAndEffectiveDateInPast_shouldThrowValidationError() {
+        document.setPrimaryFilePath("drafts/sample.pdf");
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .officialNumber("125/QD-DHEPU")
+                .issueDate(null) // issueDate tự lấy Instant.now()
+                .effectiveDate(Instant.now().minus(5, ChronoUnit.DAYS)) // Quá khứ -> vi phạm
+                .build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.signAndPublish(5001L, request));
+        assertEquals(ErrorCode.VALIDATION_ERROR, ex.getErrorCode());
     }
 }

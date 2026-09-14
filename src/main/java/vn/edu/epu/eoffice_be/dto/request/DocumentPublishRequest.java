@@ -26,8 +26,10 @@ public class DocumentPublishRequest {
     @Schema(description = "Ngày ký ban hành chính thức (mặc định lấy thời điểm hiện tại)", example = "2026-09-10T08:00:00Z")
     private Instant issueDate;
 
-    @Schema(description = "Ngày văn bản bắt đầu có hiệu lực (mặc định bằng ngày ban hành)", example = "2026-09-10T08:00:00Z")
+    @Schema( description = "Ngày văn bản bắt đầu có hiệu lực. Quy tắc: Không được trước ngày ban hành (issueDate). Nếu để trống sẽ mặc định bằng ngày ban hành.",
+        example = "2026-09-10T08:00:00Z")
     private Instant effectiveDate;
+    
 
     @Size(max = 2000, message = "Lời phê hoặc ý kiến tối đa 2000 ký tự")
     @Schema(description = "Lời phê hoặc ý kiến của Lãnh đạo ký phát hành", example = "Ký duyệt ban hành và chuyển văn thư đóng dấu lưu trữ")
