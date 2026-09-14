@@ -54,6 +54,9 @@ public class UploadProperties {
                 return false;
             }
             java.nio.file.Path trimmedPath = java.nio.file.Paths.get(trimmed);
+            if (!trimmedPath.isAbsolute() && !trimmed.startsWith("/")) {
+                return false;
+            }
             java.nio.file.Path normalized = trimmedPath.normalize();
             if (!trimmedPath.equals(normalized)) {
                 return false;
