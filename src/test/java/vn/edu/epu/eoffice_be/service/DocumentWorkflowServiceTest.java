@@ -4,6 +4,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import java.time.Instant;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -532,6 +533,29 @@ class DocumentWorkflowServiceTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentWorkflowService.signAndPublish(5001L, request));
         assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, ex.getErrorCode());
+
+        verify(pdfProcessingService, never()).signAndCertifyPdf(any(), any(), any());
+        verify(fileStorageService, never()).storeFile(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("signAndPublish: ném VALIDATION_ERROR khi effectiveDate trước issueDate")
+    void signAndPublish_whenEffectiveDateBeforeIssueDate_shouldThrowValidationError() {
+        document.setPrimaryFilePath("drafts/sample.pdf");
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        Instant now = Instant.now();
+        DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .officialNumber("125/QD-DHEPU")
+                .issueDate(now)
+                .effectiveDate(now.minus(2, java.time.temporal.ChronoUnit.DAYS))
+                .build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.signAndPublish(5001L, request));
+        assertEquals(ErrorCode.VALIDATION_ERROR, ex.getErrorCode());
+        assertTrue(ex.getMessage().contains("effectiveDate"));
 
         verify(pdfProcessingService, never()).signAndCertifyPdf(any(), any(), any());
         verify(fileStorageService, never()).storeFile(any(), any(), any());

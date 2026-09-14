@@ -23,39 +23,40 @@ public class WebMvcMappingConfig implements WebMvcRegistrations {
 
     static class AmbiguousMappingSafeHandlerMapping extends RequestMappingHandlerMapping {
 
-        record AllowedHandlerMethod(String handlerSimpleName, String methodName) {}
+        record AllowedHandlerMethod(String handlerFqn, String methodName) {
+            boolean matches(String candidateFqn, String candidateMethodName) {
+                return handlerFqn.equals(candidateFqn) && methodName.equals(candidateMethodName);
+            }
+        }
 
         record ReviewedConflictRule(
                 org.springframework.web.bind.annotation.RequestMethod httpMethod,
                 String pathPattern,
-                java.util.Set<AllowedHandlerMethod> allowedHandlerMethods
+                AllowedHandlerMethod preferredHandler,
+                AllowedHandlerMethod suppressedHandler
         ) {
-            boolean matches(RequestMappingInfo mapping, Object handler, Method method) {
-                if (mapping == null || handler == null || method == null) {
-                    return false;
-                }
+            boolean matchesMapping(RequestMappingInfo mapping) {
+                if (mapping == null) return false;
                 if (mapping.getMethodsCondition() == null || !mapping.getMethodsCondition().getMethods().contains(httpMethod)) {
                     return false;
                 }
-                if (mapping.getPatternValues() == null || !mapping.getPatternValues().contains(pathPattern)) {
-                    return false;
-                }
+                return mapping.getPatternValues() != null && mapping.getPatternValues().contains(pathPattern);
+            }
 
+            boolean matchesSuppressed(RequestMappingInfo mapping, Object handler, Method method) {
+                if (!matchesMapping(mapping) || handler == null || method == null) return false;
+                String handlerFqn = handler instanceof String s ? s : org.springframework.util.ClassUtils.getUserClass(handler).getName();
+                String declaringFqn = method.getDeclaringClass().getName();
                 String methodName = method.getName();
-                String handlerSimpleName;
-                if (handler instanceof String s) {
-                    handlerSimpleName = s;
-                } else {
-                    handlerSimpleName = org.springframework.util.ClassUtils.getUserClass(handler).getSimpleName();
-                }
+                return suppressedHandler.matches(handlerFqn, methodName) || suppressedHandler.matches(declaringFqn, methodName);
+            }
 
-                String declaringClassName = method.getDeclaringClass().getSimpleName();
-
-                return allowedHandlerMethods.stream().anyMatch(allowed ->
-                        (allowed.handlerSimpleName().equalsIgnoreCase(handlerSimpleName)
-                                || allowed.handlerSimpleName().equalsIgnoreCase(declaringClassName))
-                                && allowed.methodName().equals(methodName)
-                );
+            boolean matchesPreferred(Object handler, Method method) {
+                if (handler == null || method == null) return false;
+                String handlerFqn = handler instanceof String s ? s : org.springframework.util.ClassUtils.getUserClass(handler).getName();
+                String declaringFqn = method.getDeclaringClass().getName();
+                String methodName = method.getName();
+                return preferredHandler.matches(handlerFqn, methodName) || preferredHandler.matches(declaringFqn, methodName);
             }
         }
 
@@ -63,10 +64,8 @@ public class WebMvcMappingConfig implements WebMvcRegistrations {
                 new ReviewedConflictRule(
                         org.springframework.web.bind.annotation.RequestMethod.GET,
                         "/documents/{id}",
-                        java.util.Set.of(
-                                new AllowedHandlerMethod("DocumentController", "getDraftDetail"),
-                                new AllowedHandlerMethod("DocumentWorkflowController", "getDetail")
-                        )
+                        new AllowedHandlerMethod("vn.edu.epu.eoffice_be.controller.DocumentController", "getDraftDetail"),
+                        new AllowedHandlerMethod("vn.edu.epu.eoffice_be.controller.DocumentWorkflowController", "getDetail")
                 )
         );
 
@@ -75,25 +74,45 @@ public class WebMvcMappingConfig implements WebMvcRegistrations {
             try {
                 super.registerHandlerMethod(handler, method, mapping);
             } catch (IllegalStateException ex) {
-                if (isAmbiguousMappingException(ex) && isReviewedConflict(mapping, handler, method)) {
-                    log.info("[AUDIT] Bỏ qua mapping trùng lặp đã được duyệt: {} cho {}.{} (ưu tiên handler đã đăng ký trước)",
-                            mapping, handler.getClass().getSimpleName(), method.getName());
-                    return;
+                if (isAmbiguousMappingException(ex)) {
+                    ReviewedConflictRule matchingRule = findMatchingRule(mapping);
+                    if (matchingRule != null && matchingRule.matchesSuppressed(mapping, handler, method)) {
+                        org.springframework.web.method.HandlerMethod existing = getHandlerMethods().get(mapping);
+                        if (existing != null && matchingRule.matchesPreferred(existing.getBean(), existing.getMethod())) {
+                            log.info("[AUDIT] Bỏ qua mapping trùng lặp đã được duyệt: {} cho {}.{} (ưu tiên handler đã đăng ký trước: {}.{})",
+                                    mapping,
+                                    method.getDeclaringClass().getName(),
+                                    method.getName(),
+                                    existing.getMethod().getDeclaringClass().getName(),
+                                    existing.getMethod().getName());
+                            return;
+                        }
+                    }
                 }
-                // Fail-fast cho tất cả các trường hợp xung đột chưa được phê duyệt hoặc lỗi khác
+                // Fail-fast cho tất cả các trường hợp xung đột chưa được phê duyệt hoặc sai thứ tự ưu tiên
                 throw ex;
             }
         }
 
         static boolean isAmbiguousMappingException(IllegalStateException ex) {
-            return ex != null && ex.getMessage() != null && ex.getMessage().contains("Ambiguous mapping");
+            return ex != null && ex.getMessage() != null && ex.getMessage().startsWith("Ambiguous mapping.");
+        }
+
+        static ReviewedConflictRule findMatchingRule(RequestMappingInfo mapping) {
+            if (mapping == null) return null;
+            return REVIEWED_RULES.stream()
+                    .filter(rule -> rule.matchesMapping(mapping))
+                    .findFirst()
+                    .orElse(null);
         }
 
         static boolean isReviewedConflict(RequestMappingInfo mapping, Object handler, Method method) {
             if (mapping == null || handler == null || method == null) {
                 return false;
             }
-            return REVIEWED_RULES.stream().anyMatch(rule -> rule.matches(mapping, handler, method));
+            ReviewedConflictRule rule = findMatchingRule(mapping);
+            if (rule == null) return false;
+            return rule.matchesSuppressed(mapping, handler, method) || rule.matchesPreferred(handler, method);
         }
     }
 }

@@ -142,6 +142,14 @@ class DocumentControllerTest {
     }
 
     @Test
+    @DisplayName("API GET /documents/{id} - Bị từ chối 401 khi không có thông tin xác thực")
+    void getDraftDetail_Unauthenticated_ReturnsUnauthorized() throws Exception {
+        mockMvc.perform(get("/documents/1"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.UNAUTHORIZED.getCode()));
+    }
+
+    @Test
     @DisplayName("API GET /documents/drafts - Tìm kiếm dự thảo thành công")
     void searchDrafts_Success() throws Exception {
         DocumentResponse doc = DocumentResponse.builder().id(1L).draftCode("DT-2026-00001").build();

@@ -208,11 +208,16 @@ public class DocumentController {
             if (!resource.exists() || !resource.isReadable()) {
                 throw new BusinessException(ErrorCode.DOCUMENT_ATTACHMENT_NOT_FOUND, "Tệp đính kèm không tồn tại hoặc không thể đọc");
             }
-            resource.contentLength();
         } catch (BusinessException e) {
             throw e;
-        } catch (java.io.IOException | java.io.UncheckedIOException e) {
-            log.error("Lỗi khi kiểm tra tính khả dụng của tệp đính kèm id={}: {}", attachmentId, e.getMessage(), e);
+        } catch (Exception e) {
+            if (e instanceof java.io.IOException || e instanceof java.io.UncheckedIOException || e.getCause() instanceof java.io.IOException) {
+                log.error("Lỗi khi kiểm tra tính khả dụng của tệp đính kèm id={}: {}", attachmentId, e.getMessage(), e);
+                throw new BusinessException(ErrorCode.STORAGE_ERROR, "Lỗi khi kiểm tra tính khả dụng của tệp đính kèm");
+            }
+            if (e instanceof RuntimeException re) {
+                throw re;
+            }
             throw new BusinessException(ErrorCode.STORAGE_ERROR, "Lỗi khi kiểm tra tính khả dụng của tệp đính kèm");
         }
 

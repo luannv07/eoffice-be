@@ -32,7 +32,7 @@ public class UploadProperties {
     private long maxSizeBytes = 26214400L; // 25 MB default
 
     @NotEmpty
-    private List<String> allowedExtensions = new ArrayList<>(List.of("docx", "pdf"));
+    private List<@NotBlank String> allowedExtensions = new ArrayList<>(List.of("docx", "pdf"));
 
     @AssertTrue(message = "Đường dẫn thư mục tải lên phải là đường dẫn tuyệt đối, chuẩn hóa và không chứa '..'")
     public boolean isDirValid() {
@@ -49,8 +49,20 @@ public class UploadProperties {
             while (trimmed.length() > 1 && (trimmed.endsWith("/") || trimmed.endsWith("\\"))) {
                 trimmed = trimmed.substring(0, trimmed.length() - 1);
             }
+            // Từ chối đường dẫn gốc (root) hệ thống
+            if ("/".equals(trimmed) || "\\".equals(trimmed) || trimmed.matches("^[a-zA-Z]:[/\\\\]?$")) {
+                return false;
+            }
             java.nio.file.Path trimmedPath = java.nio.file.Paths.get(trimmed);
-            return trimmedPath.equals(trimmedPath.normalize());
+            java.nio.file.Path normalized = trimmedPath.normalize();
+            if (!trimmedPath.equals(normalized)) {
+                return false;
+            }
+            // Đảm bảo không trỏ tới thư mục cấp cao nhất của hệ thống (ví dụ: /etc, /bin, C:\Windows)
+            if (normalized.getNameCount() < 2) {
+                return false;
+            }
+            return true;
         } catch (Exception e) {
             return false;
         }

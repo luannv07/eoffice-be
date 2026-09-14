@@ -207,6 +207,10 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         Instant issueDate = request.getIssueDate() != null ? request.getIssueDate() : Instant.now();
         Instant effectiveDate = request.getEffectiveDate() != null ? request.getEffectiveDate() : issueDate;
 
+        if (effectiveDate.isBefore(issueDate)) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Ngày có hiệu lực (effectiveDate) không được trước ngày ban hành (issueDate)");
+        }
+
         document.setOfficialNumber(request.getOfficialNumber());
         document.setIssueDate(issueDate);
         document.setEffectiveDate(effectiveDate);

@@ -31,8 +31,16 @@ public class BusinessTimeZoneConfig {
                 throw new IllegalStateException("Cấu hình eoffice.timezone không hợp lệ: '" + trimmed + "'", ex);
             }
         }
-        Document.setBusinessZone(zone);
         return zone;
+    }
+
+    /**
+     * Khởi tạo tương thích ngược cho static setter của entity Document sau khi context khởi động,
+     * tránh gây side-effect trực tiếp bên trong phương thức khởi tạo bean {@link #businessZone()}.
+     */
+    @Bean
+    public org.springframework.boot.ApplicationRunner businessZoneInitializer(ZoneId businessZone) {
+        return args -> Document.setBusinessZone(businessZone);
     }
 }
 

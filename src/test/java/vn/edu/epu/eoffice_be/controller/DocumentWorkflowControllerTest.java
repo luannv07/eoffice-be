@@ -424,12 +424,14 @@ class DocumentWorkflowControllerTest {
     @Test
     void testGetDocumentTimeline() throws Exception {
         setAuthRole("LEADER");
-        when(documentWorkflowService.getDocumentTimeline(anyLong())).thenReturn(Collections.emptyList());
+        when(documentWorkflowService.getDocumentTimeline(eq(1L), any())).thenReturn(Collections.emptyList());
 
         mockMvc.perform(get("/documents/1/timeline"))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isArray());
 
-        verify(documentWorkflowService, atLeastOnce()).getDocumentTimeline(1L);
+        verify(documentWorkflowService, atLeastOnce()).getDocumentTimeline(eq(1L), any());
     }
 
     @Test
@@ -549,7 +551,7 @@ class DocumentWorkflowControllerTest {
     void getDocumentTimeline_whenForbidden_shouldReturn403() throws Exception {
         setAuthRole("LEADER");
 
-        when(documentWorkflowService.getDocumentTimeline(100L))
+        when(documentWorkflowService.getDocumentTimeline(eq(100L), any()))
                 .thenThrow(new BusinessException(ErrorCode.FORBIDDEN));
 
         mockMvc.perform(get("/documents/100/timeline"))

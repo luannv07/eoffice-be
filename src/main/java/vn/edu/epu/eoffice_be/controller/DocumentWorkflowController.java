@@ -113,18 +113,28 @@ public class DocumentWorkflowController {
 
     // UC17.1: Xem timeline luồng điều hành & bút phê lãnh đạo
     @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Xem timeline luồng điều hành & bút phê lãnh đạo")
     @GetMapping("/{id}/timeline")
-    public ResponseEntity<List<WorkflowTimelineResponse>> getDocumentTimeline(@PathVariable("id") Long id) {
-        List<WorkflowTimelineResponse> timeline = documentWorkflowService.getDocumentTimeline(id);
-        return ResponseEntity.status(HttpStatus.OK).body(timeline);
+    public BaseResponse<List<WorkflowTimelineResponse>> getDocumentTimeline(
+            @PathVariable("id") Long id,
+            org.springframework.security.core.Authentication authentication
+    ) {
+        List<WorkflowTimelineResponse> timeline = documentWorkflowService.getDocumentTimeline(id, authentication);
+        return BaseResponse.success(timeline);
+    }
+
+    @PreAuthorize("isAuthenticated()")
+    public BaseResponse<List<WorkflowTimelineResponse>> getDocumentTimeline(Long id) {
+        return getDocumentTimeline(id, org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication());
     }
 
     // UC17.2: Danh sách văn bản tồn đọng / chờ xử lý kèm số ngày chờ SLA
     @PreAuthorize("hasAnyRole('LEADER', 'REVIEWER', 'ADMIN', 'SYSTEM_ADMIN')")
+    @Operation(summary = "Danh sách văn bản tồn đọng / chờ xử lý kèm số ngày chờ SLA")
     @GetMapping("/pending-review")
-    public ResponseEntity<Page<PendingDocumentResponse>> getPendingReviewDocuments(
+    public BaseResponse<Page<PendingDocumentResponse>> getPendingReviewDocuments(
             @PageableDefault(size = 10) Pageable pageable) {
         Page<PendingDocumentResponse> page = documentWorkflowService.getPendingDocuments(pageable);
-        return ResponseEntity.ok(page);
+        return BaseResponse.success(page);
     }
 }

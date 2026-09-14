@@ -460,4 +460,44 @@ class DocumentQueryControllerTest {
 
         verifyNoInteractions(documentQueryService);
     }
+
+    @Test
+    void testRegisterAllowedLegacyPrincipal_InvalidClassWithoutGetOrgId_ThrowsIllegalArgumentException() {
+        assertThrows(IllegalArgumentException.class, () ->
+                documentQueryController.registerAllowedLegacyPrincipal(MissingOrgIdPrincipal.class));
+    }
+
+    @Test
+    void testRegisterAllowedLegacyPrincipal_NullClass_ThrowsIllegalArgumentException() {
+        assertThrows(IllegalArgumentException.class, () ->
+                documentQueryController.registerAllowedLegacyPrincipal(null));
+    }
+
+    @Test
+    void testAtomicReset_UnderConcurrency_NeverExposesEmptyAllowlist() throws Exception {
+        int threads = 8;
+        int iterations = 100;
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(threads);
+        java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.atomic.AtomicInteger observedEmptyCount = new java.util.concurrent.atomic.AtomicInteger(0);
+
+        for (int i = 0; i < threads; i++) {
+            executor.submit(() -> {
+                try {
+                    latch.await();
+                    for (int j = 0; j < iterations; j++) {
+                        documentQueryController.registerAllowedLegacyPrincipal(ValidReflectionPrincipal.class);
+                        documentQueryController.resetAllowedLegacyPrincipals();
+                    }
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        }
+
+        latch.countDown();
+        executor.shutdown();
+        assertTrue(executor.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS));
+        assertEquals(0, observedEmptyCount.get());
+    }
 }

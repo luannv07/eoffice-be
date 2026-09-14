@@ -17,14 +17,25 @@ class BusinessTimeZoneConfigTest {
     }
 
     @Test
-    void businessZone_ShouldUpdateDocumentBusinessZone() {
+    void businessZone_ShouldReturnResolvedZoneIdWithoutMutatingDocumentStaticState() {
         BusinessTimeZoneConfig config = new BusinessTimeZoneConfig();
         ReflectionTestUtils.setField(config, "businessTimeZone", "Asia/Tokyo");
 
         ZoneId zone = config.businessZone();
 
         assertEquals(ZoneId.of("Asia/Tokyo"), zone);
-        assertEquals(ZoneId.of("Asia/Tokyo"), Document.getBusinessZone());
+        // Đảm bảo method bean không gây side-effect lên Document static state
+        assertEquals(Document.DEFAULT_BUSINESS_ZONE, Document.getBusinessZone());
+    }
+
+    @Test
+    void businessZoneInitializer_ShouldPropagateZoneToDocument() throws Exception {
+        BusinessTimeZoneConfig config = new BusinessTimeZoneConfig();
+        ZoneId customZone = ZoneId.of("Asia/Tokyo");
+
+        config.businessZoneInitializer(customZone).run(null);
+
+        assertEquals(customZone, Document.getBusinessZone());
     }
 
     @Test
@@ -35,7 +46,6 @@ class BusinessTimeZoneConfigTest {
         ZoneId zone = config.businessZone();
 
         assertEquals(ZoneId.of("Asia/Ho_Chi_Minh"), zone);
-        assertEquals(ZoneId.of("Asia/Ho_Chi_Minh"), Document.getBusinessZone());
     }
 
     @Test

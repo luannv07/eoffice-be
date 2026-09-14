@@ -9,7 +9,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.epu.eoffice_be.common.enums.DocumentProcessAction;
+import vn.edu.epu.eoffice_be.common.enums.DocumentSecurityLevel;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
+import vn.edu.epu.eoffice_be.common.enums.DocumentUrgencyLevel;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.enums.Role;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
@@ -210,7 +212,30 @@ public class DocumentDraftService {
                 .map(this::mapToVersionResponse)
                 .toList();
 
+        UserLogin creator = document.getCreatorUser() != null ? document.getCreatorUser() : document.getDrafter();
+        OrgNode org = document.getIssuingOrgNode() != null ? document.getIssuingOrgNode() : document.getIssuingOrg();
+        DocumentStatus status = document.getStatus() != null ? document.getStatus() : DocumentStatus.DRAFT;
+
         return DocumentDetailResponse.builder()
+                .id(document.getId())
+                .title(document.getTitle())
+                .documentTypeCd(document.getDocumentTypeCd())
+                .issuingOrgId(org != null ? org.getId() : null)
+                .issuingOrgName(org != null ? org.getNameVn() : null)
+                .drafterId(creator != null ? creator.getId() : null)
+                .drafterUsername(creator != null ? creator.getUsername() : null)
+                .signerId(document.getSigner() != null ? document.getSigner().getId() : null)
+                .signerUsername(document.getSigner() != null ? document.getSigner().getUsername() : null)
+                .urgencyLevelCd(document.getUrgencyLevelCd())
+                .securityLevelCd(document.getSecurityLevelCd())
+                .status(status)
+                .officialNumber(document.getOfficialNumber())
+                .issueDate(document.getIssueDate())
+                .effectiveDate(document.getEffectiveDate())
+                .officialHash(document.getOfficialHash())
+                .primaryFileUrl(document.getPrimaryFilePath() != null ? "/documents/" + document.getId() + "/files/primary" : null)
+                .officialFileUrl(document.getOfficialFilePath() != null ? "/documents/" + document.getId() + "/files/official" : null)
+                .recipientsText(document.getRecipientsText())
                 .document(mapToDocumentResponse(document))
                 .attachments(attachmentResponses)
                 .versions(versionResponses)
@@ -257,7 +282,18 @@ public class DocumentDraftService {
 
     public DocumentResponse mapToDocumentResponse(Document doc) {
         String typeName = resolveDocumentTypeName(doc.getDocumentTypeCd());
-        String creatorFullName = resolveFullName(doc.getCreatorUser().getId(), doc.getCreatorUser().getUsername());
+        UserLogin creator = doc.getCreatorUser() != null ? doc.getCreatorUser() : doc.getDrafter();
+        Long creatorId = creator != null ? creator.getId() : null;
+        String creatorUsername = creator != null ? creator.getUsername() : null;
+        String creatorFullName = (creatorId != null && creatorUsername != null)
+                ? resolveFullName(creatorId, creatorUsername)
+                : creatorUsername;
+
+        OrgNode org = doc.getIssuingOrgNode() != null ? doc.getIssuingOrgNode() : doc.getIssuingOrg();
+        Long orgId = org != null ? org.getId() : null;
+        String orgName = org != null ? org.getNameVn() : null;
+
+        DocumentStatus status = doc.getStatus() != null ? doc.getStatus() : DocumentStatus.DRAFT;
 
         return DocumentResponse.builder()
                 .id(doc.getId())
@@ -267,16 +303,16 @@ public class DocumentDraftService {
                 .content(doc.getContent())
                 .documentTypeCd(doc.getDocumentTypeCd())
                 .documentTypeName(typeName)
-                .issuingOrgNodeId(doc.getIssuingOrgNode() != null ? doc.getIssuingOrgNode().getId() : null)
-                .issuingOrgNodeName(doc.getIssuingOrgNode() != null ? doc.getIssuingOrgNode().getNameVn() : null)
-                .creatorUserId(doc.getCreatorUser().getId())
-                .creatorUsername(doc.getCreatorUser().getUsername())
+                .issuingOrgNodeId(orgId)
+                .issuingOrgNodeName(orgName)
+                .creatorUserId(creatorId)
+                .creatorUsername(creatorUsername)
                 .creatorFullName(creatorFullName)
-                .status(doc.getStatus())
-                .statusDescription(doc.getStatus().getDescription())
+                .status(status)
+                .statusDescription(status.getDescription())
                 .currentVersion(doc.getCurrentVersion())
-                .securityLevel(doc.getSecurityLevel())
-                .urgencyLevel(doc.getUrgencyLevel())
+                .securityLevel(doc.getSecurityLevel() != null ? doc.getSecurityLevel() : DocumentSecurityLevel.NORMAL)
+                .urgencyLevel(doc.getUrgencyLevel() != null ? doc.getUrgencyLevel() : DocumentUrgencyLevel.NORMAL)
                 .submittedAt(doc.getSubmittedAt())
                 .createdDate(doc.getCreatedDate())
                 .updatedDate(doc.getUpdatedDate())
@@ -284,9 +320,10 @@ public class DocumentDraftService {
     }
 
     private DocumentAttachmentResponse mapToAttachmentResponse(DocumentAttachment att) {
+        UserLogin uploader = att.getUploadedByUser();
         return DocumentAttachmentResponse.builder()
                 .id(att.getId())
-                .documentId(att.getDocument().getId())
+                .documentId(att.getDocument() != null ? att.getDocument().getId() : null)
                 .documentVersionId(att.getDocumentVersion() != null ? att.getDocumentVersion().getId() : null)
                 .originalFileName(att.getOriginalFileName())
                 .fileExtension(att.getFileExtension())
@@ -294,23 +331,24 @@ public class DocumentDraftService {
                 .fileSizeBytes(att.getFileSizeBytes())
                 .sha256Checksum(att.getSha256Checksum())
                 .isMainDocument(att.isMainDocument())
-                .uploadedByUserId(att.getUploadedByUser().getId())
-                .uploadedByUsername(att.getUploadedByUser().getUsername())
+                .uploadedByUserId(uploader != null ? uploader.getId() : null)
+                .uploadedByUsername(uploader != null ? uploader.getUsername() : null)
                 .createdDate(att.getCreatedDate())
                 .build();
     }
 
     private DocumentVersionResponse mapToVersionResponse(DocumentVersion ver) {
+        UserLogin creator = ver.getCreatedByUser();
         return DocumentVersionResponse.builder()
                 .id(ver.getId())
-                .documentId(ver.getDocument().getId())
+                .documentId(ver.getDocument() != null ? ver.getDocument().getId() : null)
                 .versionNumber(ver.getVersionNumber())
                 .title(ver.getTitle())
                 .summary(ver.getSummary())
                 .content(ver.getContent())
                 .changeSummary(ver.getChangeSummary())
-                .createdByUserId(ver.getCreatedByUser().getId())
-                .createdByUsername(ver.getCreatedByUser().getUsername())
+                .createdByUserId(creator != null ? creator.getId() : null)
+                .createdByUsername(creator != null ? creator.getUsername() : null)
                 .createdDate(ver.getCreatedDate())
                 .build();
     }

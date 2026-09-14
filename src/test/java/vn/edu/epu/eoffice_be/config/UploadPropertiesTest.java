@@ -171,6 +171,42 @@ class UploadPropertiesTest {
     }
 
     @Test
+    void invalidDir_RootPath_ShouldBeRejected() {
+        UploadProperties props = new UploadProperties();
+        props.setDir("/");
+        Set<ConstraintViolation<UploadProperties>> violations = validator.validate(props);
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> "dirValid".equals(v.getPropertyPath().toString())));
+    }
+
+    @Test
+    void invalidDir_EtcPath_ShouldBeRejected() {
+        UploadProperties props = new UploadProperties();
+        props.setDir("/etc");
+        Set<ConstraintViolation<UploadProperties>> violations = validator.validate(props);
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> "dirValid".equals(v.getPropertyPath().toString())));
+    }
+
+    @Test
+    void invalidAllowedExtensions_NullElement_ShouldHaveViolation() {
+        UploadProperties props = new UploadProperties();
+        props.setAllowedExtensions(java.util.Arrays.asList("pdf", null));
+        Set<ConstraintViolation<UploadProperties>> violations = validator.validate(props);
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> v.getPropertyPath().toString().contains("allowedExtensions")));
+    }
+
+    @Test
+    void invalidAllowedExtensions_BlankElement_ShouldHaveViolation() {
+        UploadProperties props = new UploadProperties();
+        props.setAllowedExtensions(List.of("pdf", "   "));
+        Set<ConstraintViolation<UploadProperties>> violations = validator.validate(props);
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> v.getPropertyPath().toString().contains("allowedExtensions")));
+    }
+
+    @Test
     void allowedExtensions_ShouldBeImmutable() {
         UploadProperties props = new UploadProperties();
         List<String> extensions = props.getAllowedExtensions();

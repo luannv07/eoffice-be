@@ -389,7 +389,7 @@ class DocumentServiceCoverageTest {
 
         var normalPage = wfController.getPendingReviewDocuments(PageRequest.of(0, 1));
         assertNotNull(normalPage);
-        assertEquals(1, normalPage.getBody().getContent().size());
+        assertEquals(1, normalPage.getData().getContent().size());
         verify(mockWf).getPendingDocuments(any(Pageable.class));
         verify(mockWf, never()).getPendingDocuments();
     }
@@ -507,11 +507,11 @@ class DocumentServiceCoverageTest {
         DocumentWorkflowService mockWorkflow = mock(DocumentWorkflowService.class);
         DocumentWorkflowController controller = new DocumentWorkflowController(mockWorkflow);
 
-        when(mockWorkflow.getDocumentTimeline(1L)).thenReturn(List.of());
+        when(mockWorkflow.getDocumentTimeline(eq(1L), any())).thenReturn(List.of());
         var res = controller.getDocumentTimeline(1L);
 
         assertNotNull(res);
-        assertEquals(200, res.getStatusCode().value());
+        assertTrue(res.isSuccess());
     }
 
     @Test

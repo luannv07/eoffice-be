@@ -39,12 +39,16 @@ class WebMvcMappingConfigTest {
     }
 
     @Test
-    void isAmbiguousMappingException_ShouldDetectAmbiguousMessage() {
+    void isAmbiguousMappingException_ShouldDetectStrictAmbiguousPrefix() {
         IllegalStateException ex1 = new IllegalStateException("Ambiguous mapping. Cannot map 'b' method...");
         assertTrue(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isAmbiguousMappingException(ex1));
 
         IllegalStateException ex2 = new IllegalStateException("Other error");
         assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isAmbiguousMappingException(ex2));
+
+        // Không bắt đầu bằng tiền tố chuẩn xác
+        IllegalStateException ex3 = new IllegalStateException("Failed because of Ambiguous mapping in handler");
+        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isAmbiguousMappingException(ex3));
 
         assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isAmbiguousMappingException(null));
     }
@@ -54,27 +58,40 @@ class WebMvcMappingConfigTest {
         RequestMappingInfo info = RequestMappingInfo.paths("/documents/{id}")
                 .methods(RequestMethod.GET)
                 .build();
-        DocumentController handler = new DocumentController();
-        Method method = DocumentController.class.getMethod("getDraftDetail");
+        Method method = vn.edu.epu.eoffice_be.controller.DocumentController.class.getMethod("getDraftDetail", Long.class, org.springframework.security.core.Authentication.class);
 
-        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(null, handler, method));
+        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(null, "vn.edu.epu.eoffice_be.controller.DocumentController", method));
         assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info, null, method));
-        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info, handler, null));
+        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info, "vn.edu.epu.eoffice_be.controller.DocumentController", null));
     }
 
     @Test
-    void isReviewedConflict_ShouldReturnTrueForExactReviewedHandlerAndMethod() throws Exception {
+    void isReviewedConflict_ShouldReturnTrueForExactReviewedFqnHandlerAndMethod() throws Exception {
         RequestMappingInfo info = RequestMappingInfo.paths("/documents/{id}")
                 .methods(RequestMethod.GET)
                 .build();
 
-        DocumentController handler1 = new DocumentController();
-        Method method1 = DocumentController.class.getMethod("getDraftDetail");
-        assertTrue(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info, handler1, method1));
+        Method method1 = vn.edu.epu.eoffice_be.controller.DocumentController.class.getMethod("getDraftDetail", Long.class, org.springframework.security.core.Authentication.class);
+        assertTrue(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info, "vn.edu.epu.eoffice_be.controller.DocumentController", method1));
 
-        DocumentWorkflowController handler2 = new DocumentWorkflowController();
-        Method method2 = DocumentWorkflowController.class.getMethod("getDetail");
-        assertTrue(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info, handler2, method2));
+        Method method2 = vn.edu.epu.eoffice_be.controller.DocumentWorkflowController.class.getMethod("getDetail", Long.class);
+        assertTrue(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info, "vn.edu.epu.eoffice_be.controller.DocumentWorkflowController", method2));
+    }
+
+    @Test
+    void isReviewedConflict_ShouldReturnFalseWhenSameSimpleNameHasDifferentPackageFqn() throws Exception {
+        RequestMappingInfo info = RequestMappingInfo.paths("/documents/{id}")
+                .methods(RequestMethod.GET)
+                .build();
+
+        // Lớp lồng DocumentController có cùng simple name nhưng FQN khác (khác package) -> không được khớp
+        DocumentController fakeHandler = new DocumentController();
+        Method fakeMethod = DocumentController.class.getMethod("getDraftDetail");
+        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info, fakeHandler, fakeMethod));
+
+        DocumentWorkflowController fakeWorkflowHandler = new DocumentWorkflowController();
+        Method fakeWorkflowMethod = DocumentWorkflowController.class.getMethod("getDetail");
+        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info, fakeWorkflowHandler, fakeWorkflowMethod));
     }
 
     @Test
@@ -82,16 +99,6 @@ class WebMvcMappingConfigTest {
         RequestMappingInfo info = RequestMappingInfo.paths("/documents/{id}")
                 .methods(RequestMethod.GET)
                 .build();
-
-        // DocumentController với method không được duyệt getDetail
-        DocumentController handler1 = new DocumentController();
-        Method methodWrong1 = DocumentController.class.getMethod("getDetail");
-        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info, handler1, methodWrong1));
-
-        // DocumentWorkflowController với method không được duyệt getDraftDetail
-        DocumentWorkflowController handler2 = new DocumentWorkflowController();
-        Method methodWrong2 = DocumentWorkflowController.class.getMethod("getDraftDetail");
-        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info, handler2, methodWrong2));
 
         // Class có tiền tố trùng nhưng không phải class được duyệt
         DocumentControllerCustom prefixHandler = new DocumentControllerCustom();
@@ -107,18 +114,7 @@ class WebMvcMappingConfigTest {
         RequestMappingInfo otherInfo = RequestMappingInfo.paths("/other/{id}")
                 .methods(RequestMethod.GET)
                 .build();
-        Method methodDraft = DocumentController.class.getMethod("getDraftDetail");
-        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(otherInfo, handler1, methodDraft));
-    }
-
-    @Test
-    void isReviewedConflict_ShouldSupportOverloadedReviewedMethod() throws Exception {
-        RequestMappingInfo info = RequestMappingInfo.paths("/documents/{id}")
-                .methods(RequestMethod.GET)
-                .build();
-
-        DocumentController handler = new DocumentController();
-        Method overloadedMethod = DocumentController.class.getMethod("getDraftDetail", Long.class);
-        assertTrue(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(info, handler, overloadedMethod));
+        Method method1 = vn.edu.epu.eoffice_be.controller.DocumentController.class.getMethod("getDraftDetail", Long.class, org.springframework.security.core.Authentication.class);
+        assertFalse(WebMvcMappingConfig.AmbiguousMappingSafeHandlerMapping.isReviewedConflict(otherInfo, "vn.edu.epu.eoffice_be.controller.DocumentController", method1));
     }
 }

@@ -32,4 +32,12 @@ public class DocumentPublishRequest {
     @Size(max = 2000, message = "Lời phê hoặc ý kiến tối đa 2000 ký tự")
     @Schema(description = "Lời phê hoặc ý kiến của Lãnh đạo ký phát hành", example = "Ký duyệt ban hành và chuyển văn thư đóng dấu lưu trữ")
     private String comment;
+
+    @jakarta.validation.constraints.AssertTrue(message = "Ngày có hiệu lực (effectiveDate) không được trước ngày ban hành (issueDate)")
+    public boolean isEffectiveDateValid() {
+        if (effectiveDate == null || issueDate == null) {
+            return true;
+        }
+        return !effectiveDate.isBefore(issueDate);
+    }
 }

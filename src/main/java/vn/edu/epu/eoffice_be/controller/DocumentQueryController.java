@@ -56,30 +56,50 @@ public class DocumentQueryController {
     @interface VisibleForTesting {}
 
     private static final java.util.Set<String> DEFAULT_ALLOWED_LEGACY_PRINCIPALS = java.util.Set.of(
-            "vn.edu.epu.eoffice_be.security.JwtUserPrincipal"
+            vn.edu.epu.eoffice_be.security.JwtUserPrincipal.class.getName()
     );
 
-    private final java.util.Set<String> allowedLegacyPrincipals = new java.util.concurrent.CopyOnWriteArraySet<>(
-            DEFAULT_ALLOWED_LEGACY_PRINCIPALS
-    );
+    private final java.util.concurrent.atomic.AtomicReference<java.util.Set<String>> allowedLegacyPrincipals =
+            new java.util.concurrent.atomic.AtomicReference<>(DEFAULT_ALLOWED_LEGACY_PRINCIPALS);
+
+    private static boolean isRunningUnderTest() {
+        for (StackTraceElement element : Thread.currentThread().getStackTrace()) {
+            if (element.getClassName().startsWith("org.junit.") || element.getClassName().contains("Test")) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     /**
      * Package-private hook for registering allowed legacy migration principals in tests.
      */
     @VisibleForTesting
     void registerAllowedLegacyPrincipal(Class<?> clazz) {
-        if (clazz != null) {
-            allowedLegacyPrincipals.add(clazz.getName());
+        if (!isRunningUnderTest() && !Boolean.getBoolean("eoffice.allow-legacy-principal-registration")) {
+            throw new IllegalStateException("registerAllowedLegacyPrincipal chỉ được phép gọi trong môi trường kiểm thử");
         }
+        if (clazz == null) {
+            throw new IllegalArgumentException("Class đăng ký không được null");
+        }
+        try {
+            clazz.getMethod("getOrgId");
+        } catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException("Class " + clazz.getName() + " phải khai báo phương thức public getOrgId()");
+        }
+        allowedLegacyPrincipals.updateAndGet(current -> {
+            java.util.Set<String> copy = new java.util.HashSet<>(current);
+            copy.add(clazz.getName());
+            return java.util.Collections.unmodifiableSet(copy);
+        });
     }
 
     /**
-     * Package-private hook for restoring the allowed legacy migration principals to default state.
+     * Package-private hook for restoring the allowed legacy migration principals to default state atomically.
      */
     @VisibleForTesting
     void resetAllowedLegacyPrincipals() {
-        allowedLegacyPrincipals.clear();
-        allowedLegacyPrincipals.addAll(DEFAULT_ALLOWED_LEGACY_PRINCIPALS);
+        allowedLegacyPrincipals.set(DEFAULT_ALLOWED_LEGACY_PRINCIPALS);
     }
 
     DocumentQueryService queryService;
@@ -102,7 +122,7 @@ public class DocumentQueryController {
         }
 
         // Restrict legacy reflection only to audited/allowed classes
-        if (!allowedLegacyPrincipals.contains(principal.getClass().getName())) {
+        if (!allowedLegacyPrincipals.get().contains(principal.getClass().getName())) {
             log.warn("Principal class {} is not an OrgAwarePrincipal and not in allowed legacy allowlist", principal.getClass().getName());
             throw new AccessDeniedException("Không thể xác định đơn vị (orgId) hợp lệ của người dùng");
         }
