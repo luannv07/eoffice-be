@@ -129,7 +129,7 @@ public class DocumentDraftService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
         // Kiểm tra quyền: người tạo hoặc quản trị viên
-        boolean isCreator = document.getCreatorUser().getId().equals(userId);
+        boolean isCreator = document.getCreatorUser().getId() == userId;
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
         if (!isCreator && !isAdmin) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền chỉnh sửa dự thảo này");
