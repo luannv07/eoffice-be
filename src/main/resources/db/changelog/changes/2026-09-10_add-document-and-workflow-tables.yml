@@ -4,6 +4,11 @@ databaseChangeLog:
       author: eoffice-dev
       validCheckSum:
         - ANY
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: "SELECT COUNT(*) FROM information_schema.tables WHERE LOWER(table_name) = 'documents'"
       changes:
         - createTable:
             tableName: documents
@@ -191,6 +196,13 @@ databaseChangeLog:
   - changeSet:
       id: 2026-09-10-create-document-workflow-logs-table
       author: eoffice-dev
+      validCheckSum:
+        - ANY
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: "SELECT COUNT(*) FROM information_schema.tables WHERE LOWER(table_name) = 'document_workflow_logs'"
       changes:
         - createTable:
             tableName: document_workflow_logs
