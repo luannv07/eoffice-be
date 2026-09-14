@@ -37,6 +37,11 @@ public class DocumentBookYearResetJob {
 		int createdCount = 0;
 
 		for (DocumentBook oldBook : activeBooks) {
+			// Chỉ xử lý các sổ của năm cũ cần chuyển giao (bỏ qua nếu year null, year != previousYear hoặc year >= newYear)
+			if (oldBook.getYear() == null || oldBook.getYear() != previousYear) {
+				continue;
+			}
+
 			// Đóng sổ năm cũ (bảo toàn lịch sử, không xóa)
 			oldBook.setIsClosed(true);
 			documentBookRepository.save(oldBook);
@@ -71,8 +76,12 @@ public class DocumentBookYearResetJob {
 					.deleteFlg(false)
 					.build();
 
-			documentBookRepository.save(newBook);
-			createdCount++;
+			try {
+				documentBookRepository.save(newBook);
+				createdCount++;
+			} catch (org.springframework.dao.DataIntegrityViolationException ex) {
+				log.warn("[CRON] Bỏ qua tạo sổ mới do đã tồn tại hoặc xung đột khóa đồng thời: {}", newBookCode, ex);
+			}
 		}
 
 		log.info("[CRON] Hoàn tất: Đã đóng {} sổ năm cũ và tạo {} sổ mới cho năm {}", closedCount, createdCount, newYear);

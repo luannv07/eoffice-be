@@ -5,10 +5,12 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import vn.edu.epu.eoffice_be.common.annotation.Auditable;
 import vn.edu.epu.eoffice_be.common.dto.BaseResponse;
+import vn.edu.epu.eoffice_be.common.dto.PageResponse;
 import vn.edu.epu.eoffice_be.dto.request.AssignDocumentNumberRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentBookCreateRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentBookFilterRequest;
@@ -21,6 +23,7 @@ import vn.edu.epu.eoffice_be.service.DocumentBookService;
 @RequestMapping("/document-books")
 @RequiredArgsConstructor
 @Auditable
+@PreAuthorize("isAuthenticated()")
 @Tag(name = "Document Book", description = "Quản lý sổ văn bản 2 cấp và cấp số văn bản (UC06 - UC07)")
 public class DocumentBookController {
 
@@ -34,9 +37,9 @@ public class DocumentBookController {
 	@ApiResponse(responseCode = "200", description = "Lấy danh sách thành công")
 	@ApiResponse(responseCode = "400", description = "Tham số phân trang/sắp xếp không hợp lệ")
 	@GetMapping
-	public BaseResponse<Page<DocumentBookResponse>> getAll(
+	public BaseResponse<PageResponse<DocumentBookResponse>> getAll(
 			@Valid @ModelAttribute DocumentBookFilterRequest request) {
-		return BaseResponse.success(documentBookService.getAll(request));
+		return BaseResponse.success(PageResponse.from(documentBookService.getAll(request)));
 	}
 
 	@Operation(
@@ -55,10 +58,12 @@ public class DocumentBookController {
 			description = "Tạo sổ văn bản mới cho năm, đơn vị và loại văn bản. Bắt buộc định dạng mẫu số numberPattern "
 					+ "chứa {NUM}/[MÃ_LOẠI]-[MÃ_ĐƠN_VỊ] (ví dụ: {NUM}/QĐ-ĐHEPU hoặc {NUM}/TB-CNTT)."
 	)
-	@ApiResponse(responseCode = "200", description = "Tạo sổ văn bản thành công")
+	@ApiResponse(responseCode = "201", description = "Tạo sổ văn bản thành công")
 	@ApiResponse(responseCode = "400", description = "Dữ liệu không hợp lệ hoặc mẫu số sai định dạng")
 	@ApiResponse(responseCode = "409", description = "Mã sổ hoặc sổ cho năm/đơn vị/loại này đã tồn tại")
 	@PostMapping
+	@ResponseStatus(HttpStatus.CREATED)
+	@PreAuthorize("hasAnyRole('ADMIN', 'SYSTEM_ADMIN', 'LEADER')")
 	public BaseResponse<DocumentBookResponse> create(
 			@Valid @RequestBody DocumentBookCreateRequest request) {
 		return BaseResponse.success(documentBookService.create(request));
@@ -72,6 +77,7 @@ public class DocumentBookController {
 	@ApiResponse(responseCode = "400", description = "Dữ liệu không hợp lệ hoặc sổ đã đóng")
 	@ApiResponse(responseCode = "404", description = "Không tìm thấy sổ văn bản")
 	@PutMapping("/{id}")
+	@PreAuthorize("hasAnyRole('ADMIN', 'SYSTEM_ADMIN', 'LEADER')")
 	public BaseResponse<DocumentBookResponse> update(
 			@PathVariable Long id,
 			@Valid @RequestBody DocumentBookUpdateRequest request) {
@@ -85,6 +91,7 @@ public class DocumentBookController {
 	@ApiResponse(responseCode = "200", description = "Đóng sổ thành công")
 	@ApiResponse(responseCode = "404", description = "Không tìm thấy sổ văn bản")
 	@PutMapping("/{id}/close")
+	@PreAuthorize("hasAnyRole('ADMIN', 'SYSTEM_ADMIN', 'LEADER')")
 	public BaseResponse<Void> close(@PathVariable Long id) {
 		documentBookService.close(id);
 		return BaseResponse.success(null);
@@ -97,6 +104,7 @@ public class DocumentBookController {
 	@ApiResponse(responseCode = "200", description = "Mở lại sổ thành công")
 	@ApiResponse(responseCode = "404", description = "Không tìm thấy sổ văn bản")
 	@PutMapping("/{id}/reopen")
+	@PreAuthorize("hasAnyRole('ADMIN', 'SYSTEM_ADMIN', 'LEADER')")
 	public BaseResponse<Void> reopen(@PathVariable Long id) {
 		documentBookService.reopen(id);
 		return BaseResponse.success(null);
@@ -109,6 +117,7 @@ public class DocumentBookController {
 	@ApiResponse(responseCode = "200", description = "Xóa thành công")
 	@ApiResponse(responseCode = "404", description = "Không tìm thấy sổ văn bản")
 	@DeleteMapping("/{id}")
+	@PreAuthorize("hasAnyRole('ADMIN', 'SYSTEM_ADMIN', 'LEADER')")
 	public BaseResponse<Void> delete(@PathVariable Long id) {
 		documentBookService.delete(id);
 		return BaseResponse.success(null);
@@ -123,6 +132,7 @@ public class DocumentBookController {
 	@ApiResponse(responseCode = "400", description = "Sổ văn bản đã đóng hoặc thông tin không hợp lệ")
 	@ApiResponse(responseCode = "404", description = "Không tìm thấy sổ văn bản")
 	@PostMapping("/assign-number")
+	@PreAuthorize("hasAnyRole('ADMIN', 'SYSTEM_ADMIN', 'LEADER') or hasAuthority('DOCUMENT_ASSIGN_NUMBER')")
 	public BaseResponse<AssignDocumentNumberResponse> assignNumber(
 			@Valid @RequestBody AssignDocumentNumberRequest request) {
 		return BaseResponse.success(documentBookService.assignNumber(request));

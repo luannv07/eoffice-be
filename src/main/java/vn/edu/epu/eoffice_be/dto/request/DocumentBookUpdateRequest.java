@@ -17,8 +17,9 @@ public class DocumentBookUpdateRequest {
 	String bookName;
 
 	@Schema(description = "Mẫu sinh số văn bản mới", example = "{NUM}/QĐ-ĐHEPU")
+	@Size(max = 255, message = "numberPattern tối đa 255 ký tự")
 	@Pattern(
-			regexp = "^\\{NUM\\}\\/[A-Za-z0-9À-ỹ]++(?:[-/.][A-Za-z0-9À-ỹ]++)++$",
+			regexp = "^\\{NUM\\}\\/[A-Za-z0-9À-ỹ]+-[A-Za-z0-9À-ỹ]+$",
 			message = "Mẫu số văn bản phải có định dạng {NUM}/[MÃ_LOẠI]-[MÃ_ĐƠN_VỊ] (ví dụ: {NUM}/QĐ-ĐHEPU hoặc {NUM}/TB-CNTT)"
 	)
 	String numberPattern;

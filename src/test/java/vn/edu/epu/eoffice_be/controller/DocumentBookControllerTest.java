@@ -63,7 +63,11 @@ class DocumentBookControllerTest {
 		mockMvc.perform(get("/document-books?year=2026"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.success").value(true))
-				.andExpect(jsonPath("$.data.content[0].bookCode").value("SVD-QD-2026"));
+				.andExpect(jsonPath("$.data.content[0].bookCode").value("SVD-QD-2026"))
+				.andExpect(jsonPath("$.data.page").value(1))
+				.andExpect(jsonPath("$.data.size").value(10))
+				.andExpect(jsonPath("$.data.totalElements").value(1))
+				.andExpect(jsonPath("$.data.totalPages").value(1));
 	}
 
 	@Test
@@ -81,7 +85,7 @@ class DocumentBookControllerTest {
 	}
 
 	@Test
-	void create_ValidRequest_Returns200() throws Exception {
+	void create_ValidRequest_Returns201() throws Exception {
 		DocumentBookCreateRequest req = new DocumentBookCreateRequest();
 		req.setBookCode("SVD-QD-DHEPU-2026");
 		req.setBookName("Sổ Quyết định");
@@ -100,9 +104,27 @@ class DocumentBookControllerTest {
 		mockMvc.perform(post("/document-books")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(req)))
-				.andExpect(status().isOk())
+				.andExpect(status().isCreated())
 				.andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.data.bookCode").value("SVD-QD-DHEPU-2026"));
+	}
+
+	@Test
+	void create_NegativeOrZeroForeignKey_Returns400() throws Exception {
+		DocumentBookCreateRequest req = new DocumentBookCreateRequest();
+		req.setBookCode("SVD-QD-DHEPU-2026");
+		req.setBookName("Sổ Quyết định");
+		req.setYear(2026);
+		req.setBookLevel(1);
+		req.setDocumentTypeId(0L);
+		req.setOrgNodeId(-1L);
+		req.setNumberPattern("{NUM}/QĐ-ĐHEPU");
+
+		mockMvc.perform(post("/document-books")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(req)))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.success").value(false));
 	}
 
 	@Test

@@ -29,6 +29,7 @@ class AuthCoreContextTest {
 	vn.edu.epu.eoffice_be.repository.DictionaryItemRepository dictionaryItemRepository;
 
 	@Test
+	@Transactional
 	void seededDocumentTypesExist() {
 		var items = dictionaryItemRepository.findByGroupCdAndDeleteFlgFalseAndActiveFlgTrueOrderByDisplayOrderAsc("DOCUMENT_TYPE");
 		assertEquals(5, items.size());
