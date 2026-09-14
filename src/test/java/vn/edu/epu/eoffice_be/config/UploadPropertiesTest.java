@@ -213,4 +213,37 @@ class UploadPropertiesTest {
         assertNotNull(extensions);
         assertThrows(UnsupportedOperationException.class, () -> extensions.add("exe"));
     }
+    @Test
+    void invalidDir_EtcSshSubdirectory_ShouldBeRejected() {
+        UploadProperties props = new UploadProperties();
+        props.setDir("/etc/ssh");
+        Set<ConstraintViolation<UploadProperties>> violations = validator.validate(props);
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> "dirValid".equals(v.getPropertyPath().toString())));
+    }
+
+    @Test
+    void invalidDir_WindowsSystem32_ShouldBeRejected() {
+        UploadProperties props = new UploadProperties();
+        props.setDir("C:/Windows/System32");
+        Set<ConstraintViolation<UploadProperties>> violations = validator.validate(props);
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> "dirValid".equals(v.getPropertyPath().toString())));
+    }
+
+    @Test
+    void validDir_UploadsSingleSegment_ShouldBeValid() {
+        UploadProperties props = new UploadProperties();
+        props.setDir("/uploads");
+        Set<ConstraintViolation<UploadProperties>> violations = validator.validate(props);
+        assertTrue(violations.isEmpty());
+    }
+
+    @Test
+    void validDir_VarUploads_ShouldBeValid() {
+        UploadProperties props = new UploadProperties();
+        props.setDir("/var/uploads");
+        Set<ConstraintViolation<UploadProperties>> violations = validator.validate(props);
+        assertTrue(violations.isEmpty());
+    }
 }
