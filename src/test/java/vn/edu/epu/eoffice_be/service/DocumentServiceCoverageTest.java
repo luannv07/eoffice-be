@@ -71,8 +71,8 @@ class DocumentServiceCoverageTest {
     DocumentPublishService documentPublishService;
 
     @InjectMocks
-    DocumentWorkflowServiceImpl documentWorkflowService;
-
+    private DocumentWorkflowServiceImpl documentWorkflowService;
+    
     public static class TestOrgPrincipal implements vn.edu.epu.eoffice_be.security.OrgAwarePrincipal {
         @Override
         public Long getOrgId() { return 1L; }

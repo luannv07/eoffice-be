@@ -110,13 +110,32 @@ class DocumentBookControllerTest {
 	}
 
 	@Test
-	void create_NegativeOrZeroForeignKey_Returns400() throws Exception {
+	void create_ZeroDocumentTypeId_Returns400() throws Exception {
 		DocumentBookCreateRequest req = new DocumentBookCreateRequest();
 		req.setBookCode("SVD-QD-DHEPU-2026");
 		req.setBookName("Sổ Quyết định");
 		req.setYear(2026);
 		req.setBookLevel(1);
 		req.setDocumentTypeId(0L);
+		req.setOrgNodeId(1001L);
+		req.setNumberPattern("{NUM}/QĐ-ĐHEPU");
+
+		mockMvc.perform(post("/document-books")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(req)))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.success").value(false))
+				.andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("documentTypeId")));
+	}
+
+	@Test
+	void create_NegativeOrgNodeId_Returns400() throws Exception {
+		DocumentBookCreateRequest req = new DocumentBookCreateRequest();
+		req.setBookCode("SVD-QD-DHEPU-2026");
+		req.setBookName("Sổ Quyết định");
+		req.setYear(2026);
+		req.setBookLevel(1);
+		req.setDocumentTypeId(3001L);
 		req.setOrgNodeId(-1L);
 		req.setNumberPattern("{NUM}/QĐ-ĐHEPU");
 
@@ -124,7 +143,8 @@ class DocumentBookControllerTest {
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(req)))
 				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.success").value(false));
+				.andExpect(jsonPath("$.success").value(false))
+				.andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("orgNodeId")));
 	}
 
 	@Test
