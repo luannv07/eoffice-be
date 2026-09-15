@@ -16,13 +16,14 @@ public interface DocumentWorkflowLogRepository extends JpaRepository<DocumentWor
     @Query("SELECT l FROM DocumentWorkflowLog l WHERE l.document.id = :documentId AND (l.deleteFlg = false OR l.deleteFlg IS NULL) ORDER BY l.createdDate ASC, l.id ASC")
     List<DocumentWorkflowLog> findByDocumentIdOrderByCreatedDateAsc(@Param("documentId") Long documentId);
 
-    @Deprecated
+    @Deprecated(since = "1.0.0", forRemoval = true)
     @Query("SELECT l FROM DocumentWorkflowLog l WHERE l.document.id = :documentId AND (l.deleteFlg = false OR l.deleteFlg IS NULL) ORDER BY l.createdDate ASC, l.id ASC")
     List<DocumentWorkflowLog> findByDocumentIdOrderByCreatedAtAsc(@Param("documentId") Long documentId);
 
     @Query("SELECT l FROM DocumentWorkflowLog l WHERE l.document.id = :documentId AND (l.deleteFlg = false OR l.deleteFlg IS NULL) ORDER BY l.createdDate ASC, l.id ASC")
     List<DocumentWorkflowLog> findByDocumentIdAndDeleteFlgFalseOrderByCreatedDateAsc(@Param("documentId") Long documentId);
 
-    @Query("SELECT l FROM DocumentWorkflowLog l WHERE l.document.id = :documentId AND (l.deleteFlg = false OR l.deleteFlg IS NULL) ORDER BY l.createdDate ASC, l.id ASC")
+    @Query(value = "SELECT l FROM DocumentWorkflowLog l WHERE l.document.id = :documentId AND (l.deleteFlg = false OR l.deleteFlg IS NULL)",
+           countQuery = "SELECT count(l) FROM DocumentWorkflowLog l WHERE l.document.id = :documentId AND (l.deleteFlg = false OR l.deleteFlg IS NULL)")
     Page<DocumentWorkflowLog> findByDocumentIdAndDeleteFlgFalse(@Param("documentId") Long documentId, Pageable pageable);
 }
