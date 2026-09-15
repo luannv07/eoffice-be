@@ -27,6 +27,8 @@ import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import vn.edu.epu.eoffice_be.repository.OrgNodeRepository;
 import vn.edu.epu.eoffice_be.service.DocumentBookService;
 
+import java.time.LocalDate;
+
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -132,11 +134,15 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 		if (request.getBookName() != null && !request.getBookName().isBlank()) {
 			book.setBookName(request.getBookName().trim());
 		}
-		if (request.getNumberPattern() != null && !request.getNumberPattern().isBlank()) {
-			if (!request.getNumberPattern().contains("{NUM}")) {
+		if (request.getNumberPattern() != null) {
+			if (request.getNumberPattern().isBlank() || !request.getNumberPattern().contains("{NUM}")) {
 				throw new BusinessException(ErrorCode.BAD_REQUEST, "Mẫu số văn bản phải chứa {NUM}");
 			}
 			book.setNumberPattern(request.getNumberPattern().trim());
+		}
+
+		if (book.getNumberPattern() == null || !book.getNumberPattern().contains("{NUM}")) {
+			throw new BusinessException(ErrorCode.BAD_REQUEST, "Mẫu số văn bản phải chứa {NUM}");
 		}
 
 		return toDto(documentBookRepository.save(book));
@@ -194,20 +200,27 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 			}
 
 			// Kiểm tra ràng buộc giữa Document và DocumentBook (loại văn bản, đơn vị, năm hiệu lực)
-			if (document.getDocumentTypeCd() != null && book.getDocumentType() != null
-					&& !document.getDocumentTypeCd().equalsIgnoreCase(book.getDocumentType().getItemCd())) {
-				throw new BusinessException(ErrorCode.BAD_REQUEST, "Loại văn bản không khớp với loại của sổ văn bản");
+			if (book.getDocumentType() != null) {
+				if (document.getDocumentTypeCd() == null || !document.getDocumentTypeCd().equalsIgnoreCase(book.getDocumentType().getItemCd())) {
+					throw new BusinessException(ErrorCode.BAD_REQUEST, "Loại văn bản không khớp với loại của sổ văn bản");
+				}
 			}
 
-			OrgNode issuingOrg = document.getIssuingOrgNode() != null ? document.getIssuingOrgNode() : document.getIssuingOrg();
-			if (issuingOrg != null && book.getOrgNode() != null
-					&& !issuingOrg.getId().equals(book.getOrgNode().getId())) {
-				throw new BusinessException(ErrorCode.BAD_REQUEST, "Đơn vị ban hành của văn bản không khớp với sổ văn bản");
+			if (book.getOrgNode() != null) {
+				OrgNode issuingOrg = document.getIssuingOrgNode() != null ? document.getIssuingOrgNode() : document.getIssuingOrg();
+				if (issuingOrg == null || issuingOrg.getId() == null || !issuingOrg.getId().equals(book.getOrgNode().getId())) {
+					throw new BusinessException(ErrorCode.BAD_REQUEST, "Đơn vị ban hành của văn bản không khớp với sổ văn bản");
+				}
 			}
 
-			if (request.getEffectiveDate() != null && book.getYear() != null
-					&& request.getEffectiveDate().getYear() != book.getYear().intValue()) {
-				throw new BusinessException(ErrorCode.BAD_REQUEST, "Năm hiệu lực của văn bản không khớp với năm của sổ văn bản");
+			if (book.getYear() != null) {
+				LocalDate effDate = request.getEffectiveDate();
+				if (effDate == null && document.getEffectiveDate() != null) {
+					effDate = document.getEffectiveDate().atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDate();
+				}
+				if (effDate == null || effDate.getYear() != book.getYear().intValue()) {
+					throw new BusinessException(ErrorCode.BAD_REQUEST, "Năm hiệu lực của văn bản không khớp với năm của sổ văn bản");
+				}
 			}
 		}
 

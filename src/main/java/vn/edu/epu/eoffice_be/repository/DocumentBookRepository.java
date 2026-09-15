@@ -8,7 +8,6 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.transaction.annotation.Transactional;
 import vn.edu.epu.eoffice_be.entity.DocumentBook;
 
 import java.util.List;
@@ -22,7 +21,6 @@ public interface DocumentBookRepository extends JpaRepository<DocumentBook, Long
 
 	Optional<DocumentBook> findByIdAndDeleteFlgFalse(Long id);
 
-	@Transactional
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("SELECT b FROM DocumentBook b WHERE b.id = :id AND b.deleteFlg = false")
 	Optional<DocumentBook> findByIdForUpdate(@Param("id") Long id);

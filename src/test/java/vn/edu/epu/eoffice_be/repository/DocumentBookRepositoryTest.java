@@ -81,6 +81,12 @@ class DocumentBookRepositoryTest {
 
 		req.setOrgNodeId(-1L);
 		assertFalse(validator.validateProperty(req, "orgNodeId").isEmpty());
+
+		// Positive validation: ID dương hợp lệ
+		req.setDocumentTypeId(1L);
+		req.setOrgNodeId(1L);
+		assertTrue(validator.validateProperty(req, "documentTypeId").isEmpty());
+		assertTrue(validator.validateProperty(req, "orgNodeId").isEmpty());
 	}
 
 	private boolean isValidPattern(String pattern) {
@@ -175,6 +181,8 @@ class DocumentBookRepositoryTest {
 		// Defaults from @PrePersist
 		assertEquals(0, saved1.getCurrentNumber());
 		assertFalse(saved1.getIsClosed());
+		assertEquals(0, saved2.getCurrentNumber());
+		assertFalse(saved2.getIsClosed());
 	}
 
 	@Test
@@ -185,7 +193,9 @@ class DocumentBookRepositoryTest {
 		assertNotNull(pageable);
 		assertEquals(0, pageable.getPageNumber());
 		assertEquals(10, pageable.getPageSize());
-		// Kiểm tra tie-breaker id DESC luôn có mặt
-		assertTrue(pageable.getSort().stream().anyMatch(order -> order.getProperty().equals("id")));
+		// Kiểm tra tie-breaker id DESC luôn có mặt và sắp xếp giảm dần
+		var idOrder = pageable.getSort().getOrderFor("id");
+		assertNotNull(idOrder);
+		assertTrue(idOrder.isDescending());
 	}
 }
