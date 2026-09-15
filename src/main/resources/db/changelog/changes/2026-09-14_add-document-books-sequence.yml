@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-09-14-create-document-books-seq
+      author: eoffice-dev
+      changes:
+        - createSequence:
+            sequenceName: document_books_seq
+            startValue: 10000
+            incrementBy: 50
