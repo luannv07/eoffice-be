@@ -5,7 +5,7 @@ spring:
       - optional:file:.env.deploy[.properties]
   application:
     name: eoffice-be
-    version: @project.version@
+    version: "@project.version@"
   jackson:
     time-zone: UTC
   jpa:
@@ -50,6 +50,15 @@ management:
       show-details: never
 
 eoffice:
+  timezone: ${APP_TIMEZONE:Asia/Ho_Chi_Minh}
+  storage:
+    base-path: ${STORAGE_BASE_PATH:./uploads}
+  pki:
+    keystore-path: ${PKI_KEYSTORE_PATH:}
+    keystore-password: ${PKI_KEYSTORE_PASSWORD:}
+    key-alias: ${PKI_KEY_ALIAS:}
+    key-password: ${PKI_KEY_PASSWORD:}
+    fallback-keystore-path: ${PKI_FALLBACK_KEYSTORE_PATH:./uploads/keystore/epu-pki.p12}
   jwt:
     issuer: eoffice-be
     secret-key: ${JWT_SECRET}
@@ -60,6 +69,14 @@ eoffice:
     cookie-secure: ${COOKIE_SECURE:false}
     cookie-same-site: Strict
     allowed-origins: ${JWT_ALLOWED_ORIGINS:}
+  upload:
+    dir: ${UPLOAD_DIR:/var/eoffice/uploads/documents}
+    max-file-size-bytes: 26214400
+    allowed-extensions:
+      - docx
+      - pdf
+      - DOCX
+      - PDF
   mail:
     from: ${MAIL_FROM:no-reply@eoffice.local}
   password-reset:

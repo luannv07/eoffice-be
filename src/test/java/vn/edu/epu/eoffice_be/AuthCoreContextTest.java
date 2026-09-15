@@ -25,6 +25,18 @@ class AuthCoreContextTest {
 	@Autowired
 	JwtService jwtService;
 
+	@Autowired
+	vn.edu.epu.eoffice_be.repository.DictionaryItemRepository dictionaryItemRepository;
+
+	@Test
+	@Transactional
+	void seededDocumentTypesExist() {
+		var items = dictionaryItemRepository.findByGroupCdAndDeleteFlgFalseAndActiveFlgTrueOrderByDisplayOrderAsc("DOCUMENT_TYPE");
+		assertEquals(5, items.size());
+		var codes = items.stream().map(vn.edu.epu.eoffice_be.entity.DictionaryItem::getItemCd).toList();
+		assertTrue(codes.containsAll(java.util.List.of("QD", "NQ", "TB", "CT", "CV")));
+	}
+
 	@Test
 	@Transactional
 	void contextLoadsAndJwtRoundTripWorks() {

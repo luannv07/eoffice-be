@@ -17,6 +17,11 @@ import vn.edu.epu.eoffice_be.entity.DictionaryItem;
 import vn.edu.epu.eoffice_be.repository.DictionaryItemRepository;
 import vn.edu.epu.eoffice_be.service.impl.DictionaryItemServiceImpl;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -162,8 +167,9 @@ class DictionaryItemServiceImplTest {
 	void updateShouldThrowNotFoundWhenMissingOrDeleted() {
 		when(dictionaryItemRepository.findByIdAndDeleteFlgFalse(404L)).thenReturn(Optional.empty());
 
+		DictionaryItemUpdateRequest request = new DictionaryItemUpdateRequest();
 		BusinessException ex = assertThrows(BusinessException.class,
-						() -> dictionaryItemService.update(404L, new DictionaryItemUpdateRequest()));
+						() -> dictionaryItemService.update(404L, request));
 		assertEquals(ErrorCode.NOT_FOUND, ex.getErrorCode());
 	}
 
@@ -261,12 +267,14 @@ class DictionaryItemServiceImplTest {
 						() -> dictionaryItemService.lookupByGroups(null));
 		assertEquals(ErrorCode.BAD_REQUEST, ex1.getErrorCode());
 
+		List<String> emptyList = List.of();
 		BusinessException ex2 = assertThrows(BusinessException.class,
-						() -> dictionaryItemService.lookupByGroups(List.of()));
+						() -> dictionaryItemService.lookupByGroups(emptyList));
 		assertEquals(ErrorCode.BAD_REQUEST, ex2.getErrorCode());
 
+		List<String> blankEntries = List.of("  ", "");
 		BusinessException ex3 = assertThrows(BusinessException.class,
-						() -> dictionaryItemService.lookupByGroups(List.of("  ", "")));
+						() -> dictionaryItemService.lookupByGroups(blankEntries));
 		assertEquals(ErrorCode.BAD_REQUEST, ex3.getErrorCode());
 	}
 
@@ -287,10 +295,10 @@ class DictionaryItemServiceImplTest {
 	void getAllShouldApplyNoFiltersWhenRequestEmpty() {
 		DictionaryItemFilterRequest request = new DictionaryItemFilterRequest();
 
-		var page = new org.springframework.data.domain.PageImpl<>(
+		Page<DictionaryItem> page = new PageImpl<>(
 						List.of(item(20L, "G1", "CD1", false)),
 						request.pageable(), 1);
-		when(dictionaryItemRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(org.springframework.data.domain.Pageable.class)))
+		when(dictionaryItemRepository.findAll(org.mockito.ArgumentMatchers.<Specification<DictionaryItem>>any(), any(Pageable.class)))
 						.thenReturn(page);
 
 		var result = dictionaryItemService.getAll(request);
@@ -308,14 +316,14 @@ class DictionaryItemServiceImplTest {
 		request.setNameEn("Name");
 		request.setActiveFlg(true);
 
-		var page = new org.springframework.data.domain.PageImpl<>(List.of(), request.pageable(), 0);
-		when(dictionaryItemRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(org.springframework.data.domain.Pageable.class)))
+		Page<DictionaryItem> page = new PageImpl<>(List.of(), request.pageable(), 0);
+		when(dictionaryItemRepository.findAll(org.mockito.ArgumentMatchers.<Specification<DictionaryItem>>any(), any(Pageable.class)))
 						.thenReturn(page);
 
 		var result = dictionaryItemService.getAll(request);
 
 		assertEquals(0, result.getTotalElements());
-		verify(dictionaryItemRepository).findAll(any(org.springframework.data.jpa.domain.Specification.class), any(org.springframework.data.domain.Pageable.class));
+		verify(dictionaryItemRepository).findAll(org.mockito.ArgumentMatchers.<Specification<DictionaryItem>>any(), any(Pageable.class));
 	}
 
 	@Test
@@ -327,8 +335,8 @@ class DictionaryItemServiceImplTest {
 		request.setNameEn(null);
 		request.setActiveFlg(false);
 
-		var page = new org.springframework.data.domain.PageImpl<>(List.of(), request.pageable(), 0);
-		when(dictionaryItemRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(org.springframework.data.domain.Pageable.class)))
+		Page<DictionaryItem> page = new PageImpl<>(List.of(), request.pageable(), 0);
+		when(dictionaryItemRepository.findAll(org.mockito.ArgumentMatchers.<Specification<DictionaryItem>>any(), any(Pageable.class)))
 						.thenReturn(page);
 
 		var result = dictionaryItemService.getAll(request);

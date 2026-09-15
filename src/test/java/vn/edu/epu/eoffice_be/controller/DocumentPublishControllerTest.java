@@ -6,18 +6,30 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.ArgumentCaptor;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import vn.edu.epu.eoffice_be.common.exception.GlobalExceptionHandler;
 import vn.edu.epu.eoffice_be.dto.PublishRequest;
 import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.service.DocumentPublishService;
 
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,7 +45,9 @@ class DocumentPublishControllerTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(publishController).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(publishController)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
     }
 
     @Test
@@ -49,21 +63,69 @@ class DocumentPublishControllerTest {
         mockMvc.perform(post("/documents/1/publish")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(rawJson))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PUBLISHED"))
+                .andExpect(jsonPath("$.statusDescription").value(vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED.getDescription()));
     }
 
     @Test
-    void testVerifyIntegrityEndpoint() throws Exception {
-        when(publishService.verifyIntegrity(1L)).thenReturn(true);
+    void testVerifyIntegrityEndpoint_Authorized_Returns200() throws Exception {
+        Authentication auth = new UsernamePasswordAuthenticationToken(
+                "tester", null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        when(publishService.verifyIntegrity(eq(1L), any())).thenReturn(true);
 
+        mockMvc.perform(get("/documents/1/verify-integrity").principal(auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.documentId").value(1L))
+                .andExpect(jsonPath("$.valid").value(true));
+
+        ArgumentCaptor<Authentication> authCaptor = ArgumentCaptor.forClass(Authentication.class);
+        verify(publishService, times(1)).verifyIntegrity(eq(1L), authCaptor.capture());
+        assertNotNull(authCaptor.getValue());
+        assertEquals("tester", authCaptor.getValue().getName());
+        assertTrue(authCaptor.getValue().getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_USER")));
+    }
+
+    @Test
+    void testVerifyIntegrityEndpoint_WhenFalse_Returns200() throws Exception {
+        Authentication auth = new UsernamePasswordAuthenticationToken(
+                "tester", null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        when(publishService.verifyIntegrity(eq(2L), any())).thenReturn(false);
+
+        mockMvc.perform(get("/documents/2/verify-integrity").principal(auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.documentId").value(2L))
+                .andExpect(jsonPath("$.valid").value(false));
+
+        ArgumentCaptor<Authentication> authCaptor = ArgumentCaptor.forClass(Authentication.class);
+        verify(publishService, times(1)).verifyIntegrity(eq(2L), authCaptor.capture());
+        assertNotNull(authCaptor.getValue());
+        assertEquals("tester", authCaptor.getValue().getName());
+        assertTrue(authCaptor.getValue().getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_USER")));
+    }
+
+    @Test
+    void testVerifyIntegrityEndpoint_Unauthorized_Returns403() throws Exception {
+        Authentication auth = new UsernamePasswordAuthenticationToken(
+                "unauthorized_user", null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        when(publishService.verifyIntegrity(eq(99L), any()))
+                .thenThrow(new AccessDeniedException("User is not authorized to verify integrity"));
+
+        mockMvc.perform(get("/documents/99/verify-integrity").principal(auth))
+                .andExpect(status().isForbidden());
+
+        ArgumentCaptor<Authentication> authCaptor = ArgumentCaptor.forClass(Authentication.class);
+        verify(publishService, times(1)).verifyIntegrity(eq(99L), authCaptor.capture());
+        assertNotNull(authCaptor.getValue());
+        assertEquals("unauthorized_user", authCaptor.getValue().getName());
+        assertTrue(authCaptor.getValue().getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_USER")));
+    }
+
+    @Test
+    void testVerifyIntegrityEndpoint_MissingAuthentication_Returns403() throws Exception {
         mockMvc.perform(get("/documents/1/verify-integrity"))
-                .andExpect(status().isOk());
-    }
-    @Test
-    void testVerifyIntegrityEndpoint_WhenFalse() throws Exception {
-        when(publishService.verifyIntegrity(2L)).thenReturn(false);
+                .andExpect(status().isForbidden());
 
-        mockMvc.perform(get("/documents/2/verify-integrity"))
-                .andExpect(status().isOk());
+        verifyNoInteractions(publishService);
     }
 }
