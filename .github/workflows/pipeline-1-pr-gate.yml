@@ -37,6 +37,15 @@ jobs:
       - name: 3. Build (Tests + Static Analysis)
         run: mvn -B clean verify
 
+      - name: 4. Upload JaCoCo report & compiled classes for Sonar
+        uses: actions/upload-artifact@v4
+        with:
+          name: sonar-artifacts
+          path: |
+            target/site/jacoco/jacoco.xml
+            target/classes
+          if-no-files-found: error
+
   security-scan:
     name: "Security Scan (Trivy + TruffleHog)"
     runs-on: ubuntu-latest
@@ -73,6 +82,7 @@ jobs:
 
   sonar:
     name: "SonarQube Scan"
+    needs: build-test
     runs-on: ubuntu-latest
     steps:
       - name: 1. Checkout source
@@ -87,17 +97,23 @@ jobs:
           java-version: "21"
           cache: "maven"
 
-      - name: 3. SonarQube Scan + Quality Gate
+      - name: 3. Download JaCoCo report & compiled classes
+        uses: actions/download-artifact@v4
+        with:
+          name: sonar-artifacts
+          path: .
+
+      - name: 4. SonarQube Scan + Quality Gate
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          mvn -B compile
           mvn -B sonar:sonar \
             -Dsonar.projectKey=luannv07_eoffice-be \
             -Dsonar.organization=luannv07 \
             -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
             -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
-            -Dsonar.java.binaries=target/classes
+            -Dsonar.java.binaries=target/classes \
+            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
 
   ai-review:
     name: "AI Code Review"

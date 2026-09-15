@@ -1,0 +1,50 @@
+databaseChangeLog:
+
+  # ── 1. Seed org_nodes: Truong + 3 Phong/Ban ──────────────────────────────
+  - changeSet:
+      id: a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c70
+      author: namnguyen
+      validCheckSum:
+        - ANY
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: "SELECT COUNT(*) FROM org_nodes WHERE code = 'EPU'"
+      changes:
+        - sql:
+            sql: |-
+              INSERT INTO org_nodes (id, code, name_vn, name_en, type_cd, parent_id, delete_flg) VALUES
+              (5001, 'EPU', 'Truong Dai hoc Dien Luc', 'Electric Power University', 'UNIVERSITY', NULL, false);
+
+              INSERT INTO org_nodes (id, code, name_vn, name_en, type_cd, parent_id, delete_flg) VALUES
+              (5002, 'CVQL',  'Phong Cong tac Quoc te',    'International Relations Office',    'DEPARTMENT', (SELECT id FROM org_nodes WHERE code = 'EPU'), false),
+              (5003, 'CNTT',  'Khoa Cong nghe Thong tin',  'Faculty of Information Technology', 'FACULTY',    (SELECT id FROM org_nodes WHERE code = 'EPU'), false),
+              (5004, 'PHCNS', 'Phong Hanh chinh Nhan su',  'Administration and HR Office',      'DEPARTMENT', (SELECT id FROM org_nodes WHERE code = 'EPU'), false);
+      rollback:
+        - sql:
+            sql: DELETE FROM org_nodes WHERE id IN (5001, 5002, 5003, 5004) OR code IN ('EPU', 'CVQL', 'CNTT', 'PHCNS');
+
+  # ── 2. Seed document_books: 5 so van ban nam 2026 ────────────────────────
+  - changeSet:
+      id: a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c71
+      author: namnguyen
+      validCheckSum:
+        - ANY
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: "SELECT COUNT(*) FROM document_books WHERE book_code = 'SVD-QD-EPU-2026'"
+      changes:
+        - sql:
+            sql: |-
+              INSERT INTO document_books (id, book_code, book_name, book_year, book_level, document_type_id, org_node_id, current_number, number_pattern, is_closed, delete_flg) VALUES
+              (6001, 'SVD-QD-EPU-2026',   'So Quyet dinh cap Truong nam 2026',  2026, 1, 3001, (SELECT id FROM org_nodes WHERE code = 'EPU'),   0, '{NUM}/QD-DHDL',   false, false),
+              (6002, 'SVD-TB-EPU-2026',   'So Thong bao cap Truong nam 2026',   2026, 1, 3003, (SELECT id FROM org_nodes WHERE code = 'EPU'),   0, '{NUM}/TB-DHDL',   false, false),
+              (6003, 'SVD-CV-EPU-2026',   'So Cong van cap Truong nam 2026',    2026, 1, 3005, (SELECT id FROM org_nodes WHERE code = 'EPU'),   0, '{NUM}/CV-DHDL',   false, false),
+              (6004, 'SVD-QD-CNTT-2026',  'So Quyet dinh Khoa CNTT nam 2026',  2026, 2, 3001, (SELECT id FROM org_nodes WHERE code = 'CNTT'),  0, '{NUM}/QD-K.CNTT', false, false),
+              (6005, 'SVD-CV-PHCNS-2026', 'So Cong van Phong HCNS nam 2026',   2026, 2, 3005, (SELECT id FROM org_nodes WHERE code = 'PHCNS'), 0, '{NUM}/CV-HCNS',   false, false);
+      rollback:
+        - sql:
+            sql: DELETE FROM document_books WHERE id IN (6001, 6002, 6003, 6004, 6005) OR book_code LIKE 'SVD-%';
