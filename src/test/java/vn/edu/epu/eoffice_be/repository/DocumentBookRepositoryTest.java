@@ -41,17 +41,46 @@ class DocumentBookRepositoryTest {
 
 	@Test
 	void testNumberPatternRegexValidation() {
-		// Valid patterns
+		// Valid patterns: exactly {NUM}/[MÃ_LOẠI]-[MÃ_ĐƠN_VỊ]
 		assertTrue(isValidPattern("{NUM}/QĐ-ĐHEPU"));
 		assertTrue(isValidPattern("{NUM}/TB-CNTT"));
 		assertTrue(isValidPattern("{NUM}/NQ-DHEPU"));
-		assertTrue(isValidPattern("{NUM}/CV-K.CNTT"));
 
 		// Invalid patterns
-		assertFalse(isValidPattern("{NUM}"));                  // Thiếu mã loại và đơn vị
-		assertFalse(isValidPattern("125/QĐ-ĐHEPU"));           // Thiếu placeholder {NUM}
-		assertFalse(isValidPattern("{NUM}-QD"));               // Thiếu dấu gạch chéo phân cách
-		assertFalse(isValidPattern(""));                       // Rỗng
+		assertFalse(isValidPattern("{NUM}/CV-K.CNTT"));       // Chứa dấu chấm phân cách
+		assertFalse(isValidPattern("{NUM}/QĐ/ĐHEPU"));        // Phân cách dấu gạch chéo
+		assertFalse(isValidPattern("{NUM}/QĐ.ĐHEPU"));        // Phân cách dấu chấm
+		assertFalse(isValidPattern("{NUM}/QĐ-ĐHEPU-2026"));   // Quá 2 segments
+		assertFalse(isValidPattern("{NUM}"));                 // Thiếu mã loại và đơn vị
+		assertFalse(isValidPattern("125/QĐ-ĐHEPU"));          // Thiếu placeholder {NUM}
+		assertFalse(isValidPattern("{NUM}-QD"));              // Thiếu dấu gạch chéo phân cách
+		assertFalse(isValidPattern(""));                      // Rỗng
+	}
+
+	@Test
+	void testForeignKeyPositiveValidation() {
+		DocumentBookCreateRequest req = new DocumentBookCreateRequest();
+		req.setBookCode("SVD-TEST-2026");
+		req.setBookName("Sổ test");
+		req.setYear(2026);
+		req.setBookLevel(1);
+		req.setNumberPattern("{NUM}/QĐ-ĐHEPU");
+
+		// documentTypeId = 0 hoặc -1
+		req.setDocumentTypeId(0L);
+		req.setOrgNodeId(1L);
+		assertFalse(validator.validateProperty(req, "documentTypeId").isEmpty());
+
+		req.setDocumentTypeId(-1L);
+		assertFalse(validator.validateProperty(req, "documentTypeId").isEmpty());
+
+		// orgNodeId = 0 hoặc -1
+		req.setDocumentTypeId(3001L);
+		req.setOrgNodeId(0L);
+		assertFalse(validator.validateProperty(req, "orgNodeId").isEmpty());
+
+		req.setOrgNodeId(-1L);
+		assertFalse(validator.validateProperty(req, "orgNodeId").isEmpty());
 	}
 
 	private boolean isValidPattern(String pattern) {
@@ -82,10 +111,10 @@ class DocumentBookRepositoryTest {
 						.build()));
 
 		DocumentBook book = DocumentBook.builder()
-				.bookCode("SVD-QD-EPU-2026")
-				.bookName("Sổ Quyết định cấp Trường năm 2026")
-				.year(2026)
-				.bookLevel(1)
+				.bookCode("SVD-QD-TEST-UNIQUE-2099")
+				.bookName("Sổ Quyết định test 2099")
+				.year(2099)
+				.bookLevel(DocumentBook.LEVEL_INSTITUTION)
 				.documentType(docType)
 				.orgNode(rootNode)
 				.numberPattern("{NUM}/QĐ-ĐHEPU")
@@ -97,16 +126,55 @@ class DocumentBookRepositoryTest {
 		DocumentBook saved = documentBookRepository.saveAndFlush(book);
 		assertNotNull(saved.getId());
 
-		assertTrue(documentBookRepository.existsByBookCodeAndDeleteFlgFalse("SVD-QD-EPU-2026"));
+		assertTrue(documentBookRepository.existsByBookCodeAndDeleteFlgFalse("SVD-QD-TEST-UNIQUE-2099"));
 		assertFalse(documentBookRepository.existsByBookCodeAndDeleteFlgFalse("UNKNOWN"));
 
 		assertTrue(documentBookRepository.existsByYearAndOrgNodeIdAndDocumentTypeIdAndDeleteFlgFalse(
-				2026, rootNode.getId(), docType.getId()));
+				2099, rootNode.getId(), docType.getId()));
 
 		var found = documentBookRepository.findByIdForUpdate(saved.getId());
 		assertTrue(found.isPresent());
-		assertEquals("SVD-QD-EPU-2026", found.get().getBookCode());
+		assertEquals("SVD-QD-TEST-UNIQUE-2099", found.get().getBookCode());
 		assertEquals(0, found.get().getCurrentNumber());
+	}
+
+	@Test
+	void testMultipleInsertsDedicatedSequence() {
+		DictionaryItem docType = dictionaryItemRepository.findByGroupCdAndItemCdAndDeleteFlgFalse("DOCUMENT_TYPE", "QD")
+				.orElseThrow();
+
+		OrgNode rootNode = orgNodeRepository.findByCodeAndDeleteFlgFalse("EPU")
+				.orElseThrow();
+
+		DocumentBook book1 = DocumentBook.builder()
+				.bookCode("SVD-SEQ-TEST-1")
+				.bookName("Sổ seq 1")
+				.year(2090)
+				.bookLevel(1)
+				.documentType(docType)
+				.orgNode(rootNode)
+				.numberPattern("{NUM}/QĐ-ĐHEPU")
+				.build();
+
+		DocumentBook book2 = DocumentBook.builder()
+				.bookCode("SVD-SEQ-TEST-2")
+				.bookName("Sổ seq 2")
+				.year(2091)
+				.bookLevel(1)
+				.documentType(docType)
+				.orgNode(rootNode)
+				.numberPattern("{NUM}/QĐ-ĐHEPU")
+				.build();
+
+		DocumentBook saved1 = documentBookRepository.saveAndFlush(book1);
+		DocumentBook saved2 = documentBookRepository.saveAndFlush(book2);
+
+		assertNotNull(saved1.getId());
+		assertNotNull(saved2.getId());
+		assertNotEquals(saved1.getId(), saved2.getId());
+		// Defaults from @PrePersist
+		assertEquals(0, saved1.getCurrentNumber());
+		assertFalse(saved1.getIsClosed());
 	}
 
 	@Test
@@ -117,5 +185,7 @@ class DocumentBookRepositoryTest {
 		assertNotNull(pageable);
 		assertEquals(0, pageable.getPageNumber());
 		assertEquals(10, pageable.getPageSize());
+		// Kiểm tra tie-breaker id DESC luôn có mặt
+		assertTrue(pageable.getSort().stream().anyMatch(order -> order.getProperty().equals("id")));
 	}
 }

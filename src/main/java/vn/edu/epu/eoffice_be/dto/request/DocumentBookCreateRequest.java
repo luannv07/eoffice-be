@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.AccessLevel;
 import lombok.Data;
@@ -40,16 +41,19 @@ public class DocumentBookCreateRequest {
 
 	@Schema(description = "ID loại văn bản (FK tới dictionary_items)", example = "3001", requiredMode = Schema.RequiredMode.REQUIRED)
 	@NotNull(message = "documentTypeId không được để trống")
+	@Positive(message = "documentTypeId phải lớn hơn 0")
 	Long documentTypeId;
 
 	@Schema(description = "ID đơn vị/phòng ban sở hữu sổ (FK tới org_nodes)", example = "1", requiredMode = Schema.RequiredMode.REQUIRED)
 	@NotNull(message = "orgNodeId không được để trống")
+	@Positive(message = "orgNodeId phải lớn hơn 0")
 	Long orgNodeId;
 
 	@Schema(description = "Mẫu sinh số văn bản. Bắt buộc chứa {NUM}/[MÃ_LOẠI]-[MÃ_ĐƠN_VỊ]", example = "{NUM}/QĐ-ĐHEPU", requiredMode = Schema.RequiredMode.REQUIRED)
 	@NotBlank(message = "numberPattern không được để trống")
+	@Size(max = 255, message = "numberPattern tối đa 255 ký tự")
 	@Pattern(
-			regexp = "^\\{NUM\\}\\/[A-Za-z0-9À-ỹ]++(?:[-/.][A-Za-z0-9À-ỹ]++)++$",
+			regexp = "^\\{NUM\\}\\/[A-Za-z0-9À-ỹ]+-[A-Za-z0-9À-ỹ]+$",
 			message = "Mẫu số văn bản phải có định dạng {NUM}/[MÃ_LOẠI]-[MÃ_ĐƠN_VỊ] (ví dụ: {NUM}/QĐ-ĐHEPU hoặc {NUM}/TB-CNTT)"
 	)
 	String numberPattern;

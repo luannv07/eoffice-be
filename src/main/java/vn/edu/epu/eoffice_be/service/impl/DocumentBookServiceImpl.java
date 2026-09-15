@@ -80,6 +80,10 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 	@Override
 	@Transactional
 	public DocumentBookResponse create(DocumentBookCreateRequest request) {
+		if (request.getNumberPattern() == null || !request.getNumberPattern().contains("{NUM}")) {
+			throw new BusinessException(ErrorCode.BAD_REQUEST, "Mẫu số văn bản phải chứa {NUM}");
+		}
+
 		if (documentBookRepository.existsByBookCodeAndDeleteFlgFalse(request.getBookCode().trim())) {
 			throw new BusinessException(ErrorCode.DOCUMENT_BOOK_CODE_EXISTS);
 		}
@@ -129,6 +133,9 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 			book.setBookName(request.getBookName().trim());
 		}
 		if (request.getNumberPattern() != null && !request.getNumberPattern().isBlank()) {
+			if (!request.getNumberPattern().contains("{NUM}")) {
+				throw new BusinessException(ErrorCode.BAD_REQUEST, "Mẫu số văn bản phải chứa {NUM}");
+			}
 			book.setNumberPattern(request.getNumberPattern().trim());
 		}
 
@@ -184,6 +191,23 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 
 			if (document.getStatus() != DocumentStatus.APPROVED) {
 				throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATUS, "Văn bản chưa ở trạng thái Đã phê duyệt (APPROVED)");
+			}
+
+			// Kiểm tra ràng buộc giữa Document và DocumentBook (loại văn bản, đơn vị, năm hiệu lực)
+			if (document.getDocumentTypeCd() != null && book.getDocumentType() != null
+					&& !document.getDocumentTypeCd().equalsIgnoreCase(book.getDocumentType().getItemCd())) {
+				throw new BusinessException(ErrorCode.BAD_REQUEST, "Loại văn bản không khớp với loại của sổ văn bản");
+			}
+
+			OrgNode issuingOrg = document.getIssuingOrgNode() != null ? document.getIssuingOrgNode() : document.getIssuingOrg();
+			if (issuingOrg != null && book.getOrgNode() != null
+					&& !issuingOrg.getId().equals(book.getOrgNode().getId())) {
+				throw new BusinessException(ErrorCode.BAD_REQUEST, "Đơn vị ban hành của văn bản không khớp với sổ văn bản");
+			}
+
+			if (request.getEffectiveDate() != null && book.getYear() != null
+					&& request.getEffectiveDate().getYear() != book.getYear().intValue()) {
+				throw new BusinessException(ErrorCode.BAD_REQUEST, "Năm hiệu lực của văn bản không khớp với năm của sổ văn bản");
 			}
 		}
 

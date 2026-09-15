@@ -6,6 +6,10 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.FieldDefaults;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+
 import java.util.Set;
 
 @Data
@@ -33,8 +37,15 @@ public class DocumentBookFilterRequest extends BaseFilterRequest {
 	String keyword;
 
 	@Override
+	public Pageable pageable() {
+		Pageable base = super.pageable();
+		Sort stableSort = base.getSort().and(Sort.by(Sort.Direction.DESC, "id"));
+		return PageRequest.of(base.getPageNumber(), base.getPageSize(), stableSort);
+	}
+
+	@Override
 	protected Set<String> getAllowedSortFields() {
-		return Set.of("createdDate", "updatedDate", "year", "bookCode", "bookName", "currentNumber");
+		return Set.of("createdDate", "updatedDate", "year", "bookCode", "bookName", "currentNumber", "id");
 	}
 
 	@Override
