@@ -297,21 +297,27 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         UserLogin actor = getCurrentActor();
         validateDocumentReadAccess(document, actor);
 
-        Pageable effectivePageable = pageable;
-        if (pageable != null && pageable.getSort().isUnsorted()) {
+        Pageable effectivePageable;
+        if (pageable == null || pageable.isUnpaged()) {
             effectivePageable = PageRequest.of(
-                    pageable.getPageNumber(),
-                    pageable.getPageSize(),
-                    Sort.by(
-                            Sort.Order.asc("createdDate"),
-                            Sort.Order.asc("id")
-                    )
+                    0,
+                    20,
+                    Sort.by(Sort.Order.asc("createdDate"), Sort.Order.asc("id"))
             );
+        } else {
+            Sort sort = pageable.getSort();
+            if (sort.isUnsorted()) {
+                sort = Sort.by(Sort.Order.asc("createdDate"), Sort.Order.asc("id"));
+            } else if (sort.getOrderFor("id") == null) {
+                sort = sort.and(Sort.by(Sort.Order.asc("id")));
+            }
+            effectivePageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
         }
 
         return documentWorkflowLogRepository.findByDocumentIdAndDeleteFlgFalse(documentId, effectivePageable)
                 .map(this::mapToLogResponse);
     }
+
     @Override
     @Transactional(readOnly = true)
     public DocumentDetailResponse getDetail(Long documentId) {

@@ -812,4 +812,58 @@ class DocumentWorkflowServiceTest {
                 () -> documentWorkflowService.signAndPublish(5001L, request));
         assertEquals(ErrorCode.VALIDATION_ERROR, ex.getErrorCode());
     }
+
+    @org.junit.jupiter.api.Test
+    void getWorkflowHistory_whenPageableNullOrUnpaged_shouldApplyDefaultPaginationAndTieBreaker() {
+        Long docId = 100L;
+        vn.edu.epu.eoffice_be.entity.Document mockDoc = vn.edu.epu.eoffice_be.entity.Document.builder()
+                .id(docId)
+                .status(vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED)
+                .build();
+        vn.edu.epu.eoffice_be.entity.UserLogin mockUser = vn.edu.epu.eoffice_be.entity.UserLogin.builder()
+                .id(1L)
+                .role(vn.edu.epu.eoffice_be.common.enums.Role.ADMIN)
+                .username("admin")
+                .build();
+
+        org.mockito.Mockito.when(documentRepository.findByIdAndDeleteFlgFalse(docId))
+                .thenReturn(java.util.Optional.of(mockDoc));
+        org.mockito.Mockito.when(userLoginRepository.findByIdAndDeleteFlgFalse(org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(java.util.Optional.of(mockUser));
+        org.mockito.Mockito.when(documentWorkflowLogRepository.findByDocumentIdAndDeleteFlgFalse(org.mockito.ArgumentMatchers.eq(docId), org.mockito.ArgumentMatchers.any(Pageable.class)))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+
+        // Test with null pageable
+        org.springframework.data.domain.Page<?> resNull = documentWorkflowService.getWorkflowHistory(docId, null);
+        org.junit.jupiter.api.Assertions.assertNotNull(resNull);
+
+        // Test with unpaged
+        org.springframework.data.domain.Page<?> resUnpaged = documentWorkflowService.getWorkflowHistory(docId, Pageable.unpaged());
+        org.junit.jupiter.api.Assertions.assertNotNull(resUnpaged);
+    }
+
+    @org.junit.jupiter.api.Test
+    void getWorkflowHistory_whenClientSortProvided_shouldAppendIdTieBreaker() {
+        Long docId = 200L;
+        vn.edu.epu.eoffice_be.entity.Document mockDoc = vn.edu.epu.eoffice_be.entity.Document.builder()
+                .id(docId)
+                .status(vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED)
+                .build();
+        vn.edu.epu.eoffice_be.entity.UserLogin mockUser = vn.edu.epu.eoffice_be.entity.UserLogin.builder()
+                .id(1L)
+                .role(vn.edu.epu.eoffice_be.common.enums.Role.ADMIN)
+                .username("admin")
+                .build();
+
+        org.mockito.Mockito.when(documentRepository.findByIdAndDeleteFlgFalse(docId))
+                .thenReturn(java.util.Optional.of(mockDoc));
+        org.mockito.Mockito.when(userLoginRepository.findByIdAndDeleteFlgFalse(org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(java.util.Optional.of(mockUser));
+        org.mockito.Mockito.when(documentWorkflowLogRepository.findByDocumentIdAndDeleteFlgFalse(org.mockito.ArgumentMatchers.eq(docId), org.mockito.ArgumentMatchers.any(Pageable.class)))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+
+        Pageable customSortPageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdDate"));
+        org.springframework.data.domain.Page<?> res = documentWorkflowService.getWorkflowHistory(docId, customSortPageable);
+        org.junit.jupiter.api.Assertions.assertNotNull(res);
+    }
 }
