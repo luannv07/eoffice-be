@@ -39,8 +39,11 @@ public class DocumentBookFilterRequest extends BaseFilterRequest {
 	@Override
 	public Pageable pageable() {
 		Pageable base = super.pageable();
-		Sort stableSort = base.getSort().and(Sort.by(Sort.Direction.DESC, "id"));
-		return PageRequest.of(base.getPageNumber(), base.getPageSize(), stableSort);
+		Sort sort = base.getSort();
+		if (sort.getOrderFor("id") == null) {
+			sort = sort.and(Sort.by(Sort.Direction.DESC, "id"));
+		}
+		return PageRequest.of(base.getPageNumber(), base.getPageSize(), sort);
 	}
 
 	@Override
