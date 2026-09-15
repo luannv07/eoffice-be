@@ -1,17 +1,21 @@
 package vn.edu.epu.eoffice_be.service.cron;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 import vn.edu.epu.eoffice_be.entity.DictionaryItem;
 import vn.edu.epu.eoffice_be.entity.DocumentBook;
 import vn.edu.epu.eoffice_be.entity.OrgNode;
 import vn.edu.epu.eoffice_be.repository.DocumentBookRepository;
 
-import java.time.LocalDate;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
 
@@ -24,13 +28,27 @@ class DocumentBookYearResetJobTest {
 	@Mock
 	DocumentBookRepository documentBookRepository;
 
-	@InjectMocks
+	@Mock
+	TransactionTemplate transactionTemplate;
+
+	Clock clock;
+
 	DocumentBookYearResetJob documentBookYearResetJob;
+
+	@BeforeEach
+	void setUp() {
+		clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneId.of("Asia/Ho_Chi_Minh"));
+		lenient().when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+			TransactionCallback<?> callback = invocation.getArgument(0);
+			return callback.doInTransaction(null);
+		});
+		documentBookYearResetJob = new DocumentBookYearResetJob(documentBookRepository, transactionTemplate, clock);
+	}
 
 	@Test
 	void resetAllBookCounters_ClosesOldBooksAndCreatesNewBooks() {
-		int currentYear = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).getYear();
-		int oldYear = currentYear - 1;
+		int currentYear = 2026;
+		int oldYear = 2025;
 
 		DictionaryItem docType = DictionaryItem.builder()
 				.id(3001L)
@@ -67,12 +85,13 @@ class DocumentBookYearResetJobTest {
 		// Old book must be closed
 		assertTrue(oldBook.getIsClosed());
 
-		// Verify save was called for old book and new book
+		// Verify save was called for new book first, then old book
 		ArgumentCaptor<DocumentBook> captor = ArgumentCaptor.forClass(DocumentBook.class);
 		verify(documentBookRepository, times(2)).save(captor.capture());
 
 		List<DocumentBook> savedBooks = captor.getAllValues();
-		DocumentBook newBook = savedBooks.get(1);
+		DocumentBook newBook = savedBooks.get(0);
+		DocumentBook closedOldBook = savedBooks.get(1);
 
 		assertEquals(currentYear, newBook.getYear());
 		assertEquals("SVD-QD-DHEPU-" + currentYear, newBook.getBookCode());
@@ -81,11 +100,14 @@ class DocumentBookYearResetJobTest {
 		assertFalse(newBook.getIsClosed());
 		assertEquals(1, newBook.getBookLevel());
 		assertEquals("{NUM}/QĐ-ĐHEPU", newBook.getNumberPattern());
+
+		assertEquals(oldBook.getId(), closedOldBook.getId());
+		assertTrue(closedOldBook.getIsClosed());
 	}
 
 	@Test
 	void resetAllBookCounters_SkipsCurrentYearAndFutureYearActiveBooks() {
-		int currentYear = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).getYear();
+		int currentYear = 2026;
 
 		DocumentBook currentYearBook = DocumentBook.builder()
 				.id(1L)
@@ -114,8 +136,8 @@ class DocumentBookYearResetJobTest {
 
 	@Test
 	void resetAllBookCounters_HandlesDataIntegrityViolationExceptionGracefully() {
-		int currentYear = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).getYear();
-		int oldYear = currentYear - 1;
+		int currentYear = 2026;
+		int oldYear = 2025;
 
 		DictionaryItem docType = DictionaryItem.builder()
 				.id(3001L)
@@ -143,14 +165,15 @@ class DocumentBookYearResetJobTest {
 		when(documentBookRepository.existsByYearAndOrgNodeIdAndDocumentTypeIdAndDeleteFlgFalse(
 				currentYear, 1001L, 3001L)).thenReturn(false);
 
-		// First save is closing old book (succeeds), second save is inserting new book (throws DataIntegrityViolationException)
-		when(documentBookRepository.save(oldBook)).thenReturn(oldBook);
+		// Creating new book throws DataIntegrityViolationException
 		when(documentBookRepository.save(argThat(b -> b != null && Integer.valueOf(currentYear).equals(b.getYear()))))
-				.thenThrow(new org.springframework.dao.DataIntegrityViolationException("Duplicate key"));
+				.thenThrow(new DataIntegrityViolationException("Duplicate key"));
 
 		// Must not throw exception
 		assertDoesNotThrow(() -> documentBookYearResetJob.resetAllBookCounters());
 
-		assertTrue(oldBook.getIsClosed());
+		// Old book must NOT be closed because new book creation failed first
+		verify(documentBookRepository, never()).save(oldBook);
+		assertFalse(oldBook.getIsClosed());
 	}
 }

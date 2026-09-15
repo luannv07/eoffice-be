@@ -34,6 +34,11 @@ public class BusinessTimeZoneConfig {
         return zone;
     }
 
+    @Bean
+    public java.time.Clock clock(ZoneId businessZone) {
+        return java.time.Clock.system(businessZone);
+    }
+
     /**
      * Khởi tạo tương thích ngược cho static setter của entity Document sau khi context khởi động,
      * tránh gây side-effect trực tiếp bên trong phương thức khởi tạo bean {@link #businessZone()}.

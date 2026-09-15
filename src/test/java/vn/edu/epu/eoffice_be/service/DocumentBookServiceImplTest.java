@@ -176,10 +176,17 @@ class DocumentBookServiceImplTest {
 	void create_MissingNumPlaceholder_ThrowsException() {
 		DocumentBookCreateRequest req = new DocumentBookCreateRequest();
 		req.setBookCode("SVD-TEST-2026");
+		req.setBookName("Sổ Quyết định 2026");
+		req.setYear(2026);
+		req.setBookLevel(1);
+		req.setDocumentTypeId(3001L);
+		req.setOrgNodeId(1001L);
 		req.setNumberPattern("123/QĐ-ĐHEPU"); // Không chứa {NUM}
 
 		BusinessException ex = assertThrows(BusinessException.class, () -> documentBookService.create(req));
 		assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
+		assertEquals("Mẫu số văn bản phải chứa {NUM}", ex.getMessage());
+		verify(documentBookRepository, never()).save(any());
 	}
 
 	@Test
@@ -200,6 +207,7 @@ class DocumentBookServiceImplTest {
 
 	@Test
 	void update_MissingNumPlaceholder_ThrowsException() {
+		book.setIsClosed(false);
 		when(documentBookRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(book));
 
 		DocumentBookUpdateRequest req = new DocumentBookUpdateRequest();
@@ -207,6 +215,8 @@ class DocumentBookServiceImplTest {
 
 		BusinessException ex = assertThrows(BusinessException.class, () -> documentBookService.update(1L, req));
 		assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
+		assertEquals("Mẫu số văn bản phải chứa {NUM}", ex.getMessage());
+		verify(documentBookRepository, never()).save(any());
 	}
 
 	@Test
@@ -283,6 +293,7 @@ class DocumentBookServiceImplTest {
 
 	@Test
 	void assignNumber_DocumentTypeMismatch_ThrowsException() {
+		book.setDocumentType(docType);
 		Document doc = Document.builder()
 				.id(5001L)
 				.status(DocumentStatus.APPROVED)
@@ -300,10 +311,13 @@ class DocumentBookServiceImplTest {
 
 		BusinessException ex = assertThrows(BusinessException.class, () -> documentBookService.assignNumber(req));
 		assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
+		verify(documentRepository, never()).save(any());
+		verify(documentBookRepository, never()).save(any());
 	}
 
 	@Test
 	void assignNumber_OrgNodeMismatch_ThrowsException() {
+		book.setOrgNode(orgNode);
 		OrgNode differentOrg = OrgNode.builder().id(9999L).code("OTHER").build();
 		Document doc = Document.builder()
 				.id(5001L)
@@ -322,10 +336,13 @@ class DocumentBookServiceImplTest {
 
 		BusinessException ex = assertThrows(BusinessException.class, () -> documentBookService.assignNumber(req));
 		assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
+		verify(documentRepository, never()).save(any());
+		verify(documentBookRepository, never()).save(any());
 	}
 
 	@Test
 	void assignNumber_YearMismatch_ThrowsException() {
+		book.setYear(2026);
 		Document doc = Document.builder()
 				.id(5001L)
 				.status(DocumentStatus.APPROVED)
@@ -343,6 +360,79 @@ class DocumentBookServiceImplTest {
 
 		BusinessException ex = assertThrows(BusinessException.class, () -> documentBookService.assignNumber(req));
 		assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
+		verify(documentRepository, never()).save(any());
+		verify(documentBookRepository, never()).save(any());
+	}
+
+	@Test
+	void assignNumber_NullDocumentType_ThrowsException() {
+		book.setDocumentType(docType);
+		Document doc = Document.builder()
+				.id(5001L)
+				.status(DocumentStatus.APPROVED)
+				.documentTypeCd(null)
+				.build();
+
+		when(documentBookRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(book));
+		when(documentRepository.findById(5001L)).thenReturn(Optional.of(doc));
+
+		AssignDocumentNumberRequest req = new AssignDocumentNumberRequest();
+		req.setBookId(1L);
+		req.setEffectiveDate(LocalDate.of(2026, 9, 10));
+		req.setDocumentId(5001L);
+
+		BusinessException ex = assertThrows(BusinessException.class, () -> documentBookService.assignNumber(req));
+		assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
+		verify(documentRepository, never()).save(any());
+		verify(documentBookRepository, never()).save(any());
+	}
+
+	@Test
+	void assignNumber_NullIssuingOrg_ThrowsException() {
+		book.setOrgNode(orgNode);
+		Document doc = Document.builder()
+				.id(5001L)
+				.status(DocumentStatus.APPROVED)
+				.documentTypeCd("QD")
+				.issuingOrgNode(null)
+				.build();
+
+		when(documentBookRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(book));
+		when(documentRepository.findById(5001L)).thenReturn(Optional.of(doc));
+
+		AssignDocumentNumberRequest req = new AssignDocumentNumberRequest();
+		req.setBookId(1L);
+		req.setEffectiveDate(LocalDate.of(2026, 9, 10));
+		req.setDocumentId(5001L);
+
+		BusinessException ex = assertThrows(BusinessException.class, () -> documentBookService.assignNumber(req));
+		assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
+		verify(documentRepository, never()).save(any());
+		verify(documentBookRepository, never()).save(any());
+	}
+
+	@Test
+	void assignNumber_NullEffectiveDate_ThrowsException() {
+		book.setYear(2026);
+		Document doc = Document.builder()
+				.id(5001L)
+				.status(DocumentStatus.APPROVED)
+				.documentTypeCd("QD")
+				.issuingOrgNode(orgNode)
+				.build();
+
+		when(documentBookRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(book));
+		when(documentRepository.findById(5001L)).thenReturn(Optional.of(doc));
+
+		AssignDocumentNumberRequest req = new AssignDocumentNumberRequest();
+		req.setBookId(1L);
+		req.setEffectiveDate(null);
+		req.setDocumentId(5001L);
+
+		BusinessException ex = assertThrows(BusinessException.class, () -> documentBookService.assignNumber(req));
+		assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
+		verify(documentRepository, never()).save(any());
+		verify(documentBookRepository, never()).save(any());
 	}
 
 	@Test
