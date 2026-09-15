@@ -1,12 +1,13 @@
 package vn.edu.epu.eoffice_be.service.cron;
 
 import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 import vn.edu.epu.eoffice_be.entity.DocumentBook;
 import vn.edu.epu.eoffice_be.repository.DocumentBookRepository;
@@ -16,7 +17,6 @@ import java.time.LocalDate;
 import java.util.List;
 
 @Component
-@RequiredArgsConstructor
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class DocumentBookYearResetJob {
@@ -25,7 +25,33 @@ public class DocumentBookYearResetJob {
 
 	DocumentBookRepository documentBookRepository;
 	TransactionTemplate transactionTemplate;
+	TransactionTemplate requiresNewTransactionTemplate;
 	Clock clock;
+
+	@Autowired
+	public DocumentBookYearResetJob(DocumentBookRepository documentBookRepository,
+									TransactionTemplate transactionTemplate,
+									Clock clock) {
+		this(documentBookRepository, transactionTemplate, null, clock);
+	}
+
+	public DocumentBookYearResetJob(DocumentBookRepository documentBookRepository,
+									TransactionTemplate transactionTemplate,
+									TransactionTemplate requiresNewTransactionTemplate,
+									Clock clock) {
+		this.documentBookRepository = documentBookRepository;
+		this.transactionTemplate = transactionTemplate;
+		this.clock = clock;
+		if (requiresNewTransactionTemplate != null) {
+			this.requiresNewTransactionTemplate = requiresNewTransactionTemplate;
+		} else if (transactionTemplate != null && transactionTemplate.getTransactionManager() != null) {
+			TransactionTemplate recoveryTt = new TransactionTemplate(transactionTemplate.getTransactionManager());
+			recoveryTt.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+			this.requiresNewTransactionTemplate = recoveryTt;
+		} else {
+			this.requiresNewTransactionTemplate = transactionTemplate;
+		}
+	}
 
 	// Chạy vào 00:00:00 ngày 01 tháng 01 hàng năm (giờ Việt Nam)
 	@Scheduled(cron = "${eoffice.cron.book-reset:0 0 0 1 1 *}", zone = ZONE_VIETNAM)
@@ -90,22 +116,30 @@ public class DocumentBookYearResetJob {
 					createdCount++;
 				}
 			} catch (DataIntegrityViolationException ex) {
-				log.warn("[CRON] Bỏ qua tạo sổ mới cho id={} năm={} do xung đột dữ liệu hoặc đã tồn tại: {}",
+				log.warn("[CRON] Xảy ra DataIntegrityViolationException khi tạo sổ mới cho id={} năm={}: {}",
 						oldBook.getId(), oldBook.getYear(), ex.getMessage(), ex);
 
 				try {
 					boolean newBookExists = documentBookRepository.existsByYearAndOrgNodeIdAndDocumentTypeIdAndDeleteFlgFalse(
 							newYear, oldBook.getOrgNode().getId(), oldBook.getDocumentType().getId());
 					if (newBookExists) {
-						transactionTemplate.executeWithoutResult(status -> {
+						Boolean oldBookClosed = requiresNewTransactionTemplate.execute(status -> {
 							DocumentBook freshOldBook = documentBookRepository.findByIdAndDeleteFlgFalse(oldBook.getId()).orElse(null);
 							if (freshOldBook != null && !Boolean.TRUE.equals(freshOldBook.getIsClosed())) {
 								freshOldBook.setIsClosed(true);
 								documentBookRepository.save(freshOldBook);
+								return true;
 							}
+							return false;
 						});
-						oldBook.setIsClosed(true);
-						closedCount++;
+
+						if (Boolean.TRUE.equals(oldBookClosed)) {
+							oldBook.setIsClosed(true);
+							closedCount++;
+						}
+					} else {
+						log.error("[CRON] Thất bại chuyển giao sổ id={} năm={}: DataIntegrityViolationException xảy ra nhưng sổ mới năm={} không tồn tại.",
+								oldBook.getId(), oldBook.getYear(), newYear);
 					}
 				} catch (Exception closeEx) {
 					log.error("[CRON] Lỗi khi cố gắng đóng sổ năm cũ id={} sau DataIntegrityViolationException: {}",
@@ -120,3 +154,4 @@ public class DocumentBookYearResetJob {
 		log.info("[CRON] Hoàn tất: Đã đóng {} sổ năm cũ và tạo {} sổ mới cho năm {}", closedCount, createdCount, newYear);
 	}
 }
+

@@ -141,6 +141,10 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 			book.setNumberPattern(request.getNumberPattern().trim());
 		}
 
+		if (book.getNumberPattern() == null || !book.getNumberPattern().contains("{NUM}")) {
+			throw new BusinessException(ErrorCode.BAD_REQUEST, "Mẫu số văn bản phải chứa {NUM}");
+		}
+
 		return toDto(documentBookRepository.save(book));
 	}
 
@@ -196,16 +200,15 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 			}
 
 			// Kiểm tra ràng buộc giữa Document và DocumentBook (loại văn bản, đơn vị, năm hiệu lực)
-			if (book.getDocumentType() != null && document.getDocumentTypeCd() != null) {
-				if (!document.getDocumentTypeCd().equalsIgnoreCase(book.getDocumentType().getItemCd())) {
+			if (book.getDocumentType() != null) {
+				if (document.getDocumentTypeCd() == null || !document.getDocumentTypeCd().equalsIgnoreCase(book.getDocumentType().getItemCd())) {
 					throw new BusinessException(ErrorCode.BAD_REQUEST, "Loại văn bản không khớp với loại của sổ văn bản");
 				}
 			}
 
 			if (book.getOrgNode() != null) {
 				OrgNode issuingOrg = document.getIssuingOrgNode() != null ? document.getIssuingOrgNode() : document.getIssuingOrg();
-				if (issuingOrg != null && issuingOrg.getId() != null
-						&& !issuingOrg.getId().equals(book.getOrgNode().getId())) {
+				if (issuingOrg == null || issuingOrg.getId() == null || !issuingOrg.getId().equals(book.getOrgNode().getId())) {
 					throw new BusinessException(ErrorCode.BAD_REQUEST, "Đơn vị ban hành của văn bản không khớp với sổ văn bản");
 				}
 			}
@@ -215,7 +218,7 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 				if (effDate == null && document.getEffectiveDate() != null) {
 					effDate = document.getEffectiveDate().atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDate();
 				}
-				if (effDate != null && effDate.getYear() != book.getYear().intValue()) {
+				if (effDate == null || effDate.getYear() != book.getYear().intValue()) {
 					throw new BusinessException(ErrorCode.BAD_REQUEST, "Năm hiệu lực của văn bản không khớp với năm của sổ văn bản");
 				}
 			}

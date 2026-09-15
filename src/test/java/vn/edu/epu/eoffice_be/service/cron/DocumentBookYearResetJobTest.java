@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -86,6 +87,8 @@ class DocumentBookYearResetJobTest {
 		jobWithNonVietnamClock.resetAllBookCounters();
 
 		verify(documentBookRepository).existsByYearAndOrgNodeIdAndDocumentTypeIdAndDeleteFlgFalse(2025, 1001L, 3001L);
+		verify(documentBookRepository).save(argThat(b -> b != null && Integer.valueOf(2025).equals(b.getYear())
+				&& Long.valueOf(1001L).equals(b.getOrgNode().getId()) && Long.valueOf(3001L).equals(b.getDocumentType().getId())));
 		assertTrue(oldBook.getIsClosed());
 	}
 
@@ -263,8 +266,50 @@ class DocumentBookYearResetJobTest {
 
 		assertDoesNotThrow(() -> documentBookYearResetJob.resetAllBookCounters());
 
-		verify(transactionTemplate).executeWithoutResult(any());
+		verify(documentBookRepository, times(2)).existsByYearAndOrgNodeIdAndDocumentTypeIdAndDeleteFlgFalse(currentYear, 1001L, 3001L);
+
+		InOrder inOrder = inOrder(transactionTemplate, documentBookRepository);
+		inOrder.verify(transactionTemplate).execute(any());
+		inOrder.verify(documentBookRepository).save(argThat(b -> b != null && Integer.valueOf(currentYear).equals(b.getYear())));
+		inOrder.verify(transactionTemplate).execute(any());
+		inOrder.verify(documentBookRepository).save(argThat(b -> b != null && oldBook.getId().equals(b.getId())));
+
 		assertTrue(oldBook.getIsClosed());
-		verify(documentBookRepository).save(argThat(b -> b != null && oldBook.getId().equals(b.getId())));
+	}
+
+	@Test
+	void resetAllBookCounters_DataIntegrityViolationOnSave_OldBookNotFoundInRecovery_ClosedCountNotIncremented() {
+		int currentYear = 2026;
+		int oldYear = 2025;
+
+		DictionaryItem docType = DictionaryItem.builder().id(3001L).itemCd("QD").build();
+		OrgNode orgNode = OrgNode.builder().id(1001L).code("DHEPU").build();
+
+		DocumentBook oldBook = DocumentBook.builder()
+				.id(1L)
+				.bookCode("SVD-QD-DHEPU-" + oldYear)
+				.bookName("Sổ " + oldYear)
+				.year(oldYear)
+				.bookLevel(1)
+				.documentType(docType)
+				.orgNode(orgNode)
+				.isClosed(false)
+				.build();
+
+		when(documentBookRepository.findAllByDeleteFlgFalseAndIsClosedFalse()).thenReturn(List.of(oldBook));
+		when(documentBookRepository.existsByYearAndOrgNodeIdAndDocumentTypeIdAndDeleteFlgFalse(currentYear, 1001L, 3001L))
+				.thenReturn(false)
+				.thenReturn(true);
+
+		when(documentBookRepository.save(argThat(b -> b != null && Integer.valueOf(currentYear).equals(b.getYear()))))
+				.thenThrow(new DataIntegrityViolationException("Duplicate key race condition"));
+
+		when(documentBookRepository.findByIdAndDeleteFlgFalse(oldBook.getId())).thenReturn(Optional.empty());
+
+		assertDoesNotThrow(() -> documentBookYearResetJob.resetAllBookCounters());
+
+		verify(documentBookRepository, never()).save(argThat(b -> b != null && oldBook.getId().equals(b.getId())));
+		assertFalse(oldBook.getIsClosed());
 	}
 }
+
