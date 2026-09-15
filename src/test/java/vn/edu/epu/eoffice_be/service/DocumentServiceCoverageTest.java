@@ -1,5 +1,6 @@
 package vn.edu.epu.eoffice_be.service;
 
+import vn.edu.epu.eoffice_be.service.impl.DocumentWorkflowServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -52,7 +53,7 @@ class DocumentServiceCoverageTest {
     DocumentPublishService documentPublishService;
 
     @InjectMocks
-    DocumentWorkflowService documentWorkflowService;
+    private DocumentWorkflowServiceImpl documentWorkflowService;
 
     @Test
     void testGetDocumentDetailsAndDownload_Success() throws Exception {
@@ -236,13 +237,14 @@ class DocumentServiceCoverageTest {
         assertNotNull(pending);
 
         DocumentWorkflowLog log = DocumentWorkflowLog.builder()
-                .id(10L)
-                .documentId(1L)
-                .action("SUBMIT")
-                .createdAt(LocalDateTime.now())
+                .id(1L)
+                .document(Document.builder().id(1L).build())
+                .action(vn.edu.epu.eoffice_be.common.enums.WorkflowAction.APPROVE)
+                .comment("Đã duyệt")
                 .build();
 
-        when(workflowLogRepository.findByDocumentIdOrderByCreatedAtAsc(1L)).thenReturn(List.of(log));
+        org.mockito.Mockito.when(workflowLogRepository.findByDocumentIdOrderByCreatedDateAsc(org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(java.util.List.of(log));
 
         var timeline = documentWorkflowService.getDocumentTimeline(1L);
         assertNotNull(timeline);
