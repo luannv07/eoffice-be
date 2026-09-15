@@ -30,7 +30,7 @@ public class DocumentBookYearResetJob {
 	// Chạy vào 00:00:00 ngày 01 tháng 01 hàng năm (giờ Việt Nam)
 	@Scheduled(cron = "${eoffice.cron.book-reset:0 0 0 1 1 *}", zone = ZONE_VIETNAM)
 	public void resetAllBookCounters() {
-		int newYear = LocalDate.now(clock).getYear();
+		int newYear = LocalDate.now(clock.withZone(java.time.ZoneId.of(ZONE_VIETNAM))).getYear();
 		int previousYear = newYear - 1;
 		log.info("[CRON] Bắt đầu tự động chuyển giao và reset sổ văn bản sang năm mới: {}", newYear);
 
@@ -90,8 +90,27 @@ public class DocumentBookYearResetJob {
 					createdCount++;
 				}
 			} catch (DataIntegrityViolationException ex) {
-				log.warn("[CRON] Bỏ qua chuyển giao sổ id={} năm={} do xung đột dữ liệu hoặc đã tồn tại: {}",
+				log.warn("[CRON] Bỏ qua tạo sổ mới cho id={} năm={} do xung đột dữ liệu hoặc đã tồn tại: {}",
 						oldBook.getId(), oldBook.getYear(), ex.getMessage(), ex);
+
+				try {
+					boolean newBookExists = documentBookRepository.existsByYearAndOrgNodeIdAndDocumentTypeIdAndDeleteFlgFalse(
+							newYear, oldBook.getOrgNode().getId(), oldBook.getDocumentType().getId());
+					if (newBookExists) {
+						transactionTemplate.executeWithoutResult(status -> {
+							DocumentBook freshOldBook = documentBookRepository.findByIdAndDeleteFlgFalse(oldBook.getId()).orElse(null);
+							if (freshOldBook != null && !Boolean.TRUE.equals(freshOldBook.getIsClosed())) {
+								freshOldBook.setIsClosed(true);
+								documentBookRepository.save(freshOldBook);
+							}
+						});
+						oldBook.setIsClosed(true);
+						closedCount++;
+					}
+				} catch (Exception closeEx) {
+					log.error("[CRON] Lỗi khi cố gắng đóng sổ năm cũ id={} sau DataIntegrityViolationException: {}",
+							oldBook.getId(), closeEx.getMessage(), closeEx);
+				}
 			} catch (Exception ex) {
 				log.error("[CRON] Lỗi khi chuyển giao sổ id={} năm={}: {}",
 						oldBook.getId(), oldBook.getYear(), ex.getMessage(), ex);

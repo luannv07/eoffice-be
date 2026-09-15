@@ -124,7 +124,8 @@ class DocumentBookControllerTest {
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(req)))
 				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.success").value(false));
+				.andExpect(jsonPath("$.success").value(false))
+				.andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("documentTypeId")));
 	}
 
 	@Test
@@ -142,7 +143,8 @@ class DocumentBookControllerTest {
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(req)))
 				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.success").value(false));
+				.andExpect(jsonPath("$.success").value(false))
+				.andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("orgNodeId")));
 	}
 
 	@Test

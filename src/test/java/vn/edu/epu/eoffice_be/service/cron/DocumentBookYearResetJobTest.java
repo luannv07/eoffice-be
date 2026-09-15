@@ -7,6 +7,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 import vn.edu.epu.eoffice_be.entity.DictionaryItem;
@@ -18,8 +19,12 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -31,6 +36,9 @@ class DocumentBookYearResetJobTest {
 	@Mock
 	TransactionTemplate transactionTemplate;
 
+	@Mock
+	TransactionStatus transactionStatus;
+
 	Clock clock;
 
 	DocumentBookYearResetJob documentBookYearResetJob;
@@ -38,11 +46,47 @@ class DocumentBookYearResetJobTest {
 	@BeforeEach
 	void setUp() {
 		clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneId.of("Asia/Ho_Chi_Minh"));
+
 		lenient().when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
 			TransactionCallback<?> callback = invocation.getArgument(0);
-			return callback.doInTransaction(null);
+			return callback.doInTransaction(transactionStatus);
 		});
+
+		lenient().doAnswer(invocation -> {
+			Consumer<TransactionStatus> action = invocation.getArgument(0);
+			action.accept(transactionStatus);
+			return null;
+		}).when(transactionTemplate).executeWithoutResult(any());
+
 		documentBookYearResetJob = new DocumentBookYearResetJob(documentBookRepository, transactionTemplate, clock);
+	}
+
+	@Test
+	void resetAllBookCounters_DerivesYearUsingVietnamTimezone() {
+		// 2024-12-31T17:30:00Z is 2025-01-01T00:30:00+07:00 in Vietnam (+07:00), but 2024 in UTC.
+		Clock nonVietnamClock = Clock.fixed(Instant.parse("2024-12-31T17:30:00Z"), ZoneId.of("UTC"));
+		DocumentBookYearResetJob jobWithNonVietnamClock = new DocumentBookYearResetJob(documentBookRepository, transactionTemplate, nonVietnamClock);
+
+		DictionaryItem docType = DictionaryItem.builder().id(3001L).itemCd("QD").build();
+		OrgNode orgNode = OrgNode.builder().id(1001L).build();
+
+		DocumentBook oldBook = DocumentBook.builder()
+				.id(1L)
+				.bookCode("SVD-QD-DHEPU-2024")
+				.bookName("Sổ 2024")
+				.year(2024)
+				.documentType(docType)
+				.orgNode(orgNode)
+				.isClosed(false)
+				.build();
+
+		when(documentBookRepository.findAllByDeleteFlgFalseAndIsClosedFalse()).thenReturn(List.of(oldBook));
+		when(documentBookRepository.existsByYearAndOrgNodeIdAndDocumentTypeIdAndDeleteFlgFalse(2025, 1001L, 3001L)).thenReturn(false);
+
+		jobWithNonVietnamClock.resetAllBookCounters();
+
+		verify(documentBookRepository).existsByYearAndOrgNodeIdAndDocumentTypeIdAndDeleteFlgFalse(2025, 1001L, 3001L);
+		assertTrue(oldBook.getIsClosed());
 	}
 
 	@Test
@@ -82,16 +126,24 @@ class DocumentBookYearResetJobTest {
 
 		documentBookYearResetJob.resetAllBookCounters();
 
+		verify(transactionTemplate, atLeastOnce()).execute(any());
+
 		// Old book must be closed
 		assertTrue(oldBook.getIsClosed());
 
-		// Verify save was called for new book first, then old book
+		// Verify save was called for new book and old book without positional index assumption
 		ArgumentCaptor<DocumentBook> captor = ArgumentCaptor.forClass(DocumentBook.class);
 		verify(documentBookRepository, times(2)).save(captor.capture());
 
 		List<DocumentBook> savedBooks = captor.getAllValues();
-		DocumentBook newBook = savedBooks.get(0);
-		DocumentBook closedOldBook = savedBooks.get(1);
+		DocumentBook newBook = savedBooks.stream()
+				.filter(b -> Integer.valueOf(currentYear).equals(b.getYear()))
+				.findFirst()
+				.orElseThrow();
+		DocumentBook closedOldBook = savedBooks.stream()
+				.filter(b -> oldBook.getId().equals(b.getId()))
+				.findFirst()
+				.orElseThrow();
 
 		assertEquals(currentYear, newBook.getYear());
 		assertEquals("SVD-QD-DHEPU-" + currentYear, newBook.getBookCode());
@@ -172,8 +224,47 @@ class DocumentBookYearResetJobTest {
 		// Must not throw exception
 		assertDoesNotThrow(() -> documentBookYearResetJob.resetAllBookCounters());
 
-		// Old book must NOT be closed because new book creation failed first
-		verify(documentBookRepository, never()).save(oldBook);
+		// Old book must NOT be saved as closed because creation failed and new book still does not exist
+		verify(documentBookRepository, never()).save(argThat(b -> b != null && oldBook.getId().equals(b.getId())));
 		assertFalse(oldBook.getIsClosed());
+	}
+
+	@Test
+	void resetAllBookCounters_DataIntegrityViolationOnSave_ClosesOldBookIfNewBookExists() {
+		int currentYear = 2026;
+		int oldYear = 2025;
+
+		DictionaryItem docType = DictionaryItem.builder().id(3001L).itemCd("QD").build();
+		OrgNode orgNode = OrgNode.builder().id(1001L).code("DHEPU").build();
+
+		DocumentBook oldBook = DocumentBook.builder()
+				.id(1L)
+				.bookCode("SVD-QD-DHEPU-" + oldYear)
+				.bookName("Sổ " + oldYear)
+				.year(oldYear)
+				.bookLevel(1)
+				.documentType(docType)
+				.orgNode(orgNode)
+				.isClosed(false)
+				.build();
+
+		when(documentBookRepository.findAllByDeleteFlgFalseAndIsClosedFalse()).thenReturn(List.of(oldBook));
+
+		// First check in transaction returns false (so it attempts to create new book)
+		// Second check in catch block returns true (simulating concurrent creation succeeded)
+		when(documentBookRepository.existsByYearAndOrgNodeIdAndDocumentTypeIdAndDeleteFlgFalse(currentYear, 1001L, 3001L))
+				.thenReturn(false)
+				.thenReturn(true);
+
+		when(documentBookRepository.save(argThat(b -> b != null && Integer.valueOf(currentYear).equals(b.getYear()))))
+				.thenThrow(new DataIntegrityViolationException("Duplicate key race condition"));
+
+		when(documentBookRepository.findByIdAndDeleteFlgFalse(oldBook.getId())).thenReturn(Optional.of(oldBook));
+
+		assertDoesNotThrow(() -> documentBookYearResetJob.resetAllBookCounters());
+
+		verify(transactionTemplate).executeWithoutResult(any());
+		assertTrue(oldBook.getIsClosed());
+		verify(documentBookRepository).save(argThat(b -> b != null && oldBook.getId().equals(b.getId())));
 	}
 }
