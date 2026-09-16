@@ -26,4 +26,5 @@ public interface DocumentWorkflowLogRepository extends JpaRepository<DocumentWor
     @Query(value = "SELECT l FROM DocumentWorkflowLog l WHERE l.document.id = :documentId AND (l.deleteFlg = false OR l.deleteFlg IS NULL)",
            countQuery = "SELECT count(l) FROM DocumentWorkflowLog l WHERE l.document.id = :documentId AND (l.deleteFlg = false OR l.deleteFlg IS NULL)")
     Page<DocumentWorkflowLog> findByDocumentIdAndDeleteFlgFalse(@Param("documentId") Long documentId, Pageable pageable);
+
 }
