@@ -89,4 +89,13 @@ class FileSystemFileStorageProviderTest {
         assertEquals(List.of(), provider.getAll());
         assertDoesNotThrow(() -> provider.deleteMany(List.of("id1", "id2")));
     }
+
+    @Test
+    @DisplayName("Path traversal trong get va delete bi chan boi FileStorageException")
+    void pathTraversal_ThrowsException() {
+        assertThrows(FileStorageException.class, () -> provider.get("../../../etc/passwd"));
+        assertThrows(FileStorageException.class, () -> provider.get("..\\..\\windows\\win.ini"));
+        assertThrows(FileStorageException.class, () -> provider.delete("../../../etc/passwd"));
+        assertThrows(FileStorageException.class, () -> provider.delete("..\\..\\windows\\win.ini"));
+    }
 }

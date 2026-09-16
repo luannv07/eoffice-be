@@ -207,7 +207,10 @@ public class FileSystemStorageService implements FileStorageService {
         if (providerRegistry != null) {
             try {
                 FileStorageProvider provider = providerRegistry.getProvider(storagePath);
-                provider.delete(storageFileName);
+                if (provider != null) {
+                    provider.delete(storageFileName);
+                    return;
+                }
             } catch (Exception e) {
                 log.debug("Xóa tệp qua provider {} không thành công: {}", storagePath, e.getMessage());
             }

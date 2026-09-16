@@ -30,9 +30,11 @@ import vn.edu.epu.eoffice_be.storage.provider.StoredFile;
 import java.io.IOException;
 import java.util.List;
 
+import lombok.extern.slf4j.Slf4j;
 import vn.edu.epu.eoffice_be.entity.StoredFileMetadata;
 import vn.edu.epu.eoffice_be.repository.StoredFileMetadataRepository;
 
+@Slf4j
 @RestController
 @RequestMapping("/file-storage")
 @RequiredArgsConstructor
@@ -63,7 +65,13 @@ public class FileStorageController {
                     .build();
             metadataRepository.save(meta);
         } catch (Exception e) {
-            // bỏ qua nếu có lỗi lưu metadata không chặn luồng chính
+            log.error("Failed to save file metadata for fileId: {}", saved.getId(), e);
+            try {
+                p.delete(saved.getId());
+            } catch (Exception deleteEx) {
+                log.warn("Failed to rollback uploaded file for fileId: {}", saved.getId(), deleteEx);
+            }
+            throw new FileStorageException("Lưu siêu dữ liệu tệp thất bại: " + e.getMessage(), e);
         }
         return BaseResponse.success(toResponse(saved));
     }

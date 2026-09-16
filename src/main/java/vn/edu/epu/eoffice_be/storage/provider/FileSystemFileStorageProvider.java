@@ -48,11 +48,12 @@ public class FileSystemFileStorageProvider implements FileStorageProvider {
         String originalName = file.getOriginalFileName();
         String ext = "";
         if (originalName != null && originalName.contains(".")) {
-            ext = originalName.substring(originalName.lastIndexOf("."));
+            String rawExt = originalName.substring(originalName.lastIndexOf("."));
+            ext = rawExt.replaceAll("[^a-zA-Z0-9.]", "").toLowerCase();
         }
 
         String fileId = UUID.randomUUID() + ext;
-        Path targetPath = rootPath.resolve(fileId).normalize();
+        Path targetPath = resolveSecurePath(fileId);
 
         try {
             Files.write(targetPath, file.getContent());
@@ -72,7 +73,7 @@ public class FileSystemFileStorageProvider implements FileStorageProvider {
 
     @Override
     public StoredFile get(String fileId) {
-        Path targetPath = rootPath.resolve(fileId).normalize();
+        Path targetPath = resolveSecurePath(fileId);
         if (!Files.exists(targetPath) || !Files.isReadable(targetPath)) {
             throw new FileStorageException("Không tìm thấy tệp cục bộ với id: " + fileId);
         }
@@ -98,13 +99,24 @@ public class FileSystemFileStorageProvider implements FileStorageProvider {
 
     @Override
     public void delete(String fileId) {
-        Path targetPath = rootPath.resolve(fileId).normalize();
+        Path targetPath = resolveSecurePath(fileId);
         try {
             Files.deleteIfExists(targetPath);
             log.debug("Đã xóa tệp cục bộ: fileId={}", fileId);
         } catch (IOException e) {
             log.warn("Không thể xóa tệp cục bộ {}: {}", fileId, e.getMessage());
         }
+    }
+
+    private Path resolveSecurePath(String fileId) {
+        if (fileId == null || fileId.isBlank() || fileId.contains("..")) {
+            throw new FileStorageException("Đường dẫn tệp không hợp lệ: fileId không hợp lệ");
+        }
+        Path targetPath = rootPath.resolve(fileId).normalize();
+        if (!targetPath.startsWith(rootPath)) {
+            throw new FileStorageException("Đường dẫn tệp không hợp lệ: truy cập ngoài thư mục lưu trữ");
+        }
+        return targetPath;
     }
 
     @Override
