@@ -35,12 +35,17 @@ public class ProfileCompletedFilter extends OncePerRequestFilter {
 	}
 
 	private boolean matchesPathPrefix(String path, String prefix) {
-		if (path == null || prefix == null || prefix.isBlank()) {
-			return false;
-		}
-		String normalizedPrefix = prefix.endsWith("/") ? prefix.substring(0, prefix.length() - 1) : prefix;
-		return path.equals(normalizedPrefix) || path.startsWith(normalizedPrefix + "/");
-	}	
+        if (path == null || prefix == null || prefix.isBlank()) {
+            return false;
+        }
+        if ("/".equals(prefix)) {
+            return "/".equals(path);
+        }
+        String normalizedPrefix = (prefix.length() > 1 && prefix.endsWith("/"))
+                ? prefix.substring(0, prefix.length() - 1)
+                : prefix;
+        return path.equals(normalizedPrefix) || path.startsWith(normalizedPrefix + "/");
+    }
 
 	private String requestPath(HttpServletRequest request) {
 		String path = request.getServletPath();

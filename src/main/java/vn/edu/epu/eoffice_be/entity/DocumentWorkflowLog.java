@@ -111,9 +111,9 @@ public class DocumentWorkflowLog extends BaseEntity {
                 : null;
     }
 
-    void setCreatedAt(LocalDateTime createdAt) {
-        setCreatedDate(createdAt != null ? createdAt.atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).toInstant() : null);
-    }
+    public void setCreatedAt(LocalDateTime createdAt) {
+        setCreatedDate(createdAt != null ? createdAt.atZone(Document.getBusinessZone()).toInstant() : null);
+    }   
     
     public Long getDocumentId() {
         return document != null ? document.getId() : null;

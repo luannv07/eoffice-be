@@ -269,7 +269,7 @@ class DocumentServiceCoverageTest {
         log.setCreatedDate(java.time.Instant.now()); // Gán thời gian qua setter của BaseEntity
 
         when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(doc1));
-        when(workflowLogRepository.findByDocumentIdOrderByCreatedDateAsc(1L)).thenReturn(List.of(log));
+        when(workflowLogRepository.findByDocumentIdOrderByCreatedAtAsc(1L)).thenReturn(List.of(log));
 
         UserLogin mockActor = new UserLogin();
         mockActor.setId(99L);
