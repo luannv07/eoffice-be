@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FileSystemFileStorageProviderTest {
 
@@ -33,7 +34,7 @@ class FileSystemFileStorageProviderTest {
     }
 
     @Test
-    @DisplayName("Luu va lay tep thanh cong")
+    @DisplayName("Luu va lay tep thanh cong day du metadata")
     void saveAndGet_Success() {
         byte[] content = "Hello world storage content".getBytes();
         StoredFile input = StoredFile.builder()
@@ -50,7 +51,38 @@ class FileSystemFileStorageProviderTest {
         StoredFile retrieved = provider.get(saved.getId());
         assertNotNull(retrieved);
         assertEquals(saved.getId(), retrieved.getId());
+        assertEquals("report.pdf", retrieved.getOriginalFileName());
+        assertEquals("application/pdf", retrieved.getContentType());
+        assertEquals(content.length, retrieved.getSizeBytes());
         assertArrayEquals(content, retrieved.getContent());
+    }
+
+    @Test
+    @DisplayName("Luu tep vuot qua kich thuoc toi da nem FileStorageException")
+    void save_FileExceedsLimit_ThrowsException() {
+        FileSystemFileStorageProvider limitedProvider = new FileSystemFileStorageProvider(tempDir.toString(), 10L);
+        byte[] content = "Nội dung dài hơn 10 bytes".getBytes();
+        StoredFile large = StoredFile.builder()
+                .originalFileName("large.pdf")
+                .content(content)
+                .build();
+
+        assertThrows(FileStorageException.class, () -> limitedProvider.save(large));
+    }
+
+    @Test
+    @DisplayName("Doc tep vuot qua kich thuoc an toan nem FileStorageException chong OOM")
+    void get_FileExceedsLimit_ThrowsException() {
+        FileSystemFileStorageProvider defaultProvider = new FileSystemFileStorageProvider(tempDir.toString(), 100000L);
+        byte[] content = "12345678901234567890".getBytes(); // 20 bytes
+        StoredFile saved = defaultProvider.save(StoredFile.builder()
+                .originalFileName("data.bin")
+                .content(content)
+                .build());
+
+        // Tạo provider với giới hạn đọc chỉ 10 bytes để test kiểm tra kích thước
+        FileSystemFileStorageProvider strictlyLimitedProvider = new FileSystemFileStorageProvider(tempDir.toString(), 10L);
+        assertThrows(FileStorageException.class, () -> strictlyLimitedProvider.get(saved.getId()));
     }
 
     @Test
@@ -84,10 +116,33 @@ class FileSystemFileStorageProviderTest {
     }
 
     @Test
-    @DisplayName("GetAll tra ve danh sach rong va deleteMany khong loi")
-    void getAllAndDeleteMany() {
+    @DisplayName("GetAll va deleteMany hoat dong dung khi co du lieu thuc te")
+    void getAllAndDeleteMany_WithFiles_Success() {
         assertEquals(List.of(), provider.getAll());
-        assertDoesNotThrow(() -> provider.deleteMany(List.of("id1", "id2")));
+
+        StoredFile file1 = provider.save(StoredFile.builder()
+                .originalFileName("doc1.pdf")
+                .contentType("application/pdf")
+                .content("Doc 1 content".getBytes())
+                .build());
+
+        StoredFile file2 = provider.save(StoredFile.builder()
+                .originalFileName("doc2.docx")
+                .contentType("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                .content("Doc 2 content".getBytes())
+                .build());
+
+        List<StoredFile> files = provider.getAll();
+        assertEquals(2, files.size());
+        List<String> ids = files.stream().map(StoredFile::getId).toList();
+        assertTrue(ids.contains(file1.getId()));
+        assertTrue(ids.contains(file2.getId()));
+
+        provider.deleteMany(List.of(file1.getId(), file2.getId()));
+
+        assertEquals(0, provider.getAll().size());
+        assertThrows(FileStorageException.class, () -> provider.get(file1.getId()));
+        assertThrows(FileStorageException.class, () -> provider.get(file2.getId()));
     }
 
     @Test
