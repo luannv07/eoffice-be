@@ -1,0 +1,119 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-09-16-add-file-storage-metadata-table
+      author: luannv
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - tableExists:
+                tableName: file_storage_metadata
+      changes:
+        - createTable:
+            tableName: file_storage_metadata
+            remarks: Bang anh xa sieu du lieu tep cua cac backend luu tru (S3, Telegram, Supabase...). Cac truong rieng cua tung provider luu trong cot metadata (jsonb).
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  defaultValueComputed: nextval('hibernate_sequence')
+                  remarks: Khoa chinh tu sinh cua ban ghi
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: provider
+                  type: VARCHAR(50)
+                  remarks: Ten backend luu tru (telegram, s3, supabase...)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: file_id
+                  type: VARCHAR(512)
+                  remarks: Ma dinh danh tep do provider cap (vd telegram file_id)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: original_file_name
+                  type: VARCHAR(512)
+                  remarks: Ten tep goc
+              - column:
+                  name: content_type
+                  type: VARCHAR(100)
+                  remarks: MIME type
+              - column:
+                  name: size_bytes
+                  type: BIGINT
+                  remarks: Kich thuoc tep (co the null voi mot so provider)
+              - column:
+                  name: sha256_checksum
+                  type: VARCHAR(64)
+                  remarks: Ma bam SHA-256 (tuy provider)
+              - column:
+                  name: storage_path
+                  type: VARCHAR(1024)
+                  remarks: Duong dan/vi tri luu tru (null voi Telegram)
+              - column:
+                  name: metadata
+                  type: text
+                  remarks: Sieu du lieu rieng cua provider (messageId, bucket, region...) luu dang JSON
+              - column:
+                  name: delete_flg
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(255)
+              - column:
+                  name: created_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(255)
+              - column:
+                  name: updated_date
+                  type: TIMESTAMP WITH TIME ZONE
+        - addUniqueConstraint:
+            constraintName: uq_file_storage_metadata_provider_file
+            tableName: file_storage_metadata
+            columnNames: provider, file_id
+        - createIndex:
+            indexName: idx_file_storage_metadata_provider
+            tableName: file_storage_metadata
+            columns:
+              - column:
+                  name: provider
+        - createIndex:
+            indexName: idx_file_storage_metadata_created_date
+            tableName: file_storage_metadata
+            columns:
+              - column:
+                  name: created_date
+      rollback:
+        - dropTable:
+            tableName: file_storage_metadata
+
+  # PostgreSQL: cot metadata thuc su la jsonb (tuong thich voi entity columnDefinition=jsonb)
+  - changeSet:
+      id: 2026-09-16-file-storage-metadata-jsonb-pg
+      author: luannv
+      dbms: postgresql
+      changes:
+        - modifyDataType:
+            tableName: file_storage_metadata
+            columnName: metadata
+            newDataType: jsonb
+
+  # H2 (test profile): chuyen metadata sang varchar de Hibernate validate thanh cong
+  - changeSet:
+      id: 2026-09-16-file-storage-metadata-json-h2
+      author: luannv
+      dbms: h2
+      changes:
+        - modifyDataType:
+            tableName: file_storage_metadata
+            columnName: metadata
+            newDataType: varchar(10000)
