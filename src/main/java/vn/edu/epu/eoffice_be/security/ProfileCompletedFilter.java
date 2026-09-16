@@ -39,14 +39,14 @@ public class ProfileCompletedFilter extends OncePerRequestFilter {
             return false;
         }
         if ("/".equals(prefix)) {
-            return path.startsWith("/");
+            return "/".equals(path);
         }
         String normalizedPrefix = prefix.endsWith("/") 
                 ? prefix.substring(0, prefix.length() - 1) 
                 : prefix;
         return path.equals(normalizedPrefix) || path.startsWith(normalizedPrefix + "/");
     }
-
+	
 	private String requestPath(HttpServletRequest request) {
 		String path = request.getServletPath();
 		if (path == null || path.isBlank()) {
