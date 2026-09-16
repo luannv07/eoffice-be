@@ -30,6 +30,9 @@ import vn.edu.epu.eoffice_be.storage.provider.StoredFile;
 import java.io.IOException;
 import java.util.List;
 
+import vn.edu.epu.eoffice_be.entity.StoredFileMetadata;
+import vn.edu.epu.eoffice_be.repository.StoredFileMetadataRepository;
+
 @RestController
 @RequestMapping("/file-storage")
 @RequiredArgsConstructor
@@ -39,13 +42,29 @@ import java.util.List;
 public class FileStorageController {
 
     private final FileStorageProviderRegistry registry;
+    private final StoredFileMetadataRepository metadataRepository;
 
     @Operation(summary = "Tải tệp lên backend lưu trữ (Create)")
     @PostMapping("/upload")
     public BaseResponse<StoredFileResponse> upload(
             @RequestParam("file") MultipartFile file,
             @RequestParam(required = false) String provider) {
-        StoredFile saved = resolve(provider).save(toStoredFile(file));
+        FileStorageProvider p = resolve(provider);
+        StoredFile saved = p.save(toStoredFile(file));
+        try {
+            StoredFileMetadata meta = StoredFileMetadata.builder()
+                    .provider(p.getName())
+                    .fileId(saved.getId())
+                    .originalFileName(saved.getOriginalFileName())
+                    .contentType(saved.getContentType())
+                    .sizeBytes(saved.getSizeBytes())
+                    .storagePath(saved.getMetadata() != null ? saved.getMetadata().get("storagePath") : null)
+                    .metadata(saved.getMetadata())
+                    .build();
+            metadataRepository.save(meta);
+        } catch (Exception e) {
+            // bỏ qua nếu có lỗi lưu metadata không chặn luồng chính
+        }
         return BaseResponse.success(toResponse(saved));
     }
 
