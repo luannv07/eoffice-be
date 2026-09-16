@@ -92,7 +92,8 @@ class FileStorageControllerTest {
         when(metadataRepository.save(any(StoredFileMetadata.class)))
                 .thenThrow(new RuntimeException("Database down"));
 
-        assertThrows(FileStorageException.class, () -> controller.upload(file, null));
+        FileStorageException ex = assertThrows(FileStorageException.class, () -> controller.upload(file, null));
+        assertEquals("Lưu siêu dữ liệu tệp thất bại", ex.getMessage());
 
         verify(provider).delete("file-orphan");
     }

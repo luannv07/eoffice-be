@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -138,11 +139,34 @@ class FileSystemFileStorageProviderTest {
         assertTrue(ids.contains(file1.getId()));
         assertTrue(ids.contains(file2.getId()));
 
+        for (StoredFile sf : files) {
+            assertNull(sf.getContent(), "getAll khong duoc nap mang byte vao bo nho de tranh OOM");
+            assertTrue(sf.getSizeBytes() > 0);
+            assertNotNull(sf.getOriginalFileName());
+        }
+
         provider.deleteMany(List.of(file1.getId(), file2.getId()));
 
         assertEquals(0, provider.getAll().size());
         assertThrows(FileStorageException.class, () -> provider.get(file1.getId()));
         assertThrows(FileStorageException.class, () -> provider.get(file2.getId()));
+    }
+
+    @Test
+    @DisplayName("Ten tep va content type chua ky tu xuong dong duoc lam sach tranh lam hong file meta")
+    void save_NewlinesInMetadata_SanitizedCorrectly() {
+        StoredFile file = StoredFile.builder()
+                .originalFileName("sample\r\nfile\nname.pdf")
+                .contentType("application/pdf\r\nx-injected: value")
+                .content("Valid content".getBytes())
+                .build();
+
+        StoredFile saved = provider.save(file);
+        StoredFile retrieved = provider.get(saved.getId());
+
+        assertNotNull(retrieved);
+        assertEquals("sample  file name.pdf", retrieved.getOriginalFileName());
+        assertEquals("application/pdf  x-injected: value", retrieved.getContentType());
     }
 
     @Test

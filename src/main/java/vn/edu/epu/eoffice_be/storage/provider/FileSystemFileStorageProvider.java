@@ -1,6 +1,7 @@
 package vn.edu.epu.eoffice_be.storage.provider;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -26,6 +27,7 @@ public class FileSystemFileStorageProvider implements FileStorageProvider {
     private final Path rootPath;
     private final long maxReadSizeBytes;
 
+    @Autowired
     public FileSystemFileStorageProvider(
             @Value("${file.storage.provider.filesystem.dir:/tmp/eoffice-storage}") String storageDir,
             @Value("${file.storage.provider.filesystem.max-file-size-bytes:26214400}") long maxReadSizeBytes) {
@@ -41,6 +43,10 @@ public class FileSystemFileStorageProvider implements FileStorageProvider {
 
     public FileSystemFileStorageProvider(String storageDir) {
         this(storageDir, 26214400L);
+    }
+
+    public FileSystemFileStorageProvider() {
+        this("/tmp/eoffice-storage", 26214400L);
     }
 
     @Override
@@ -77,8 +83,9 @@ public class FileSystemFileStorageProvider implements FileStorageProvider {
 
         // Lưu siêu dữ liệu đi kèm để phục vụ get() và getAll()
         Path metaPath = rootPath.resolve(fileId + ".meta");
-        String metaContent = (originalName != null ? originalName : "") + "\n"
-                + (file.getContentType() != null ? file.getContentType() : "");
+        String safeOriginalName = originalName != null ? originalName.replaceAll("[\\r\\n]", " ").trim() : "";
+        String safeContentType = file.getContentType() != null ? file.getContentType().replaceAll("[\\r\\n]", " ").trim() : "";
+        String metaContent = safeOriginalName + "\n" + safeContentType;
         try {
             Files.writeString(metaPath, metaContent);
         } catch (IOException e) {
@@ -114,35 +121,14 @@ public class FileSystemFileStorageProvider implements FileStorageProvider {
                     + maxReadSizeBytes + " bytes) để nạp vào bộ nhớ");
         }
 
-        String originalFileName = fileId;
-        String contentType = null;
-        Path metaPath = rootPath.resolve(fileId + ".meta");
-        if (Files.exists(metaPath)) {
-            try {
-                List<String> lines = Files.readAllLines(metaPath);
-                if (!lines.isEmpty() && !lines.get(0).isBlank()) {
-                    originalFileName = lines.get(0);
-                }
-                if (lines.size() > 1 && !lines.get(1).isBlank()) {
-                    contentType = lines.get(1);
-                }
-            } catch (IOException e) {
-                log.debug("Không thể đọc tệp meta {}: {}", metaPath, e.getMessage());
-            }
-        }
-        if (contentType == null) {
-            try {
-                contentType = Files.probeContentType(targetPath);
-            } catch (IOException ignored) {
-            }
-        }
+        FileMetadata meta = readMetadata(fileId, targetPath);
 
         try {
             byte[] bytes = Files.readAllBytes(targetPath);
             return StoredFile.builder()
                     .id(fileId)
-                    .originalFileName(originalFileName)
-                    .contentType(contentType)
+                    .originalFileName(meta.originalFileName())
+                    .contentType(meta.contentType())
                     .content(bytes)
                     .sizeBytes(bytes.length)
                     .metadata(Map.of("storagePath", targetPath.toString()))
@@ -182,6 +168,52 @@ public class FileSystemFileStorageProvider implements FileStorageProvider {
         return targetPath;
     }
 
+    private record FileMetadata(String originalFileName, String contentType) {}
+
+    private FileMetadata readMetadata(String fileId, Path targetPath) {
+        String originalFileName = fileId;
+        String contentType = null;
+        Path metaPath = rootPath.resolve(fileId + ".meta");
+        if (Files.exists(metaPath)) {
+            try {
+                List<String> lines = Files.readAllLines(metaPath);
+                if (!lines.isEmpty() && !lines.get(0).isBlank()) {
+                    originalFileName = lines.get(0).trim();
+                }
+                if (lines.size() > 1 && !lines.get(1).isBlank()) {
+                    contentType = lines.get(1).trim();
+                }
+            } catch (IOException e) {
+                log.debug("Không thể đọc tệp meta {}: {}", metaPath, e.getMessage());
+            }
+        }
+        if (contentType == null) {
+            try {
+                contentType = Files.probeContentType(targetPath);
+            } catch (IOException ignored) {
+            }
+        }
+        return new FileMetadata(originalFileName, contentType);
+    }
+
+    private StoredFile toLightweightStoredFile(Path targetPath) {
+        String fileId = targetPath.getFileName().toString();
+        long size = 0L;
+        try {
+            size = Files.size(targetPath);
+        } catch (IOException ignored) {
+        }
+        FileMetadata meta = readMetadata(fileId, targetPath);
+        return StoredFile.builder()
+                .id(fileId)
+                .originalFileName(meta.originalFileName())
+                .contentType(meta.contentType())
+                .sizeBytes(size)
+                .content(null) // Tránh nạp mảng byte vào RAM khi duyệt danh sách
+                .metadata(Map.of("storagePath", targetPath.toString()))
+                .build();
+    }
+
     @Override
     public List<StoredFile> getAll() {
         if (!Files.exists(rootPath) || !Files.isDirectory(rootPath)) {
@@ -191,7 +223,7 @@ public class FileSystemFileStorageProvider implements FileStorageProvider {
             return stream
                     .filter(Files::isRegularFile)
                     .filter(p -> !p.getFileName().toString().endsWith(".meta"))
-                    .map(p -> get(p.getFileName().toString()))
+                    .map(this::toLightweightStoredFile)
                     .toList();
         } catch (IOException e) {
             log.error("Lỗi khi đọc danh sách tệp từ thư mục {}: {}", rootPath, e.getMessage());

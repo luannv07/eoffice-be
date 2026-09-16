@@ -71,7 +71,7 @@ public class FileStorageController {
             } catch (Exception deleteEx) {
                 log.warn("Failed to rollback uploaded file for fileId: {}", saved.getId(), deleteEx);
             }
-            throw new FileStorageException("Lưu siêu dữ liệu tệp thất bại: " + e.getMessage(), e);
+            throw new FileStorageException("Lưu siêu dữ liệu tệp thất bại", e);
         }
         return BaseResponse.success(toResponse(saved));
     }
