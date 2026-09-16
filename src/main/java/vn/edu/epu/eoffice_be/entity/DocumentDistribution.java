@@ -8,7 +8,7 @@ import vn.edu.epu.eoffice_be.common.entity.BaseEntity;
 import java.time.Instant;
 
 @Entity
-@Table(name = "document_distribution")
+@Table(name = "document_distributions") // Đã thêm 's' để chuẩn hóa số nhiều
 @Getter
 @Setter
 @NoArgsConstructor
