@@ -110,6 +110,12 @@ public class DocumentWorkflowLog extends BaseEntity {
         this.assignedOrgNode = assignedOrgNode;
         this.signatureHash = signatureHash;
         this.deleteFlg = deleteFlg != null ? deleteFlg : false;
+        if (createdDate != null && createdAt != null) {
+            java.time.Instant instantFromAt = createdAt.atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).toInstant();
+            if (!createdDate.equals(instantFromAt)) {
+                throw new IllegalArgumentException("createdDate và createdAt không khớp giá trị");
+            }
+        }
         if (createdDate != null) {
             setCreatedDate(createdDate);
         } else if (createdAt != null) {
@@ -127,12 +133,10 @@ public class DocumentWorkflowLog extends BaseEntity {
                 : null;
     }
 
-    public void setCreatedAt(LocalDateTime createdAt) {
-        setCreatedDate(createdAt != null
-                ? createdAt.atZone(Document.getBusinessZone()).toInstant()
-                : null);
+    void setCreatedAt(LocalDateTime createdAt) {
+        setCreatedDate(createdAt != null ? createdAt.atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).toInstant() : null);
     }
-
+    
     public Long getDocumentId() {
         return document != null ? document.getId() : null;
     }

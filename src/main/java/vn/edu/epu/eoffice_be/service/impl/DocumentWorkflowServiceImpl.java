@@ -464,9 +464,10 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         UserLogin actor = getCurrentActor();
         validateDocumentReadAccess(document, actor);
 
-        List<DocumentWorkflowLog> logs = documentWorkflowLogRepository.findByDocumentIdOrderByCreatedAtAsc(documentId);
-        if (logs == null || logs.isEmpty()) {
-            logs = documentWorkflowLogRepository.findByDocumentIdOrderByCreatedDateAsc(documentId);
+        // Thay vì if (logs == null || logs.isEmpty()) gọi lại repo...
+        List<DocumentWorkflowLog> logs = documentWorkflowLogRepository.findByDocumentIdOrderByCreatedDateAsc(documentId);
+        if (logs == null) {
+            logs = java.util.Collections.emptyList();
         }
         return logs.stream()
                 .map(log -> WorkflowTimelineResponse.builder()

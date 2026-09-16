@@ -260,15 +260,14 @@ class DocumentServiceCoverageTest {
         assertNotNull(pending);
 
         DocumentWorkflowLog log = DocumentWorkflowLog.builder()
-                .id(10L)
-                .documentId(1L)
-                .action("SUBMIT")
-                .createdAt(LocalDateTime.now())
-                .build();
+            .id(10L)
+            .documentId(1L)
+            .action(vn.edu.epu.eoffice_be.common.enums.WorkflowAction.SUBMIT)
+            .createdDate(java.time.Instant.now())
+            .build();
 
         when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(doc1));
-        when(workflowLogRepository.findByDocumentIdOrderByCreatedAtAsc(1L)).thenReturn(List.of(log));
-
+        
         UserLogin mockActor = new UserLogin();
         mockActor.setId(99L);
         mockActor.setUsername("SIGN");
