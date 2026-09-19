@@ -11,10 +11,13 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 import vn.edu.epu.eoffice_be.config.TelegramStorageProperties;
+import vn.edu.epu.eoffice_be.entity.StoredFileMetadata;
+import vn.edu.epu.eoffice_be.repository.StoredFileMetadataRepository;
 
-import java.util.Collections;
+import java.net.URLConnection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
@@ -25,13 +28,16 @@ public class TelegramFileStorageProvider implements FileStorageProvider {
     private static final String FILE_BASE = "https://api.telegram.org/file/bot";
 
     private final TelegramStorageProperties properties;
+    private final StoredFileMetadataRepository metadataRepository;
     private final RestTemplate restTemplate;
 
     // Lưu tạm messageId theo fileId để hỗ trợ xóa (Telegram không có API xóa file)
     private final Map<String, Long> messageIdByFileId = new ConcurrentHashMap<>();
 
-    public TelegramFileStorageProvider(TelegramStorageProperties properties) {
+    public TelegramFileStorageProvider(TelegramStorageProperties properties,
+                                       StoredFileMetadataRepository metadataRepository) {
         this.properties = properties;
+        this.metadataRepository = metadataRepository;
         this.restTemplate = new RestTemplate();
     }
 
@@ -76,11 +82,13 @@ public class TelegramFileStorageProvider implements FileStorageProvider {
         long size = result.path("document").path("file_size").asLong(file.getContent().length);
 
         messageIdByFileId.put(fileId, messageId);
+        luuMetadata(fileId, file.getOriginalFileName(), kieuNoiDung(file.getContentType(), file.getOriginalFileName()),
+                size, String.valueOf(messageId));
 
         return StoredFile.builder()
                 .id(fileId)
                 .originalFileName(file.getOriginalFileName())
-                .contentType(file.getContentType())
+                .contentType(kieuNoiDung(file.getContentType(), file.getOriginalFileName()))
                 .sizeBytes(size)
                 .metadata(Map.of("messageId", String.valueOf(messageId)))
                 .build();
@@ -94,11 +102,25 @@ public class TelegramFileStorageProvider implements FileStorageProvider {
         if (content == null) {
             throw new FileStorageException("Telegram trả về nội dung rỗng cho fileId " + fileId);
         }
-        return StoredFile.builder()
+        StoredFile.StoredFileBuilder builder = StoredFile.builder()
                 .id(fileId)
                 .content(content)
-                .sizeBytes(content.length)
-                .build();
+                .sizeBytes(content.length);
+        Optional<StoredFileMetadata> metadata = timMetadata(fileId);
+        if (metadata.isPresent()) {
+            StoredFileMetadata m = metadata.get();
+            builder.originalFileName(m.getOriginalFileName())
+                    .contentType(m.getContentType())
+                    .metadata(m.getMetadata());
+            if (m.getSizeBytes() != null) {
+                builder.sizeBytes(m.getSizeBytes());
+            }
+        } else {
+            // Hàng tải lên trước khi có bảng metadata: suy tên từ file_path Telegram (thường giữ extension).
+            builder.originalFileName(tenFileTuDuongDan(filePath, fileId))
+                    .contentType(kieuNoiDung(null, filePath));
+        }
+        return builder.build();
     }
 
     @Override
@@ -115,35 +137,61 @@ public class TelegramFileStorageProvider implements FileStorageProvider {
         String chatId = yeuCauChannelId();
         Long messageId = messageIdByFileId.get(fileId);
         if (messageId == null) {
+            // Map in-memory mất sau mỗi lần restart: tra messageId từ bảng metadata.
+            messageId = timMetadata(fileId)
+                    .map(m -> m.getMetadata() == null ? null : m.getMetadata().get("messageId"))
+                    .map(id -> {
+                        try {
+                            return Long.valueOf(id);
+                        } catch (NumberFormatException e) {
+                            log.warn("messageId lưu cho fileId {} không hợp lệ: {}", fileId, id);
+                            return null;
+                        }
+                    })
+                    .orElse(null);
+        }
+        if (messageId == null) {
             log.warn("Không tìm thấy messageId lưu sẵn cho fileId {}, không thể xóa tin nhắn Telegram", fileId);
-            return;
-        }
-        String url = API_BASE + token + "/deleteMessage?chat_id=" + chatId + "&message_id=" + messageId;
-        try {
-            JsonNode root = restTemplate.getForObject(url, JsonNode.class);
-            if (root == null || !root.path("ok").asBoolean(false)) {
-                log.warn("Xóa tin nhắn Telegram thất bại cho fileId {}", fileId);
+        } else {
+            String url = API_BASE + token + "/deleteMessage?chat_id=" + chatId + "&message_id=" + messageId;
+            try {
+                JsonNode root = restTemplate.getForObject(url, JsonNode.class);
+                if (root == null || !root.path("ok").asBoolean(false)) {
+                    log.warn("Xóa tin nhắn Telegram thất bại cho fileId {}", fileId);
+                }
+            } catch (Exception e) {
+                log.warn("Lỗi xóa tin nhắn Telegram cho fileId {}: {}", fileId, e.getMessage());
+            } finally {
+                messageIdByFileId.remove(fileId);
             }
-        } catch (Exception e) {
-            log.warn("Lỗi xóa tin nhắn Telegram cho fileId {}: {}", fileId, e.getMessage());
-        } finally {
-            messageIdByFileId.remove(fileId);
         }
+        // Soft-delete dòng metadata (delete_flg) để getAll/getDetail không còn thấy.
+        timMetadata(fileId).ifPresent(metadataRepository::delete);
     }
 
     @Override
     public List<StoredFile> getAll() {
-        return Collections.emptyList();
+        // Telegram Bot API không có thao tác liệt kê: đọc từ bảng metadata (không tải nội dung).
+        return metadataRepository.findByProvider(getName()).stream()
+                .map(this::sieuDuLieuThanhStoredFile)
+                .toList();
     }
 
     @Override
     public StoredFile getDetail(String fileId) {
-        throw new UnsupportedOperationException("Provider Telegram không hỗ trợ getDetail");
+        StoredFileMetadata metadata = timMetadata(fileId)
+                .orElseThrow(() -> new FileStorageException("Không tìm thấy tệp " + fileId + " trong kho lưu trữ"));
+        return sieuDuLieuThanhStoredFile(metadata);
     }
 
     @Override
     public void deleteMany(List<String> fileIds) {
-        throw new UnsupportedOperationException("Provider Telegram không hỗ trợ deleteMany");
+        if (fileIds == null || fileIds.isEmpty()) {
+            return;
+        }
+        for (String fileId : fileIds) {
+            delete(fileId);
+        }
     }
 
     private String giaiQuyetDuongDan(String token, String fileId) {
@@ -154,6 +202,51 @@ public class TelegramFileStorageProvider implements FileStorageProvider {
                     "Lấy thông tin tệp Telegram thất bại: " + (root == null ? "không có phản hồi" : root.path("description").asText()));
         }
         return root.path("result").path("file_path").asText();
+    }
+
+    private Optional<StoredFileMetadata> timMetadata(String fileId) {
+        return metadataRepository.findByProviderAndFileId(getName(), fileId);
+    }
+
+    private void luuMetadata(String fileId, String originalFileName, String contentType, long sizeBytes, String messageId) {
+        StoredFileMetadata metadata = timMetadata(fileId)
+                .orElseGet(() -> StoredFileMetadata.builder()
+                        .provider(getName())
+                        .fileId(fileId)
+                        .build());
+        metadata.setOriginalFileName(originalFileName);
+        metadata.setContentType(contentType);
+        metadata.setSizeBytes(sizeBytes);
+        metadata.setMetadata(Map.of("messageId", messageId));
+        metadataRepository.save(metadata);
+    }
+
+    private StoredFile sieuDuLieuThanhStoredFile(StoredFileMetadata metadata) {
+        return StoredFile.builder()
+                .id(metadata.getFileId())
+                .originalFileName(metadata.getOriginalFileName())
+                .contentType(metadata.getContentType())
+                .sizeBytes(metadata.getSizeBytes() != null ? metadata.getSizeBytes() : 0)
+                .metadata(metadata.getMetadata())
+                .build();
+    }
+
+    private String tenFileTuDuongDan(String filePath, String fileId) {
+        if (filePath != null && filePath.contains("/")) {
+            String name = filePath.substring(filePath.lastIndexOf('/') + 1);
+            if (!name.isBlank()) {
+                return name;
+            }
+        }
+        return fileId;
+    }
+
+    private String kieuNoiDung(String contentType, String fileName) {
+        if (contentType != null && !contentType.isBlank()) {
+            return contentType;
+        }
+        String doan = (fileName != null) ? URLConnection.guessContentTypeFromName(fileName) : null;
+        return (doan != null) ? doan : MediaType.APPLICATION_OCTET_STREAM_VALUE;
     }
 
     private String yeuCauToken() {

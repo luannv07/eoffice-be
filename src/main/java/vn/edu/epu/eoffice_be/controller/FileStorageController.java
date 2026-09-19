@@ -41,7 +41,7 @@ public class FileStorageController {
     private final FileStorageProviderRegistry registry;
 
     @Operation(summary = "Tải tệp lên backend lưu trữ (Create)")
-    @PostMapping("/upload")
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public BaseResponse<StoredFileResponse> upload(
             @RequestParam("file") MultipartFile file,
             @RequestParam(required = false) String provider) {
@@ -73,7 +73,7 @@ public class FileStorageController {
     }
 
     @Operation(summary = "Cập nhật nội dung tệp (Update)")
-    @PutMapping("/{fileId}")
+    @PutMapping(value = "/{fileId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public BaseResponse<StoredFileResponse> update(
             @PathVariable String fileId,
             @RequestParam("file") MultipartFile file,
