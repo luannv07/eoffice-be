@@ -82,6 +82,7 @@ databaseChangeLog:
   - changeSet:
       id: 2026-09-11-create-table-document-distribution
       author: quyet
+      validCheckSum: ANY
       preConditions:
         onFail: MARK_RAN
         sqlCheck:
@@ -240,3 +241,4 @@ databaseChangeLog:
               - column:
                   name: is_read
                   valueBoolean: false
+                  

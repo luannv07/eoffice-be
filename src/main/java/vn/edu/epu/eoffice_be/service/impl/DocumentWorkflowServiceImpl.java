@@ -451,7 +451,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 .comment(log.getComment())
                 .leadershipInstruction(log.getLeadershipInstruction())
                 .assignedOrgNodeId(log.getAssignedOrgNode() != null ? log.getAssignedOrgNode().getId() : null)
-                .assignedOrgNodeName(log.getAssignedOrgNode() != null ? log.getAssignedOrgNode().getNameVn() : null)
+                .assignedOrgNodeName(log.getAssignedOrgNode() != null   ? log.getAssignedOrgNode().getNameVn() : null)
                 .signatureHash(log.getSignatureHash())
                 .createdDate(log.getCreatedDate())
                 .build();
