@@ -68,7 +68,7 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<BaseResponse<Void>> handleMultipartException(Exception ex) {
 		log.warn("Invalid file upload request: {}", ex.getMessage());
 		return ResponseEntity.status(ErrorCode.BAD_REQUEST.getStatus())
-						.body(BaseResponse.error("Yêu cầu upload file không hợp lệ: " + ex.getMessage(), ErrorCode.BAD_REQUEST.getCode()));
+						.body(BaseResponse.error("Yêu cầu upload file không hợp lệ", ErrorCode.BAD_REQUEST.getCode()));
 	}
 
 	@ExceptionHandler(Exception.class)
