@@ -88,13 +88,6 @@ public class DocumentWorkflowLog extends BaseEntity {
         this.signatureHash = signatureHash;
         this.deleteFlg = deleteFlg != null ? deleteFlg : false;
 
-        if (createdDate != null && createdAt != null) {
-            java.time.Instant instantFromAt = createdAt.atZone(Document.getBusinessZone()).toInstant();
-            if (!createdDate.equals(instantFromAt)) {
-                throw new IllegalArgumentException("createdDate và createdAt không khớp giá trị");
-            }
-        }
-
         if (createdDate != null) {
             setCreatedDate(createdDate);
         } else if (createdAt != null) {
