@@ -146,4 +146,16 @@ class GlobalExceptionHandlerTest {
 				.andExpect(jsonPath("$.message").value(ErrorCode.INTERNAL_SERVER_ERROR.getMessage()))
 				.andExpect(content().string(not(containsString("sensitive internal server state"))));
 	}
+
+	@Test
+	void handleMultipartExceptionShouldNotExposeRawMessage() {
+		org.springframework.web.multipart.MultipartException ex =
+				new org.springframework.web.multipart.MultipartException("Could not parse multipart servlet request; nested exception is java.io.IOException: C:\\Users\\secret\\path");
+		ResponseEntity<BaseResponse<Void>> response = handler.handleMultipartException(ex);
+
+		assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+		assertEquals("BAD_REQUEST", response.getBody().getErrorCode());
+		assertEquals("Yêu cầu upload file không hợp lệ hoặc kích thước vượt quá giới hạn", response.getBody().getMessage());
+		assertFalse(response.getBody().getMessage().contains("C:\\Users\\secret\\path"));
+	}
 }

@@ -115,4 +115,19 @@ class DocumentWorkflowLogTest {
         log.setDeleteFlg(false);
         assertFalse(log.isDeleteFlg());
     }
+
+    @Test
+    @DisplayName("Constructor: Khi truyền cả createdDate và createdAt thì ưu tiên createdDate và không ném ngoại lệ")
+    void constructor_withBothCreatedDateAndCreatedAt_shouldPrioritizeCreatedDateWithoutThrowing() {
+        Instant instant = Instant.parse("2026-09-13T07:30:00Z");
+        LocalDateTime localDateTime = LocalDateTime.of(2026, 9, 13, 15, 0, 0);
+
+        DocumentWorkflowLog log = assertDoesNotThrow(() -> new DocumentWorkflowLog(
+                1L, null, WorkflowAction.SUBMIT, null,
+                DocumentStatus.DRAFT, DocumentStatus.SUBMITTED, "ok",
+                null, null, null, false, instant, localDateTime
+        ));
+
+        assertEquals(instant, log.getCreatedDate());
+    }
 }

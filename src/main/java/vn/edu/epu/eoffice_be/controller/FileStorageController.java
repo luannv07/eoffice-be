@@ -30,6 +30,11 @@ import vn.edu.epu.eoffice_be.storage.provider.StoredFile;
 import java.io.IOException;
 import java.util.List;
 
+import lombok.extern.slf4j.Slf4j;
+import vn.edu.epu.eoffice_be.entity.StoredFileMetadata;
+import vn.edu.epu.eoffice_be.repository.StoredFileMetadataRepository;
+
+@Slf4j
 @RestController
 @RequestMapping("/file-storage")
 @RequiredArgsConstructor
@@ -39,13 +44,40 @@ import java.util.List;
 public class FileStorageController {
 
     private final FileStorageProviderRegistry registry;
+    private final StoredFileMetadataRepository metadataRepository;
 
     @Operation(summary = "Tải tệp lên backend lưu trữ (Create)")
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public BaseResponse<StoredFileResponse> upload(
             @RequestParam("file") MultipartFile file,
             @RequestParam(required = false) String provider) {
-        StoredFile saved = resolve(provider).save(toStoredFile(file));
+        FileStorageProvider p = resolve(provider);
+        StoredFile saved = p.save(toStoredFile(file));
+        try {
+            StoredFileMetadata meta = metadataRepository.findByProviderAndFileId(p.getName(), saved.getId())
+                    .orElseGet(() -> StoredFileMetadata.builder()
+                            .provider(p.getName())
+                            .fileId(saved.getId())
+                            .build());
+            meta.setOriginalFileName(saved.getOriginalFileName());
+            meta.setContentType(saved.getContentType());
+            meta.setSizeBytes(saved.getSizeBytes());
+            if (saved.getMetadata() != null && saved.getMetadata().containsKey("storagePath")) {
+                meta.setStoragePath(saved.getMetadata().get("storagePath"));
+            }
+            if (saved.getMetadata() != null) {
+                meta.setMetadata(saved.getMetadata());
+            }
+            metadataRepository.save(meta);
+        } catch (Exception e) {
+            log.error("Failed to save file metadata for fileId: {}", saved.getId(), e);
+            try {
+                p.delete(saved.getId());
+            } catch (Exception deleteEx) {
+                log.warn("Failed to rollback uploaded file for fileId: {}", saved.getId(), deleteEx);
+            }
+            throw new FileStorageException("Lưu siêu dữ liệu tệp thất bại", e);
+        }
         return BaseResponse.success(toResponse(saved));
     }
 
