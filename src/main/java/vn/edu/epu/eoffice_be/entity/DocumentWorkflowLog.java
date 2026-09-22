@@ -8,7 +8,6 @@ import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 
 @Entity
 @Table(
@@ -88,12 +87,14 @@ public class DocumentWorkflowLog extends BaseEntity {
         this.assignedOrgNode = assignedOrgNode;
         this.signatureHash = signatureHash;
         this.deleteFlg = deleteFlg != null ? deleteFlg : false;
+
         if (createdDate != null && createdAt != null) {
-            java.time.Instant instantFromAt = createdAt.atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).toInstant();
+            java.time.Instant instantFromAt = createdAt.atZone(Document.getBusinessZone()).toInstant();
             if (!createdDate.equals(instantFromAt)) {
                 throw new IllegalArgumentException("createdDate và createdAt không khớp giá trị");
             }
         }
+
         if (createdDate != null) {
             setCreatedDate(createdDate);
         } else if (createdAt != null) {
