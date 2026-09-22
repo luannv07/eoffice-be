@@ -95,8 +95,8 @@ file:
     provider:
       active: ${FILE_STORAGE_PROVIDER_ACTIVE:telegram}
       telegram:
-        chatbot-http-api: ${TELEGRAM_BOT_TOKEN:}
-        channel-id: ${TELEGRAM_CHANNEL_ID:}
+        chatbot-http-api: ${FILE_STORAGE_PROVIDER_TELEGRAM_CHATBOT_HTTP_API:${TELEGRAM_BOT_TOKEN:}}
+        channel-id: ${FILE_STORAGE_PROVIDER_TELEGRAM_CHANNEL_ID:${TELEGRAM_CHANNEL_ID:}}
       filesystem:
         dir: ${FILE_STORAGE_LOCAL_DIR:${eoffice.upload.dir:/var/eoffice/uploads/documents}}
 

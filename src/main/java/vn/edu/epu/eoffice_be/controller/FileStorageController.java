@@ -47,22 +47,27 @@ public class FileStorageController {
     private final StoredFileMetadataRepository metadataRepository;
 
     @Operation(summary = "Tải tệp lên backend lưu trữ (Create)")
-    @PostMapping("/upload")
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public BaseResponse<StoredFileResponse> upload(
             @RequestParam("file") MultipartFile file,
             @RequestParam(required = false) String provider) {
         FileStorageProvider p = resolve(provider);
         StoredFile saved = p.save(toStoredFile(file));
         try {
-            StoredFileMetadata meta = StoredFileMetadata.builder()
-                    .provider(p.getName())
-                    .fileId(saved.getId())
-                    .originalFileName(saved.getOriginalFileName())
-                    .contentType(saved.getContentType())
-                    .sizeBytes(saved.getSizeBytes())
-                    .storagePath(saved.getMetadata() != null ? saved.getMetadata().get("storagePath") : null)
-                    .metadata(saved.getMetadata())
-                    .build();
+            StoredFileMetadata meta = metadataRepository.findByProviderAndFileId(p.getName(), saved.getId())
+                    .orElseGet(() -> StoredFileMetadata.builder()
+                            .provider(p.getName())
+                            .fileId(saved.getId())
+                            .build());
+            meta.setOriginalFileName(saved.getOriginalFileName());
+            meta.setContentType(saved.getContentType());
+            meta.setSizeBytes(saved.getSizeBytes());
+            if (saved.getMetadata() != null && saved.getMetadata().containsKey("storagePath")) {
+                meta.setStoragePath(saved.getMetadata().get("storagePath"));
+            }
+            if (saved.getMetadata() != null) {
+                meta.setMetadata(saved.getMetadata());
+            }
             metadataRepository.save(meta);
         } catch (Exception e) {
             log.error("Failed to save file metadata for fileId: {}", saved.getId(), e);
@@ -100,7 +105,7 @@ public class FileStorageController {
     }
 
     @Operation(summary = "Cập nhật nội dung tệp (Update)")
-    @PutMapping("/{fileId}")
+    @PutMapping(value = "/{fileId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public BaseResponse<StoredFileResponse> update(
             @PathVariable String fileId,
             @RequestParam("file") MultipartFile file,
