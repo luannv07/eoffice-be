@@ -90,6 +90,14 @@ eoffice:
     endpoint-window-seconds: ${RATE_LIMIT_ENDPOINT_WINDOW_SECONDS:300}
     maximum-size: ${RATE_LIMIT_MAXIMUM_SIZE:10000}
 
+file:
+  storage:
+    provider:
+      active: ${FILE_STORAGE_PROVIDER_ACTIVE:telegram}
+      telegram:
+        chatbot-http-api: ${FILE_STORAGE_PROVIDER_TELEGRAM_CHATBOT_HTTP_API:}
+        channel-id: ${FILE_STORAGE_PROVIDER_TELEGRAM_CHANNEL_ID:}
+
 springdoc:
   api-docs:
     path: /v3/api-docs

@@ -5,10 +5,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import vn.edu.epu.eoffice_be.common.dto.BaseResponse;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 
@@ -55,9 +58,15 @@ public class GlobalExceptionHandler {
                 .body(BaseResponse.error(ErrorCode.FORBIDDEN.getMessage(), ErrorCode.FORBIDDEN.getCode()));
     }
 
-    @ExceptionHandler(MultipartException.class)
-    public ResponseEntity<BaseResponse<Void>> handleMultipartException(MultipartException ex) {
-        log.error("Multipart/upload error: ", ex);
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<BaseResponse<Void>> handleMaxUploadSize(MaxUploadSizeExceededException ex) {
+        return ResponseEntity.status(ErrorCode.FILE_SIZE_EXCEEDED.getStatus())
+                .body(BaseResponse.error(ErrorCode.FILE_SIZE_EXCEEDED.getMessage(), ErrorCode.FILE_SIZE_EXCEEDED.getCode()));
+    }
+
+    @ExceptionHandler({MultipartException.class, MissingServletRequestPartException.class, HttpMediaTypeNotSupportedException.class})
+    public ResponseEntity<BaseResponse<Void>> handleMultipartException(Exception ex) {
+        log.error("Invalid file upload request: ", ex);
         return ResponseEntity.status(ErrorCode.BAD_REQUEST.getStatus())
                 .body(BaseResponse.error("Yêu cầu upload file không hợp lệ hoặc kích thước vượt quá giới hạn", ErrorCode.BAD_REQUEST.getCode()));
     }
