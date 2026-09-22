@@ -155,7 +155,7 @@ class GlobalExceptionHandlerTest {
 
 		assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
 		assertEquals("BAD_REQUEST", response.getBody().getErrorCode());
-		assertEquals("Yêu cầu upload file không hợp lệ", response.getBody().getMessage());
+		assertEquals("Yêu cầu upload file không hợp lệ hoặc kích thước vượt quá giới hạn", response.getBody().getMessage());
 		assertFalse(response.getBody().getMessage().contains("C:\\Users\\secret\\path"));
 	}
 }

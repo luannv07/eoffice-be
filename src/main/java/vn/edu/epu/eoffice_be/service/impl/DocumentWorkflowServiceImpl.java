@@ -451,7 +451,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 .comment(log.getComment())
                 .leadershipInstruction(log.getLeadershipInstruction())
                 .assignedOrgNodeId(log.getAssignedOrgNode() != null ? log.getAssignedOrgNode().getId() : null)
-                .assignedOrgNodeName(log.getAssignedOrgNode() != null ? log.getAssignedOrgNode().getNameVn() : null)
+                .assignedOrgNodeName(log.getAssignedOrgNode() != null   ? log.getAssignedOrgNode().getNameVn() : null)
                 .signatureHash(log.getSignatureHash())
                 .createdDate(log.getCreatedDate())
                 .build();
@@ -464,7 +464,10 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         UserLogin actor = getCurrentActor();
         validateDocumentReadAccess(document, actor);
 
-        List<DocumentWorkflowLog> logs = documentWorkflowLogRepository.findByDocumentIdOrderByCreatedDateAsc(documentId);
+        List<DocumentWorkflowLog> logs = documentWorkflowLogRepository.findByDocumentIdOrderByCreatedAtAsc(documentId);
+        if (logs == null) {
+            logs = java.util.Collections.emptyList();
+        }
         return logs.stream()
                 .map(log -> WorkflowTimelineResponse.builder()
                         .id(log.getId())
