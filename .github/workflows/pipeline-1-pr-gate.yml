@@ -73,6 +73,7 @@ jobs:
           exit-code: 1
           severity: CRITICAL
           ignore-unfixed: true
+          trivyignores: .trivyignore
 
       - name: 4. Secret Scan (TruffleHog)
         uses: trufflesecurity/trufflehog@main

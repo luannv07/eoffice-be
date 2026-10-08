@@ -1,0 +1,9 @@
+# Trivy Vulnerability Ignore List
+# Project: eoffice-be
+# DevSecOps Exception Policy
+
+# CVE-2026-47884: Improper path limitation in XsltView resulting in potential SSRF/RCE
+# Rationale: eoffice-be is a pure JSON REST API backend and does not use or configure XsltView.
+# Severity: CRITICAL
+# Status: False positive / Not applicable to this architecture
+CVE-2026-47884
