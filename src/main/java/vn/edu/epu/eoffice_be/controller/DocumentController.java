@@ -127,6 +127,23 @@ public class DocumentController {
         return BaseResponse.success(documentDraftService.updateDraft(id, request, userId));
     }
 
+    @Operation(summary = "Xóa dự thảo văn bản",
+            description = "Xóa mềm dự thảo văn bản khi còn ở trạng thái DRAFT. Chỉ người tạo hoặc quản trị viên mới có quyền xóa.")
+    @ApiResponse(responseCode = "200", description = "Xóa dự thảo thành công")
+    @ApiResponse(responseCode = "400", description = "Trạng thái văn bản không hợp lệ để xóa (DOCUMENT_INVALID_STATUS)")
+    @ApiResponse(responseCode = "401", description = "Chưa xác thực (UNAUTHORIZED)")
+    @ApiResponse(responseCode = "403", description = "Không có quyền xóa (FORBIDDEN)")
+    @ApiResponse(responseCode = "404", description = "Không tìm thấy văn bản (DOCUMENT_NOT_FOUND)")
+    @DeleteMapping("/{id}")
+    public BaseResponse<Void> deleteDraft(
+            @PathVariable Long id,
+            Authentication authentication
+    ) {
+        Long userId = extractUserId(authentication);
+        documentDraftService.deleteDraft(id, userId);
+        return BaseResponse.success(null, "Xóa dự thảo văn bản thành công");
+    }
+
     @Operation(summary = "Lịch sử các phiên bản (UC10)",
             description = "Lấy danh sách tất cả các phiên bản đã lưu của dự thảo văn bản.")
     @GetMapping("/{id}/versions")
