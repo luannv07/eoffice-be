@@ -45,6 +45,8 @@ public class WorkflowEngine {
         submittedTransitions.put(WorkflowAction.REQUEST_REVISION, DocumentStatus.NEEDS_REVISION);
         submittedTransitions.put(WorkflowAction.REJECT, DocumentStatus.REJECTED);
         TRANSITION_MATRIX.put(DocumentStatus.SUBMITTED, submittedTransitions);
+        TRANSITION_MATRIX.put(DocumentStatus.WAITING_APPROVAL, submittedTransitions);
+        TRANSITION_MATRIX.put(DocumentStatus.PENDING_APPROVAL, submittedTransitions);
 
         // IN_REVIEW
         Map<WorkflowAction, DocumentStatus> inReviewTransitions = new EnumMap<>(WorkflowAction.class);
