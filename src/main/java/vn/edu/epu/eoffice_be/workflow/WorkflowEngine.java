@@ -73,7 +73,7 @@ public class WorkflowEngine {
         leaderReviewTransitions.put(WorkflowAction.REQUEST_REVISION, DocumentStatus.NEEDS_REVISION);
         leaderReviewTransitions.put(WorkflowAction.REJECT, DocumentStatus.REJECTED);
         TRANSITION_MATRIX.put(DocumentStatus.LEADER_REVIEW, leaderReviewTransitions);
-        TRANSITION_MATRIX.put(DocumentStatus.PENDING_APPROVAL, leaderReviewTransitions);
+        TRANSITION_MATRIX.put(DocumentStatus.PENDING_APPROVAL, new EnumMap<>(leaderReviewTransitions));
 
         // APPROVED
         Map<WorkflowAction, DocumentStatus> approvedTransitions = new EnumMap<>(WorkflowAction.class);

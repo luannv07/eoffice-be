@@ -19,6 +19,8 @@ import vn.edu.epu.eoffice_be.entity.UserLogin;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentWorkflowLogRepository;
 
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -267,5 +269,23 @@ class WorkflowEngineTest {
         BusinessException exWithdraw = assertThrows(BusinessException.class, () ->
                 workflowEngine.validateActorPermission(document, drafter, WorkflowAction.WITHDRAW));
         assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, exWithdraw.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("State Machine: LEADER_REVIEW và PENDING_APPROVAL không dùng chung instance Map (chống aliasing)")
+    void stateMachine_leaderReviewAndPendingApproval_shouldHaveIndependentMapInstances() throws Exception {
+        java.lang.reflect.Field field = WorkflowEngine.class.getDeclaredField("TRANSITION_MATRIX");
+        field.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        Map<DocumentStatus, Map<WorkflowAction, DocumentStatus>> matrix =
+                (Map<DocumentStatus, Map<WorkflowAction, DocumentStatus>>) field.get(null);
+
+        Map<WorkflowAction, DocumentStatus> leaderReviewMap = matrix.get(DocumentStatus.LEADER_REVIEW);
+        Map<WorkflowAction, DocumentStatus> pendingApprovalMap = matrix.get(DocumentStatus.PENDING_APPROVAL);
+
+        assertNotNull(leaderReviewMap);
+        assertNotNull(pendingApprovalMap);
+        assertNotSame(leaderReviewMap, pendingApprovalMap, "LEADER_REVIEW và PENDING_APPROVAL phải có instance Map độc lập, không được dùng chung");
+        assertEquals(leaderReviewMap, pendingApprovalMap, "Hai map phải có cùng nội dung ban đầu");
     }
 }
