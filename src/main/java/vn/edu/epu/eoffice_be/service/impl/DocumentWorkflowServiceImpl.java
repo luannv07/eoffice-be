@@ -102,11 +102,11 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         // Quyết định hành động chuyển tiếp phù hợp với trạng thái hiện tại
         WorkflowAction action;
         if (document.getStatus() == DocumentStatus.SUBMITTED
-                || document.getStatus() == DocumentStatus.WAITING_APPROVAL
-                || document.getStatus() == DocumentStatus.PENDING_APPROVAL
                 || document.getStatus() == DocumentStatus.IN_REVIEW) {
             action = WorkflowAction.REVIEW_APPROVE;
-        } else if (document.getStatus() == DocumentStatus.LEADER_REVIEW) {
+        } else if (document.getStatus() == DocumentStatus.LEADER_REVIEW
+                || document.getStatus() == DocumentStatus.PENDING_APPROVAL
+                || document.getStatus() == DocumentStatus.WAITING_APPROVAL) {
             action = WorkflowAction.LEADER_APPROVE;
         } else {
             throw new BusinessException(ErrorCode.INVALID_WORKFLOW_STATE);
@@ -610,9 +610,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             return "Bộ phận xử lý văn bản";
         }
         return switch (status) {
-            case SUBMITTED, WAITING_APPROVAL -> "Văn thư tiếp nhận";
+            case SUBMITTED -> "Văn thư tiếp nhận";
             case PENDING_REVIEW, IN_REVIEW -> "Chuyên viên thẩm định";
-            case PENDING_APPROVAL -> "Lãnh đạo phê duyệt";
+            case PENDING_APPROVAL, WAITING_APPROVAL, LEADER_REVIEW -> "Lãnh đạo phê duyệt";
             case PENDING_SIGN -> "Lãnh đạo ký ban hành";
             default -> "Bộ phận xử lý văn bản";
         };

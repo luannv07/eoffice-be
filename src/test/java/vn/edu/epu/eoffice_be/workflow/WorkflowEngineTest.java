@@ -70,20 +70,25 @@ class WorkflowEngineTest {
     }
 
     @Test
-    @DisplayName("State Machine: WAITING_APPROVAL -> IN_REVIEW khi ký nháy hoặc duyệt sơ bộ")
+    @DisplayName("State Machine: WAITING_APPROVAL -> APPROVED khi lãnh đạo phê duyệt hoặc IN_REVIEW khi ký nháy/thẩm định")
     void getNextStatus_fromWaitingApproval_transitions_shouldSucceed() {
+        assertEquals(DocumentStatus.APPROVED, workflowEngine.getNextStatus(DocumentStatus.WAITING_APPROVAL, WorkflowAction.LEADER_APPROVE));
         assertEquals(DocumentStatus.IN_REVIEW, workflowEngine.getNextStatus(DocumentStatus.WAITING_APPROVAL, WorkflowAction.REVIEW_APPROVE));
         assertEquals(DocumentStatus.IN_REVIEW, workflowEngine.getNextStatus(DocumentStatus.WAITING_APPROVAL, WorkflowAction.INITIAL_SIGN));
+        assertEquals(DocumentStatus.PUBLISHED, workflowEngine.getNextStatus(DocumentStatus.WAITING_APPROVAL, WorkflowAction.SIGN_AND_PUBLISH));
         assertEquals(DocumentStatus.DRAFT, workflowEngine.getNextStatus(DocumentStatus.WAITING_APPROVAL, WorkflowAction.WITHDRAW));
         assertEquals(DocumentStatus.NEEDS_REVISION, workflowEngine.getNextStatus(DocumentStatus.WAITING_APPROVAL, WorkflowAction.REQUEST_REVISION));
         assertEquals(DocumentStatus.REJECTED, workflowEngine.getNextStatus(DocumentStatus.WAITING_APPROVAL, WorkflowAction.REJECT));
     }
 
     @Test
-    @DisplayName("State Machine: PENDING_APPROVAL -> IN_REVIEW khi duyệt sơ bộ")
-    void getNextStatus_fromPendingApproval_reviewApprove_shouldReturnInReview() {
-        DocumentStatus next = workflowEngine.getNextStatus(DocumentStatus.PENDING_APPROVAL, WorkflowAction.REVIEW_APPROVE);
-        assertEquals(DocumentStatus.IN_REVIEW, next);
+    @DisplayName("State Machine: PENDING_APPROVAL -> APPROVED khi lãnh đạo phê duyệt")
+    void getNextStatus_fromPendingApproval_leaderApprove_shouldReturnApproved() {
+        DocumentStatus next = workflowEngine.getNextStatus(DocumentStatus.PENDING_APPROVAL, WorkflowAction.LEADER_APPROVE);
+        assertEquals(DocumentStatus.APPROVED, next);
+        assertEquals(DocumentStatus.PUBLISHED, workflowEngine.getNextStatus(DocumentStatus.PENDING_APPROVAL, WorkflowAction.SIGN_AND_PUBLISH));
+        assertEquals(DocumentStatus.NEEDS_REVISION, workflowEngine.getNextStatus(DocumentStatus.PENDING_APPROVAL, WorkflowAction.REQUEST_REVISION));
+        assertEquals(DocumentStatus.REJECTED, workflowEngine.getNextStatus(DocumentStatus.PENDING_APPROVAL, WorkflowAction.REJECT));
     }
 
     @Test
