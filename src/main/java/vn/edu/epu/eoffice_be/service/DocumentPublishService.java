@@ -21,6 +21,7 @@ import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.lang.Nullable;
 import vn.edu.epu.eoffice_be.dto.request.AssignDocumentNumberRequest;
 import vn.edu.epu.eoffice_be.dto.response.AssignDocumentNumberResponse;
 
@@ -41,7 +42,7 @@ public class DocumentPublishService {
     @Autowired
     public DocumentPublishService(DocumentRepository documentRepository,
                                   DocumentDistributionRepository distributionRepository,
-                                  @Autowired(required = false) DocumentBookService documentBookService) {
+                                  @Nullable DocumentBookService documentBookService) {
         this.documentRepository = documentRepository;
         this.distributionRepository = distributionRepository;
         this.documentBookService = documentBookService;
