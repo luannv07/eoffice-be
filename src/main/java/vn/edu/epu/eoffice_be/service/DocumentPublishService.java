@@ -20,14 +20,32 @@ import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
+import vn.edu.epu.eoffice_be.dto.request.AssignDocumentNumberRequest;
+import vn.edu.epu.eoffice_be.dto.response.AssignDocumentNumberResponse;
 
 @Service
-@RequiredArgsConstructor
-@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class DocumentPublishService {
 
-    DocumentRepository documentRepository;
-    DocumentDistributionRepository distributionRepository;
+    final DocumentRepository documentRepository;
+    final DocumentDistributionRepository distributionRepository;
+    DocumentBookService documentBookService;
+
+    public DocumentPublishService(DocumentRepository documentRepository,
+                                  DocumentDistributionRepository distributionRepository) {
+        this.documentRepository = documentRepository;
+        this.distributionRepository = distributionRepository;
+    }
+
+    @Autowired
+    public DocumentPublishService(DocumentRepository documentRepository,
+                                  DocumentDistributionRepository distributionRepository,
+                                  @Autowired(required = false) DocumentBookService documentBookService) {
+        this.documentRepository = documentRepository;
+        this.distributionRepository = distributionRepository;
+        this.documentBookService = documentBookService;
+    }
 
     @Transactional
     public Document publishDocument(Long documentId, PublishRequest request) {
@@ -44,7 +62,16 @@ public class DocumentPublishService {
     }
 
     private void applyDocumentMetadata(Document doc, PublishRequest request, String computedHash) {
-        doc.setOfficialNumber(String.format("%02d/QĐ-ĐHL", doc.getId()));
+        if (request != null && request.getDocumentBookId() != null && documentBookService != null) {
+            AssignDocumentNumberRequest assignReq = new AssignDocumentNumberRequest();
+            assignReq.setBookId(request.getDocumentBookId());
+            assignReq.setDocumentId(doc.getId());
+            assignReq.setEffectiveDate(request.getEffectiveDate() != null ? request.getEffectiveDate() : LocalDate.now(Document.getBusinessZone()));
+            AssignDocumentNumberResponse numberResp = documentBookService.assignNumber(assignReq);
+            doc.setOfficialNumber(numberResp.getDocumentNumber());
+        } else if (doc.getOfficialNumber() == null || doc.getOfficialNumber().isBlank()) {
+            doc.setOfficialNumber(String.format("%02d/QĐ-ĐHL", doc.getId()));
+        }
         doc.setStatus(DocumentStatus.PUBLISHED);
         doc.setOfficialHash(computedHash);
 

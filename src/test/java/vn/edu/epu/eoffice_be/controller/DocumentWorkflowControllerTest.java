@@ -301,6 +301,7 @@ class DocumentWorkflowControllerTest {
     @DisplayName("UC14: Ký số phát hành - Trả về 200 OK và trạng thái PUBLISHED")
     void signAndPublish_shouldReturn200() throws Exception {
         DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .bookId(1001L)
                 .officialNumber("123/QĐ-ĐHEPU")
                 .comment("Ký ban hành")
                 .build();
@@ -321,10 +322,29 @@ class DocumentWorkflowControllerTest {
     }
 
     @Test
+    @DisplayName("UC14: Ký số phát hành thất bại khi bookId bị null - Trả về 400 BAD_REQUEST")
+    void signAndPublish_whenBookIdNull_shouldReturn400() throws Exception {
+        DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .bookId(null)
+                .comment("Ký ban hành")
+                .build();
+
+        mockMvc.perform(post("/documents/100/workflow/sign-and-publish")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.VALIDATION_ERROR.getCode()));
+
+        verify(documentWorkflowService, never()).signAndPublish(anyLong(), any());
+    }
+
+    @Test
     @DisplayName("UC14: Ký số phát hành thất bại khi comment vượt quá 2000 ký tự - Trả về 400 BAD_REQUEST")
     void signAndPublish_whenCommentExceedsMaxLength_shouldReturn400() throws Exception {
         String longComment = "a".repeat(2001);
         DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .bookId(1001L)
                 .officialNumber("123/QĐ-ĐHEPU")
                 .comment(longComment)
                 .build();
