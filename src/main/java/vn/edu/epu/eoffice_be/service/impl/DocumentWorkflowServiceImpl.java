@@ -224,6 +224,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         // Kiểm tra thẩm quyền ký phát hành TRƯỚC KHI xử lý ký số PKI nhằm tránh lãng phí tài nguyên
         validateActorAuthorization(document, actor, WorkflowAction.SIGN_AND_PUBLISH);
 
+        // Kiểm tra file PDF nguồn TRƯỚC KHI cấp số và ký số: nếu chưa có file đính kèm chính thì báo lỗi
+        ensureDocumentPdfExists(document);
+
         // 2. Cấp số chính thức qua Sổ văn bản (Pessimistic Write Lock)
         String officialNumber;
         if (request.getBookId() != null && documentBookService != null) {
@@ -244,8 +247,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         document.setIssueDate(issueDate);
         document.setEffectiveDate(effectiveDate);
 
-        // 3. Kiểm tra file PDF nguồn: nếu chưa có file đính kèm chính thì báo lỗi
-        ensureDocumentPdfExists(document);
+        // 3. Đọc file PDF nguồn
         byte[] currentPdfBytes = fileStorageService.loadFileBytes(document.getPrimaryFilePath());
 
         // 4. Ký số điện tử PKI X.509 PAdES và đặt cờ niêm phong CERTIFIED_NO_CHANGES_ALLOWED

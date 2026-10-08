@@ -12,6 +12,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
@@ -400,13 +401,6 @@ class DocumentWorkflowServiceTest {
 
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
-        when(documentBookService.assignNumber(any(AssignDocumentNumberRequest.class))).thenReturn(
-                AssignDocumentNumberResponse.builder()
-                        .documentNumber("125/QD-DHEPU")
-                        .bookId(1001L)
-                        .currentNumber(1)
-                        .build()
-        );
 
         DocumentPublishRequest request = DocumentPublishRequest.builder()
                 .bookId(1001L)
@@ -416,11 +410,13 @@ class DocumentWorkflowServiceTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentWorkflowService.signAndPublish(5001L, request));
         assertEquals(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING, ex.getErrorCode());
+        verifyNoInteractions(documentBookService);
     }
 
     @Test
     @DisplayName("UC14: Ký phát hành thất bại khi thiếu bookId và officialNumber")
     void signAndPublish_whenBookIdMissing_shouldThrowException() {
+        document.setPrimaryFilePath("drafts/sample.pdf");
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
