@@ -1,7 +1,7 @@
 package vn.edu.epu.eoffice_be.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -19,8 +19,11 @@ import java.time.Instant;
 @Schema(description = "Yêu cầu phê duyệt và ký phát hành văn bản chính thức (UC14)")
 public class DocumentPublishRequest {
 
-    @NotBlank(message = "Số hiệu văn bản chính thức không được để trống")
-    @Schema(description = "Số hiệu văn bản chính thức ban hành", requiredMode = Schema.RequiredMode.REQUIRED, example = "125/QĐ-ĐHEPU")
+    @NotNull(message = "Bắt buộc chọn sổ văn bản để cấp số")
+    @Schema(description = "ID sổ văn bản dùng để cấp số", requiredMode = Schema.RequiredMode.REQUIRED, example = "1001")
+    private Long bookId;
+
+    @Schema(description = "Số hiệu văn bản chính thức (tự động cấp từ sổ văn bản qua Pessimistic Lock, không cần nhập)", example = "125/QĐ-ĐHEPU")
     private String officialNumber;
 
     @Schema(description = "Ngày ký ban hành chính thức (mặc định lấy thời điểm hiện tại)", example = "2026-09-10T08:00:00Z")
