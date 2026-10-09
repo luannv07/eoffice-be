@@ -623,10 +623,15 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     @Override
     @Transactional(readOnly = true)
     public Page<PendingDocumentResponse> getPendingSignDocuments(Pageable pageable) {
-        // Lọc theo creatorUser của người dùng hiện tại để đảm bảo Data Isolation (BOLA)
-        Long currentUserId = getCurrentActorId();
+        // LEADER và ADMIN xử lý văn bản của toàn bộ hệ thống → không lọc theo người tạo.
+        // Các role khác chỉ thấy văn bản của mình (Data Isolation).
+        UserLogin currentActor = getCurrentActor();
+        boolean isPrivileged = currentActor.getRole() == Role.LEADER
+                || currentActor.getRole() == Role.ADMIN
+                || currentActor.getRole() == Role.SYSTEM_ADMIN;
+        Long filterUserId = isPrivileged ? null : currentActor.getId();
         return documentRepository
-                .searchDocuments(currentUserId, DocumentStatus.PENDING_SIGN, null, null, pageable)
+                .searchDocuments(filterUserId, DocumentStatus.PENDING_SIGN, null, null, pageable)
                 .map(doc -> PendingDocumentResponse.builder()
                         .id(doc.getId())
                         .title(doc.getTitle())
@@ -641,10 +646,16 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     @Override
     @Transactional(readOnly = true)
     public Page<PendingDocumentResponse> getPendingPublishDocuments(Pageable pageable) {
-        // Lọc theo creatorUser của người dùng hiện tại để đảm bảo Data Isolation (BOLA)
-        Long currentUserId = getCurrentActorId();
+        // LEADER, ADMIN và REVIEWER (văn thư) xử lý ban hành toàn hệ thống.
+        // Các role khác chỉ thấy văn bản của mình (Data Isolation).
+        UserLogin currentActor = getCurrentActor();
+        boolean isPrivileged = currentActor.getRole() == Role.LEADER
+                || currentActor.getRole() == Role.ADMIN
+                || currentActor.getRole() == Role.SYSTEM_ADMIN
+                || currentActor.getRole() == Role.REVIEWER;
+        Long filterUserId = isPrivileged ? null : currentActor.getId();
         return documentRepository
-                .searchDocuments(currentUserId, DocumentStatus.APPROVED, null, null, pageable)
+                .searchDocuments(filterUserId, DocumentStatus.APPROVED, null, null, pageable)
                 .map(doc -> PendingDocumentResponse.builder()
                         .id(doc.getId())
                         .title(doc.getTitle())

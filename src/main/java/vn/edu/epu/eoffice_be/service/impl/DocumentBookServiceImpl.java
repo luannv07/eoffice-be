@@ -3,6 +3,7 @@ package vn.edu.epu.eoffice_be.service.impl;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -253,7 +254,14 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 			if (request.getEffectiveDate() != null) {
 				document.setEffectiveDate(request.getEffectiveDate());
 			}
-			documentRepository.save(document);
+			// Bắt DataIntegrityViolationException từ DB unique constraint làm lưới an toàn
+			// cuối cùng chống race condition khi existsBy... bị vượt qua bởi request đồng thời.
+			try {
+				documentRepository.save(document);
+			} catch (DataIntegrityViolationException ex) {
+				throw new BusinessException(ErrorCode.DOCUMENT_NUMBER_ALREADY_EXISTS,
+						"Số hiệu văn bản '" + documentNumber + "' đã tồn tại trên một văn bản khác trong hệ thống");
+			}
 		}
 
 		return AssignDocumentNumberResponse.builder()
