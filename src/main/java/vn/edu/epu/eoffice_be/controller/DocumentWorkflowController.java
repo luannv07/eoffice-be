@@ -3,9 +3,12 @@ package vn.edu.epu.eoffice_be.controller;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -134,4 +137,22 @@ public class DocumentWorkflowController {
         Page<PendingDocumentResponse> page = documentWorkflowService.getPendingDocuments(pageable);
         return BaseResponse.success(page);
     }
-}
+
+    // UC-NEW-1: Danh sách văn bản chờ ký số
+    @PreAuthorize("hasAnyRole('LEADER', 'ADMIN', 'SYSTEM_ADMIN')")
+    @Operation(summary = "Danh sách văn bản chờ ký số (PENDING_SIGN)")
+    @GetMapping("/pending-sign")
+    public BaseResponse<Page<PendingDocumentResponse>> getPendingSignDocuments(
+            @PageableDefault(size = 10) Pageable pageable) {
+        return BaseResponse.success(documentWorkflowService.getPendingSignDocuments(pageable));
+    }
+
+    // UC-NEW-2: Danh sách văn bản chờ ban hành
+    @PreAuthorize("hasAnyRole('LEADER', 'CLERK', 'ADMIN', 'SYSTEM_ADMIN')")
+    @Operation(summary = "Danh sách văn bản chờ ban hành (PENDING_ISSUANCE)")
+    @GetMapping("/pending-publish")
+    public BaseResponse<Page<PendingDocumentResponse>> getPendingPublishDocuments(
+            @PageableDefault(size = 10) Pageable pageable) {
+        return BaseResponse.success(documentWorkflowService.getPendingPublishDocuments(pageable));
+    }
+}

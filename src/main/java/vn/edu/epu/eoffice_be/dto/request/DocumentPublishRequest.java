@@ -23,7 +23,8 @@ public class DocumentPublishRequest {
     @Schema(description = "ID sổ văn bản dùng để cấp số", requiredMode = Schema.RequiredMode.REQUIRED, example = "1001")
     private Long bookId;
 
-    @Schema(description = "Số hiệu văn bản chính thức (tự động cấp từ sổ văn bản qua Pessimistic Lock, không cần nhập)", example = "125/QĐ-ĐHEPU")
+    @Size(max = 100, message = "Số hiệu văn bản không được vượt quá 100 ký tự")
+    @Schema(description = "Số hiệu văn bản chính thức (tự động cấp từ sổ văn bản qua Pessimistic Lock hoặc kế thừa)", example = "125/QĐ-ĐHEPU")
     private String officialNumber;
 
     @Schema(description = "Ngày ký ban hành chính thức (mặc định lấy thời điểm hiện tại)", example = "2026-09-10T08:00:00Z")

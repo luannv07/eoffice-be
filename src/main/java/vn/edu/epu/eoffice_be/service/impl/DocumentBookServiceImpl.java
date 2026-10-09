@@ -3,6 +3,7 @@ package vn.edu.epu.eoffice_be.service.impl;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -234,13 +235,36 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 		// 4. Áp dụng pattern: "{NUM}/QĐ-ĐHEPU" -> "1/QĐ-ĐHEPU"
 		String documentNumber = book.getNumberPattern().replace("{NUM}", String.valueOf(nextNumber));
 
+		// Kiểm tra chống trùng lặp số hiệu trên hệ thống
+		// Phân biệt 2 trường hợp: tạo mới (id == null) và cập nhật (id != null).
+		// Khi id == null, SQL "id <> NULL" luôn trả về UNKNOWN, nên phải dùng query riêng.
+		if (document != null) {
+			boolean duplicateExists = document.getId() == null
+					? documentRepository.existsByOfficialNumberAndDeleteFlgFalse(documentNumber)
+					: documentRepository.existsByOfficialNumberAndIdNotAndDeleteFlgFalse(documentNumber, document.getId());
+			if (duplicateExists) {
+				throw new BusinessException(ErrorCode.DOCUMENT_NUMBER_ALREADY_EXISTS,
+						"Số hiệu văn bản '" + documentNumber + "' đã tồn tại trên một văn bản khác trong hệ thống");
+			}
+		}
+
 		// 5. Gán số văn bản và ngày hiệu lực vào Document entity
 		if (document != null) {
 			document.setOfficialNumber(documentNumber);
 			if (request.getEffectiveDate() != null) {
 				document.setEffectiveDate(request.getEffectiveDate());
 			}
-			documentRepository.save(document);
+			// Bắt DataIntegrityViolationException từ DB unique constraint làm lưới an toàn
+			// cuối cùng chống race condition khi existsBy... bị vượt qua bởi request đồng thời.
+			// saveAndFlush() ép Hibernate flush ngay xuống DB trong phạm vi try-catch,
+			// đảm bảo DataIntegrityViolationException từ unique constraint bị bắt tại đây
+			// thay vì bị ném ra ngoài khi transaction commit (vượt khỏi tầm catch).
+			try {
+				documentRepository.saveAndFlush(document);
+			} catch (DataIntegrityViolationException ex) {
+				throw new BusinessException(ErrorCode.DOCUMENT_NUMBER_ALREADY_EXISTS,
+						"Số hiệu văn bản '" + documentNumber + "' đã tồn tại trên một văn bản khác trong hệ thống");
+			}
 		}
 
 		return AssignDocumentNumberResponse.builder()

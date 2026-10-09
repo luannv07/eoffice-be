@@ -243,11 +243,26 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             officialNumber = numberResp.getDocumentNumber();
         } else if (request.getOfficialNumber() != null && !request.getOfficialNumber().isBlank()) {
             officialNumber = request.getOfficialNumber();
+        } else if (document.getOfficialNumber() != null && !document.getOfficialNumber().isBlank()) {
+            // Tự động kế thừa số hiệu đã được cấp từ sổ văn bản ở bước Chờ ban hành (APPROVED)
+            officialNumber = document.getOfficialNumber();
         } else {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "Bắt buộc chọn sổ văn bản để cấp số chính thức");
         }
 
-        document.setOfficialNumber(officialNumber);
+        // Kiểm tra null/blank trước khi gọi .trim() để tránh NullPointerException
+        if (!org.springframework.util.StringUtils.hasText(officialNumber)) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "Số hiệu văn bản không được để trống");
+        }
+        String trimmedOfficialNumber = officialNumber.trim();
+
+        // Kiểm tra chống trùng số văn bản đã có trên hệ thống
+        if (documentRepository.existsByOfficialNumberAndIdNotAndDeleteFlgFalse(trimmedOfficialNumber, document.getId())) {
+            throw new BusinessException(ErrorCode.DOCUMENT_NUMBER_ALREADY_EXISTS,
+                    "Số hiệu văn bản '" + trimmedOfficialNumber + "' đã tồn tại trên một văn bản khác trong hệ thống!");
+        }
+
+        document.setOfficialNumber(trimmedOfficialNumber);
         document.setIssueDate(issueDate);
         document.setEffectiveDate(effectiveDate);
 
@@ -605,6 +620,62 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 .build()).toList();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Page<PendingDocumentResponse> getPendingSignDocuments(Pageable pageable) {
+        // LEADER và ADMIN xử lý văn bản của toàn bộ hệ thống → không lọc theo người tạo.
+        // Các role khác chỉ thấy văn bản của mình (Data Isolation).
+        UserLogin currentActor = getCurrentActor();
+        boolean isPrivileged = currentActor.getRole() == Role.LEADER
+                || currentActor.getRole() == Role.ADMIN
+                || currentActor.getRole() == Role.SYSTEM_ADMIN;
+        Long filterUserId = isPrivileged ? null : currentActor.getId();
+        return documentRepository
+                .searchDocuments(filterUserId, DocumentStatus.PENDING_SIGN, null, null, pageable)
+                .map(doc -> PendingDocumentResponse.builder()
+                        .id(doc.getId())
+                        .title(doc.getTitle())
+                        .status(doc.getStatus().name())
+                        .currentHolder(resolveCurrentHolder(doc.getStatus()))
+                        .updatedAt(doc.getUpdatedDate())
+                        .pendingDays(computePendingDays(doc.getUpdatedDate()))
+                        .isOverdue(computeIsOverdue(doc.getUpdatedDate()))
+                        .build());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<PendingDocumentResponse> getPendingPublishDocuments(Pageable pageable) {
+        // LEADER, ADMIN và REVIEWER (văn thư) xử lý ban hành toàn hệ thống.
+        // Các role khác chỉ thấy văn bản của mình (Data Isolation).
+        UserLogin currentActor = getCurrentActor();
+        boolean isPrivileged = currentActor.getRole() == Role.LEADER
+                || currentActor.getRole() == Role.ADMIN
+                || currentActor.getRole() == Role.SYSTEM_ADMIN
+                || currentActor.getRole() == Role.REVIEWER;
+        Long filterUserId = isPrivileged ? null : currentActor.getId();
+        return documentRepository
+                .searchDocuments(filterUserId, DocumentStatus.APPROVED, null, null, pageable)
+                .map(doc -> PendingDocumentResponse.builder()
+                        .id(doc.getId())
+                        .title(doc.getTitle())
+                        .status(doc.getStatus().name())
+                        .currentHolder(resolveCurrentHolder(doc.getStatus()))
+                        .updatedAt(doc.getUpdatedDate())
+                        .pendingDays(computePendingDays(doc.getUpdatedDate()))
+                        .isOverdue(computeIsOverdue(doc.getUpdatedDate()))
+                        .build());
+    }
+
+    private long computePendingDays(java.time.Instant updatedAt) {
+        if (updatedAt == null) return 0;
+        return java.time.temporal.ChronoUnit.DAYS.between(updatedAt, java.time.Instant.now());
+    }
+
+    private boolean computeIsOverdue(java.time.Instant updatedAt) {
+        return computePendingDays(updatedAt) > 3;
+    }
+
     private String resolveCurrentHolder(DocumentStatus status) {
         if (status == null) {
             return "Bộ phận xử lý văn bản";
@@ -613,7 +684,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             case SUBMITTED -> "Văn thư tiếp nhận";
             case PENDING_REVIEW, IN_REVIEW -> "Chuyên viên thẩm định";
             case PENDING_APPROVAL, WAITING_APPROVAL, LEADER_REVIEW -> "Lãnh đạo phê duyệt";
-            case PENDING_SIGN -> "Lãnh đạo ký ban hành";
+            case PENDING_SIGN -> "Lãnh đạo ký số";
+            case APPROVED -> "Lãnh đạo ký ban hành";
             default -> "Bộ phận xử lý văn bản";
         };
     }

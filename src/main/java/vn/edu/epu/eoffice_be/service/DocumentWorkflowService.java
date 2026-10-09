@@ -74,5 +74,15 @@ public interface DocumentWorkflowService {
     Page<PendingDocumentResponse> getPendingDocuments(Pageable pageable);
     List<PendingDocumentResponse> getPendingDocuments();
 
+    /**
+     * UC-NEW-1: Danh sách văn bản chờ ký số (PENDING_SIGN).
+     */
+    Page<PendingDocumentResponse> getPendingSignDocuments(Pageable pageable);
+
+    /**
+     * UC-NEW-2: Danh sách văn bản chờ ban hành (PENDING_ISSUANCE).
+     */
+    Page<PendingDocumentResponse> getPendingPublishDocuments(Pageable pageable);
+
     default void logAction(Long documentId, String username, String role, String action, String comment) {}
 }

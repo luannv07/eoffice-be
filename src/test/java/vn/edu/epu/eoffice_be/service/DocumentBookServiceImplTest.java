@@ -287,7 +287,7 @@ class DocumentBookServiceImplTest {
 		when(documentBookRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(book));
 		when(documentBookRepository.save(any(DocumentBook.class))).thenAnswer(inv -> inv.getArgument(0));
 		when(documentRepository.findById(5001L)).thenReturn(Optional.of(doc));
-		when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
+		when(documentRepository.saveAndFlush(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
 
 		AssignDocumentNumberRequest req = new AssignDocumentNumberRequest();
 		req.setBookId(1L);
@@ -305,7 +305,7 @@ class DocumentBookServiceImplTest {
 		assertEquals(1, book.getCurrentNumber());
 		assertEquals("1/QĐ-ĐHEPU", doc.getOfficialNumber());
 		verify(documentBookRepository).save(any(DocumentBook.class));
-		verify(documentRepository).save(doc);
+		verify(documentRepository).saveAndFlush(doc);
 	}
 
 	@Test
@@ -328,7 +328,7 @@ class DocumentBookServiceImplTest {
 
 		BusinessException ex = assertThrows(BusinessException.class, () -> documentBookService.assignNumber(req));
 		assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
-		verify(documentRepository, never()).save(any());
+		verify(documentRepository, never()).saveAndFlush(any());
 		verify(documentBookRepository, never()).save(any());
 	}
 
@@ -353,7 +353,7 @@ class DocumentBookServiceImplTest {
 
 		BusinessException ex = assertThrows(BusinessException.class, () -> documentBookService.assignNumber(req));
 		assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
-		verify(documentRepository, never()).save(any());
+		verify(documentRepository, never()).saveAndFlush(any());
 		verify(documentBookRepository, never()).save(any());
 	}
 
@@ -377,7 +377,7 @@ class DocumentBookServiceImplTest {
 
 		BusinessException ex = assertThrows(BusinessException.class, () -> documentBookService.assignNumber(req));
 		assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
-		verify(documentRepository, never()).save(any());
+		verify(documentRepository, never()).saveAndFlush(any());
 		verify(documentBookRepository, never()).save(any());
 	}
 
@@ -400,7 +400,7 @@ class DocumentBookServiceImplTest {
 
 		BusinessException ex = assertThrows(BusinessException.class, () -> documentBookService.assignNumber(req));
 		assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
-		verify(documentRepository, never()).save(any());
+		verify(documentRepository, never()).saveAndFlush(any());
 		verify(documentBookRepository, never()).save(any());
 	}
 
@@ -424,7 +424,7 @@ class DocumentBookServiceImplTest {
 
 		BusinessException ex = assertThrows(BusinessException.class, () -> documentBookService.assignNumber(req));
 		assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
-		verify(documentRepository, never()).save(any());
+		verify(documentRepository, never()).saveAndFlush(any());
 		verify(documentBookRepository, never()).save(any());
 	}
 
@@ -442,7 +442,7 @@ class DocumentBookServiceImplTest {
 		when(documentBookRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(book));
 		when(documentBookRepository.save(any(DocumentBook.class))).thenAnswer(inv -> inv.getArgument(0));
 		when(documentRepository.findById(5001L)).thenReturn(Optional.of(doc));
-		when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
+		when(documentRepository.saveAndFlush(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
 
 		AssignDocumentNumberRequest req = new AssignDocumentNumberRequest();
 		req.setBookId(1L);
@@ -453,7 +453,7 @@ class DocumentBookServiceImplTest {
 		assertNotNull(res);
 		assertEquals("1/QĐ-ĐHEPU", res.getDocumentNumber());
 		verify(documentBookRepository).save(any(DocumentBook.class));
-		verify(documentRepository).save(any(Document.class));
+		verify(documentRepository).saveAndFlush(any(Document.class));
 	}
 
 	@Test
@@ -477,7 +477,7 @@ class DocumentBookServiceImplTest {
 
 		BusinessException ex = assertThrows(BusinessException.class, () -> documentBookService.assignNumber(req));
 		assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
-		verify(documentRepository, never()).save(any());
+		verify(documentRepository, never()).saveAndFlush(any());
 		verify(documentBookRepository, never()).save(any());
 	}
 
@@ -502,7 +502,7 @@ class DocumentBookServiceImplTest {
 
 		BusinessException ex = assertThrows(BusinessException.class, () -> documentBookService.assignNumber(req));
 		assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
-		verify(documentRepository, never()).save(any());
+		verify(documentRepository, never()).saveAndFlush(any());
 		verify(documentBookRepository, never()).save(any());
 	}
 
