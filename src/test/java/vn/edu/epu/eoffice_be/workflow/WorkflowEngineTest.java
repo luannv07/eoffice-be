@@ -19,6 +19,8 @@ import vn.edu.epu.eoffice_be.entity.UserLogin;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentWorkflowLogRepository;
 
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -67,6 +69,28 @@ class WorkflowEngineTest {
     void getNextStatus_fromSubmitted_initialSign_shouldReturnInReview() {
         DocumentStatus next = workflowEngine.getNextStatus(DocumentStatus.SUBMITTED, WorkflowAction.INITIAL_SIGN);
         assertEquals(DocumentStatus.IN_REVIEW, next);
+    }
+
+    @Test
+    @DisplayName("State Machine: WAITING_APPROVAL -> APPROVED khi lãnh đạo phê duyệt hoặc IN_REVIEW khi ký nháy/thẩm định")
+    void getNextStatus_fromWaitingApproval_transitions_shouldSucceed() {
+        assertEquals(DocumentStatus.APPROVED, workflowEngine.getNextStatus(DocumentStatus.WAITING_APPROVAL, WorkflowAction.LEADER_APPROVE));
+        assertEquals(DocumentStatus.IN_REVIEW, workflowEngine.getNextStatus(DocumentStatus.WAITING_APPROVAL, WorkflowAction.REVIEW_APPROVE));
+        assertEquals(DocumentStatus.IN_REVIEW, workflowEngine.getNextStatus(DocumentStatus.WAITING_APPROVAL, WorkflowAction.INITIAL_SIGN));
+        assertEquals(DocumentStatus.PUBLISHED, workflowEngine.getNextStatus(DocumentStatus.WAITING_APPROVAL, WorkflowAction.SIGN_AND_PUBLISH));
+        assertEquals(DocumentStatus.DRAFT, workflowEngine.getNextStatus(DocumentStatus.WAITING_APPROVAL, WorkflowAction.WITHDRAW));
+        assertEquals(DocumentStatus.NEEDS_REVISION, workflowEngine.getNextStatus(DocumentStatus.WAITING_APPROVAL, WorkflowAction.REQUEST_REVISION));
+        assertEquals(DocumentStatus.REJECTED, workflowEngine.getNextStatus(DocumentStatus.WAITING_APPROVAL, WorkflowAction.REJECT));
+    }
+
+    @Test
+    @DisplayName("State Machine: PENDING_APPROVAL -> APPROVED khi lãnh đạo phê duyệt")
+    void getNextStatus_fromPendingApproval_leaderApprove_shouldReturnApproved() {
+        DocumentStatus next = workflowEngine.getNextStatus(DocumentStatus.PENDING_APPROVAL, WorkflowAction.LEADER_APPROVE);
+        assertEquals(DocumentStatus.APPROVED, next);
+        assertEquals(DocumentStatus.PUBLISHED, workflowEngine.getNextStatus(DocumentStatus.PENDING_APPROVAL, WorkflowAction.SIGN_AND_PUBLISH));
+        assertEquals(DocumentStatus.NEEDS_REVISION, workflowEngine.getNextStatus(DocumentStatus.PENDING_APPROVAL, WorkflowAction.REQUEST_REVISION));
+        assertEquals(DocumentStatus.REJECTED, workflowEngine.getNextStatus(DocumentStatus.PENDING_APPROVAL, WorkflowAction.REJECT));
     }
 
     @Test
@@ -245,5 +269,23 @@ class WorkflowEngineTest {
         BusinessException exWithdraw = assertThrows(BusinessException.class, () ->
                 workflowEngine.validateActorPermission(document, drafter, WorkflowAction.WITHDRAW));
         assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, exWithdraw.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("State Machine: LEADER_REVIEW và PENDING_APPROVAL không dùng chung instance Map (chống aliasing)")
+    void stateMachine_leaderReviewAndPendingApproval_shouldHaveIndependentMapInstances() throws Exception {
+        java.lang.reflect.Field field = WorkflowEngine.class.getDeclaredField("TRANSITION_MATRIX");
+        field.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        Map<DocumentStatus, Map<WorkflowAction, DocumentStatus>> matrix =
+                (Map<DocumentStatus, Map<WorkflowAction, DocumentStatus>>) field.get(null);
+
+        Map<WorkflowAction, DocumentStatus> leaderReviewMap = matrix.get(DocumentStatus.LEADER_REVIEW);
+        Map<WorkflowAction, DocumentStatus> pendingApprovalMap = matrix.get(DocumentStatus.PENDING_APPROVAL);
+
+        assertNotNull(leaderReviewMap);
+        assertNotNull(pendingApprovalMap);
+        assertNotSame(leaderReviewMap, pendingApprovalMap, "LEADER_REVIEW và PENDING_APPROVAL phải có instance Map độc lập, không được dùng chung");
+        assertEquals(leaderReviewMap, pendingApprovalMap, "Hai map phải có cùng nội dung ban đầu");
     }
 }
