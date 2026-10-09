@@ -43,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -552,8 +553,57 @@ class DocumentDraftServiceTest {
     }
 
     @Test
-    @DisplayName("Xóa dự thảo thành công bởi quản trị viên (Admin)")
+    @DisplayName("Xóa dự thảo thành công bởi quản trị viên (Admin) có tệp đính kèm và phiên bản")
     void deleteDraft_Success_ByAdmin() {
+        Long creatorId = 100L;
+        Long adminId = 999L;
+        Long docId = 1L;
+
+        UserLogin creator = UserLogin.builder().id(creatorId).username("author").role(Role.USER).build();
+        UserLogin admin = UserLogin.builder().id(adminId).username("admin").role(Role.ADMIN).build();
+        Document doc = Document.builder()
+                .id(docId)
+                .draftCode("DT-2026-00001")
+                .title("Dự thảo kế hoạch")
+                .creatorUser(creator)
+                .status(DocumentStatus.DRAFT)
+                .deleteFlg(false)
+                .build();
+
+        DocumentAttachment attachment = DocumentAttachment.builder()
+                .id(10L)
+                .document(doc)
+                .originalFileName("admin_test.pdf")
+                .deleteFlg(false)
+                .build();
+
+        DocumentVersion version = DocumentVersion.builder()
+                .id(20L)
+                .document(doc)
+                .versionNumber(1)
+                .deleteFlg(false)
+                .build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(adminId)).thenReturn(Optional.of(admin));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(docId)).thenReturn(List.of(attachment));
+        when(documentVersionRepository.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(docId)).thenReturn(List.of(version));
+
+        documentDraftService.deleteDraft(docId, adminId);
+
+        assertTrue(doc.isDeleteFlg());
+        assertTrue(attachment.isDeleteFlg());
+        assertTrue(version.isDeleteFlg());
+
+        verify(documentRepository).save(doc);
+        verify(documentAttachmentRepository).saveAll(List.of(attachment));
+        verify(documentVersionRepository).saveAll(List.of(version));
+        verify(documentProcessLogRepository).save(any(DocumentProcessLog.class));
+    }
+
+    @Test
+    @DisplayName("Xóa dự thảo thành công bởi quản trị viên (Admin) khi không có tệp đính kèm và phiên bản")
+    void deleteDraft_Success_ByAdmin_WithoutAttachmentsAndVersions() {
         Long creatorId = 100L;
         Long adminId = 999L;
         Long docId = 1L;
@@ -579,6 +629,8 @@ class DocumentDraftServiceTest {
         assertTrue(doc.isDeleteFlg());
         verify(documentRepository).save(doc);
         verify(documentProcessLogRepository).save(any(DocumentProcessLog.class));
+        verify(documentAttachmentRepository, never()).saveAll(any());
+        verify(documentVersionRepository, never()).saveAll(any());
     }
 
     @Test
@@ -592,6 +644,11 @@ class DocumentDraftServiceTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentDraftService.deleteDraft(docId, userId));
         assertEquals(ErrorCode.UNAUTHORIZED, ex.getErrorCode());
+
+        verify(documentRepository, never()).save(any());
+        verify(documentAttachmentRepository, never()).saveAll(any());
+        verify(documentVersionRepository, never()).saveAll(any());
+        verify(documentProcessLogRepository, never()).save(any());
     }
 
     @Test
@@ -607,6 +664,11 @@ class DocumentDraftServiceTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentDraftService.deleteDraft(docId, userId));
         assertEquals(ErrorCode.DOCUMENT_NOT_FOUND, ex.getErrorCode());
+
+        verify(documentRepository, never()).save(any());
+        verify(documentAttachmentRepository, never()).saveAll(any());
+        verify(documentVersionRepository, never()).saveAll(any());
+        verify(documentProcessLogRepository, never()).save(any());
     }
 
     @Test
@@ -631,6 +693,11 @@ class DocumentDraftServiceTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentDraftService.deleteDraft(docId, otherUserId));
         assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+
+        verify(documentRepository, never()).save(any());
+        verify(documentAttachmentRepository, never()).saveAll(any());
+        verify(documentVersionRepository, never()).saveAll(any());
+        verify(documentProcessLogRepository, never()).save(any());
     }
 
     @Test
@@ -653,6 +720,11 @@ class DocumentDraftServiceTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentDraftService.deleteDraft(docId, userId));
         assertEquals(ErrorCode.DOCUMENT_INVALID_STATUS, ex.getErrorCode());
+
+        verify(documentRepository, never()).save(any());
+        verify(documentAttachmentRepository, never()).saveAll(any());
+        verify(documentVersionRepository, never()).saveAll(any());
+        verify(documentProcessLogRepository, never()).save(any());
     }
 }
 
