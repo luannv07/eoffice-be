@@ -174,6 +174,56 @@ class DocumentWorkflowServiceTest {
     }
 
     @Test
+    @DisplayName("UC12: Duyệt văn bản ở trạng thái PENDING_APPROVAL thì action là LEADER_APPROVE")
+    void approve_whenPendingApproval_shouldUseLeaderApprove() {
+        document.setStatus(DocumentStatus.PENDING_APPROVAL);
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        DocumentApproveRequest request = DocumentApproveRequest.builder()
+                .comment("Lanh dao dong y phe duyet")
+                .build();
+
+        DocumentDetailResponse response = documentWorkflowService.approve(5001L, request);
+
+        assertNotNull(response);
+        verify(workflowEngine).executeTransition(
+                document,
+                WorkflowAction.LEADER_APPROVE,
+                leader,
+                "Lanh dao dong y phe duyet",
+                null,
+                null,
+                null
+        );
+    }
+
+    @Test
+    @DisplayName("UC12: Duyệt văn bản ở trạng thái WAITING_APPROVAL thì action là LEADER_APPROVE")
+    void approve_whenWaitingApproval_shouldUseLeaderApprove() {
+        document.setStatus(DocumentStatus.WAITING_APPROVAL);
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        DocumentApproveRequest request = DocumentApproveRequest.builder()
+                .comment("Lanh dao dong y phe duyet truc tiep")
+                .build();
+
+        DocumentDetailResponse response = documentWorkflowService.approve(5001L, request);
+
+        assertNotNull(response);
+        verify(workflowEngine).executeTransition(
+                document,
+                WorkflowAction.LEADER_APPROVE,
+                leader,
+                "Lanh dao dong y phe duyet truc tiep",
+                null,
+                null,
+                null
+        );
+    }
+
+    @Test
     @DisplayName("UC12: Duyệt văn bản thất bại khi trạng thái không hợp lệ (ví dụ DRAFT)")
     void approve_whenInvalidStatus_shouldThrowBusinessException() {
         document.setStatus(DocumentStatus.DRAFT);
@@ -643,7 +693,34 @@ class DocumentWorkflowServiceTest {
         assertEquals(101L, result.getContent().get(0).getId());
         assertEquals("Tờ trình mua sắm máy tính", result.getContent().get(0).getTitle());
         assertEquals(DocumentStatus.PENDING_APPROVAL.name(), result.getContent().get(0).getStatus());
+        assertEquals("Lãnh đạo phê duyệt", result.getContent().get(0).getCurrentHolder());
         verify(documentRepository).findByStatusInAndDeleteFlgFalse(eq(DocumentWorkflowServiceImpl.PENDING_STATUSES), eq(pageable));
+    }
+
+    @Test
+    @DisplayName("getPendingDocuments: Ánh xạ currentHolder chính xác cho WAITING_APPROVAL và SUBMITTED")
+    void getPendingDocuments_currentHolderMapping_shouldReturnCorrectHolder() {
+        Document docWaiting = Document.builder()
+                .title("Đề xuất chờ duyệt")
+                .status(DocumentStatus.WAITING_APPROVAL)
+                .build();
+        docWaiting.setId(102L);
+
+        Document docSubmitted = Document.builder()
+                .title("Văn bản mới gửi")
+                .status(DocumentStatus.SUBMITTED)
+                .build();
+        docSubmitted.setId(103L);
+
+        when(documentRepository.findByStatusInAndDeleteFlgFalse(eq(DocumentWorkflowServiceImpl.PENDING_STATUSES)))
+                .thenReturn(List.of(docWaiting, docSubmitted));
+
+        List<PendingDocumentResponse> list = documentWorkflowService.getPendingDocuments();
+
+        assertNotNull(list);
+        assertEquals(2, list.size());
+        assertEquals("Lãnh đạo phê duyệt", list.get(0).getCurrentHolder(), "WAITING_APPROVAL phải là Lãnh đạo phê duyệt");
+        assertEquals("Văn thư tiếp nhận", list.get(1).getCurrentHolder(), "SUBMITTED phải là Văn thư tiếp nhận");
     }
 
     @Test
