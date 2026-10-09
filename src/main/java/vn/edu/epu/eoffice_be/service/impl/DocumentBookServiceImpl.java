@@ -256,8 +256,11 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 			}
 			// Bắt DataIntegrityViolationException từ DB unique constraint làm lưới an toàn
 			// cuối cùng chống race condition khi existsBy... bị vượt qua bởi request đồng thời.
+			// saveAndFlush() ép Hibernate flush ngay xuống DB trong phạm vi try-catch,
+			// đảm bảo DataIntegrityViolationException từ unique constraint bị bắt tại đây
+			// thay vì bị ném ra ngoài khi transaction commit (vượt khỏi tầm catch).
 			try {
-				documentRepository.save(document);
+				documentRepository.saveAndFlush(document);
 			} catch (DataIntegrityViolationException ex) {
 				throw new BusinessException(ErrorCode.DOCUMENT_NUMBER_ALREADY_EXISTS,
 						"Số hiệu văn bản '" + documentNumber + "' đã tồn tại trên một văn bản khác trong hệ thống");
