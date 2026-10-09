@@ -28,6 +28,7 @@ class DocumentPublishRequestTest {
     @DisplayName("DocumentPublishRequest: Hợp lệ khi cả issueDate và effectiveDate đều null")
     void testDates_WhenBothNull_IsValid() {
         DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .bookId(1001L)
                 .officialNumber("123/QD-EPU")
                 .issueDate(null)
                 .effectiveDate(null)
@@ -42,6 +43,7 @@ class DocumentPublishRequestTest {
     @DisplayName("DocumentPublishRequest: Hợp lệ khi issueDate có giá trị và effectiveDate null")
     void testDates_WhenEffectiveDateNull_IsValid() {
         DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .bookId(1001L)
                 .officialNumber("123/QD-EPU")
                 .issueDate(Instant.now())
                 .effectiveDate(null)
@@ -56,6 +58,7 @@ class DocumentPublishRequestTest {
     @DisplayName("DocumentPublishRequest: Hợp lệ khi issueDate null và effectiveDate có giá trị")
     void testDates_WhenIssueDateNull_IsValidInBeanValidation() {
         DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .bookId(1001L)
                 .officialNumber("123/QD-EPU")
                 .issueDate(null)
                 .effectiveDate(Instant.now())
@@ -71,6 +74,7 @@ class DocumentPublishRequestTest {
     void testDates_WhenEffectiveDateEqualsIssueDate_IsValid() {
         Instant now = Instant.now();
         DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .bookId(1001L)
                 .officialNumber("123/QD-EPU")
                 .issueDate(now)
                 .effectiveDate(now)
@@ -86,6 +90,7 @@ class DocumentPublishRequestTest {
     void testDates_WhenEffectiveDateAfterIssueDate_IsValid() {
         Instant now = Instant.now();
         DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .bookId(1001L)
                 .officialNumber("123/QD-EPU")
                 .issueDate(now)
                 .effectiveDate(now.plus(5, ChronoUnit.DAYS))
@@ -101,6 +106,7 @@ class DocumentPublishRequestTest {
     void testDates_WhenEffectiveDateBeforeIssueDate_IsInvalid() {
         Instant now = Instant.now();
         DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .bookId(1001L)
                 .officialNumber("123/QD-EPU")
                 .issueDate(now)
                 .effectiveDate(now.minus(1, ChronoUnit.DAYS))
@@ -110,5 +116,20 @@ class DocumentPublishRequestTest {
         assertFalse(violations.isEmpty());
         assertTrue(violations.stream().anyMatch(v -> "effectiveDateValid".equals(v.getPropertyPath().toString())));
         assertFalse(request.isEffectiveDateValid());
+    }
+
+    @Test
+    @DisplayName("DocumentPublishRequest: Không hợp lệ khi bookId null")
+    void testBookId_WhenNull_IsInvalid() {
+        DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .bookId(null)
+                .officialNumber("123/QD-EPU")
+                .issueDate(Instant.now())
+                .effectiveDate(Instant.now())
+                .build();
+
+        Set<ConstraintViolation<DocumentPublishRequest>> violations = validator.validate(request);
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> "bookId".equals(v.getPropertyPath().toString())));
     }
 }

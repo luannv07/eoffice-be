@@ -11,15 +11,12 @@ import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
 import vn.edu.epu.eoffice_be.common.dto.BaseResponse;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -148,5 +145,17 @@ class GlobalExceptionHandlerTest {
 				.andExpect(jsonPath("$.errorCode").value("INTERNAL_SERVER_ERROR"))
 				.andExpect(jsonPath("$.message").value(ErrorCode.INTERNAL_SERVER_ERROR.getMessage()))
 				.andExpect(content().string(not(containsString("sensitive internal server state"))));
+	}
+
+	@Test
+	void handleMultipartExceptionShouldNotExposeRawMessage() {
+		org.springframework.web.multipart.MultipartException ex =
+				new org.springframework.web.multipart.MultipartException("Could not parse multipart servlet request; nested exception is java.io.IOException: C:\\Users\\secret\\path");
+		ResponseEntity<BaseResponse<Void>> response = handler.handleMultipartException(ex);
+
+		assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+		assertEquals("BAD_REQUEST", response.getBody().getErrorCode());
+		assertEquals("Yêu cầu upload file không hợp lệ hoặc kích thước vượt quá giới hạn", response.getBody().getMessage());
+		assertFalse(response.getBody().getMessage().contains("C:\\Users\\secret\\path"));
 	}
 }

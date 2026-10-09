@@ -121,7 +121,7 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
 
     @Query(value = """
         SELECT DISTINCT d.* FROM documents d
-        JOIN document_distribution dd ON d.id = dd.document_id
+        JOIN document_distributions dd ON d.id = dd.document_id
         WHERE d.status = 'PUBLISHED'
           AND (dd.target_type = 'ALL' 
                OR (dd.target_type = 'ORG' AND (:orgId IS NOT NULL AND dd.target_id = :orgId))
@@ -130,7 +130,7 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
         """, 
         countQuery = """
         SELECT COUNT(DISTINCT d.id) FROM documents d
-        JOIN document_distribution dd ON d.id = dd.document_id
+        JOIN document_distributions dd ON d.id = dd.document_id
         WHERE d.status = 'PUBLISHED'
           AND (dd.target_type = 'ALL' 
                OR (dd.target_type = 'ORG' AND (:orgId IS NOT NULL AND dd.target_id = :orgId))
@@ -144,7 +144,7 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
 
     @Query(value = """
         SELECT DISTINCT d.* FROM documents d
-        JOIN document_distribution dd ON d.id = dd.document_id
+        JOIN document_distributions dd ON d.id = dd.document_id
         WHERE d.status = 'PUBLISHED'
           AND (dd.target_type = 'ALL' 
                OR (dd.target_type = 'ORG' AND (:orgId IS NOT NULL AND dd.target_id = :orgId))
@@ -161,7 +161,7 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
 
     @Query(value = """
         SELECT DISTINCT d.* FROM documents d
-        JOIN document_distribution dd ON d.id = dd.document_id
+        JOIN document_distributions dd ON d.id = dd.document_id
         WHERE d.id = :documentId
           AND d.status = 'PUBLISHED'
           AND (

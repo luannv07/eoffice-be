@@ -8,7 +8,7 @@ import vn.edu.epu.eoffice_be.common.entity.BaseEntity;
 import java.time.Instant;
 
 @Entity
-@Table(name = "document_distribution")
+@Table(name = "document_distributions") // Đã thêm 's' để chuẩn hóa số nhiều
 @Getter
 @Setter
 @NoArgsConstructor
@@ -31,7 +31,7 @@ public class DocumentDistribution extends BaseEntity {
     Long targetId; // org_node_id hoac user_id (null neu ALL)
 
     @Column(name = "is_read", nullable = false)
-    boolean isRead = false;
+    boolean isRead;
 
     @Column(name = "read_at")
     Instant readAt;

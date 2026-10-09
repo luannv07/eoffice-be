@@ -147,4 +147,19 @@ class FileSystemStorageServiceTest {
         assertEquals(ErrorCode.FILE_STORAGE_ERROR, ex.getErrorCode());
         verify(securityValidator).validateFile(badFile);
     }
+
+    @Test
+    @DisplayName("deleteFile dung provider hop le thi xoa qua provider va return som")
+    void deleteFile_WithProvider_DeletesAndReturnsEarly() {
+        vn.edu.epu.eoffice_be.storage.provider.FileStorageProviderRegistry mockRegistry = mock(vn.edu.epu.eoffice_be.storage.provider.FileStorageProviderRegistry.class);
+        vn.edu.epu.eoffice_be.storage.provider.FileStorageProvider mockProvider = mock(vn.edu.epu.eoffice_be.storage.provider.FileStorageProvider.class);
+        when(mockRegistry.getProvider("telegram")).thenReturn(mockProvider);
+
+        FileSystemStorageService serviceWithProvider = new FileSystemStorageService(
+                uploadProperties, securityValidator, mockRegistry, null
+        );
+
+        serviceWithProvider.deleteFile("telegram", "file-123");
+        verify(mockProvider).delete("file-123");
+    }
 }

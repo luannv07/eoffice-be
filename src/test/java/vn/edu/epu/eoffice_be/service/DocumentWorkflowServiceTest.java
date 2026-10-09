@@ -12,6 +12,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
@@ -43,11 +44,14 @@ import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.dto.PendingDocumentResponse;
 import vn.edu.epu.eoffice_be.dto.StampInfo;
+import vn.edu.epu.eoffice_be.dto.request.AssignDocumentNumberRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentApproveRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentInitialSignRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentPublishRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRejectRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRevisionRequest;
+import vn.edu.epu.eoffice_be.dto.response.AssignDocumentNumberResponse;
+import vn.edu.epu.eoffice_be.service.DocumentBookService;
 import vn.edu.epu.eoffice_be.dto.response.DocumentDetailResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentWorkflowLogResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
@@ -82,6 +86,8 @@ class DocumentWorkflowServiceTest {
     private FileStorageService fileStorageService;
     @Mock
     private PdfProcessingService pdfProcessingService;
+    @Mock
+    private DocumentBookService documentBookService;
 
     @InjectMocks
     private DocumentWorkflowServiceImpl documentWorkflowService;
@@ -161,6 +167,56 @@ class DocumentWorkflowServiceTest {
                 WorkflowAction.LEADER_APPROVE,
                 leader,
                 "Lanh dao dong y",
+                null,
+                null,
+                null
+        );
+    }
+
+    @Test
+    @DisplayName("UC12: Duyệt văn bản ở trạng thái PENDING_APPROVAL thì action là LEADER_APPROVE")
+    void approve_whenPendingApproval_shouldUseLeaderApprove() {
+        document.setStatus(DocumentStatus.PENDING_APPROVAL);
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        DocumentApproveRequest request = DocumentApproveRequest.builder()
+                .comment("Lanh dao dong y phe duyet")
+                .build();
+
+        DocumentDetailResponse response = documentWorkflowService.approve(5001L, request);
+
+        assertNotNull(response);
+        verify(workflowEngine).executeTransition(
+                document,
+                WorkflowAction.LEADER_APPROVE,
+                leader,
+                "Lanh dao dong y phe duyet",
+                null,
+                null,
+                null
+        );
+    }
+
+    @Test
+    @DisplayName("UC12: Duyệt văn bản ở trạng thái WAITING_APPROVAL thì action là LEADER_APPROVE")
+    void approve_whenWaitingApproval_shouldUseLeaderApprove() {
+        document.setStatus(DocumentStatus.WAITING_APPROVAL);
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        DocumentApproveRequest request = DocumentApproveRequest.builder()
+                .comment("Lanh dao dong y phe duyet truc tiep")
+                .build();
+
+        DocumentDetailResponse response = documentWorkflowService.approve(5001L, request);
+
+        assertNotNull(response);
+        verify(workflowEngine).executeTransition(
+                document,
+                WorkflowAction.LEADER_APPROVE,
+                leader,
+                "Lanh dao dong y phe duyet truc tiep",
                 null,
                 null,
                 null
@@ -270,9 +326,16 @@ class DocumentWorkflowServiceTest {
         when(pdfProcessingService.signAndCertifyPdf(any(byte[].class), anyString(), anyString())).thenReturn(mockBytes);
         when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("official/doc_5001.pdf");
         when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("official_sha256_hash");
+        when(documentBookService.assignNumber(any(AssignDocumentNumberRequest.class))).thenReturn(
+                AssignDocumentNumberResponse.builder()
+                        .documentNumber("125/QD-DHEPU")
+                        .bookId(1001L)
+                        .currentNumber(1)
+                        .build()
+        );
 
         DocumentPublishRequest request = DocumentPublishRequest.builder()
-                .officialNumber("125/QD-DHEPU")
+                .bookId(1001L)
                 .comment("Ky ban hanh chinh thuc")
                 .build();
 
@@ -285,6 +348,7 @@ class DocumentWorkflowServiceTest {
         assertEquals("/documents/5001/files/primary", response.getPrimaryFileUrl());
         assertEquals("/documents/5001/files/official", response.getOfficialFileUrl());
 
+        verify(documentBookService).assignNumber(any(AssignDocumentNumberRequest.class));
         verify(workflowEngine).executeTransition(
                 document,
                 WorkflowAction.SIGN_AND_PUBLISH,
@@ -338,13 +402,21 @@ class DocumentWorkflowServiceTest {
         when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("official/doc_failed.pdf");
         when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("official_sha256_hash");
 
+        when(documentBookService.assignNumber(any(AssignDocumentNumberRequest.class))).thenReturn(
+                AssignDocumentNumberResponse.builder()
+                        .documentNumber("125/QD-DHEPU")
+                        .bookId(1001L)
+                        .currentNumber(1)
+                        .build()
+        );
+
         doThrow(new BusinessException(ErrorCode.INVALID_WORKFLOW_STATE))
                 .when(workflowEngine).executeTransition(
                         any(), any(), any(), any(), any(), any(), any()
                 );
 
         DocumentPublishRequest request = DocumentPublishRequest.builder()
-                .officialNumber("125/QD-DHEPU")
+                .bookId(1001L)
                 .comment("Ky ban hanh chinh thuc")
                 .build();
 
@@ -381,13 +453,30 @@ class DocumentWorkflowServiceTest {
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
         DocumentPublishRequest request = DocumentPublishRequest.builder()
-                .officialNumber("125/QD-DHEPU")
+                .bookId(1001L)
                 .comment("Ky ban hanh")
                 .build();
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentWorkflowService.signAndPublish(5001L, request));
         assertEquals(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING, ex.getErrorCode());
+        verifyNoInteractions(documentBookService);
+    }
+
+    @Test
+    @DisplayName("UC14: Ký phát hành thất bại khi thiếu bookId và officialNumber")
+    void signAndPublish_whenBookIdMissing_shouldThrowException() {
+        document.setPrimaryFilePath("drafts/sample.pdf");
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .comment("Ky ban hanh")
+                .build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.signAndPublish(5001L, request));
+        assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
     }
 
     @Test
@@ -604,7 +693,34 @@ class DocumentWorkflowServiceTest {
         assertEquals(101L, result.getContent().get(0).getId());
         assertEquals("Tờ trình mua sắm máy tính", result.getContent().get(0).getTitle());
         assertEquals(DocumentStatus.PENDING_APPROVAL.name(), result.getContent().get(0).getStatus());
+        assertEquals("Lãnh đạo phê duyệt", result.getContent().get(0).getCurrentHolder());
         verify(documentRepository).findByStatusInAndDeleteFlgFalse(eq(DocumentWorkflowServiceImpl.PENDING_STATUSES), eq(pageable));
+    }
+
+    @Test
+    @DisplayName("getPendingDocuments: Ánh xạ currentHolder chính xác cho WAITING_APPROVAL và SUBMITTED")
+    void getPendingDocuments_currentHolderMapping_shouldReturnCorrectHolder() {
+        Document docWaiting = Document.builder()
+                .title("Đề xuất chờ duyệt")
+                .status(DocumentStatus.WAITING_APPROVAL)
+                .build();
+        docWaiting.setId(102L);
+
+        Document docSubmitted = Document.builder()
+                .title("Văn bản mới gửi")
+                .status(DocumentStatus.SUBMITTED)
+                .build();
+        docSubmitted.setId(103L);
+
+        when(documentRepository.findByStatusInAndDeleteFlgFalse(eq(DocumentWorkflowServiceImpl.PENDING_STATUSES)))
+                .thenReturn(List.of(docWaiting, docSubmitted));
+
+        List<PendingDocumentResponse> list = documentWorkflowService.getPendingDocuments();
+
+        assertNotNull(list);
+        assertEquals(2, list.size());
+        assertEquals("Lãnh đạo phê duyệt", list.get(0).getCurrentHolder(), "WAITING_APPROVAL phải là Lãnh đạo phê duyệt");
+        assertEquals("Văn thư tiếp nhận", list.get(1).getCurrentHolder(), "SUBMITTED phải là Văn thư tiếp nhận");
     }
 
     @Test
@@ -814,31 +930,6 @@ class DocumentWorkflowServiceTest {
     }
 
     @Test
-    @DisplayName("approve: khi văn bản ở WAITING_APPROVAL vẫn duyệt được thành công (thích ứng ngược)")
-    void approve_whenWaitingApproval_shouldTransitionSuccessfully() {
-        document.setStatus(DocumentStatus.WAITING_APPROVAL);
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
-
-        DocumentApproveRequest request = DocumentApproveRequest.builder()
-                .comment("Duyệt văn bản từ trạng thái WAITING_APPROVAL")
-                .build();
-
-        DocumentDetailResponse response = documentWorkflowService.approve(5001L, request);
-
-        assertNotNull(response);
-        verify(workflowEngine).executeTransition(
-                document,
-                WorkflowAction.REVIEW_APPROVE,
-                leader,
-                "Duyệt văn bản từ trạng thái WAITING_APPROVAL",
-                null,
-                null,
-                null
-        );
-    }
-
-    @Test
     @DisplayName("signAndPublish: khi request không truyền officialNumber thì tự kế thừa từ số đã cấp ở sổ văn bản")
     void signAndPublish_whenRequestOfficialNumberBlank_shouldInheritFromDocument() {
         document.setPrimaryFilePath("drafts/sample.pdf");
@@ -879,5 +970,59 @@ class DocumentWorkflowServiceTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentWorkflowService.signAndPublish(5001L, request));
         assertEquals(ErrorCode.DOCUMENT_NUMBER_ALREADY_EXISTS, ex.getErrorCode());
+    }
+
+    @org.junit.jupiter.api.Test
+    void getWorkflowHistory_whenPageableNullOrUnpaged_shouldApplyDefaultPaginationAndTieBreaker() {
+        Long docId = 100L;
+        vn.edu.epu.eoffice_be.entity.Document mockDoc = vn.edu.epu.eoffice_be.entity.Document.builder()
+                .id(docId)
+                .status(vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED)
+                .build();
+        vn.edu.epu.eoffice_be.entity.UserLogin mockUser = vn.edu.epu.eoffice_be.entity.UserLogin.builder()
+                .id(1L)
+                .role(vn.edu.epu.eoffice_be.common.enums.Role.ADMIN)
+                .username("admin")
+                .build();
+
+        org.mockito.Mockito.when(documentRepository.findByIdAndDeleteFlgFalse(docId))
+                .thenReturn(java.util.Optional.of(mockDoc));
+        org.mockito.Mockito.when(userLoginRepository.findByIdAndDeleteFlgFalse(org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(java.util.Optional.of(mockUser));
+        org.mockito.Mockito.when(documentWorkflowLogRepository.findByDocumentIdAndDeleteFlgFalse(org.mockito.ArgumentMatchers.eq(docId), org.mockito.ArgumentMatchers.any(Pageable.class)))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+
+        // Test with null pageable
+        org.springframework.data.domain.Page<?> resNull = documentWorkflowService.getWorkflowHistory(docId, null);
+        org.junit.jupiter.api.Assertions.assertNotNull(resNull);
+
+        // Test with unpaged
+        org.springframework.data.domain.Page<?> resUnpaged = documentWorkflowService.getWorkflowHistory(docId, Pageable.unpaged());
+        org.junit.jupiter.api.Assertions.assertNotNull(resUnpaged);
+    }
+
+    @org.junit.jupiter.api.Test
+    void getWorkflowHistory_whenClientSortProvided_shouldAppendIdTieBreaker() {
+        Long docId = 200L;
+        vn.edu.epu.eoffice_be.entity.Document mockDoc = vn.edu.epu.eoffice_be.entity.Document.builder()
+                .id(docId)
+                .status(vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED)
+                .build();
+        vn.edu.epu.eoffice_be.entity.UserLogin mockUser = vn.edu.epu.eoffice_be.entity.UserLogin.builder()
+                .id(1L)
+                .role(vn.edu.epu.eoffice_be.common.enums.Role.ADMIN)
+                .username("admin")
+                .build();
+
+        org.mockito.Mockito.when(documentRepository.findByIdAndDeleteFlgFalse(docId))
+                .thenReturn(java.util.Optional.of(mockDoc));
+        org.mockito.Mockito.when(userLoginRepository.findByIdAndDeleteFlgFalse(org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(java.util.Optional.of(mockUser));
+        org.mockito.Mockito.when(documentWorkflowLogRepository.findByDocumentIdAndDeleteFlgFalse(org.mockito.ArgumentMatchers.eq(docId), org.mockito.ArgumentMatchers.any(Pageable.class)))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+
+        Pageable customSortPageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdDate"));
+        org.springframework.data.domain.Page<?> res = documentWorkflowService.getWorkflowHistory(docId, customSortPageable);
+        org.junit.jupiter.api.Assertions.assertNotNull(res);
     }
 }

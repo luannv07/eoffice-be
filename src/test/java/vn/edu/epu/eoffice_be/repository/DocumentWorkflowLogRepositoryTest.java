@@ -15,7 +15,6 @@ import vn.edu.epu.eoffice_be.entity.DocumentWorkflowLog;
 import vn.edu.epu.eoffice_be.entity.OrgNode;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
 
-import java.time.Instant;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -68,11 +67,6 @@ class DocumentWorkflowLogRepositoryTest {
         Document otherDoc = createTestDocument("Other Document For Log Testing");
         UserLogin actor = getOrCreateUser();
 
-        // Chuẩn bị các mốc thời gian tăng dần
-        Instant t1 = Instant.parse("2026-09-13T01:00:00Z");
-        Instant t2 = Instant.parse("2026-09-13T02:00:00Z");
-        Instant t3 = Instant.parse("2026-09-13T03:00:00Z");
-        Instant tDeleted = Instant.parse("2026-09-13T01:30:00Z");
 
         DocumentWorkflowLog log1 = DocumentWorkflowLog.builder()
                 .document(targetDoc)
@@ -81,7 +75,6 @@ class DocumentWorkflowLogRepositoryTest {
                 .fromStatus(DocumentStatus.DRAFT)
                 .toStatus(DocumentStatus.SUBMITTED)
                 .comment("Gửi duyệt T1")
-                .createdDate(t1)
                 .deleteFlg(false)
                 .build();
 
@@ -92,7 +85,6 @@ class DocumentWorkflowLogRepositoryTest {
                 .fromStatus(DocumentStatus.SUBMITTED)
                 .toStatus(DocumentStatus.IN_REVIEW)
                 .comment("Thẩm định T2")
-                .createdDate(t2)
                 .deleteFlg(false)
                 .build();
 
@@ -103,7 +95,6 @@ class DocumentWorkflowLogRepositoryTest {
                 .fromStatus(DocumentStatus.IN_REVIEW)
                 .toStatus(DocumentStatus.APPROVED)
                 .comment("Lãnh đạo duyệt T3")
-                .createdDate(t3)
                 .deleteFlg(false)
                 .build();
 
@@ -114,7 +105,6 @@ class DocumentWorkflowLogRepositoryTest {
                 .fromStatus(DocumentStatus.IN_REVIEW)
                 .toStatus(DocumentStatus.NEEDS_REVISION)
                 .comment("Log xóa mềm")
-                .createdDate(tDeleted)
                 .deleteFlg(true)
                 .build();
 
@@ -125,7 +115,6 @@ class DocumentWorkflowLogRepositoryTest {
                 .fromStatus(DocumentStatus.DRAFT)
                 .toStatus(DocumentStatus.SUBMITTED)
                 .comment("Log của văn bản khác")
-                .createdDate(t1)
                 .deleteFlg(false)
                 .build();
 
@@ -176,10 +165,6 @@ class DocumentWorkflowLogRepositoryTest {
         Document otherDoc = createTestDocument("Other Document For Ordering Test");
         UserLogin actor = getOrCreateUser();
 
-        Instant t1 = Instant.parse("2026-09-13T01:00:00Z");
-        Instant tDeleted = Instant.parse("2026-09-13T01:30:00Z");
-        Instant t2 = Instant.parse("2026-09-13T02:00:00Z");
-
         DocumentWorkflowLog log1 = DocumentWorkflowLog.builder()
                 .document(targetDoc)
                 .actor(actor)
@@ -187,7 +172,6 @@ class DocumentWorkflowLogRepositoryTest {
                 .fromStatus(DocumentStatus.DRAFT)
                 .toStatus(DocumentStatus.SUBMITTED)
                 .comment("Log 1")
-                .createdDate(t1)
                 .deleteFlg(false)
                 .build();
 
@@ -198,7 +182,6 @@ class DocumentWorkflowLogRepositoryTest {
                 .fromStatus(DocumentStatus.SUBMITTED)
                 .toStatus(DocumentStatus.NEEDS_REVISION)
                 .comment("Log Deleted")
-                .createdDate(tDeleted)
                 .deleteFlg(true)
                 .build();
 
@@ -209,7 +192,6 @@ class DocumentWorkflowLogRepositoryTest {
                 .fromStatus(DocumentStatus.SUBMITTED)
                 .toStatus(DocumentStatus.IN_REVIEW)
                 .comment("Log 2")
-                .createdDate(t2)
                 .deleteFlg(false)
                 .build();
 
@@ -220,7 +202,6 @@ class DocumentWorkflowLogRepositoryTest {
                 .fromStatus(DocumentStatus.DRAFT)
                 .toStatus(DocumentStatus.SUBMITTED)
                 .comment("Log Other")
-                .createdDate(t1)
                 .deleteFlg(false)
                 .build();
 
@@ -242,16 +223,6 @@ class DocumentWorkflowLogRepositoryTest {
         assertEquals("Log 2", logsByDate.get(1).getComment());
         assertFalse(logsByDate.stream().anyMatch(l -> l.getId().equals(logDeleted.getId())), "Không được chứa bản ghi xóa mềm");
 
-        // 2. Kiểm tra phương thức tương thích ngược findByDocumentIdOrderByCreatedAtAsc: kết quả đồng nhất
-        @SuppressWarnings("deprecation")
-        List<DocumentWorkflowLog> logsByCreatedAt = workflowLogRepository.findByDocumentIdOrderByCreatedAtAsc(targetDoc.getId());
-        assertNotNull(logsByCreatedAt);
-        assertEquals(2, logsByCreatedAt.size(), "Phương thức tương thích cũng phải loại trừ logDeleted");
-        for (int i = 0; i < logsByDate.size(); i++) {
-            assertEquals(logsByDate.get(i).getId(), logsByCreatedAt.get(i).getId());
-        }
-
-        // 3. Kiểm tra findByDocumentIdAndDeleteFlgFalseOrderByCreatedDateAsc: kết quả đồng nhất
         List<DocumentWorkflowLog> activeLogs = workflowLogRepository.findByDocumentIdAndDeleteFlgFalseOrderByCreatedDateAsc(targetDoc.getId());
         assertNotNull(activeLogs);
         assertEquals(2, activeLogs.size(), "Chỉ gồm bản ghi deleteFlg = false của targetDoc");

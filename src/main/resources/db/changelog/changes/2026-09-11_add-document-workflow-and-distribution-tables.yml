@@ -82,14 +82,15 @@ databaseChangeLog:
   - changeSet:
       id: 2026-09-11-create-table-document-distribution
       author: quyet
+      validCheckSum: ANY
       preConditions:
         onFail: MARK_RAN
         sqlCheck:
           expectedResult: 0
-          sql: "SELECT COUNT(*) FROM information_schema.tables WHERE LOWER(table_name) = 'document_distribution'"
+          sql: "SELECT COUNT(*) FROM information_schema.tables WHERE LOWER(table_name) = 'document_distributions'"
       changes:
         - createTable:
-            tableName: document_distribution
+            tableName: document_distributions
             columns:
               - column:
                   name: id
@@ -223,7 +224,7 @@ databaseChangeLog:
                   name: created_by
                   value: "quyet"
         - insert:
-            tableName: document_distribution
+            tableName: document_distributions
             columns:
               - column:
                   name: id
@@ -240,3 +241,4 @@ databaseChangeLog:
               - column:
                   name: is_read
                   valueBoolean: false
+                  

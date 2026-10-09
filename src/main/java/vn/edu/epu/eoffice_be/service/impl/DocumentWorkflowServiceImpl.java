@@ -43,11 +43,15 @@ import vn.edu.epu.eoffice_be.service.PdfProcessingService;
 import vn.edu.epu.eoffice_be.workflow.WorkflowEngine;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Objects;
+import vn.edu.epu.eoffice_be.dto.request.AssignDocumentNumberRequest;
+import vn.edu.epu.eoffice_be.dto.response.AssignDocumentNumberResponse;
+import vn.edu.epu.eoffice_be.service.DocumentBookService;
 
 @Slf4j
 @Service
@@ -62,10 +66,11 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     private final WorkflowEngine workflowEngine;
     private final FileStorageService fileStorageService;
     private final PdfProcessingService pdfProcessingService;
+    private final DocumentBookService documentBookService;
 
     public DocumentWorkflowServiceImpl(DocumentRepository documentRepository,
                                        DocumentWorkflowLogRepository documentWorkflowLogRepository) {
-        this(documentRepository, documentWorkflowLogRepository, null, null, null, null, null, null);
+        this(documentRepository, documentWorkflowLogRepository, null, null, null, null, null, null, null);
     }
 
     private static final ZoneId ZONE_VN = ZoneId.of("Asia/Ho_Chi_Minh");
@@ -97,10 +102,11 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         // Quyết định hành động chuyển tiếp phù hợp với trạng thái hiện tại
         WorkflowAction action;
         if (document.getStatus() == DocumentStatus.SUBMITTED
-                || document.getStatus() == DocumentStatus.WAITING_APPROVAL
                 || document.getStatus() == DocumentStatus.IN_REVIEW) {
             action = WorkflowAction.REVIEW_APPROVE;
-        } else if (document.getStatus() == DocumentStatus.LEADER_REVIEW) {
+        } else if (document.getStatus() == DocumentStatus.LEADER_REVIEW
+                || document.getStatus() == DocumentStatus.PENDING_APPROVAL
+                || document.getStatus() == DocumentStatus.WAITING_APPROVAL) {
             action = WorkflowAction.LEADER_APPROVE;
         } else {
             throw new BusinessException(ErrorCode.INVALID_WORKFLOW_STATE);
@@ -214,14 +220,34 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Ngày có hiệu lực (effectiveDate) không được trước ngày ban hành (issueDate)");
         }
 
-        String officialNumber = request.getOfficialNumber();
-        if (officialNumber == null || officialNumber.isBlank()) {
-            // Tự động kế thừa số hiệu đã được cấp từ sổ văn bản ở bước Chờ ban hành (APPROVED)
-            officialNumber = document.getOfficialNumber();
+        // Nếu văn bản chưa có người ký được gán trước đó, gán actor làm signer tại thời điểm ký phát hành
+        if (document.getSigner() == null) {
+            document.setSigner(actor);
         }
 
-        if (officialNumber == null || officialNumber.isBlank()) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "Văn bản chưa được cấp số hiệu từ sổ văn bản. Vui lòng cấp số trước khi ký phát hành!");
+        // Kiểm tra thẩm quyền ký phát hành TRƯỚC KHI xử lý ký số PKI nhằm tránh lãng phí tài nguyên
+        validateActorAuthorization(document, actor, WorkflowAction.SIGN_AND_PUBLISH);
+
+        // Kiểm tra file PDF nguồn TRƯỚC KHI cấp số và ký số: nếu chưa có file đính kèm chính thì báo lỗi
+        ensureDocumentPdfExists(document);
+
+        // 2. Cấp số chính thức qua Sổ văn bản (Pessimistic Write Lock)
+        String officialNumber;
+        if (request.getBookId() != null && documentBookService != null) {
+            AssignDocumentNumberRequest assignReq = new AssignDocumentNumberRequest();
+            assignReq.setBookId(request.getBookId());
+            assignReq.setDocumentId(documentId);
+            assignReq.setEffectiveDate(LocalDate.ofInstant(effectiveDate, ZONE_VN));
+
+            AssignDocumentNumberResponse numberResp = documentBookService.assignNumber(assignReq);
+            officialNumber = numberResp.getDocumentNumber();
+        } else if (request.getOfficialNumber() != null && !request.getOfficialNumber().isBlank()) {
+            officialNumber = request.getOfficialNumber();
+        } else if (document.getOfficialNumber() != null && !document.getOfficialNumber().isBlank()) {
+            // Tự động kế thừa số hiệu đã được cấp từ sổ văn bản ở bước Chờ ban hành (APPROVED)
+            officialNumber = document.getOfficialNumber();
+        } else {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "Bắt buộc chọn sổ văn bản để cấp số chính thức");
         }
 
         // Kiểm tra chống trùng số văn bản đã có trên hệ thống
@@ -234,19 +260,10 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         document.setIssueDate(issueDate);
         document.setEffectiveDate(effectiveDate);
 
-        // Nếu văn bản chưa có người ký được gán trước đó, gán actor làm signer tại thời điểm ký phát hành
-        if (document.getSigner() == null) {
-            document.setSigner(actor);
-        }
-
-        // Kiểm tra thẩm quyền ký phát hành TRƯỚC KHI xử lý ký số PKI nhằm tránh lãng phí tài nguyên
-        validateActorAuthorization(document, actor, WorkflowAction.SIGN_AND_PUBLISH);
-
-        // 2. Kiểm tra file PDF nguồn: nếu chưa có file đính kèm chính thì báo lỗi
-        ensureDocumentPdfExists(document);
+        // 3. Đọc file PDF nguồn
         byte[] currentPdfBytes = fileStorageService.loadFileBytes(document.getPrimaryFilePath());
 
-        // 3. Ký số điện tử PKI X.509 PAdES và đặt cờ niêm phong CERTIFIED_NO_CHANGES_ALLOWED
+        // 4. Ký số điện tử PKI X.509 PAdES và đặt cờ niêm phong CERTIFIED_NO_CHANGES_ALLOWED
         String signerDisplayName = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(actor.getId())
                 .map(UserInfo::getFullName)
                 .orElse(actor.getUsername());
@@ -254,7 +271,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         byte[] certifiedPdfBytes = pdfProcessingService.signAndCertifyPdf(
                 currentPdfBytes,
                 signerDisplayName,
-                "Ban hanh van ban: " + request.getOfficialNumber()
+                "Ban hanh van ban: " + officialNumber
         );
 
         // 4. Lưu file PDF chính thức vào thư mục riêng biệt "official"
@@ -316,20 +333,25 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         UserLogin actor = getCurrentActor();
         validateDocumentReadAccess(document, actor);
 
-        Pageable effectivePageable = (pageable == null || pageable.isUnpaged())
-                ? PageRequest.of(0, 20, Sort.by("createdDate").ascending())
-                : pageable;
-        if (effectivePageable.getSort().isUnsorted()) {
+        Pageable effectivePageable;
+        if (pageable == null || pageable.isUnpaged()) {
             effectivePageable = PageRequest.of(
-                    effectivePageable.getPageNumber(),
-                    effectivePageable.getPageSize(),
-                    Sort.by("createdDate").ascending()
+                    0,
+                    20,
+                    Sort.by(Sort.Order.asc("createdDate"), Sort.Order.asc("id"))
             );
+        } else {
+            Sort sort = pageable.getSort();
+            if (sort.isUnsorted()) {
+                sort = Sort.by(Sort.Order.asc("createdDate"), Sort.Order.asc("id"));
+            } else if (sort.getOrderFor("id") == null) {
+                sort = sort.and(Sort.by(Sort.Order.asc("id")));
+            }
+            effectivePageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
         }
-        Page<DocumentWorkflowLog> logs =
-                documentWorkflowLogRepository.findByDocumentIdAndDeleteFlgFalse(documentId, effectivePageable);
 
-        return logs.map(this::mapToLogResponse);
+        return documentWorkflowLogRepository.findByDocumentIdAndDeleteFlgFalse(documentId, effectivePageable)
+                .map(this::mapToLogResponse);
     }
 
     @Override
@@ -465,7 +487,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 .comment(log.getComment())
                 .leadershipInstruction(log.getLeadershipInstruction())
                 .assignedOrgNodeId(log.getAssignedOrgNode() != null ? log.getAssignedOrgNode().getId() : null)
-                .assignedOrgNodeName(log.getAssignedOrgNode() != null ? log.getAssignedOrgNode().getNameVn() : null)
+                .assignedOrgNodeName(log.getAssignedOrgNode() != null   ? log.getAssignedOrgNode().getNameVn() : null)
                 .signatureHash(log.getSignatureHash())
                 .createdDate(log.getCreatedDate())
                 .build();
@@ -479,8 +501,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         validateDocumentReadAccess(document, actor);
 
         List<DocumentWorkflowLog> logs = documentWorkflowLogRepository.findByDocumentIdOrderByCreatedAtAsc(documentId);
-        if (logs == null || logs.isEmpty()) {
-            logs = documentWorkflowLogRepository.findByDocumentIdOrderByCreatedDateAsc(documentId);
+        if (logs == null) {
+            logs = java.util.Collections.emptyList();
         }
         return logs.stream()
                 .map(log -> WorkflowTimelineResponse.builder()
@@ -639,9 +661,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         }
         return switch (status) {
             case SUBMITTED -> "Văn thư tiếp nhận";
-            case WAITING_APPROVAL -> "Chuyên viên thẩm định / Người duyệt";
             case PENDING_REVIEW, IN_REVIEW -> "Chuyên viên thẩm định";
-            case PENDING_APPROVAL -> "Lãnh đạo phê duyệt";
+            case PENDING_APPROVAL, WAITING_APPROVAL, LEADER_REVIEW -> "Lãnh đạo phê duyệt";
             case PENDING_SIGN -> "Lãnh đạo ký số";
             case APPROVED -> "Lãnh đạo ký ban hành";
             default -> "Bộ phận xử lý văn bản";

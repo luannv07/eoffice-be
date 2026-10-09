@@ -11,6 +11,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
+import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
 import vn.edu.epu.eoffice_be.controller.DocumentWorkflowController;
 import vn.edu.epu.eoffice_be.dto.PublishRequest;
 import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
@@ -43,6 +44,7 @@ import vn.edu.epu.eoffice_be.security.UserIdAwarePrincipal;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -69,8 +71,8 @@ class DocumentServiceCoverageTest {
     DocumentPublishService documentPublishService;
 
     @InjectMocks
-    DocumentWorkflowServiceImpl documentWorkflowService;
-
+    private DocumentWorkflowServiceImpl documentWorkflowService;
+    
     public static class TestOrgPrincipal implements vn.edu.epu.eoffice_be.security.OrgAwarePrincipal {
         @Override
         public Long getOrgId() { return 1L; }
@@ -261,10 +263,10 @@ class DocumentServiceCoverageTest {
 
         DocumentWorkflowLog log = DocumentWorkflowLog.builder()
                 .id(10L)
-                .documentId(1L)
-                .action("SUBMIT")
-                .createdAt(LocalDateTime.now())
+                .document(doc1)                 // Dùng luôn biến doc1 đã tạo ở trên (có ID = 1L)
+                .action(WorkflowAction.SUBMIT)  // Dùng Enum thay vì chuỗi String
                 .build();
+        log.setCreatedDate(java.time.Instant.now()); // Gán thời gian qua setter của BaseEntity
 
         when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(doc1));
         when(workflowLogRepository.findByDocumentIdOrderByCreatedAtAsc(1L)).thenReturn(List.of(log));

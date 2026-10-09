@@ -10,4 +10,8 @@ public interface UserInfoRepository extends JpaRepository<UserInfo, Long> {
 	Optional<UserInfo> findByUserLoginIdAndDeleteFlgFalse(Long userLoginId);
 
 	Optional<UserInfo> findByUserLoginId(Long userLoginId);
+
+	Optional<UserInfo> findByContactEmailAndDeleteFlgFalse(String contactEmail);
+
+	Optional<UserInfo> findByEmployeeCodeAndDeleteFlgFalse(String employeeCode);
 }

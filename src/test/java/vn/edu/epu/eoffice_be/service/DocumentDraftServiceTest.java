@@ -16,7 +16,9 @@ import vn.edu.epu.eoffice_be.dto.request.DocumentCreateRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentUpdateRequest;
 import vn.edu.epu.eoffice_be.dto.response.DocumentDetailResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
+import vn.edu.epu.eoffice_be.common.enums.DocumentProcessAction;
 import vn.edu.epu.eoffice_be.entity.Document;
+import vn.edu.epu.eoffice_be.entity.DocumentAttachment;
 import vn.edu.epu.eoffice_be.entity.DocumentProcessLog;
 import vn.edu.epu.eoffice_be.entity.DocumentVersion;
 import vn.edu.epu.eoffice_be.entity.OrgNode;
@@ -33,12 +35,15 @@ import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -499,4 +504,227 @@ class DocumentDraftServiceTest {
         assertNotNull(order);
         assertEquals(org.springframework.data.domain.Sort.Direction.DESC, order.getDirection());
     }
+
+    @Test
+    @DisplayName("Xóa dự thảo thành công bởi người tạo (Creator)")
+    void deleteDraft_Success_ByCreator() {
+        Long userId = 100L;
+        Long docId = 1L;
+
+        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        Document doc = Document.builder()
+                .id(docId)
+                .draftCode("DT-2026-00001")
+                .title("Dự thảo kế hoạch")
+                .creatorUser(creator)
+                .status(DocumentStatus.DRAFT)
+                .deleteFlg(false)
+                .build();
+
+        DocumentAttachment attachment = DocumentAttachment.builder()
+                .id(10L)
+                .document(doc)
+                .originalFileName("test.pdf")
+                .deleteFlg(false)
+                .build();
+
+        DocumentVersion version = DocumentVersion.builder()
+                .id(20L)
+                .document(doc)
+                .versionNumber(1)
+                .deleteFlg(false)
+                .build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(docId)).thenReturn(List.of(attachment));
+        when(documentVersionRepository.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(docId)).thenReturn(List.of(version));
+
+        documentDraftService.deleteDraft(docId, userId);
+
+        assertTrue(doc.isDeleteFlg());
+        assertTrue(attachment.isDeleteFlg());
+        assertTrue(version.isDeleteFlg());
+
+        verify(documentRepository).save(doc);
+        verify(documentAttachmentRepository).saveAll(List.of(attachment));
+        verify(documentVersionRepository).saveAll(List.of(version));
+        verify(documentProcessLogRepository).save(any(DocumentProcessLog.class));
+    }
+
+    @Test
+    @DisplayName("Xóa dự thảo thành công bởi quản trị viên (Admin) có tệp đính kèm và phiên bản")
+    void deleteDraft_Success_ByAdmin() {
+        Long creatorId = 100L;
+        Long adminId = 999L;
+        Long docId = 1L;
+
+        UserLogin creator = UserLogin.builder().id(creatorId).username("author").role(Role.USER).build();
+        UserLogin admin = UserLogin.builder().id(adminId).username("admin").role(Role.ADMIN).build();
+        Document doc = Document.builder()
+                .id(docId)
+                .draftCode("DT-2026-00001")
+                .title("Dự thảo kế hoạch")
+                .creatorUser(creator)
+                .status(DocumentStatus.DRAFT)
+                .deleteFlg(false)
+                .build();
+
+        DocumentAttachment attachment = DocumentAttachment.builder()
+                .id(10L)
+                .document(doc)
+                .originalFileName("admin_test.pdf")
+                .deleteFlg(false)
+                .build();
+
+        DocumentVersion version = DocumentVersion.builder()
+                .id(20L)
+                .document(doc)
+                .versionNumber(1)
+                .deleteFlg(false)
+                .build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(adminId)).thenReturn(Optional.of(admin));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(docId)).thenReturn(List.of(attachment));
+        when(documentVersionRepository.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(docId)).thenReturn(List.of(version));
+
+        documentDraftService.deleteDraft(docId, adminId);
+
+        assertTrue(doc.isDeleteFlg());
+        assertTrue(attachment.isDeleteFlg());
+        assertTrue(version.isDeleteFlg());
+
+        verify(documentRepository).save(doc);
+        verify(documentAttachmentRepository).saveAll(List.of(attachment));
+        verify(documentVersionRepository).saveAll(List.of(version));
+        verify(documentProcessLogRepository).save(any(DocumentProcessLog.class));
+    }
+
+    @Test
+    @DisplayName("Xóa dự thảo thành công bởi quản trị viên (Admin) khi không có tệp đính kèm và phiên bản")
+    void deleteDraft_Success_ByAdmin_WithoutAttachmentsAndVersions() {
+        Long creatorId = 100L;
+        Long adminId = 999L;
+        Long docId = 1L;
+
+        UserLogin creator = UserLogin.builder().id(creatorId).username("author").role(Role.USER).build();
+        UserLogin admin = UserLogin.builder().id(adminId).username("admin").role(Role.ADMIN).build();
+        Document doc = Document.builder()
+                .id(docId)
+                .draftCode("DT-2026-00001")
+                .title("Dự thảo kế hoạch")
+                .creatorUser(creator)
+                .status(DocumentStatus.DRAFT)
+                .deleteFlg(false)
+                .build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(adminId)).thenReturn(Optional.of(admin));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(docId)).thenReturn(List.of());
+        when(documentVersionRepository.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(docId)).thenReturn(List.of());
+
+        documentDraftService.deleteDraft(docId, adminId);
+
+        assertTrue(doc.isDeleteFlg());
+        verify(documentRepository).save(doc);
+        verify(documentProcessLogRepository).save(any(DocumentProcessLog.class));
+        verify(documentAttachmentRepository, never()).saveAll(any());
+        verify(documentVersionRepository, never()).saveAll(any());
+    }
+
+    @Test
+    @DisplayName("Xóa dự thảo thất bại khi người dùng không tồn tại")
+    void deleteDraft_ThrowsUnauthorized_WhenUserNotFound() {
+        Long userId = 100L;
+        Long docId = 1L;
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.empty());
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentDraftService.deleteDraft(docId, userId));
+        assertEquals(ErrorCode.UNAUTHORIZED, ex.getErrorCode());
+
+        verify(documentRepository, never()).save(any());
+        verify(documentAttachmentRepository, never()).saveAll(any());
+        verify(documentVersionRepository, never()).saveAll(any());
+        verify(documentProcessLogRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Xóa dự thảo thất bại khi không tìm thấy văn bản")
+    void deleteDraft_ThrowsNotFound_WhenDocumentNotFound() {
+        Long userId = 100L;
+        Long docId = 1L;
+
+        UserLogin user = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(user));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.empty());
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentDraftService.deleteDraft(docId, userId));
+        assertEquals(ErrorCode.DOCUMENT_NOT_FOUND, ex.getErrorCode());
+
+        verify(documentRepository, never()).save(any());
+        verify(documentAttachmentRepository, never()).saveAll(any());
+        verify(documentVersionRepository, never()).saveAll(any());
+        verify(documentProcessLogRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Xóa dự thảo thất bại khi người thực hiện không phải người tạo và không phải Admin")
+    void deleteDraft_ThrowsForbidden_WhenUserNotCreatorAndNotAdmin() {
+        Long creatorId = 100L;
+        Long otherUserId = 200L;
+        Long docId = 1L;
+
+        UserLogin creator = UserLogin.builder().id(creatorId).username("author").role(Role.USER).build();
+        UserLogin otherUser = UserLogin.builder().id(otherUserId).username("other").role(Role.USER).build();
+        Document doc = Document.builder()
+                .id(docId)
+                .draftCode("DT-2026-00001")
+                .creatorUser(creator)
+                .status(DocumentStatus.DRAFT)
+                .build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(otherUserId)).thenReturn(Optional.of(otherUser));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentDraftService.deleteDraft(docId, otherUserId));
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+
+        verify(documentRepository, never()).save(any());
+        verify(documentAttachmentRepository, never()).saveAll(any());
+        verify(documentVersionRepository, never()).saveAll(any());
+        verify(documentProcessLogRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Xóa dự thảo thất bại khi văn bản không ở trạng thái DRAFT")
+    void deleteDraft_ThrowsInvalidStatus_WhenDocumentNotDraft() {
+        Long userId = 100L;
+        Long docId = 1L;
+
+        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        Document doc = Document.builder()
+                .id(docId)
+                .draftCode("DT-2026-00001")
+                .creatorUser(creator)
+                .status(DocumentStatus.PENDING_REVIEW)
+                .build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentDraftService.deleteDraft(docId, userId));
+        assertEquals(ErrorCode.DOCUMENT_INVALID_STATUS, ex.getErrorCode());
+
+        verify(documentRepository, never()).save(any());
+        verify(documentAttachmentRepository, never()).saveAll(any());
+        verify(documentVersionRepository, never()).saveAll(any());
+        verify(documentProcessLogRepository, never()).save(any());
+    }
 }
+
