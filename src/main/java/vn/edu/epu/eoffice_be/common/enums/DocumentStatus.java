@@ -25,7 +25,7 @@ public enum DocumentStatus {
     PENDING_SIGN("Chờ ký số"),
     INITIAL_SIGNED("Đã ký nháy"),
     NEEDS_REVISION("Yêu cầu chỉnh sửa"),
-    APPROVED("Chờ ban hành"),
+    APPROVED("Đã phê duyệt"),
     ISSUED("Đã phát hành"),
     PUBLISHED("Đã ban hành chính thức"),
     REVOKED("Đã thu hồi"),

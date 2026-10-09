@@ -141,41 +141,4 @@ public class DocumentQueryService {
             throw new IllegalArgumentException("Đường dẫn tệp không hợp lệ", ex);
         }
     }
-
-    // 4. Tra cứu công khai — chỉ trả văn bản PUBLISHED, không cần đăng nhập
-    public org.springframework.data.domain.Page<vn.edu.epu.eoffice_be.dto.response.DocumentResponse> searchPublicDocuments(
-            String keyword,
-            org.springframework.data.domain.Pageable pageable) {
-        String escapedKeyword = escapeKeyword(keyword);
-        return documentRepository
-                .searchDocuments(null, vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED, null, escapedKeyword, pageable)
-                .map(this::toDocumentResponse);
-    }
-
-    // 5. Chi tiết văn bản công khai — chỉ trả văn bản PUBLISHED
-    public vn.edu.epu.eoffice_be.dto.response.DocumentResponse getPublicDocumentDetail(Long id) {
-        Document doc = documentRepository
-                .findByIdAndDeleteFlgFalse(id)
-                .filter(d -> d.getStatus() == vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED)
-                .orElseThrow(() -> new IllegalArgumentException("Văn bản không tồn tại hoặc chưa được ban hành chính thức"));
-        return toDocumentResponse(doc);
-    }
-
-    private String escapeKeyword(String keyword) {
-        if (keyword == null || keyword.isBlank()) return null;
-        return keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
-    }
-
-    private vn.edu.epu.eoffice_be.dto.response.DocumentResponse toDocumentResponse(Document doc) {
-        return vn.edu.epu.eoffice_be.dto.response.DocumentResponse.builder()
-                .id(doc.getId())
-                .title(doc.getTitle())
-                .officialNumber(doc.getOfficialNumber())
-                .status(doc.getStatus())
-                .statusDescription(doc.getStatus() != null ? doc.getStatus().getDescription() : null)
-                .issueDate(doc.getIssueDate() != null ? LocalDate.ofInstant(doc.getIssueDate(), ZONE_VN) : null)
-                .effectiveDate(doc.getEffectiveDate() != null ? LocalDate.ofInstant(doc.getEffectiveDate(), ZONE_VN) : null)
-                .officialHash(doc.getOfficialHash())
-                .build();
-    }
 }
