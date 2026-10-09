@@ -194,6 +194,58 @@ public class DocumentDraftService {
     }
 
     /**
+     * Xóa mềm dự thảo văn bản (chỉ khi đang ở trạng thái DRAFT)
+     */
+    @Transactional
+    public void deleteDraft(Long documentId, Long userId) {
+        UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+
+        Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
+
+        UserLogin creator = document.getCreatorUser() != null ? document.getCreatorUser() : document.getDrafter();
+        boolean isCreator = creator != null && creator.getId().equals(userId);
+        boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
+        if (!isCreator && !isAdmin) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền xóa dự thảo này");
+        }
+
+        if (document.getStatus() != DocumentStatus.DRAFT) {
+            throw new BusinessException(ErrorCode.DOCUMENT_INVALID_STATUS,
+                    "Chỉ có thể xóa văn bản đang ở trạng thái dự thảo (DRAFT)");
+        }
+
+        document.setDeleteFlg(true);
+        documentRepository.save(document);
+
+        List<DocumentAttachment> attachments = documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(documentId);
+        if (!attachments.isEmpty()) {
+            attachments.forEach(att -> att.setDeleteFlg(true));
+            documentAttachmentRepository.saveAll(attachments);
+        }
+
+        List<DocumentVersion> versions = documentVersionRepository.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(documentId);
+        if (!versions.isEmpty()) {
+            versions.forEach(ver -> ver.setDeleteFlg(true));
+            documentVersionRepository.saveAll(versions);
+        }
+
+        DocumentProcessLog processLog = DocumentProcessLog.builder()
+                .document(document)
+                .actorUser(user)
+                .action(DocumentProcessAction.DELETE_DRAFT)
+                .fromStatus(document.getStatus().name())
+                .toStatus(document.getStatus().name())
+                .note("Xóa dự thảo: " + document.getDraftCode())
+                .build();
+        documentProcessLogRepository.save(processLog);
+
+        log.info("Người dùng {} đã xóa dự thảo thành công: id={}, draftCode={}",
+                user.getUsername(), document.getId(), document.getDraftCode());
+    }
+
+    /**
      * Lấy chi tiết dự thảo kèm tệp đính kèm và lịch sử phiên bản
      */
     @Transactional(readOnly = true)

@@ -45,6 +45,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -704,5 +705,57 @@ class DocumentControllerTest {
                 .andExpect(jsonPath("$.errorCode").value(not(ErrorCode.STORAGE_ERROR.getCode())));
 
         verify(brokenResource, atLeastOnce()).exists();
+    }
+
+    @Test
+    @DisplayName("API DELETE /documents/{id} - Xóa dự thảo thành công")
+    void deleteDraft_Success() throws Exception {
+        Long docId = 1L;
+
+        mockMvc.perform(delete("/documents/{id}", docId).principal(auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Xóa dự thảo văn bản thành công"));
+
+        verify(documentDraftService).deleteDraft(docId, 100L);
+    }
+
+    @Test
+    @DisplayName("API DELETE /documents/{id} - Trả về 404 khi văn bản không tồn tại")
+    void deleteDraft_NotFound() throws Exception {
+        Long docId = 999L;
+
+        doThrow(new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND))
+                .when(documentDraftService).deleteDraft(docId, 100L);
+
+        mockMvc.perform(delete("/documents/{id}", docId).principal(auth))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.DOCUMENT_NOT_FOUND.getCode()));
+    }
+
+    @Test
+    @DisplayName("API DELETE /documents/{id} - Trả về 403 khi không có quyền xóa")
+    void deleteDraft_Forbidden() throws Exception {
+        Long docId = 1L;
+
+        doThrow(new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền xóa dự thảo này"))
+                .when(documentDraftService).deleteDraft(docId, 100L);
+
+        mockMvc.perform(delete("/documents/{id}", docId).principal(auth))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.FORBIDDEN.getCode()));
+    }
+
+    @Test
+    @DisplayName("API DELETE /documents/{id} - Trả về 400 khi trạng thái văn bản không phải DRAFT")
+    void deleteDraft_InvalidStatus() throws Exception {
+        Long docId = 1L;
+
+        doThrow(new BusinessException(ErrorCode.DOCUMENT_INVALID_STATUS, "Chỉ có thể xóa văn bản đang ở trạng thái dự thảo (DRAFT)"))
+                .when(documentDraftService).deleteDraft(docId, 100L);
+
+        mockMvc.perform(delete("/documents/{id}", docId).principal(auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.DOCUMENT_INVALID_STATUS.getCode()));
     }
 }

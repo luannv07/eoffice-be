@@ -12,7 +12,8 @@ public enum DocumentProcessAction {
     DELETE_ATTACHMENT("Xóa tệp đính kèm"),
     RESTORE_VERSION("Khôi phục phiên bản"),
     SUBMIT_APPROVAL("Gửi duyệt"),
-    RECALL_APPROVAL("Thu hồi yêu cầu duyệt");
+    RECALL_APPROVAL("Thu hồi yêu cầu duyệt"),
+    DELETE_DRAFT("Xóa dự thảo");
 
     private final String description;
 }
