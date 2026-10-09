@@ -63,13 +63,14 @@ public class WorkflowEngine {
         leaderReviewTransitions.put(WorkflowAction.REJECT, DocumentStatus.REJECTED);
         TRANSITION_MATRIX.put(DocumentStatus.LEADER_REVIEW, leaderReviewTransitions);
 
-        // APPROVED
+        // APPROVED — chờ ban hành (ký số phát hành chính thức)
         Map<WorkflowAction, DocumentStatus> approvedTransitions = new EnumMap<>(WorkflowAction.class);
         approvedTransitions.put(WorkflowAction.SIGN_AND_PUBLISH, DocumentStatus.PUBLISHED);
+        approvedTransitions.put(WorkflowAction.REQUEST_REVISION, DocumentStatus.NEEDS_REVISION);
         approvedTransitions.put(WorkflowAction.REJECT, DocumentStatus.REJECTED);
         TRANSITION_MATRIX.put(DocumentStatus.APPROVED, approvedTransitions);
 
-        // PENDING_SIGN
+        // PENDING_SIGN — chờ ký số
         Map<WorkflowAction, DocumentStatus> pendingSignTransitions = new EnumMap<>(WorkflowAction.class);
         pendingSignTransitions.put(WorkflowAction.SIGN_AND_PUBLISH, DocumentStatus.PUBLISHED);
         pendingSignTransitions.put(WorkflowAction.REQUEST_REVISION, DocumentStatus.NEEDS_REVISION);

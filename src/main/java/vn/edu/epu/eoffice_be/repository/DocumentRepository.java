@@ -59,6 +59,15 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
 
     List<Document> findByStatusAndDeleteFlgFalse(DocumentStatus status);
 
+    /**
+     * Phân trang văn bản theo trạng thái đơn, loại trừ bản xóa mềm.
+     *
+     * @param status   trạng thái cần lọc
+     * @param pageable thông tin phân trang
+     * @return trang văn bản thỏa mãn
+     */
+    Page<Document> findByStatusAndDeleteFlgFalse(DocumentStatus status, Pageable pageable);
+
     @Query("SELECT d FROM Document d WHERE d.drafter.id = :drafterId AND d.deleteFlg = false")
     List<Document> findByDrafterIdAndDeleteFlgFalse(@Param("drafterId") Long drafterId);
 

@@ -573,6 +573,47 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 .build()).toList();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Page<PendingDocumentResponse> getPendingSignDocuments(Pageable pageable) {
+        return documentRepository
+                .findByStatusAndDeleteFlgFalse(DocumentStatus.PENDING_SIGN, pageable)
+                .map(doc -> PendingDocumentResponse.builder()
+                        .id(doc.getId())
+                        .title(doc.getTitle())
+                        .status(doc.getStatus().name())
+                        .currentHolder(resolveCurrentHolder(doc.getStatus()))
+                        .updatedAt(doc.getUpdatedDate())
+                        .pendingDays(computePendingDays(doc.getUpdatedDate()))
+                        .isOverdue(computeIsOverdue(doc.getUpdatedDate()))
+                        .build());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<PendingDocumentResponse> getPendingPublishDocuments(Pageable pageable) {
+        return documentRepository
+                .findByStatusAndDeleteFlgFalse(DocumentStatus.APPROVED, pageable)
+                .map(doc -> PendingDocumentResponse.builder()
+                        .id(doc.getId())
+                        .title(doc.getTitle())
+                        .status(doc.getStatus().name())
+                        .currentHolder(resolveCurrentHolder(doc.getStatus()))
+                        .updatedAt(doc.getUpdatedDate())
+                        .pendingDays(computePendingDays(doc.getUpdatedDate()))
+                        .isOverdue(computeIsOverdue(doc.getUpdatedDate()))
+                        .build());
+    }
+
+    private long computePendingDays(java.time.Instant updatedAt) {
+        if (updatedAt == null) return 0;
+        return java.time.temporal.ChronoUnit.DAYS.between(updatedAt, java.time.Instant.now());
+    }
+
+    private boolean computeIsOverdue(java.time.Instant updatedAt) {
+        return computePendingDays(updatedAt) > 3;
+    }
+
     private String resolveCurrentHolder(DocumentStatus status) {
         if (status == null) {
             return "Bộ phận xử lý văn bản";
@@ -581,7 +622,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             case SUBMITTED -> "Văn thư tiếp nhận";
             case PENDING_REVIEW, IN_REVIEW -> "Chuyên viên thẩm định";
             case PENDING_APPROVAL -> "Lãnh đạo phê duyệt";
-            case PENDING_SIGN -> "Lãnh đạo ký ban hành";
+            case PENDING_SIGN -> "Lãnh đạo ký số";
+            case APPROVED -> "Lãnh đạo ký ban hành";
             default -> "Bộ phận xử lý văn bản";
         };
     }
