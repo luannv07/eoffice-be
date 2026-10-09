@@ -929,7 +929,7 @@ class DocumentWorkflowServiceTest {
         assertEquals(ErrorCode.VALIDATION_ERROR, ex.getErrorCode());
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @DisplayName("signAndPublish: khi request không truyền officialNumber thì tự kế thừa từ số đã cấp ở sổ văn bản")
     void signAndPublish_whenRequestOfficialNumberBlank_shouldInheritFromDocument() {
         document.setPrimaryFilePath("drafts/sample.pdf");
@@ -954,7 +954,7 @@ class DocumentWorkflowServiceTest {
         assertEquals("99/QD-DHEPU", document.getOfficialNumber());
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @DisplayName("signAndPublish: khi số hiệu trùng với văn bản khác đã có thì ném DOCUMENT_NUMBER_ALREADY_EXISTS")
     void signAndPublish_whenDuplicateOfficialNumber_shouldThrowConflict() {
         document.setPrimaryFilePath("drafts/sample.pdf");

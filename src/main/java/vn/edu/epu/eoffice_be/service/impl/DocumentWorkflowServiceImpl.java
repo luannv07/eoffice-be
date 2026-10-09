@@ -250,13 +250,19 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "Bắt buộc chọn sổ văn bản để cấp số chính thức");
         }
 
+        // Kiểm tra null/blank trước khi gọi .trim() để tránh NullPointerException
+        if (!org.springframework.util.StringUtils.hasText(officialNumber)) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "Số hiệu văn bản không được để trống");
+        }
+        String trimmedOfficialNumber = officialNumber.trim();
+
         // Kiểm tra chống trùng số văn bản đã có trên hệ thống
-        if (documentRepository.existsByOfficialNumberAndIdNotAndDeleteFlgFalse(officialNumber.trim(), document.getId())) {
+        if (documentRepository.existsByOfficialNumberAndIdNotAndDeleteFlgFalse(trimmedOfficialNumber, document.getId())) {
             throw new BusinessException(ErrorCode.DOCUMENT_NUMBER_ALREADY_EXISTS,
-                    "Số hiệu văn bản '" + officialNumber.trim() + "' đã tồn tại trên một văn bản khác trong hệ thống!");
+                    "Số hiệu văn bản '" + trimmedOfficialNumber + "' đã tồn tại trên một văn bản khác trong hệ thống!");
         }
 
-        document.setOfficialNumber(officialNumber.trim());
+        document.setOfficialNumber(trimmedOfficialNumber);
         document.setIssueDate(issueDate);
         document.setEffectiveDate(effectiveDate);
 
@@ -617,8 +623,10 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     @Override
     @Transactional(readOnly = true)
     public Page<PendingDocumentResponse> getPendingSignDocuments(Pageable pageable) {
+        // Lọc theo creatorUser của người dùng hiện tại để đảm bảo Data Isolation (BOLA)
+        Long currentUserId = getCurrentActorId();
         return documentRepository
-                .findByStatusAndDeleteFlgFalse(DocumentStatus.PENDING_SIGN, pageable)
+                .searchDocuments(currentUserId, DocumentStatus.PENDING_SIGN, null, null, pageable)
                 .map(doc -> PendingDocumentResponse.builder()
                         .id(doc.getId())
                         .title(doc.getTitle())
@@ -633,8 +641,10 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     @Override
     @Transactional(readOnly = true)
     public Page<PendingDocumentResponse> getPendingPublishDocuments(Pageable pageable) {
+        // Lọc theo creatorUser của người dùng hiện tại để đảm bảo Data Isolation (BOLA)
+        Long currentUserId = getCurrentActorId();
         return documentRepository
-                .findByStatusAndDeleteFlgFalse(DocumentStatus.APPROVED, pageable)
+                .searchDocuments(currentUserId, DocumentStatus.APPROVED, null, null, pageable)
                 .map(doc -> PendingDocumentResponse.builder()
                         .id(doc.getId())
                         .title(doc.getTitle())

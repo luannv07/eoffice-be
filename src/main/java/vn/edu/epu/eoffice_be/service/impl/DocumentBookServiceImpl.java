@@ -235,9 +235,16 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 		String documentNumber = book.getNumberPattern().replace("{NUM}", String.valueOf(nextNumber));
 
 		// Kiểm tra chống trùng lặp số hiệu trên hệ thống
-		if (document != null && documentRepository.existsByOfficialNumberAndIdNotAndDeleteFlgFalse(documentNumber, document.getId())) {
-			throw new BusinessException(ErrorCode.DOCUMENT_NUMBER_ALREADY_EXISTS,
-					"Số hiệu văn bản '" + documentNumber + "' đã tồn tại trên một văn bản khác trong hệ thống");
+		// Phân biệt 2 trường hợp: tạo mới (id == null) và cập nhật (id != null).
+		// Khi id == null, SQL "id <> NULL" luôn trả về UNKNOWN, nên phải dùng query riêng.
+		if (document != null) {
+			boolean duplicateExists = document.getId() == null
+					? documentRepository.existsByOfficialNumberAndDeleteFlgFalse(documentNumber)
+					: documentRepository.existsByOfficialNumberAndIdNotAndDeleteFlgFalse(documentNumber, document.getId());
+			if (duplicateExists) {
+				throw new BusinessException(ErrorCode.DOCUMENT_NUMBER_ALREADY_EXISTS,
+						"Số hiệu văn bản '" + documentNumber + "' đã tồn tại trên một văn bản khác trong hệ thống");
+			}
 		}
 
 		// 5. Gán số văn bản và ngày hiệu lực vào Document entity
