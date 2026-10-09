@@ -812,4 +812,72 @@ class DocumentWorkflowServiceTest {
                 () -> documentWorkflowService.signAndPublish(5001L, request));
         assertEquals(ErrorCode.VALIDATION_ERROR, ex.getErrorCode());
     }
+
+    @Test
+    @DisplayName("approve: khi văn bản ở WAITING_APPROVAL vẫn duyệt được thành công (thích ứng ngược)")
+    void approve_whenWaitingApproval_shouldTransitionSuccessfully() {
+        document.setStatus(DocumentStatus.WAITING_APPROVAL);
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        DocumentApproveRequest request = DocumentApproveRequest.builder()
+                .comment("Duyệt văn bản từ trạng thái WAITING_APPROVAL")
+                .build();
+
+        DocumentDetailResponse response = documentWorkflowService.approve(5001L, request);
+
+        assertNotNull(response);
+        verify(workflowEngine).executeTransition(
+                document,
+                WorkflowAction.REVIEW_APPROVE,
+                leader,
+                "Duyệt văn bản từ trạng thái WAITING_APPROVAL",
+                null,
+                null,
+                null
+        );
+    }
+
+    @Test
+    @DisplayName("signAndPublish: khi request không truyền officialNumber thì tự kế thừa từ số đã cấp ở sổ văn bản")
+    void signAndPublish_whenRequestOfficialNumberBlank_shouldInheritFromDocument() {
+        document.setPrimaryFilePath("drafts/sample.pdf");
+        document.setOfficialNumber("99/QD-DHEPU"); // Đã cấp trước đó từ sổ
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        byte[] mockBytes = new byte[]{1, 2, 3};
+        when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
+        when(pdfProcessingService.signAndCertifyPdf(any(byte[].class), anyString(), anyString())).thenReturn(mockBytes);
+        when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("official/doc_5001.pdf");
+        when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("hash_sha256");
+
+        DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .officialNumber(null) // Để trống số hiệu
+                .comment("Ký phát hành kế thừa số sổ")
+                .build();
+
+        DocumentDetailResponse response = documentWorkflowService.signAndPublish(5001L, request);
+
+        assertNotNull(response);
+        assertEquals("99/QD-DHEPU", document.getOfficialNumber());
+    }
+
+    @Test
+    @DisplayName("signAndPublish: khi số hiệu trùng với văn bản khác đã có thì ném DOCUMENT_NUMBER_ALREADY_EXISTS")
+    void signAndPublish_whenDuplicateOfficialNumber_shouldThrowConflict() {
+        document.setPrimaryFilePath("drafts/sample.pdf");
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+        when(documentRepository.existsByOfficialNumberAndIdNotAndDeleteFlgFalse("125/QD-DHEPU", 5001L)).thenReturn(true);
+
+        DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .officialNumber("125/QD-DHEPU")
+                .comment("Ký ban hành nhưng trùng số")
+                .build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.signAndPublish(5001L, request));
+        assertEquals(ErrorCode.DOCUMENT_NUMBER_ALREADY_EXISTS, ex.getErrorCode());
+    }
 }

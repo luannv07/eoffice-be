@@ -21,6 +21,10 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
     Optional<Document> findByDraftCodeAndDeleteFlgFalse(String draftCode);
 
     boolean existsByDraftCodeAndDeleteFlgFalse(String draftCode);
+ 
+    boolean existsByOfficialNumberAndIdNotAndDeleteFlgFalse(String officialNumber, Long id);
+
+    boolean existsByOfficialNumberAndDeleteFlgFalse(String officialNumber);
 
     Page<Document> findByCreatorUserIdAndDeleteFlgFalse(Long creatorUserId, Pageable pageable);
 

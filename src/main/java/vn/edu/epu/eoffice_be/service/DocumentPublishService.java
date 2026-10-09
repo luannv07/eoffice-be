@@ -6,6 +6,8 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
+import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
+import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.dto.PublishRequest;
 import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.entity.DocumentDistribution;
@@ -45,7 +47,17 @@ public class DocumentPublishService {
     }
 
     private void applyDocumentMetadata(Document doc, PublishRequest request, String computedHash) {
-        doc.setOfficialNumber(String.format("%02d/QĐ-ĐHL", doc.getId()));
+        // Giữ nguyên số hiệu văn bản đã cấp từ sổ; chỉ fallback nếu văn bản chưa từng được cấp số
+        if (doc.getOfficialNumber() == null || doc.getOfficialNumber().isBlank()) {
+            doc.setOfficialNumber(String.format("%02d/QĐ-ĐHL", doc.getId()));
+        }
+
+        // Kiểm tra chống trùng số văn bản đã có trên hệ thống
+        if (doc.getOfficialNumber() != null && documentRepository.existsByOfficialNumberAndIdNotAndDeleteFlgFalse(doc.getOfficialNumber().trim(), doc.getId())) {
+            throw new BusinessException(ErrorCode.DOCUMENT_NUMBER_ALREADY_EXISTS,
+                    "Số hiệu văn bản '" + doc.getOfficialNumber().trim() + "' đã tồn tại trên một văn bản khác trong hệ thống!");
+        }
+
         doc.setStatus(DocumentStatus.PUBLISHED);
         doc.setOfficialHash(computedHash);
 

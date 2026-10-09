@@ -19,8 +19,8 @@ import java.time.Instant;
 @Schema(description = "Yêu cầu phê duyệt và ký phát hành văn bản chính thức (UC14)")
 public class DocumentPublishRequest {
 
-    @NotBlank(message = "Số hiệu văn bản chính thức không được để trống")
-    @Schema(description = "Số hiệu văn bản chính thức ban hành", requiredMode = Schema.RequiredMode.REQUIRED, example = "125/QĐ-ĐHEPU")
+    @Size(max = 100, message = "Số hiệu văn bản không được vượt quá 100 ký tự")
+    @Schema(description = "Số hiệu văn bản chính thức ban hành (nếu để trống sẽ tự động lấy số đã cấp từ sổ văn bản ở bước Chờ ban hành)", requiredMode = Schema.RequiredMode.NOT_REQUIRED, example = "125/QĐ-ĐHEPU")
     private String officialNumber;
 
     @Schema(description = "Ngày ký ban hành chính thức (mặc định lấy thời điểm hiện tại)", example = "2026-09-10T08:00:00Z")

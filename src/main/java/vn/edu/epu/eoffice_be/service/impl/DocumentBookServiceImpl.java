@@ -232,6 +232,12 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 		// 4. Áp dụng pattern: "{NUM}/QĐ-ĐHEPU" -> "1/QĐ-ĐHEPU"
 		String documentNumber = book.getNumberPattern().replace("{NUM}", String.valueOf(nextNumber));
 
+		// Kiểm tra chống trùng lặp số hiệu trên hệ thống
+		if (document != null && documentRepository.existsByOfficialNumberAndIdNotAndDeleteFlgFalse(documentNumber, document.getId())) {
+			throw new BusinessException(ErrorCode.DOCUMENT_NUMBER_ALREADY_EXISTS,
+					"Số hiệu văn bản '" + documentNumber + "' đã tồn tại trên một văn bản khác trong hệ thống");
+		}
+
 		// 5. Gán số văn bản và ngày hiệu lực vào Document entity
 		if (document != null) {
 			document.setOfficialNumber(documentNumber);

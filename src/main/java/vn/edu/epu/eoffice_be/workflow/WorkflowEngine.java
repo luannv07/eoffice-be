@@ -82,6 +82,15 @@ public class WorkflowEngine {
         needsRevisionTransitions.put(WorkflowAction.SUBMIT, DocumentStatus.SUBMITTED);
         needsRevisionTransitions.put(WorkflowAction.WITHDRAW, DocumentStatus.DRAFT);
         TRANSITION_MATRIX.put(DocumentStatus.NEEDS_REVISION, needsRevisionTransitions);
+
+        // WAITING_APPROVAL — tương đương SUBMITTED (cơ chế thích ứng ngược cho dev)
+        Map<WorkflowAction, DocumentStatus> waitingApprovalTransitions = new EnumMap<>(WorkflowAction.class);
+        waitingApprovalTransitions.put(WorkflowAction.REVIEW_APPROVE, DocumentStatus.IN_REVIEW);
+        waitingApprovalTransitions.put(WorkflowAction.INITIAL_SIGN, DocumentStatus.IN_REVIEW);
+        waitingApprovalTransitions.put(WorkflowAction.WITHDRAW, DocumentStatus.DRAFT);
+        waitingApprovalTransitions.put(WorkflowAction.REQUEST_REVISION, DocumentStatus.NEEDS_REVISION);
+        waitingApprovalTransitions.put(WorkflowAction.REJECT, DocumentStatus.REJECTED);
+        TRANSITION_MATRIX.put(DocumentStatus.WAITING_APPROVAL, waitingApprovalTransitions);
     }
 
     /**

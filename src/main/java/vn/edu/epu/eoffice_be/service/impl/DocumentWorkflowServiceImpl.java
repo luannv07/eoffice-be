@@ -75,6 +75,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
     public static final List<DocumentStatus> PENDING_STATUSES = List.of(
             DocumentStatus.PENDING_APPROVAL,
+            DocumentStatus.WAITING_APPROVAL,
             DocumentStatus.IN_REVIEW,
             DocumentStatus.PENDING_SIGN,
             DocumentStatus.SUBMITTED,
@@ -95,7 +96,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
         // Quyết định hành động chuyển tiếp phù hợp với trạng thái hiện tại
         WorkflowAction action;
-        if (document.getStatus() == DocumentStatus.SUBMITTED || document.getStatus() == DocumentStatus.IN_REVIEW) {
+        if (document.getStatus() == DocumentStatus.SUBMITTED
+                || document.getStatus() == DocumentStatus.WAITING_APPROVAL
+                || document.getStatus() == DocumentStatus.IN_REVIEW) {
             action = WorkflowAction.REVIEW_APPROVE;
         } else if (document.getStatus() == DocumentStatus.LEADER_REVIEW) {
             action = WorkflowAction.LEADER_APPROVE;
@@ -211,7 +214,23 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Ngày có hiệu lực (effectiveDate) không được trước ngày ban hành (issueDate)");
         }
 
-        document.setOfficialNumber(request.getOfficialNumber());
+        String officialNumber = request.getOfficialNumber();
+        if (officialNumber == null || officialNumber.isBlank()) {
+            // Tự động kế thừa số hiệu đã được cấp từ sổ văn bản ở bước Chờ ban hành (APPROVED)
+            officialNumber = document.getOfficialNumber();
+        }
+
+        if (officialNumber == null || officialNumber.isBlank()) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "Văn bản chưa được cấp số hiệu từ sổ văn bản. Vui lòng cấp số trước khi ký phát hành!");
+        }
+
+        // Kiểm tra chống trùng số văn bản đã có trên hệ thống
+        if (documentRepository.existsByOfficialNumberAndIdNotAndDeleteFlgFalse(officialNumber.trim(), document.getId())) {
+            throw new BusinessException(ErrorCode.DOCUMENT_NUMBER_ALREADY_EXISTS,
+                    "Số hiệu văn bản '" + officialNumber.trim() + "' đã tồn tại trên một văn bản khác trong hệ thống!");
+        }
+
+        document.setOfficialNumber(officialNumber.trim());
         document.setIssueDate(issueDate);
         document.setEffectiveDate(effectiveDate);
 
@@ -620,6 +639,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         }
         return switch (status) {
             case SUBMITTED -> "Văn thư tiếp nhận";
+            case WAITING_APPROVAL -> "Chuyên viên thẩm định / Người duyệt";
             case PENDING_REVIEW, IN_REVIEW -> "Chuyên viên thẩm định";
             case PENDING_APPROVAL -> "Lãnh đạo phê duyệt";
             case PENDING_SIGN -> "Lãnh đạo ký số";
