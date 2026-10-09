@@ -12,6 +12,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
@@ -43,11 +44,14 @@ import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.dto.PendingDocumentResponse;
 import vn.edu.epu.eoffice_be.dto.StampInfo;
+import vn.edu.epu.eoffice_be.dto.request.AssignDocumentNumberRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentApproveRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentInitialSignRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentPublishRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRejectRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRevisionRequest;
+import vn.edu.epu.eoffice_be.dto.response.AssignDocumentNumberResponse;
+import vn.edu.epu.eoffice_be.service.DocumentBookService;
 import vn.edu.epu.eoffice_be.dto.response.DocumentDetailResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentWorkflowLogResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
@@ -82,6 +86,8 @@ class DocumentWorkflowServiceTest {
     private FileStorageService fileStorageService;
     @Mock
     private PdfProcessingService pdfProcessingService;
+    @Mock
+    private DocumentBookService documentBookService;
 
     @InjectMocks
     private DocumentWorkflowServiceImpl documentWorkflowService;
@@ -270,9 +276,16 @@ class DocumentWorkflowServiceTest {
         when(pdfProcessingService.signAndCertifyPdf(any(byte[].class), anyString(), anyString())).thenReturn(mockBytes);
         when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("official/doc_5001.pdf");
         when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("official_sha256_hash");
+        when(documentBookService.assignNumber(any(AssignDocumentNumberRequest.class))).thenReturn(
+                AssignDocumentNumberResponse.builder()
+                        .documentNumber("125/QD-DHEPU")
+                        .bookId(1001L)
+                        .currentNumber(1)
+                        .build()
+        );
 
         DocumentPublishRequest request = DocumentPublishRequest.builder()
-                .officialNumber("125/QD-DHEPU")
+                .bookId(1001L)
                 .comment("Ky ban hanh chinh thuc")
                 .build();
 
@@ -285,6 +298,7 @@ class DocumentWorkflowServiceTest {
         assertEquals("/documents/5001/files/primary", response.getPrimaryFileUrl());
         assertEquals("/documents/5001/files/official", response.getOfficialFileUrl());
 
+        verify(documentBookService).assignNumber(any(AssignDocumentNumberRequest.class));
         verify(workflowEngine).executeTransition(
                 document,
                 WorkflowAction.SIGN_AND_PUBLISH,
@@ -338,13 +352,21 @@ class DocumentWorkflowServiceTest {
         when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("official/doc_failed.pdf");
         when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("official_sha256_hash");
 
+        when(documentBookService.assignNumber(any(AssignDocumentNumberRequest.class))).thenReturn(
+                AssignDocumentNumberResponse.builder()
+                        .documentNumber("125/QD-DHEPU")
+                        .bookId(1001L)
+                        .currentNumber(1)
+                        .build()
+        );
+
         doThrow(new BusinessException(ErrorCode.INVALID_WORKFLOW_STATE))
                 .when(workflowEngine).executeTransition(
                         any(), any(), any(), any(), any(), any(), any()
                 );
 
         DocumentPublishRequest request = DocumentPublishRequest.builder()
-                .officialNumber("125/QD-DHEPU")
+                .bookId(1001L)
                 .comment("Ky ban hanh chinh thuc")
                 .build();
 
@@ -381,13 +403,30 @@ class DocumentWorkflowServiceTest {
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
         DocumentPublishRequest request = DocumentPublishRequest.builder()
-                .officialNumber("125/QD-DHEPU")
+                .bookId(1001L)
                 .comment("Ky ban hanh")
                 .build();
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentWorkflowService.signAndPublish(5001L, request));
         assertEquals(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING, ex.getErrorCode());
+        verifyNoInteractions(documentBookService);
+    }
+
+    @Test
+    @DisplayName("UC14: Ký phát hành thất bại khi thiếu bookId và officialNumber")
+    void signAndPublish_whenBookIdMissing_shouldThrowException() {
+        document.setPrimaryFilePath("drafts/sample.pdf");
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .comment("Ky ban hanh")
+                .build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.signAndPublish(5001L, request));
+        assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
     }
 
     @Test
