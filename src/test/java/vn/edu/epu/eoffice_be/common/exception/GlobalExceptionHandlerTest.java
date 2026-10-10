@@ -158,4 +158,16 @@ class GlobalExceptionHandlerTest {
 		assertEquals("Yêu cầu upload file không hợp lệ hoặc kích thước vượt quá giới hạn", response.getBody().getMessage());
 		assertFalse(response.getBody().getMessage().contains("C:\\Users\\secret\\path"));
 	}
+
+	@Test
+	void handleFileStorageExceptionShouldNotExposeRawInternalPathOrMessage() {
+		vn.edu.epu.eoffice_be.storage.provider.FileStorageException ex =
+				new vn.edu.epu.eoffice_be.storage.provider.FileStorageException("Cannot write to /var/eoffice/secret_path/file.pdf");
+		ResponseEntity<BaseResponse<Void>> response = handler.handleFileStorageException(ex);
+
+		assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+		assertEquals("STORAGE_ERROR", response.getBody().getErrorCode());
+		assertEquals("Lỗi lưu trữ tệp. Vui lòng thử lại sau", response.getBody().getMessage());
+		assertFalse(response.getBody().getMessage().contains("/var/eoffice/secret_path"));
+	}
 }

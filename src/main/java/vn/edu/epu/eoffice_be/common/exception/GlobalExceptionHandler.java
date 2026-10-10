@@ -84,7 +84,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<BaseResponse<Void>> handleFileStorageException(FileStorageException ex) {
         log.error("File storage error: ", ex);
         return ResponseEntity.status(ErrorCode.STORAGE_ERROR.getStatus())
-                .body(BaseResponse.error("Lỗi lưu trữ tệp: " + ex.getMessage(), ErrorCode.STORAGE_ERROR.getCode()));
+                .body(BaseResponse.error("Lỗi lưu trữ tệp. Vui lòng thử lại sau", ErrorCode.STORAGE_ERROR.getCode()));
     }
 
     @ExceptionHandler(Exception.class)

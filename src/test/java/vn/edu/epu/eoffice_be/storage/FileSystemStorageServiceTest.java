@@ -27,10 +27,15 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import vn.edu.epu.eoffice_be.storage.provider.FileStorageException;
+import vn.edu.epu.eoffice_be.storage.provider.FileStorageProvider;
+import vn.edu.epu.eoffice_be.storage.provider.FileStorageProviderRegistry;
+import vn.edu.epu.eoffice_be.storage.provider.StoredFile;
 
 @ExtendWith(MockitoExtension.class)
 class FileSystemStorageServiceTest {
@@ -161,5 +166,69 @@ class FileSystemStorageServiceTest {
 
         serviceWithProvider.deleteFile("telegram", "file-123");
         verify(mockProvider).delete("file-123");
+    }
+
+    @Test
+    @DisplayName("Lưu qua fallback khi primary provider thất bại")
+    void storeFile_PrimaryProviderFails_FallbackSucceeds() {
+        FileStorageProviderRegistry registry = mock(FileStorageProviderRegistry.class);
+        FileStorageProvider primary = mock(FileStorageProvider.class);
+        FileStorageProvider fallback = mock(FileStorageProvider.class);
+
+        when(primary.getName()).thenReturn("telegram");
+        when(fallback.getName()).thenReturn("filesystem");
+        when(registry.getActiveProvider()).thenReturn(primary);
+        when(registry.getProvider("filesystem")).thenReturn(fallback);
+
+        when(primary.save(any(StoredFile.class))).thenThrow(new FileStorageException("Telegram unreachable"));
+        StoredFile fallbackSaved = StoredFile.builder()
+                .id("fallback-file-id.pdf")
+                .originalFileName("doc.pdf")
+                .build();
+        when(fallback.save(any(StoredFile.class))).thenReturn(fallbackSaved);
+
+        FileSystemStorageService serviceWithProviders = new FileSystemStorageService(
+                uploadProperties, securityValidator, registry, null
+        );
+
+        MockMultipartFile file = new MockMultipartFile("file", "doc.pdf", "application/pdf", "content".getBytes());
+        when(securityValidator.extractExtension("doc.pdf")).thenReturn("pdf");
+
+        StoredFileInfo result = serviceWithProviders.storeFile(file, 99L);
+        assertNotNull(result);
+        assertEquals("fallback-file-id.pdf", result.getStorageFileName());
+        assertEquals("filesystem", result.getStoragePath());
+    }
+
+    @Test
+    @DisplayName("Khi cả primary và fallback đều thất bại thì addSuppressed exception")
+    void storeFile_BothProvidersFail_AttachesSuppressedException() {
+        FileStorageProviderRegistry registry = mock(FileStorageProviderRegistry.class);
+        FileStorageProvider primary = mock(FileStorageProvider.class);
+        FileStorageProvider fallback = mock(FileStorageProvider.class);
+
+        when(primary.getName()).thenReturn("telegram");
+        when(fallback.getName()).thenReturn("filesystem");
+        when(registry.getActiveProvider()).thenReturn(primary);
+        when(registry.getProvider("filesystem")).thenReturn(fallback);
+
+        FileStorageException primaryEx = new FileStorageException("Telegram unreachable");
+        FileStorageException fallbackEx = new FileStorageException("Disk full");
+        when(primary.save(any(StoredFile.class))).thenThrow(primaryEx);
+        when(fallback.save(any(StoredFile.class))).thenThrow(fallbackEx);
+
+        FileSystemStorageService serviceWithProviders = new FileSystemStorageService(
+                uploadProperties, securityValidator, registry, null
+        );
+
+        MockMultipartFile file = new MockMultipartFile("file", "doc.pdf", "application/pdf", "content".getBytes());
+        when(securityValidator.extractExtension("doc.pdf")).thenReturn("pdf");
+
+        FileStorageException thrown = assertThrows(FileStorageException.class,
+                () -> serviceWithProviders.storeFile(file, 99L));
+
+        assertEquals(primaryEx, thrown);
+        assertEquals(1, thrown.getSuppressed().length);
+        assertEquals(fallbackEx, thrown.getSuppressed()[0]);
     }
 }

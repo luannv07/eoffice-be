@@ -120,7 +120,8 @@ public class FileSystemStorageService implements FileStorageService {
                     if (fallbackEx == e) {
                         throw e;
                     }
-                    log.error("Fallback về 'filesystem' cũng thất bại: {}", fallbackEx.getMessage());
+                    log.error("Fallback về 'filesystem' cũng thất bại: {}", fallbackEx.getMessage(), fallbackEx);
+                    e.addSuppressed(fallbackEx);
                     throw e;
                 }
             }
