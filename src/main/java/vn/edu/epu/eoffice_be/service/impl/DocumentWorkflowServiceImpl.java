@@ -28,10 +28,12 @@ import vn.edu.epu.eoffice_be.dto.WorkflowTimelineResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentDetailResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentWorkflowLogResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
+import vn.edu.epu.eoffice_be.entity.DocumentAttachment;
 import vn.edu.epu.eoffice_be.entity.DocumentWorkflowLog;
 import vn.edu.epu.eoffice_be.entity.OrgNode;
 import vn.edu.epu.eoffice_be.entity.UserInfo;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
+import vn.edu.epu.eoffice_be.repository.DocumentAttachmentRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentWorkflowLogRepository;
 import vn.edu.epu.eoffice_be.repository.OrgNodeRepository;
@@ -49,6 +51,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import vn.edu.epu.eoffice_be.dto.request.AssignDocumentNumberRequest;
 import vn.edu.epu.eoffice_be.dto.response.AssignDocumentNumberResponse;
 import vn.edu.epu.eoffice_be.service.DocumentBookService;
@@ -67,10 +70,12 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     private final FileStorageService fileStorageService;
     private final PdfProcessingService pdfProcessingService;
     private final DocumentBookService documentBookService;
+    private final DocumentAttachmentRepository documentAttachmentRepository;
+    private final vn.edu.epu.eoffice_be.storage.FileStorageService unifiedStorageService;
 
     public DocumentWorkflowServiceImpl(DocumentRepository documentRepository,
                                        DocumentWorkflowLogRepository documentWorkflowLogRepository) {
-        this(documentRepository, documentWorkflowLogRepository, null, null, null, null, null, null, null);
+        this(documentRepository, documentWorkflowLogRepository, null, null, null, null, null, null, null, null, null);
     }
 
     private static final ZoneId ZONE_VN = ZoneId.of("Asia/Ho_Chi_Minh");
@@ -161,7 +166,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         // 1. Kiểm tra file PDF nguồn: nếu chưa có file đính kèm chính thì báo lỗi
         ensureDocumentPdfExists(document);
 
-        byte[] currentPdfBytes = fileStorageService.loadFileBytes(document.getPrimaryFilePath());
+        byte[] currentPdfBytes = loadDocumentPdfBytes(document);
 
         // 2. Lấy thông tin người ký để in con dấu
         String signerFullName = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(actor.getId())
@@ -267,7 +272,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         document.setEffectiveDate(effectiveDate);
 
         // 3. Đọc file PDF nguồn
-        byte[] currentPdfBytes = fileStorageService.loadFileBytes(document.getPrimaryFilePath());
+        byte[] currentPdfBytes = loadDocumentPdfBytes(document);
 
         // 4. Ký số điện tử PKI X.509 PAdES và đặt cờ niêm phong CERTIFIED_NO_CHANGES_ALLOWED
         String signerDisplayName = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(actor.getId())
@@ -431,9 +436,102 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     }
 
     private void ensureDocumentPdfExists(Document document) {
-        if (document.getPrimaryFilePath() == null || document.getPrimaryFilePath().isBlank()) {
-            throw new BusinessException(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING);
+        if (document.getPrimaryFilePath() != null && !document.getPrimaryFilePath().isBlank()) {
+            return;
         }
+        if (documentAttachmentRepository != null) {
+            boolean hasMainAttachment = documentAttachmentRepository
+                    .existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(document.getId());
+            boolean hasAnyAttachment = documentAttachmentRepository
+                    .existsByDocumentIdAndDeleteFlgFalse(document.getId());
+            if (hasMainAttachment || hasAnyAttachment) {
+                return;
+            }
+        }
+        throw new BusinessException(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING);
+    }
+
+    private boolean isPdfAttachment(DocumentAttachment att) {
+        if (att == null) {
+            return false;
+        }
+        return "PDF".equalsIgnoreCase(att.getFileExtension()) ||
+                (att.getOriginalFileName() != null && att.getOriginalFileName().toLowerCase().endsWith(".pdf"));
+    }
+
+    private byte[] loadDocumentPdfBytes(Document document) {
+        // 1. Thử nạp qua fileStorageService nếu primaryFilePath đã có (ví dụ: đã qua bước ký nháy)
+        if (document.getPrimaryFilePath() != null && !document.getPrimaryFilePath().isBlank()) {
+            try {
+                byte[] bytes = fileStorageService.loadFileBytes(document.getPrimaryFilePath());
+                if (bytes != null && bytes.length > 0) {
+                    return bytes;
+                }
+            } catch (Exception e) {
+                log.warn("Không thể nạp file từ primaryFilePath '{}': {}", document.getPrimaryFilePath(), e.getMessage());
+            }
+        }
+
+        // 2. Thử nạp từ tệp đính kèm DocumentAttachment qua unifiedStorageService (Telegram/filesystem)
+        if (documentAttachmentRepository != null) {
+            List<DocumentAttachment> allAttachments = documentAttachmentRepository
+                    .findByDocumentIdAndDeleteFlgFalse(document.getId());
+
+            if (!allAttachments.isEmpty()) {
+                // 1) Kiểm tra xem có tệp đính kèm chính (isMainDocument == true) hay không
+                Optional<DocumentAttachment> mainAttachmentOpt = allAttachments.stream()
+                        .filter(att -> att != null && Boolean.TRUE.equals(att.isMainDocument()))
+                        .findFirst();
+
+                DocumentAttachment targetAttachment;
+                if (mainAttachmentOpt.isPresent()) {
+                    DocumentAttachment mainAtt = mainAttachmentOpt.get();
+                    if (!isPdfAttachment(mainAtt)) {
+                        throw new BusinessException(ErrorCode.BAD_REQUEST,
+                                "Tệp đính kèm chính của văn bản không phải định dạng PDF. Ký nháy/ký số yêu cầu tệp chính phải là định dạng PDF.");
+                    }
+                    targetAttachment = mainAtt;
+                } else {
+                    // 2) Nếu không có tệp chính được chỉ định, tìm tệp PDF đầu tiên trong danh sách
+                    targetAttachment = allAttachments.stream()
+                            .filter(this::isPdfAttachment)
+                            .findFirst()
+                            .orElse(null);
+
+                    if (targetAttachment == null) {
+                        throw new BusinessException(ErrorCode.BAD_REQUEST,
+                                "Văn bản đã có tệp đính kèm nhưng không phải định dạng PDF. Ký nháy/ký số chỉ hỗ trợ tệp định dạng PDF.");
+                    }
+                }
+
+                if (unifiedStorageService != null) {
+                    try {
+                        org.springframework.core.io.Resource res = unifiedStorageService.loadAsResource(
+                                targetAttachment.getStoragePath(), targetAttachment.getStorageFileName()
+                        );
+                        if (res != null && res.exists() && res.isReadable()) {
+                            try (java.io.InputStream is = res.getInputStream()) {
+                                byte[] bytes = is.readAllBytes();
+                                if (bytes.length > 0) {
+                                    return bytes;
+                                }
+                            }
+                        } else {
+                            log.error("Tệp đính kèm PDF id={} (storagePath={}, storageFileName={}) không tồn tại hoặc không thể đọc trên hệ thống lưu trữ",
+                                    targetAttachment.getId(), targetAttachment.getStoragePath(), targetAttachment.getStorageFileName());
+                        }
+                    } catch (Exception e) {
+                        log.error("Lỗi khi đọc tệp đính kèm PDF id={}: {}", targetAttachment.getId(), e.getMessage(), e);
+                    }
+                }
+
+                // Trường hợp 2: Có tệp đính kèm PDF hợp lệ nhưng không thể nạp nội dung từ storage
+                throw new BusinessException(ErrorCode.STORAGE_ERROR,
+                        "Không thể tải nội dung tệp PDF đính kèm từ hệ thống lưu trữ. Vui lòng thử lại sau.");
+            }
+        }
+
+        throw new BusinessException(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING);
     }
 
     /**
