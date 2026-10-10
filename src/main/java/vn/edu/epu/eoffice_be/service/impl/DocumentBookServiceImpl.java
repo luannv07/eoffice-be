@@ -9,7 +9,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.edu.epu.eoffice_be.common.enums.DocumentSecurityLevel;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
+import vn.edu.epu.eoffice_be.common.enums.DocumentUrgencyLevel;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.dto.request.AssignDocumentNumberRequest;
@@ -18,10 +20,12 @@ import vn.edu.epu.eoffice_be.dto.request.DocumentBookFilterRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentBookUpdateRequest;
 import vn.edu.epu.eoffice_be.dto.response.AssignDocumentNumberResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentBookResponse;
+import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
 import vn.edu.epu.eoffice_be.entity.DictionaryItem;
 import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.entity.DocumentBook;
 import vn.edu.epu.eoffice_be.entity.OrgNode;
+import vn.edu.epu.eoffice_be.entity.UserLogin;
 import vn.edu.epu.eoffice_be.repository.DictionaryItemRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentBookRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
@@ -29,6 +33,11 @@ import vn.edu.epu.eoffice_be.repository.OrgNodeRepository;
 import vn.edu.epu.eoffice_be.service.DocumentBookService;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -202,6 +211,11 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 				throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATUS, "Văn bản chưa ở trạng thái Đã phê duyệt (APPROVED) hoặc Chờ ký");
 			}
 
+			if (document.getOfficialNumber() != null && !document.getOfficialNumber().isBlank()) {
+				throw new BusinessException(ErrorCode.BAD_REQUEST,
+						"Văn bản đã được cấp số hiệu: " + document.getOfficialNumber());
+			}
+
 			// Kiểm tra ràng buộc giữa Document và DocumentBook (loại văn bản, đơn vị, năm hiệu lực)
 			if (book.getDocumentType() != null) {
 				if (document.getDocumentTypeCd() == null || !document.getDocumentTypeCd().equalsIgnoreCase(book.getDocumentType().getItemCd())) {
@@ -251,6 +265,7 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 		// 5. Gán số văn bản và ngày hiệu lực vào Document entity
 		if (document != null) {
 			document.setOfficialNumber(documentNumber);
+			document.setDocumentBook(book);
 			if (request.getEffectiveDate() != null) {
 				document.setEffectiveDate(request.getEffectiveDate());
 			}
@@ -274,6 +289,90 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 				.currentNumber(nextNumber)
 				.effectiveDate(request.getEffectiveDate())
 				.documentId(request.getDocumentId())
+				.build();
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public Page<DocumentResponse> getAssignedDocuments(Long bookId, String keyword, DocumentStatus status, Pageable pageable) {
+		DocumentBook book = documentBookRepository.findByIdAndDeleteFlgFalse(bookId)
+				.orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_BOOK_NOT_FOUND));
+
+		String typeCd = book.getDocumentType() != null ? book.getDocumentType().getItemCd() : null;
+		Long orgId = book.getOrgNode() != null ? book.getOrgNode().getId() : null;
+		String kw = null;
+		if (keyword != null && !keyword.isBlank()) {
+			kw = keyword.trim()
+					.replace("\\", "\\\\")
+					.replace("%", "\\%")
+					.replace("_", "\\_");
+		}
+
+		Page<Document> docs = documentRepository.findAssignedDocuments(book.getId(), typeCd, orgId, status, kw, pageable);
+
+		// Batch-fetch type names để tránh N+1 query
+		Set<String> typeCds = docs.getContent().stream()
+				.map(Document::getDocumentTypeCd)
+				.filter(cd -> cd != null && !cd.isBlank())
+				.collect(Collectors.toSet());
+		Map<String, String> typeNameMap = typeCds.isEmpty()
+				? Map.of()
+				: dictionaryItemRepository
+						.findByGroupCdAndItemCdInAndDeleteFlgFalse("DOCUMENT_TYPE", typeCds)
+						.stream()
+						.filter(item -> item.getItemCd() != null && item.getNameVn() != null)
+						.collect(Collectors.toMap(DictionaryItem::getItemCd, DictionaryItem::getNameVn,
+								(existing, replacement) -> existing));
+
+		return docs.map(doc -> toDocumentDto(doc, book, typeNameMap));
+	}
+
+	private DocumentResponse toDocumentDto(Document doc, DocumentBook book, Map<String, String> typeNameMap) {
+		String typeName = doc.getDocumentTypeCd();
+		if (doc.getDocumentTypeCd() != null) {
+			typeName = typeNameMap.getOrDefault(doc.getDocumentTypeCd(), doc.getDocumentTypeCd());
+		}
+
+		OrgNode org = doc.getIssuingOrgNode() != null ? doc.getIssuingOrgNode() : doc.getIssuingOrg();
+		Long orgId = org != null ? org.getId() : null;
+		String orgName = org != null ? org.getNameVn() : null;
+
+		UserLogin creator = doc.getCreatorUser() != null ? doc.getCreatorUser() : doc.getDrafter();
+		Long creatorId = creator != null ? creator.getId() : null;
+		String creatorUsername = creator != null ? creator.getUsername() : null;
+
+		DocumentStatus status = doc.getStatus() != null ? doc.getStatus() : DocumentStatus.DRAFT;
+
+		Long bookId = book != null ? book.getId() : (doc.getDocumentBook() != null ? doc.getDocumentBook().getId() : null);
+		String bookCode = book != null ? book.getBookCode() : (doc.getDocumentBook() != null ? doc.getDocumentBook().getBookCode() : null);
+
+		return DocumentResponse.builder()
+				.id(doc.getId())
+				.draftCode(doc.getDraftCode())
+				.title(doc.getTitle())
+				.summary(doc.getSummary())
+				.content(doc.getContent())
+				.documentTypeCd(doc.getDocumentTypeCd())
+				.documentTypeName(typeName)
+				.issuingOrgNodeId(orgId)
+				.issuingOrgNodeName(orgName)
+				.creatorUserId(creatorId)
+				.creatorUsername(creatorUsername)
+				.status(status)
+				.statusDescription(status.getDescription())
+				.currentVersion(doc.getCurrentVersion())
+				.securityLevel(doc.getSecurityLevel() != null ? doc.getSecurityLevel() : DocumentSecurityLevel.NORMAL)
+				.urgencyLevel(doc.getUrgencyLevel() != null ? doc.getUrgencyLevel() : DocumentUrgencyLevel.NORMAL)
+				.submittedAt(doc.getSubmittedAt())
+				.createdDate(doc.getCreatedDate())
+				.updatedDate(doc.getUpdatedDate())
+				.officialNumber(doc.getOfficialNumber())
+				.documentBookId(bookId)
+				.documentBookCode(bookCode)
+				.issueDate(doc.getIssueDate() != null ? LocalDate.ofInstant(doc.getIssueDate(), ZoneId.of("Asia/Ho_Chi_Minh")) : null)
+				.effectiveDate(doc.getEffectiveDate() != null ? LocalDate.ofInstant(doc.getEffectiveDate(), ZoneId.of("Asia/Ho_Chi_Minh")) : null)
+				.officialFilePath(doc.getOfficialFilePath())
+				.officialHash(doc.getOfficialHash())
 				.build();
 	}
 

@@ -101,16 +101,33 @@ public class DocumentQueryService {
 
     // 1. Tra cứu danh sách văn bản theo quyền hạn của phòng ban (hoặc tất cả nếu orgId == null)
     public List<DocumentResponse> getPublishedDocuments(Long orgId) {
+        return getPublishedDocuments(orgId, null);
+    }
+
+    public List<DocumentResponse> getPublishedDocuments(Long orgId, Long documentBookId) {
         if (orgId == null) {
-            return getAllPublishedDocuments();
+            return getAllPublishedDocuments(documentBookId);
         }
-        return documentRepository.findPublishedDocumentsForUser(orgId).stream()
+        List<Document> docs = (documentBookId != null)
+                ? documentRepository.findPublishedDocumentsForUser(orgId, null, documentBookId)
+                : documentRepository.findPublishedDocumentsForUser(orgId);
+        return docs.stream()
                 .<DocumentResponse>map(this::mapToDocumentResponse)
                 .toList();
     }
 
     public List<DocumentResponse> getAllPublishedDocuments() {
-        return documentRepository.findByStatusOrderByIssueDateDescIdDesc(vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED).stream()
+        return getAllPublishedDocuments(null);
+    }
+
+    public List<DocumentResponse> getAllPublishedDocuments(Long documentBookId) {
+        List<Document> docs = (documentBookId != null)
+                ? documentRepository.findByStatusOrderByIssueDateDescIdDesc(
+                        vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED,
+                        documentBookId)
+                : documentRepository.findByStatusOrderByIssueDateDescIdDesc(
+                        vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED);
+        return docs.stream()
                 .<DocumentResponse>map(this::mapToDocumentResponse)
                 .toList();
     }
@@ -120,6 +137,8 @@ public class DocumentQueryService {
                 .id(doc.getId())
                 .title(doc.getTitle())
                 .officialNumber(doc.getOfficialNumber())
+                .documentBookId(doc.getDocumentBook() != null ? doc.getDocumentBook().getId() : null)
+                .documentBookCode(doc.getDocumentBook() != null ? doc.getDocumentBook().getBookCode() : null)
                 .status(doc.getStatus())
                 .statusDescription(doc.getStatus() != null ? doc.getStatus().getDescription() : null)
                 .issueDate(doc.getIssueDate() != null ? LocalDate.ofInstant(doc.getIssueDate(), ZONE_VN) : null)
