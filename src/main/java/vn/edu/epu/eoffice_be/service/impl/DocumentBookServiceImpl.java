@@ -34,6 +34,10 @@ import vn.edu.epu.eoffice_be.service.DocumentBookService;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -305,15 +309,27 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 		}
 
 		Page<Document> docs = documentRepository.findAssignedDocuments(book.getId(), typeCd, orgId, status, kw, pageable);
-		return docs.map(doc -> toDocumentDto(doc, book));
+
+		// Batch-fetch type names để tránh N+1 query
+		Set<String> typeCds = docs.getContent().stream()
+				.map(Document::getDocumentTypeCd)
+				.filter(cd -> cd != null && !cd.isBlank())
+				.collect(Collectors.toSet());
+		Map<String, String> typeNameMap = typeCds.isEmpty()
+				? Map.of()
+				: dictionaryItemRepository
+						.findByGroupCdAndItemCdInAndDeleteFlgFalse("DOCUMENT_TYPE", typeCds)
+						.stream()
+						.collect(Collectors.toMap(DictionaryItem::getItemCd, DictionaryItem::getNameVn,
+								(existing, replacement) -> existing));
+
+		return docs.map(doc -> toDocumentDto(doc, book, typeNameMap));
 	}
 
-	private DocumentResponse toDocumentDto(Document doc, DocumentBook book) {
+	private DocumentResponse toDocumentDto(Document doc, DocumentBook book, Map<String, String> typeNameMap) {
 		String typeName = doc.getDocumentTypeCd();
 		if (doc.getDocumentTypeCd() != null) {
-			typeName = dictionaryItemRepository.findByGroupCdAndItemCdAndDeleteFlgFalse("DOCUMENT_TYPE", doc.getDocumentTypeCd())
-					.map(DictionaryItem::getNameVn)
-					.orElse(doc.getDocumentTypeCd());
+			typeName = typeNameMap.getOrDefault(doc.getDocumentTypeCd(), doc.getDocumentTypeCd());
 		}
 
 		OrgNode org = doc.getIssuingOrgNode() != null ? doc.getIssuingOrgNode() : doc.getIssuingOrg();

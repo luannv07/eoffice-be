@@ -31,6 +31,7 @@ import vn.edu.epu.eoffice_be.repository.OrgNodeRepository;
 import vn.edu.epu.eoffice_be.service.impl.DocumentBookServiceImpl;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -621,12 +622,17 @@ class DocumentBookServiceImplTest {
 		when(documentBookRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(book));
 		when(documentRepository.findAssignedDocuments(eq(1L), any(), any(), any(), any(), any(Pageable.class)))
 				.thenReturn(new PageImpl<>(List.of(doc)));
+		when(dictionaryItemRepository.findByGroupCdAndItemCdInAndDeleteFlgFalse(eq("DOCUMENT_TYPE"), any(Collection.class)))
+				.thenReturn(List.of(docType));
 
 		var result = documentBookService.getAssignedDocuments(1L, null, null, PageRequest.of(0, 10));
 		assertNotNull(result);
 		assertEquals(1, result.getTotalElements());
 		assertEquals("1/QĐ-ĐHEPU", result.getContent().get(0).getOfficialNumber());
 		assertEquals(1L, result.getContent().get(0).getDocumentBookId());
+		assertEquals("Quyết định", result.getContent().get(0).getDocumentTypeName());
+		verify(dictionaryItemRepository, times(1))
+				.findByGroupCdAndItemCdInAndDeleteFlgFalse(eq("DOCUMENT_TYPE"), any(Collection.class));
 	}
 
 	@Test
