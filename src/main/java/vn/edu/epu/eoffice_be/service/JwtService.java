@@ -22,6 +22,7 @@ import java.util.UUID;
 public class JwtService {
 
 	public static final String CLAIM_PROFILE_COMPLETED = "profileCompleted";
+	public static final String CLAIM_ORG_ID = "orgId";
 	static final String CLAIM_USERNAME = "username";
 	static final String CLAIM_ROLE = "role";
 	static final String CLAIM_TOKEN_TYPE = "token_type";
@@ -32,14 +33,18 @@ public class JwtService {
 	final SecretKey secretKey;
 
 	public String generateAccessToken(Long userId, String username, Role role, boolean profileCompleted) {
-		return buildToken(userId, username, role, TYPE_ACCESS, properties.getAccessTokenTtl(), profileCompleted);
+		return generateAccessToken(userId, username, role, profileCompleted, null);
+	}
+
+	public String generateAccessToken(Long userId, String username, Role role, boolean profileCompleted, Long orgId) {
+		return buildToken(userId, username, role, TYPE_ACCESS, properties.getAccessTokenTtl(), profileCompleted, orgId);
 	}
 
 	public String generateRefreshToken(Long userId, String username, Role role) {
-		return buildToken(userId, username, role, TYPE_REFRESH, properties.getRefreshTokenTtl(), false);
+		return buildToken(userId, username, role, TYPE_REFRESH, properties.getRefreshTokenTtl(), false, null);
 	}
 
-	private String buildToken(Long userId, String username, Role role, String type, Duration ttl, boolean profileCompleted) {
+	private String buildToken(Long userId, String username, Role role, String type, Duration ttl, boolean profileCompleted, Long orgId) {
 		Instant now = Instant.now();
 		var builder = Jwts.builder()
 						.subject(String.valueOf(userId))
@@ -48,6 +53,9 @@ public class JwtService {
 						.claim(CLAIM_TOKEN_TYPE, type);
 		if (TYPE_ACCESS.equals(type)) {
 			builder.claim(CLAIM_PROFILE_COMPLETED, profileCompleted);
+			if (orgId != null) {
+				builder.claim(CLAIM_ORG_ID, orgId);
+			}
 		}
 		return builder
 						.id(UUID.randomUUID().toString())

@@ -57,7 +57,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		Role role = Role.from(claims.get("role", String.class), Role.USER);
 		Boolean profileCompleted = claims.get(JwtService.CLAIM_PROFILE_COMPLETED, Boolean.class);
 
-		JwtUserPrincipal principal = new JwtUserPrincipal(userId, username, role.name(), Boolean.TRUE.equals(profileCompleted), List.of());
+		Object orgIdClaim = claims.get(JwtService.CLAIM_ORG_ID);
+		Long orgId = null;
+		if (orgIdClaim instanceof Number num) {
+			orgId = num.longValue();
+		} else if (orgIdClaim instanceof String str && !str.isBlank()) {
+			try {
+				orgId = Long.valueOf(str);
+			} catch (NumberFormatException ignored) {
+			}
+		}
+
+		JwtUserPrincipal principal = new JwtUserPrincipal(userId, username, role.name(), Boolean.TRUE.equals(profileCompleted), List.of(), orgId);
 
 		var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
 

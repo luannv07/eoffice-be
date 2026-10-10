@@ -7,6 +7,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -499,5 +500,109 @@ class DocumentQueryControllerTest {
         executor.shutdown();
         assertTrue(executor.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS));
         assertEquals(0, observedEmptyCount.get());
+    }
+
+    @Test
+    void testGetPublishedDocuments_AdminRole_SuccessWithoutOrgId() {
+        doReturn(List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))).when(auth).getAuthorities();
+        when(documentQueryService.getAllPublishedDocuments()).thenReturn(List.of());
+
+        ResponseEntity<Object> response = documentQueryController.getPublishedDocuments(auth);
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        verify(documentQueryService).getAllPublishedDocuments();
+    }
+
+    @Test
+    void testGetDocumentDetails_AdminRole_SuccessWithoutOrgId() {
+        doReturn(List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))).when(auth).getAuthorities();
+        when(documentQueryService.getDocumentDetails(10L, null)).thenReturn(java.util.Map.of("id", 10L));
+
+        ResponseEntity<Object> response = documentQueryController.getDocumentDetails(10L, auth);
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        verify(documentQueryService).getDocumentDetails(10L, null);
+    }
+
+    @Test
+    void testDownloadDocument_AdminRole_SuccessWithoutOrgId() {
+        doReturn(List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))).when(auth).getAuthorities();
+        byte[] content = "PDF_CONTENT".getBytes(StandardCharsets.UTF_8);
+        when(documentQueryService.downloadDocument(10L, null)).thenReturn(content);
+
+        ResponseEntity<Resource> response = documentQueryController.downloadDocument(10L, auth);
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        verify(documentQueryService).downloadDocument(10L, null);
+    }
+
+    @Test
+    void testGetPublishedDocuments_JwtUserPrincipalAdmin_SuccessWithoutOrgId() {
+        vn.edu.epu.eoffice_be.security.JwtUserPrincipal adminPrincipal = 
+                new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(1L, "admin", "ADMIN", true, List.of());
+        when(auth.getPrincipal()).thenReturn(adminPrincipal);
+        when(documentQueryService.getAllPublishedDocuments()).thenReturn(List.of());
+
+        ResponseEntity<Object> response = documentQueryController.getPublishedDocuments(auth);
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        verify(documentQueryService).getAllPublishedDocuments();
+    }
+
+    @Test
+    void testGetPublishedDocuments_JwtUserPrincipalUser_WithOrgId_Success() {
+        vn.edu.epu.eoffice_be.security.JwtUserPrincipal userPrincipal = 
+                new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(2L, "staff", "USER", true, List.of(), 50L);
+        when(auth.getPrincipal()).thenReturn(userPrincipal);
+        when(documentQueryService.getPublishedDocuments(50L)).thenReturn(List.of());
+
+        ResponseEntity<Object> response = documentQueryController.getPublishedDocuments(auth);
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        verify(documentQueryService).getPublishedDocuments(50L);
+    }
+
+    @Test
+    void testGetDocumentDetails_JwtUserPrincipalUser_WithOrgId_Success() {
+        vn.edu.epu.eoffice_be.security.JwtUserPrincipal userPrincipal = 
+                new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(2L, "staff", "USER", true, List.of(), 50L);
+        when(auth.getPrincipal()).thenReturn(userPrincipal);
+        when(documentQueryService.getDocumentDetails(10L, 50L)).thenReturn(java.util.Map.of("id", 10L));
+
+        ResponseEntity<Object> response = documentQueryController.getDocumentDetails(10L, auth);
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        verify(documentQueryService).getDocumentDetails(10L, 50L);
+    }
+
+    @Test
+    void testDownloadDocument_JwtUserPrincipalUser_WithOrgId_Success() {
+        vn.edu.epu.eoffice_be.security.JwtUserPrincipal userPrincipal = 
+                new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(2L, "staff", "USER", true, List.of(), 50L);
+        when(auth.getPrincipal()).thenReturn(userPrincipal);
+        byte[] content = "PDF_CONTENT".getBytes(StandardCharsets.UTF_8);
+        when(documentQueryService.downloadDocument(10L, 50L)).thenReturn(content);
+
+        ResponseEntity<Resource> response = documentQueryController.downloadDocument(10L, auth);
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        verify(documentQueryService).downloadDocument(10L, 50L);
+    }
+
+    @Test
+    void testGetPublishedDocuments_JwtUserPrincipalUser_WithoutOrgId_ThrowsAccessDenied() {
+        vn.edu.epu.eoffice_be.security.JwtUserPrincipal userPrincipal = 
+                new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(2L, "staff", "USER", true, List.of(), null);
+        when(auth.getPrincipal()).thenReturn(userPrincipal);
+
+        assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(auth));
+        verifyNoInteractions(documentQueryService);
     }
 }

@@ -63,6 +63,9 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
 
     List<Document> findByStatusAndDeleteFlgFalse(DocumentStatus status);
 
+    @Query("SELECT d FROM Document d WHERE d.status = :status AND d.deleteFlg = false ORDER BY d.issueDate DESC, d.id DESC")
+    List<Document> findByStatusOrderByIssueDateDescIdDesc(@Param("status") DocumentStatus status);
+
     /**
      * Phân trang văn bản theo trạng thái đơn, loại trừ bản xóa mềm.
      *

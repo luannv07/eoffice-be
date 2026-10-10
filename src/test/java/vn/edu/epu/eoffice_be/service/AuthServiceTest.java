@@ -52,6 +52,8 @@ class AuthServiceTest {
 	JwtProperties jwtProperties;
 	@Mock
 	RefreshTokenService refreshTokenService;
+	@Mock
+	vn.edu.epu.eoffice_be.repository.PositionAssignmentRepository positionAssignmentRepository;
 
 	@InjectMocks
 	AuthService authService;
