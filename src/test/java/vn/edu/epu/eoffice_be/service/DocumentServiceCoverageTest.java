@@ -171,6 +171,20 @@ class DocumentServiceCoverageTest {
         assertEquals(1, documentQueryService.getAllPublishedDocuments(5L).size());
         assertEquals(1, documentQueryService.getAllPublishedDocuments().size());
         assertEquals(1, documentQueryService.getPublishedDocuments(null, 5L).size());
+
+        // Verify that when documentBookId=null, documents with no documentBook are included
+        // (ensured by LEFT JOIN in repository query, not INNER JOIN)
+        Document docWithoutBook = new Document();
+        docWithoutBook.setId(2L);
+        docWithoutBook.setTitle("Doc Without Book");
+        docWithoutBook.setStatus(DocumentStatus.PUBLISHED);
+        // documentBook is null
+
+        lenient().when(documentRepository.findByStatusOrderByIssueDateDescIdDesc(eq(DocumentStatus.PUBLISHED)))
+                .thenReturn(List.of(doc, docWithoutBook));
+
+        assertEquals(2, documentQueryService.getAllPublishedDocuments().size(),
+                "Documents with null documentBook must be included when no documentBookId filter is applied");
     }
 
     @Test

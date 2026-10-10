@@ -65,9 +65,10 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
 
     @Query("""
         SELECT d FROM Document d 
+        LEFT JOIN d.documentBook db
         WHERE d.status = :status 
           AND d.deleteFlg = false 
-          AND (:documentBookId IS NULL OR d.documentBook.id = :documentBookId)
+          AND (:documentBookId IS NULL OR db.id = :documentBookId)
         ORDER BY d.issueDate DESC, d.id DESC
     """)
     List<Document> findByStatusOrderByIssueDateDescIdDesc(
@@ -203,6 +204,12 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
 
     /**
      * BE-04: Lấy danh sách văn bản đã được cấp số của một sổ văn bản.
+     * <p>
+     * <b>Lưu ý về escape ký tự đặc biệt:</b> Tham số {@code keyword} được ghép vào mẫu LIKE
+     * với {@code ESCAPE '\\'}. Tầng nghiệp vụ (Service layer) bắt buộc phải escape trước các ký tự đại diện
+     * ('\\', '%', '_') thành ('\\\\', '\\%', '\\_') trước khi gọi phương thức này.
+     * Xem: {@link vn.edu.epu.eoffice_be.service.impl.DocumentBookServiceImpl#getAssignedDocuments}
+     * </p>
      */
     @Query("""
         SELECT d FROM Document d
