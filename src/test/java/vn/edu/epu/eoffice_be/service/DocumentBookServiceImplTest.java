@@ -628,4 +628,15 @@ class DocumentBookServiceImplTest {
 		assertEquals("1/QĐ-ĐHEPU", result.getContent().get(0).getOfficialNumber());
 		assertEquals(1L, result.getContent().get(0).getDocumentBookId());
 	}
+
+	@Test
+	void getAssignedDocuments_WithWildcardKeyword_EscapesProperly() {
+		when(documentBookRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(book));
+		when(documentRepository.findAssignedDocuments(eq(1L), any(), any(), any(), eq("100\\%\\_special\\\\char"), any(Pageable.class)))
+				.thenReturn(new PageImpl<>(List.of()));
+
+		var result = documentBookService.getAssignedDocuments(1L, "  100%_special\\char  ", null, PageRequest.of(0, 10));
+		assertNotNull(result);
+		verify(documentRepository).findAssignedDocuments(eq(1L), any(), any(), any(), eq("100\\%\\_special\\\\char"), any(Pageable.class));
+	}
 }

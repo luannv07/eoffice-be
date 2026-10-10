@@ -296,7 +296,13 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 
 		String typeCd = book.getDocumentType() != null ? book.getDocumentType().getItemCd() : null;
 		Long orgId = book.getOrgNode() != null ? book.getOrgNode().getId() : null;
-		String kw = (keyword != null && !keyword.isBlank()) ? keyword.trim() : null;
+		String kw = null;
+		if (keyword != null && !keyword.isBlank()) {
+			kw = keyword.trim()
+					.replace("\\", "\\\\")
+					.replace("%", "\\%")
+					.replace("_", "\\_");
+		}
 
 		Page<Document> docs = documentRepository.findAssignedDocuments(book.getId(), typeCd, orgId, status, kw, pageable);
 		return docs.map(doc -> toDocumentDto(doc, book));

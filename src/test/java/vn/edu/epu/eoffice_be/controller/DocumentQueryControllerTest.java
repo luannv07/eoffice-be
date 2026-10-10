@@ -157,7 +157,7 @@ class DocumentQueryControllerTest {
     void testResolveUserOrgId_UnapprovedClassWithGetOrgId_ThrowsAccessDenied() {
         when(auth.getPrincipal()).thenReturn(new UnapprovedPrincipalWithGetOrgId());
 
-        assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(auth));
+        assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(null, auth));
         verifyNoInteractions(documentQueryService);
     }
 
@@ -171,7 +171,7 @@ class DocumentQueryControllerTest {
 
         // Kiểm tra sau khi reset, principal này bị từ chối với AccessDeniedException
         when(auth.getPrincipal()).thenReturn(new UnapprovedPrincipalWithGetOrgId());
-        assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(auth));
+        assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(null, auth));
         verifyNoInteractions(documentQueryService);
     }
 
@@ -180,7 +180,7 @@ class DocumentQueryControllerTest {
         when(auth.getPrincipal()).thenReturn(new CustomUserDetailsPrincipal(100L, "user1"));
         when(documentQueryService.getPublishedDocuments(100L)).thenReturn(List.of());
 
-        ResponseEntity<Object> response = documentQueryController.getPublishedDocuments(auth);
+        ResponseEntity<Object> response = documentQueryController.getPublishedDocuments(null, auth);
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
         verify(documentQueryService, times(1)).getPublishedDocuments(100L);
@@ -191,7 +191,7 @@ class DocumentQueryControllerTest {
         when(auth.getPrincipal()).thenReturn(new ValidReflectionPrincipal(150L));
         when(documentQueryService.getPublishedDocuments(150L)).thenReturn(List.of());
 
-        ResponseEntity<Object> response = documentQueryController.getPublishedDocuments(auth);
+        ResponseEntity<Object> response = documentQueryController.getPublishedDocuments(null, auth);
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
         verify(documentQueryService, times(1)).getPublishedDocuments(150L);
@@ -202,7 +202,7 @@ class DocumentQueryControllerTest {
         when(auth.getPrincipal()).thenReturn(new PrimitiveLongOrgIdPrincipal(160L));
         when(documentQueryService.getPublishedDocuments(160L)).thenReturn(List.of());
 
-        ResponseEntity<Object> response = documentQueryController.getPublishedDocuments(auth);
+        ResponseEntity<Object> response = documentQueryController.getPublishedDocuments(null, auth);
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
         verify(documentQueryService, times(1)).getPublishedDocuments(160L);
@@ -240,7 +240,7 @@ class DocumentQueryControllerTest {
     void testResolveUserOrgId_MissingGetOrgId_ThrowsAccessDenied() {
         when(auth.getPrincipal()).thenReturn(new MissingOrgIdPrincipal());
 
-        assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(auth));
+        assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(null, auth));
         verifyNoInteractions(documentQueryService);
     }
 
@@ -248,7 +248,7 @@ class DocumentQueryControllerTest {
     void testResolveUserOrgId_NullOrgId_ThrowsAccessDenied() {
         when(auth.getPrincipal()).thenReturn(new ValidPrincipal(null));
 
-        assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(auth));
+        assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(null, auth));
         verifyNoInteractions(documentQueryService);
     }
 
@@ -256,7 +256,7 @@ class DocumentQueryControllerTest {
     void testResolveUserOrgId_NullOrgId_FallbackReflection_ThrowsAccessDenied() {
         when(auth.getPrincipal()).thenReturn(new NullOrgIdReflectionPrincipal());
 
-        assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(auth));
+        assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(null, auth));
         verifyNoInteractions(documentQueryService);
     }
 
@@ -264,7 +264,7 @@ class DocumentQueryControllerTest {
     void testResolveUserOrgId_NonLongOrgId_ThrowsAccessDenied() {
         when(auth.getPrincipal()).thenReturn(new NonLongOrgIdPrincipal());
 
-        assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(auth));
+        assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(null, auth));
         verifyNoInteractions(documentQueryService);
     }
 
@@ -272,7 +272,7 @@ class DocumentQueryControllerTest {
     void testResolveUserOrgId_ReflectionRuntimeException_PropagatesOriginalException() {
         when(auth.getPrincipal()).thenReturn(new ExceptionThrowingPrincipal());
 
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> documentQueryController.getPublishedDocuments(auth));
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> documentQueryController.getPublishedDocuments(null, auth));
         assertEquals("Reflection invocation error", exception.getMessage());
         verifyNoInteractions(documentQueryService);
     }
@@ -281,7 +281,7 @@ class DocumentQueryControllerTest {
     void testResolveUserOrgId_ReflectionError_RethrowsErrorWithoutSwallowing() {
         when(auth.getPrincipal()).thenReturn(new ErrorThrowingPrincipal());
 
-        AssertionError error = assertThrows(AssertionError.class, () -> documentQueryController.getPublishedDocuments(auth));
+        AssertionError error = assertThrows(AssertionError.class, () -> documentQueryController.getPublishedDocuments(null, auth));
         assertEquals("JVM Error inside getOrgId", error.getMessage());
         verifyNoInteractions(documentQueryService);
     }
@@ -290,7 +290,7 @@ class DocumentQueryControllerTest {
     void testResolveUserOrgId_Unauthenticated_ThrowsAuthenticationException() {
         when(auth.isAuthenticated()).thenReturn(false);
 
-        assertThrows(AuthenticationCredentialsNotFoundException.class, () -> documentQueryController.getPublishedDocuments(auth));
+        assertThrows(AuthenticationCredentialsNotFoundException.class, () -> documentQueryController.getPublishedDocuments(null, auth));
         verifyNoInteractions(documentQueryService);
     }
 
@@ -299,13 +299,13 @@ class DocumentQueryControllerTest {
         Authentication anonymous = new AnonymousAuthenticationToken(
                 "key", "anonymousUser", AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS"));
 
-        assertThrows(AuthenticationCredentialsNotFoundException.class, () -> documentQueryController.getPublishedDocuments(anonymous));
+        assertThrows(AuthenticationCredentialsNotFoundException.class, () -> documentQueryController.getPublishedDocuments(null, anonymous));
         verifyNoInteractions(documentQueryService);
     }
 
     @Test
     void testResolveUserOrgId_NullAuthentication_ThrowsAuthenticationException() {
-        assertThrows(AuthenticationCredentialsNotFoundException.class, () -> documentQueryController.getPublishedDocuments(null));
+        assertThrows(AuthenticationCredentialsNotFoundException.class, () -> documentQueryController.getPublishedDocuments(null, null));
         verifyNoInteractions(documentQueryService);
     }
 
@@ -313,7 +313,7 @@ class DocumentQueryControllerTest {
     void testResolveUserOrgId_NullPrincipal_ThrowsAuthenticationException() {
         when(auth.getPrincipal()).thenReturn(null);
 
-        assertThrows(AuthenticationCredentialsNotFoundException.class, () -> documentQueryController.getPublishedDocuments(auth));
+        assertThrows(AuthenticationCredentialsNotFoundException.class, () -> documentQueryController.getPublishedDocuments(null, auth));
         verifyNoInteractions(documentQueryService);
     }
 
@@ -404,11 +404,11 @@ class DocumentQueryControllerTest {
         when(documentQueryService.getPublishedDocuments(200L)).thenReturn(List.of());
 
         // Call 1: Computes value and caches Method in ClassValue
-        ResponseEntity<Object> res1 = documentQueryController.getPublishedDocuments(auth);
+        ResponseEntity<Object> res1 = documentQueryController.getPublishedDocuments(null, auth);
         assertEquals(200, res1.getStatusCode().value());
 
         // Call 2: Uses cached Method from ClassValue
-        ResponseEntity<Object> res2 = documentQueryController.getPublishedDocuments(auth);
+        ResponseEntity<Object> res2 = documentQueryController.getPublishedDocuments(null, auth);
         assertEquals(200, res2.getStatusCode().value());
 
         verify(documentQueryService, times(2)).getPublishedDocuments(200L);
@@ -507,7 +507,7 @@ class DocumentQueryControllerTest {
         doReturn(List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))).when(auth).getAuthorities();
         when(documentQueryService.getAllPublishedDocuments()).thenReturn(List.of());
 
-        ResponseEntity<Object> response = documentQueryController.getPublishedDocuments(auth);
+        ResponseEntity<Object> response = documentQueryController.getPublishedDocuments(null, auth);
 
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
@@ -546,7 +546,7 @@ class DocumentQueryControllerTest {
         when(auth.getPrincipal()).thenReturn(adminPrincipal);
         when(documentQueryService.getAllPublishedDocuments()).thenReturn(List.of());
 
-        ResponseEntity<Object> response = documentQueryController.getPublishedDocuments(auth);
+        ResponseEntity<Object> response = documentQueryController.getPublishedDocuments(null, auth);
 
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
@@ -560,7 +560,7 @@ class DocumentQueryControllerTest {
         when(auth.getPrincipal()).thenReturn(userPrincipal);
         when(documentQueryService.getPublishedDocuments(50L)).thenReturn(List.of());
 
-        ResponseEntity<Object> response = documentQueryController.getPublishedDocuments(auth);
+        ResponseEntity<Object> response = documentQueryController.getPublishedDocuments(null, auth);
 
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
@@ -602,7 +602,7 @@ class DocumentQueryControllerTest {
                 new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(2L, "staff", "USER", true, List.of(), null);
         when(auth.getPrincipal()).thenReturn(userPrincipal);
 
-        assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(auth));
+        assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(null, auth));
         verifyNoInteractions(documentQueryService);
     }
 }

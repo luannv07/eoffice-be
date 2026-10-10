@@ -32,6 +32,8 @@ import vn.edu.epu.eoffice_be.service.DocumentBookService;
 @Tag(name = "Document Book", description = "Quản lý sổ văn bản 2 cấp và cấp số văn bản (UC06 - UC07)")
 public class DocumentBookController {
 
+	private static final int MAX_PAGE_SIZE = 100;
+
 	private final DocumentBookService documentBookService;
 
 	@Operation(
@@ -157,7 +159,8 @@ public class DocumentBookController {
 			@RequestParam(defaultValue = "10") int size,
 			@RequestParam(required = false) String keyword,
 			@RequestParam(required = false) DocumentStatus status) {
-		Pageable pageable = PageRequest.of(Math.max(page, 0), Math.max(size, 1), Sort.by(Sort.Direction.DESC, "id"));
+		int boundedSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+		Pageable pageable = PageRequest.of(Math.max(page, 0), boundedSize, Sort.by(Sort.Direction.DESC, "id"));
 		return BaseResponse.success(PageResponse.from(documentBookService.getAssignedDocuments(id, keyword, status, pageable)));
 	}
 }

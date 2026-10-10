@@ -108,8 +108,10 @@ public class DocumentQueryService {
         if (orgId == null) {
             return getAllPublishedDocuments(documentBookId);
         }
-        return documentRepository.findPublishedDocumentsForUser(orgId).stream()
-                .filter(doc -> filterByBookId(doc, documentBookId))
+        List<Document> docs = (documentBookId != null)
+                ? documentRepository.findPublishedDocumentsForUser(orgId, null, documentBookId)
+                : documentRepository.findPublishedDocumentsForUser(orgId);
+        return docs.stream()
                 .<DocumentResponse>map(this::mapToDocumentResponse)
                 .toList();
     }
@@ -119,17 +121,15 @@ public class DocumentQueryService {
     }
 
     public List<DocumentResponse> getAllPublishedDocuments(Long documentBookId) {
-        return documentRepository.findByStatusOrderByIssueDateDescIdDesc(vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED).stream()
-                .filter(doc -> filterByBookId(doc, documentBookId))
+        List<Document> docs = (documentBookId != null)
+                ? documentRepository.findByStatusOrderByIssueDateDescIdDesc(
+                        vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED,
+                        documentBookId)
+                : documentRepository.findByStatusOrderByIssueDateDescIdDesc(
+                        vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED);
+        return docs.stream()
                 .<DocumentResponse>map(this::mapToDocumentResponse)
                 .toList();
-    }
-
-    private boolean filterByBookId(Document doc, Long documentBookId) {
-        if (documentBookId == null) {
-            return true;
-        }
-        return doc.getDocumentBook() != null && documentBookId.equals(doc.getDocumentBook().getId());
     }
 
     private DocumentResponse mapToDocumentResponse(Document doc) {

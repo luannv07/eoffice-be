@@ -210,10 +210,6 @@ public class DocumentQueryController {
         return ResponseEntity.ok(queryService.getPublishedDocuments(orgId));
     }
 
-    public ResponseEntity<Object> getPublishedDocuments(Authentication authentication) {
-        return getPublishedDocuments(null, authentication);
-    }
-
     // UC16.2: Xem chi tiết trích yếu
     @GetMapping("/{id}/details")
     public ResponseEntity<Object> getDocumentDetails(@PathVariable Long id, Authentication authentication) {
