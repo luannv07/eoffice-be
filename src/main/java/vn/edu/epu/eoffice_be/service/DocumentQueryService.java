@@ -33,15 +33,8 @@ public class DocumentQueryService {
     DocumentDistributionRepository distributionRepository;
 
     public Object getDocumentDetails(Long id, Long orgId) {
-        Document document;
-        if (orgId != null) {
-            document = documentRepository.findAccessiblePublishedDocument(id, orgId)
-                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền truy cập văn bản với ID: " + id));
-        } else {
-            document = documentRepository.findByIdAndDeleteFlgFalse(id)
-                    .filter(d -> d.getStatus() == vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED || d.getStatus() == vn.edu.epu.eoffice_be.common.enums.DocumentStatus.ISSUED)
-                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền truy cập văn bản với ID: " + id));
-        }
+        Document document = documentRepository.findAccessiblePublishedDocument(id, orgId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền truy cập văn bản với ID: " + id));
 
         java.util.Map<String, Object> details = new java.util.LinkedHashMap<>();
         details.put("id", document.getId());
@@ -52,13 +45,36 @@ public class DocumentQueryService {
         return details;
     }
 
-    public byte[] downloadDocument(Long documentId, Long orgId) {
-        Document doc = (orgId != null ? documentRepository.findAccessiblePublishedDocument(documentId, orgId, null) : java.util.Optional.<Document>empty())
-                .or(() -> documentRepository.findByIdAndDeleteFlgFalse(documentId)
-                        .filter(d -> d.getStatus() == vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED || d.getStatus() == vn.edu.epu.eoffice_be.common.enums.DocumentStatus.ISSUED))
-                .or(() -> documentRepository.findById(documentId))
-                .orElseThrow(() -> new IllegalArgumentException("Document not found: " + documentId));
+    public Object getDocumentDetailsForAdmin(Long id) {
+        Document document = documentRepository.findByIdAndDeleteFlgFalse(id)
+                .filter(d -> d.getStatus() == vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED || d.getStatus() == vn.edu.epu.eoffice_be.common.enums.DocumentStatus.ISSUED)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền truy cập văn bản với ID: " + id));
 
+        java.util.Map<String, Object> details = new java.util.LinkedHashMap<>();
+        details.put("id", document.getId());
+        details.put("title", document.getTitle());
+        details.put("status", document.getStatus());
+        details.put("orgId", null);
+        details.put("updatedAt", document.getUpdatedDate());
+        return details;
+    }
+
+    public byte[] downloadDocument(Long documentId, Long orgId) {
+        Document doc = documentRepository.findAccessiblePublishedDocument(documentId, orgId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền truy cập văn bản với ID: " + documentId));
+
+        return readDocumentFileContent(doc, documentId);
+    }
+
+    public byte[] downloadDocumentForAdmin(Long documentId) {
+        Document doc = documentRepository.findByIdAndDeleteFlgFalse(documentId)
+                .filter(d -> d.getStatus() == vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED || d.getStatus() == vn.edu.epu.eoffice_be.common.enums.DocumentStatus.ISSUED)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền tải văn bản: " + documentId));
+
+        return readDocumentFileContent(doc, documentId);
+    }
+
+    private byte[] readDocumentFileContent(Document doc, Long documentId) {
         String rawPath = doc.getOfficialFilePath();
         if (rawPath == null || rawPath.isBlank()) {
             return ("PDF_MOCK_CONTENT_" + documentId).getBytes(java.nio.charset.StandardCharsets.UTF_8);

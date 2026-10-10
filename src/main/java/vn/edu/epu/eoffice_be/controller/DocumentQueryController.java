@@ -206,7 +206,7 @@ public class DocumentQueryController {
     @GetMapping("/{id}/details")
     public ResponseEntity<Object> getDocumentDetails(@PathVariable Long id, Authentication authentication) {
         if (isAdmin(authentication)) {
-            return ResponseEntity.ok(queryService.getDocumentDetails(id, null));
+            return ResponseEntity.ok(queryService.getDocumentDetailsForAdmin(id));
         }
         Long orgId = resolveUserOrgId(authentication);
         return ResponseEntity.ok(queryService.getDocumentDetails(id, orgId));
@@ -215,8 +215,13 @@ public class DocumentQueryController {
     // UC16.3: Tải file PDF chính thức
     @GetMapping("/{id}/download")
     public ResponseEntity<Resource> downloadDocument(@PathVariable Long id, Authentication authentication) {
-        Long orgId = isAdmin(authentication) ? null : resolveUserOrgId(authentication);
-        byte[] pdfBytes = queryService.downloadDocument(id, orgId);
+        byte[] pdfBytes;
+        if (isAdmin(authentication)) {
+            pdfBytes = queryService.downloadDocumentForAdmin(id);
+        } else {
+            Long orgId = resolveUserOrgId(authentication);
+            pdfBytes = queryService.downloadDocument(id, orgId);
+        }
         ByteArrayResource resource = new ByteArrayResource(pdfBytes);
 
         return ResponseEntity.ok()

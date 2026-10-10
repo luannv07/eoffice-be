@@ -517,26 +517,26 @@ class DocumentQueryControllerTest {
     @Test
     void testGetDocumentDetails_AdminRole_SuccessWithoutOrgId() {
         doReturn(List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))).when(auth).getAuthorities();
-        when(documentQueryService.getDocumentDetails(10L, null)).thenReturn(java.util.Map.of("id", 10L));
+        when(documentQueryService.getDocumentDetailsForAdmin(10L)).thenReturn(java.util.Map.of("id", 10L));
 
         ResponseEntity<Object> response = documentQueryController.getDocumentDetails(10L, auth);
 
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
-        verify(documentQueryService).getDocumentDetails(10L, null);
+        verify(documentQueryService).getDocumentDetailsForAdmin(10L);
     }
 
     @Test
     void testDownloadDocument_AdminRole_SuccessWithoutOrgId() {
         doReturn(List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))).when(auth).getAuthorities();
         byte[] content = "PDF_CONTENT".getBytes(StandardCharsets.UTF_8);
-        when(documentQueryService.downloadDocument(10L, null)).thenReturn(content);
+        when(documentQueryService.downloadDocumentForAdmin(10L)).thenReturn(content);
 
         ResponseEntity<Resource> response = documentQueryController.downloadDocument(10L, auth);
 
         assertNotNull(response);
         assertEquals(200, response.getStatusCode().value());
-        verify(documentQueryService).downloadDocument(10L, null);
+        verify(documentQueryService).downloadDocumentForAdmin(10L);
     }
 
     @Test

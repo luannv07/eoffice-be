@@ -434,6 +434,36 @@ class DocumentServiceCoverageTest {
     }
 
     @Test
+    void testDownloadDocument_UnauthorizedOrg_ThrowsIllegalArgumentException() {
+        // Giả lập tài liệu chỉ phân phối cho org khác (ví dụ org 20), user từ org 10 không có quyền
+        when(documentRepository.findAccessiblePublishedDocument(100L, 10L))
+                .thenReturn(Optional.empty());
+
+        assertThrows(IllegalArgumentException.class, () -> documentQueryService.downloadDocument(100L, 10L));
+        assertThrows(IllegalArgumentException.class, () -> documentQueryService.getDocumentDetails(100L, 10L));
+    }
+
+    @Test
+    void testDownloadDocumentForAdmin_SuccessAndDraftRejected() {
+        Document publishedDoc = new Document();
+        publishedDoc.setId(500L);
+        publishedDoc.setStatus(DocumentStatus.PUBLISHED);
+
+        Document draftDoc = new Document();
+        draftDoc.setId(501L);
+        draftDoc.setStatus(DocumentStatus.DRAFT);
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(500L)).thenReturn(Optional.of(publishedDoc));
+        when(documentRepository.findByIdAndDeleteFlgFalse(501L)).thenReturn(Optional.of(draftDoc));
+
+        byte[] bytes = documentQueryService.downloadDocumentForAdmin(500L);
+        assertNotNull(bytes);
+
+        assertThrows(IllegalArgumentException.class, () -> documentQueryService.downloadDocumentForAdmin(501L));
+        assertThrows(IllegalArgumentException.class, () -> documentQueryService.getDocumentDetailsForAdmin(501L));
+    }
+
+    @Test
     void testPendingDocumentResponseDto() {
         var res = new vn.edu.epu.eoffice_be.dto.PendingDocumentResponse();
         res.setId(100L);
