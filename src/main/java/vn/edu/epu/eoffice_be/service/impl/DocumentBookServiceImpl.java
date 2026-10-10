@@ -320,6 +320,7 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 				: dictionaryItemRepository
 						.findByGroupCdAndItemCdInAndDeleteFlgFalse("DOCUMENT_TYPE", typeCds)
 						.stream()
+						.filter(item -> item.getItemCd() != null && item.getNameVn() != null)
 						.collect(Collectors.toMap(DictionaryItem::getItemCd, DictionaryItem::getNameVn,
 								(existing, replacement) -> existing));
 
