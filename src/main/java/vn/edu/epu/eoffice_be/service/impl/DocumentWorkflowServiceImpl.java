@@ -51,6 +51,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import vn.edu.epu.eoffice_be.dto.request.AssignDocumentNumberRequest;
 import vn.edu.epu.eoffice_be.dto.response.AssignDocumentNumberResponse;
 import vn.edu.epu.eoffice_be.service.DocumentBookService;
@@ -477,22 +478,31 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                     .findByDocumentIdAndDeleteFlgFalse(document.getId());
 
             if (!allAttachments.isEmpty()) {
-                // Lọc danh sách các tệp đính kèm có định dạng PDF
-                List<DocumentAttachment> pdfAttachments = allAttachments.stream()
-                        .filter(this::isPdfAttachment)
-                        .toList();
+                // 1) Kiểm tra xem có tệp đính kèm chính (isMainDocument == true) hay không
+                Optional<DocumentAttachment> mainAttachmentOpt = allAttachments.stream()
+                        .filter(att -> att != null && Boolean.TRUE.equals(att.isMainDocument()))
+                        .findFirst();
 
-                if (pdfAttachments.isEmpty()) {
-                    // Trường hợp 1: Có tệp đính kèm nhưng không có bất kỳ tệp PDF nào
-                    throw new BusinessException(ErrorCode.BAD_REQUEST,
-                            "Văn bản đã có tệp đính kèm nhưng không phải định dạng PDF. Ký nháy/ký số chỉ hỗ trợ tệp định dạng PDF.");
+                DocumentAttachment targetAttachment;
+                if (mainAttachmentOpt.isPresent()) {
+                    DocumentAttachment mainAtt = mainAttachmentOpt.get();
+                    if (!isPdfAttachment(mainAtt)) {
+                        throw new BusinessException(ErrorCode.BAD_REQUEST,
+                                "Tệp đính kèm chính của văn bản không phải định dạng PDF. Ký nháy/ký số yêu cầu tệp chính phải là định dạng PDF.");
+                    }
+                    targetAttachment = mainAtt;
+                } else {
+                    // 2) Nếu không có tệp chính được chỉ định, tìm tệp PDF đầu tiên trong danh sách
+                    targetAttachment = allAttachments.stream()
+                            .filter(this::isPdfAttachment)
+                            .findFirst()
+                            .orElse(null);
+
+                    if (targetAttachment == null) {
+                        throw new BusinessException(ErrorCode.BAD_REQUEST,
+                                "Văn bản đã có tệp đính kèm nhưng không phải định dạng PDF. Ký nháy/ký số chỉ hỗ trợ tệp định dạng PDF.");
+                    }
                 }
-
-                // Ưu tiên tệp PDF chính (isMainDocument = true), nếu không có thì lấy tệp PDF đầu tiên
-                DocumentAttachment targetAttachment = pdfAttachments.stream()
-                        .filter(DocumentAttachment::isMainDocument)
-                        .findFirst()
-                        .orElse(pdfAttachments.get(0));
 
                 if (unifiedStorageService != null) {
                     try {

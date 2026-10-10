@@ -530,10 +530,9 @@ class DocumentWorkflowServiceTest {
     }
 
     @Test
-    @DisplayName("UC13: Tệp đính kèm chính là DOCX nhưng có tệp đính kèm khác là PDF thì ký tệp PDF thành công")
-    void initialSign_whenMainAttachmentIsNotPdf_butOtherAttachmentIsPdf_shouldSucceed() {
+    @DisplayName("UC13: Báo lỗi BAD_REQUEST khi tệp đính kèm chính là DOCX kể cả khi có tệp đính kèm phụ là PDF")
+    void initialSign_whenMainAttachmentIsNotPdf_evenIfOtherAttachmentIsPdf_shouldThrowBadRequest() {
         document.setPrimaryFilePath(null);
-        byte[] mockBytes = new byte[]{1, 2, 3};
 
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
@@ -562,6 +561,50 @@ class DocumentWorkflowServiceTest {
         when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(5001L))
                 .thenReturn(List.of(docxAttachment, pdfAttachment));
 
+        DocumentInitialSignRequest request = DocumentInitialSignRequest.builder()
+                .comment("Ký nháy lỗi")
+                .build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.initialSign(5001L, request));
+        assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
+        assertTrue(ex.getMessage().contains("Tệp đính kèm chính"));
+    }
+
+    @Test
+    @DisplayName("UC13: Khi không có tệp đính kèm nào đánh dấu chính, chọn tệp PDF đầu tiên để ký thành công")
+    void initialSign_whenNoMainAttachment_butHasPdfAttachment_shouldSucceed() {
+        document.setPrimaryFilePath(null);
+        byte[] mockBytes = new byte[]{1, 2, 3};
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        DocumentAttachment docxAttachment = DocumentAttachment.builder()
+                .id(902L)
+                .document(document)
+                .originalFileName("ke_hoach.docx")
+                .storagePath("telegram")
+                .storageFileName("file_docx")
+                .fileExtension("DOCX")
+                .isMainDocument(false)
+                .build();
+
+        DocumentAttachment pdfAttachment = DocumentAttachment.builder()
+                .id(903L)
+                .document(document)
+                .originalFileName("ke_hoach_scan.pdf")
+                .storagePath("telegram")
+                .storageFileName("file_pdf")
+                .fileExtension("PDF")
+                .isMainDocument(false)
+                .build();
+
+        when(documentAttachmentRepository.existsByDocumentIdAndDeleteFlgFalse(5001L))
+                .thenReturn(true);
+        when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(5001L))
+                .thenReturn(List.of(docxAttachment, pdfAttachment));
+
         org.springframework.core.io.ByteArrayResource res = new org.springframework.core.io.ByteArrayResource(mockBytes);
         when(unifiedStorageService.loadAsResource("telegram", "file_pdf")).thenReturn(res);
         when(pdfProcessingService.applyInitialSignStamp(any(byte[].class), any(StampInfo.class))).thenReturn(mockBytes);
@@ -569,7 +612,7 @@ class DocumentWorkflowServiceTest {
         when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("mock_sha256_hash");
 
         DocumentInitialSignRequest request = DocumentInitialSignRequest.builder()
-                .comment("Ký nháy tệp PDF phụ")
+                .comment("Ký nháy tệp PDF khi không có tệp chính")
                 .build();
 
         DocumentDetailResponse response = documentWorkflowService.initialSign(5001L, request);
@@ -580,7 +623,7 @@ class DocumentWorkflowServiceTest {
                 document,
                 WorkflowAction.INITIAL_SIGN,
                 leader,
-                "Ký nháy tệp PDF phụ",
+                "Ký nháy tệp PDF khi không có tệp chính",
                 null,
                 null,
                 "mock_sha256_hash"
