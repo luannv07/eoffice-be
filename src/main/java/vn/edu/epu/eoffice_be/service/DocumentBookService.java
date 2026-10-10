@@ -1,15 +1,12 @@
 package vn.edu.epu.eoffice_be.service;
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.dto.request.AssignDocumentNumberRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentBookCreateRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentBookFilterRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentBookUpdateRequest;
 import vn.edu.epu.eoffice_be.dto.response.AssignDocumentNumberResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentBookResponse;
-import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
 
 public interface DocumentBookService {
 
@@ -28,7 +25,4 @@ public interface DocumentBookService {
 	void delete(Long id);
 
 	AssignDocumentNumberResponse assignNumber(AssignDocumentNumberRequest request);
-
-	Page<DocumentResponse> getAssignedDocuments(Long bookId, String keyword, DocumentStatus status, Pageable pageable);
 }
-

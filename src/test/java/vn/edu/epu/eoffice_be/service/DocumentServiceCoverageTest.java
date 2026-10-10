@@ -153,41 +153,6 @@ class DocumentServiceCoverageTest {
     }
 
     @Test
-    void testGetPublishedDocuments_WithDocumentBookId() {
-        Document doc = new Document();
-        doc.setId(1L);
-        doc.setTitle("Test Doc");
-        doc.setOfficialNumber("01/QD");
-        doc.setStatus(DocumentStatus.PUBLISHED);
-
-        lenient().when(documentRepository.findPublishedDocumentsForUser(eq(10L), isNull(), eq(5L)))
-                .thenReturn(List.of(doc));
-        lenient().when(documentRepository.findByStatusOrderByIssueDateDescIdDesc(eq(DocumentStatus.PUBLISHED), eq(5L)))
-                .thenReturn(List.of(doc));
-        lenient().when(documentRepository.findByStatusOrderByIssueDateDescIdDesc(eq(DocumentStatus.PUBLISHED)))
-                .thenReturn(List.of(doc));
-
-        assertEquals(1, documentQueryService.getPublishedDocuments(10L, 5L).size());
-        assertEquals(1, documentQueryService.getAllPublishedDocuments(5L).size());
-        assertEquals(1, documentQueryService.getAllPublishedDocuments().size());
-        assertEquals(1, documentQueryService.getPublishedDocuments(null, 5L).size());
-
-        // Verify that when documentBookId=null, documents with no documentBook are included
-        // (ensured by LEFT JOIN in repository query, not INNER JOIN)
-        Document docWithoutBook = new Document();
-        docWithoutBook.setId(2L);
-        docWithoutBook.setTitle("Doc Without Book");
-        docWithoutBook.setStatus(DocumentStatus.PUBLISHED);
-        // documentBook is null
-
-        lenient().when(documentRepository.findByStatusOrderByIssueDateDescIdDesc(eq(DocumentStatus.PUBLISHED)))
-                .thenReturn(List.of(doc, docWithoutBook));
-
-        assertEquals(2, documentQueryService.getAllPublishedDocuments().size(),
-                "Documents with null documentBook must be included when no documentBookId filter is applied");
-    }
-
-    @Test
     void testDownloadOfficialFile() throws Exception {
         Document doc = new Document();
         doc.setId(1L);
@@ -381,7 +346,7 @@ class DocumentServiceCoverageTest {
         when(auth.isAuthenticated()).thenReturn(true);
 
         when(mockQueryService.getPublishedDocuments(eq(1L))).thenReturn(List.of());
-        var resPublished = controller.getPublishedDocuments(null, auth);
+        var resPublished = controller.getPublishedDocuments(auth);
         assertNotNull(resPublished);
         assertEquals(200, resPublished.getStatusCode().value());
         verify(mockQueryService, times(1)).getPublishedDocuments(eq(principal.getOrgId()));

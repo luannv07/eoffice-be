@@ -2,7 +2,6 @@ package vn.edu.epu.eoffice_be.common.exception;
 
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
@@ -72,13 +71,6 @@ public class GlobalExceptionHandler {
         log.error("Invalid file upload request: ", ex);
         return ResponseEntity.status(ErrorCode.BAD_REQUEST.getStatus())
                 .body(BaseResponse.error("Yêu cầu upload file không hợp lệ hoặc kích thước vượt quá giới hạn", ErrorCode.BAD_REQUEST.getCode()));
-    }
-
-    @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<BaseResponse<Void>> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
-        log.error("Data integrity violation: ", ex);
-        return ResponseEntity.status(ErrorCode.CONFLICT.getStatus())
-                .body(BaseResponse.error("Dữ liệu bị trùng lặp hoặc vi phạm ràng buộc toàn vẹn cơ sở dữ liệu", ErrorCode.CONFLICT.getCode()));
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)

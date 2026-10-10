@@ -27,7 +27,6 @@ public enum ErrorCode {
 	MAIL_SEND_FAILED("MAIL_SEND_FAILED", "Không gửi được email", HttpStatus.INTERNAL_SERVER_ERROR),
 	USERNAME_ALREADY_EXISTS("USERNAME_ALREADY_EXISTS", "Tên đăng nhập đã tồn tại", HttpStatus.CONFLICT),
 	EMAIL_ALREADY_EXISTS("EMAIL_ALREADY_EXISTS", "Email đã được sử dụng", HttpStatus.CONFLICT),
-	CONFLICT("CONFLICT", "Dữ liệu bị trùng lặp hoặc vi phạm ràng buộc hệ thống", HttpStatus.CONFLICT),
 	INVALID_ENUM_VALUE("INVALID_ENUM_VALUE", "Giá trị không hợp lệ", HttpStatus.BAD_REQUEST),
 	ORG_NODE_CODE_EXISTS("ORG_NODE_CODE_EXISTS", "Mã đơn vị đã tồn tại", HttpStatus.CONFLICT),
 	ORG_NODE_NOT_FOUND("ORG_NODE_NOT_FOUND", "Không tìm thấy đơn vị", HttpStatus.NOT_FOUND),
