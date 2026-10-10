@@ -469,7 +469,7 @@ class DocumentWorkflowServiceTest {
                 .build();
 
         when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(5001L)).thenReturn(true);
-        when(documentAttachmentRepository.findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(5001L))
+        when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(5001L))
                 .thenReturn(List.of(attachment));
 
         org.springframework.core.io.ByteArrayResource res = new org.springframework.core.io.ByteArrayResource(mockBytes);
@@ -516,8 +516,6 @@ class DocumentWorkflowServiceTest {
                 .build();
 
         when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(5001L)).thenReturn(true);
-        when(documentAttachmentRepository.findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(5001L))
-                .thenReturn(List.of(docxAttachment));
         when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(5001L))
                 .thenReturn(List.of(docxAttachment));
 
@@ -529,6 +527,98 @@ class DocumentWorkflowServiceTest {
                 () -> documentWorkflowService.initialSign(5001L, request));
         assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
         assertTrue(ex.getMessage().contains("PDF"));
+    }
+
+    @Test
+    @DisplayName("UC13: Tệp đính kèm chính là DOCX nhưng có tệp đính kèm khác là PDF thì ký tệp PDF thành công")
+    void initialSign_whenMainAttachmentIsNotPdf_butOtherAttachmentIsPdf_shouldSucceed() {
+        document.setPrimaryFilePath(null);
+        byte[] mockBytes = new byte[]{1, 2, 3};
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        DocumentAttachment docxAttachment = DocumentAttachment.builder()
+                .id(902L)
+                .document(document)
+                .originalFileName("ke_hoach.docx")
+                .storagePath("telegram")
+                .storageFileName("file_docx")
+                .fileExtension("DOCX")
+                .isMainDocument(true)
+                .build();
+
+        DocumentAttachment pdfAttachment = DocumentAttachment.builder()
+                .id(903L)
+                .document(document)
+                .originalFileName("ke_hoach_scan.pdf")
+                .storagePath("telegram")
+                .storageFileName("file_pdf")
+                .fileExtension("PDF")
+                .isMainDocument(false)
+                .build();
+
+        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(5001L)).thenReturn(true);
+        when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(5001L))
+                .thenReturn(List.of(docxAttachment, pdfAttachment));
+
+        org.springframework.core.io.ByteArrayResource res = new org.springframework.core.io.ByteArrayResource(mockBytes);
+        when(unifiedStorageService.loadAsResource("telegram", "file_pdf")).thenReturn(res);
+        when(pdfProcessingService.applyInitialSignStamp(any(byte[].class), any(StampInfo.class))).thenReturn(mockBytes);
+        when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("drafts/stamped.pdf");
+        when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("mock_sha256_hash");
+
+        DocumentInitialSignRequest request = DocumentInitialSignRequest.builder()
+                .comment("Ký nháy tệp PDF phụ")
+                .build();
+
+        DocumentDetailResponse response = documentWorkflowService.initialSign(5001L, request);
+
+        assertNotNull(response);
+        assertEquals("drafts/stamped.pdf", document.getPrimaryFilePath());
+        verify(workflowEngine).executeTransition(
+                document,
+                WorkflowAction.INITIAL_SIGN,
+                leader,
+                "Ký nháy tệp PDF phụ",
+                null,
+                null,
+                "mock_sha256_hash"
+        );
+    }
+
+    @Test
+    @DisplayName("UC13: Có tệp đính kèm PDF nhưng đọc từ storage thất bại thì ném lỗi STORAGE_ERROR")
+    void initialSign_whenPdfAttachmentExists_butStorageFails_shouldThrowStorageError() {
+        document.setPrimaryFilePath(null);
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        DocumentAttachment attachment = DocumentAttachment.builder()
+                .id(901L)
+                .document(document)
+                .originalFileName("ke_hoach.pdf")
+                .storagePath("telegram")
+                .storageFileName("file_12345")
+                .fileExtension("PDF")
+                .isMainDocument(true)
+                .build();
+
+        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(5001L)).thenReturn(true);
+        when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(5001L))
+                .thenReturn(List.of(attachment));
+
+        when(unifiedStorageService.loadAsResource("telegram", "file_12345"))
+                .thenThrow(new RuntimeException("Telegram storage connection error"));
+
+        DocumentInitialSignRequest request = DocumentInitialSignRequest.builder()
+                .comment("Ký nháy lỗi storage")
+                .build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.initialSign(5001L, request));
+        assertEquals(ErrorCode.STORAGE_ERROR, ex.getErrorCode());
     }
 
     @Test

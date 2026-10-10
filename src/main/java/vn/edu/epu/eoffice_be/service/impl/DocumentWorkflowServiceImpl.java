@@ -450,6 +450,14 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         throw new BusinessException(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING);
     }
 
+    private boolean isPdfAttachment(DocumentAttachment att) {
+        if (att == null) {
+            return false;
+        }
+        return "PDF".equalsIgnoreCase(att.getFileExtension()) ||
+                (att.getOriginalFileName() != null && att.getOriginalFileName().toLowerCase().endsWith(".pdf"));
+    }
+
     private byte[] loadDocumentPdfBytes(Document document) {
         // 1. Thử nạp qua fileStorageService nếu primaryFilePath đã có (ví dụ: đã qua bước ký nháy)
         if (document.getPrimaryFilePath() != null && !document.getPrimaryFilePath().isBlank()) {
@@ -464,48 +472,52 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         }
 
         // 2. Thử nạp từ tệp đính kèm DocumentAttachment qua unifiedStorageService (Telegram/filesystem)
-        if (documentAttachmentRepository != null && unifiedStorageService != null) {
-            List<DocumentAttachment> mainAttachments = documentAttachmentRepository
-                    .findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(document.getId());
-            DocumentAttachment targetAttachment = mainAttachments.isEmpty() ? null : mainAttachments.get(0);
-
-            if (targetAttachment == null) {
-                List<DocumentAttachment> allAttachments = documentAttachmentRepository
-                        .findByDocumentIdAndDeleteFlgFalse(document.getId());
-                targetAttachment = allAttachments.stream()
-                        .filter(att -> "PDF".equalsIgnoreCase(att.getFileExtension()) ||
-                                (att.getOriginalFileName() != null && att.getOriginalFileName().toLowerCase().endsWith(".pdf")))
-                        .findFirst()
-                        .orElse(null);
-            }
-
-            if (targetAttachment != null) {
-                try {
-                    org.springframework.core.io.Resource res = unifiedStorageService.loadAsResource(
-                            targetAttachment.getStoragePath(), targetAttachment.getStorageFileName()
-                    );
-                    if (res != null && res.exists() && res.isReadable()) {
-                        try (java.io.InputStream is = res.getInputStream()) {
-                            byte[] bytes = is.readAllBytes();
-                            if (bytes.length > 0) {
-                                return bytes;
-                            }
-                        }
-                    }
-                } catch (Exception e) {
-                    log.warn("Không thể nạp nội dung PDF từ tệp đính kèm id={}: {}",
-                            targetAttachment.getId(), e.getMessage());
-                }
-            }
-        }
-
-        // 3. Nếu có tệp đính kèm nhưng không phải PDF, thông báo lỗi định dạng rõ ràng
         if (documentAttachmentRepository != null) {
             List<DocumentAttachment> allAttachments = documentAttachmentRepository
                     .findByDocumentIdAndDeleteFlgFalse(document.getId());
+
             if (!allAttachments.isEmpty()) {
-                throw new BusinessException(ErrorCode.BAD_REQUEST,
-                        "Văn bản đã có tệp đính kèm nhưng không phải định dạng PDF. Ký nháy/ký số chỉ hỗ trợ tệp định dạng PDF.");
+                // Lọc danh sách các tệp đính kèm có định dạng PDF
+                List<DocumentAttachment> pdfAttachments = allAttachments.stream()
+                        .filter(this::isPdfAttachment)
+                        .toList();
+
+                if (pdfAttachments.isEmpty()) {
+                    // Trường hợp 1: Có tệp đính kèm nhưng không có bất kỳ tệp PDF nào
+                    throw new BusinessException(ErrorCode.BAD_REQUEST,
+                            "Văn bản đã có tệp đính kèm nhưng không phải định dạng PDF. Ký nháy/ký số chỉ hỗ trợ tệp định dạng PDF.");
+                }
+
+                // Ưu tiên tệp PDF chính (isMainDocument = true), nếu không có thì lấy tệp PDF đầu tiên
+                DocumentAttachment targetAttachment = pdfAttachments.stream()
+                        .filter(DocumentAttachment::isMainDocument)
+                        .findFirst()
+                        .orElse(pdfAttachments.get(0));
+
+                if (unifiedStorageService != null) {
+                    try {
+                        org.springframework.core.io.Resource res = unifiedStorageService.loadAsResource(
+                                targetAttachment.getStoragePath(), targetAttachment.getStorageFileName()
+                        );
+                        if (res != null && res.exists() && res.isReadable()) {
+                            try (java.io.InputStream is = res.getInputStream()) {
+                                byte[] bytes = is.readAllBytes();
+                                if (bytes.length > 0) {
+                                    return bytes;
+                                }
+                            }
+                        } else {
+                            log.error("Tệp đính kèm PDF id={} (storagePath={}, storageFileName={}) không tồn tại hoặc không thể đọc trên hệ thống lưu trữ",
+                                    targetAttachment.getId(), targetAttachment.getStoragePath(), targetAttachment.getStorageFileName());
+                        }
+                    } catch (Exception e) {
+                        log.error("Lỗi khi đọc tệp đính kèm PDF id={}: {}", targetAttachment.getId(), e.getMessage(), e);
+                    }
+                }
+
+                // Trường hợp 2: Có tệp đính kèm PDF hợp lệ nhưng không thể nạp nội dung từ storage
+                throw new BusinessException(ErrorCode.STORAGE_ERROR,
+                        "Không thể tải nội dung tệp PDF đính kèm từ hệ thống lưu trữ. Vui lòng thử lại sau.");
             }
         }
 
