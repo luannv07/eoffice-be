@@ -102,21 +102,46 @@ public class FileSystemStorageService implements FileStorageService {
                     .metadata(Map.of("documentId", String.valueOf(documentId)))
                     .build();
 
-            StoredFile savedFile = provider.save(storedFile);
+            StoredFile savedFile;
+            try {
+                savedFile = provider.save(storedFile);
+            } catch (Exception e) {
+                log.warn("Lưu trữ tệp qua provider '{}' thất bại: {}. Đang thử fallback về 'filesystem'...", provider.getName(), e.getMessage());
+                try {
+                    FileStorageProvider fallbackProvider = providerRegistry.getProvider("filesystem");
+                    if (fallbackProvider != null && !fallbackProvider.getName().equalsIgnoreCase(provider.getName())) {
+                        savedFile = fallbackProvider.save(storedFile);
+                        provider = fallbackProvider;
+                        log.info("Fallback lưu trữ tệp qua 'filesystem' thành công: id={}", savedFile.getId());
+                    } else {
+                        throw e;
+                    }
+                } catch (Exception fallbackEx) {
+                    if (fallbackEx == e) {
+                        throw e;
+                    }
+                    log.error("Fallback về 'filesystem' cũng thất bại: {}", fallbackEx.getMessage());
+                    throw e;
+                }
+            }
 
             // 4. Lưu siêu dữ liệu vào bảng file_storage_metadata
             if (storedFileMetadataRepository != null) {
                 try {
-                    StoredFileMetadata meta = StoredFileMetadata.builder()
-                            .provider(provider.getName())
-                            .fileId(savedFile.getId())
-                            .originalFileName(originalFileName)
-                            .contentType(mimeType)
-                            .sizeBytes(file.getSize())
-                            .sha256Checksum(sha256Checksum)
-                            .storagePath(savedFile.getMetadata() != null ? savedFile.getMetadata().get("storagePath") : null)
-                            .metadata(savedFile.getMetadata())
-                            .build();
+                    final String providerName = provider.getName();
+                    final String savedFileId = savedFile.getId();
+                    StoredFileMetadata meta = storedFileMetadataRepository
+                            .findByProviderAndFileId(providerName, savedFileId)
+                            .orElseGet(() -> StoredFileMetadata.builder()
+                                    .provider(providerName)
+                                    .fileId(savedFileId)
+                                    .build());
+                    meta.setOriginalFileName(originalFileName);
+                    meta.setContentType(mimeType);
+                    meta.setSizeBytes(file.getSize());
+                    meta.setSha256Checksum(sha256Checksum);
+                    meta.setStoragePath(savedFile.getMetadata() != null ? savedFile.getMetadata().get("storagePath") : null);
+                    meta.setMetadata(savedFile.getMetadata());
                     storedFileMetadataRepository.save(meta);
                 } catch (Exception e) {
                     log.warn("Không thể lưu siêu dữ liệu vào file_storage_metadata: {}", e.getMessage());

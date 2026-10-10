@@ -9,11 +9,13 @@ import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import vn.edu.epu.eoffice_be.common.dto.BaseResponse;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
+import vn.edu.epu.eoffice_be.storage.provider.FileStorageException;
 
 import java.util.stream.Collectors;
 
@@ -69,6 +71,20 @@ public class GlobalExceptionHandler {
         log.error("Invalid file upload request: ", ex);
         return ResponseEntity.status(ErrorCode.BAD_REQUEST.getStatus())
                 .body(BaseResponse.error("Yêu cầu upload file không hợp lệ hoặc kích thước vượt quá giới hạn", ErrorCode.BAD_REQUEST.getCode()));
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<BaseResponse<Void>> handleMissingServletRequestParameter(MissingServletRequestParameterException ex) {
+        log.warn("Missing request parameter: {}", ex.getParameterName());
+        return ResponseEntity.status(ErrorCode.BAD_REQUEST.getStatus())
+                .body(BaseResponse.error("Thiếu tham số bắt buộc: " + ex.getParameterName(), ErrorCode.BAD_REQUEST.getCode()));
+    }
+
+    @ExceptionHandler(FileStorageException.class)
+    public ResponseEntity<BaseResponse<Void>> handleFileStorageException(FileStorageException ex) {
+        log.error("File storage error: ", ex);
+        return ResponseEntity.status(ErrorCode.STORAGE_ERROR.getStatus())
+                .body(BaseResponse.error("Lỗi lưu trữ tệp: " + ex.getMessage(), ErrorCode.STORAGE_ERROR.getCode()));
     }
 
     @ExceptionHandler(Exception.class)
