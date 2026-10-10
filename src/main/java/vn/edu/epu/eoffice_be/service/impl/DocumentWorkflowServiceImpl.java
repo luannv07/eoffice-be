@@ -440,11 +440,30 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             return;
         }
         if (documentAttachmentRepository != null) {
-            boolean hasMainAttachment = documentAttachmentRepository
-                    .existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(document.getId());
-            boolean hasAnyAttachment = documentAttachmentRepository
-                    .existsByDocumentIdAndDeleteFlgFalse(document.getId());
-            if (hasMainAttachment || hasAnyAttachment) {
+            List<DocumentAttachment> allAttachments = documentAttachmentRepository
+                    .findByDocumentIdAndDeleteFlgFalse(document.getId());
+
+            if (!allAttachments.isEmpty()) {
+                // 1) Kiểm tra xem có tệp đính kèm chính (isMainDocument == true) hay không
+                Optional<DocumentAttachment> mainAttachmentOpt = allAttachments.stream()
+                        .filter(att -> att != null && Boolean.TRUE.equals(att.isMainDocument()))
+                        .findFirst();
+
+                if (mainAttachmentOpt.isPresent()) {
+                    DocumentAttachment mainAtt = mainAttachmentOpt.get();
+                    if (!isPdfAttachment(mainAtt)) {
+                        throw new BusinessException(ErrorCode.BAD_REQUEST,
+                                "Tệp đính kèm chính của văn bản không phải định dạng PDF. Ký nháy/ký số yêu cầu tệp chính phải là định dạng PDF.");
+                    }
+                    return;
+                }
+
+                // 2) Nếu không có tệp chính được chỉ định, kiểm tra có ít nhất một tệp PDF hợp lệ
+                boolean hasPdfAttachment = allAttachments.stream().anyMatch(this::isPdfAttachment);
+                if (!hasPdfAttachment) {
+                    throw new BusinessException(ErrorCode.BAD_REQUEST,
+                            "Văn bản đã có tệp đính kèm nhưng không phải định dạng PDF. Ký nháy/ký số chỉ hỗ trợ tệp định dạng PDF.");
+                }
                 return;
             }
         }

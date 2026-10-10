@@ -63,8 +63,21 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
 
     List<Document> findByStatusAndDeleteFlgFalse(DocumentStatus status);
 
-    @Query("SELECT d FROM Document d WHERE d.status = :status AND d.deleteFlg = false ORDER BY d.issueDate DESC, d.id DESC")
-    List<Document> findByStatusOrderByIssueDateDescIdDesc(@Param("status") DocumentStatus status);
+    @Query("""
+        SELECT d FROM Document d 
+        LEFT JOIN d.documentBook db
+        WHERE d.status = :status 
+          AND d.deleteFlg = false 
+          AND (:documentBookId IS NULL OR db.id = :documentBookId)
+        ORDER BY d.issueDate DESC, d.id DESC
+    """)
+    List<Document> findByStatusOrderByIssueDateDescIdDesc(
+            @Param("status") DocumentStatus status,
+            @Param("documentBookId") Long documentBookId);
+
+    default List<Document> findByStatusOrderByIssueDateDescIdDesc(DocumentStatus status) {
+        return findByStatusOrderByIssueDateDescIdDesc(status, null);
+    }
 
     /**
      * Phân trang văn bản theo trạng thái đơn, loại trừ bản xóa mềm.
@@ -149,6 +162,7 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
         SELECT DISTINCT d.* FROM documents d
         JOIN document_distributions dd ON d.id = dd.document_id
         WHERE d.status = 'PUBLISHED'
+          AND (:documentBookId IS NULL OR d.document_book_id = :documentBookId)
           AND (dd.target_type = 'ALL' 
                OR (dd.target_type = 'ORG' AND (:orgId IS NOT NULL AND dd.target_id = :orgId))
                OR (dd.target_type = 'USER' AND (:userId IS NOT NULL AND dd.target_id = :userId)))
@@ -156,10 +170,15 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
         """, nativeQuery = true)
     List<Document> findPublishedDocumentsForUser(
             @Param("orgId") Long orgId, 
-            @Param("userId") Long userId);
+            @Param("userId") Long userId,
+            @Param("documentBookId") Long documentBookId);
+
+    default List<Document> findPublishedDocumentsForUser(Long orgId, Long userId) {
+        return findPublishedDocumentsForUser(orgId, userId, null);
+    }
 
     default List<Document> findPublishedDocumentsForUser(Long orgId) {
-        return findPublishedDocumentsForUser(orgId, null);
+        return findPublishedDocumentsForUser(orgId, null, null);
     }
 
     @Query(value = """
@@ -182,4 +201,41 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
     default Optional<Document> findAccessiblePublishedDocument(Long documentId, Long orgId) {
         return findAccessiblePublishedDocument(documentId, orgId, null);
     }
+
+    /**
+     * BE-04: Lấy danh sách văn bản đã được cấp số của một sổ văn bản.
+     * <p>
+     * <b>Lưu ý về escape ký tự đặc biệt:</b> Tham số {@code keyword} được ghép vào mẫu LIKE
+     * với {@code ESCAPE '\\'}. Tầng nghiệp vụ (Service layer) bắt buộc phải escape trước các ký tự đại diện
+     * ('\\', '%', '_') thành ('\\\\', '\\%', '\\_') trước khi gọi phương thức này.
+     * Xem: {@link vn.edu.epu.eoffice_be.service.impl.DocumentBookServiceImpl#getAssignedDocuments}
+     * </p>
+     */
+    @Query("""
+        SELECT d FROM Document d
+        WHERE d.deleteFlg = false
+          AND d.officialNumber IS NOT NULL
+          AND (
+            d.documentBook.id = :bookId
+            OR (
+                d.documentBook IS NULL
+                AND (:typeCd IS NOT NULL AND UPPER(d.documentTypeCd) = UPPER(:typeCd))
+                AND (:orgId IS NOT NULL AND (d.issuingOrgNode.id = :orgId OR d.issuingOrg.id = :orgId))
+            )
+          )
+          AND (:status IS NULL OR d.status = :status)
+          AND (:keyword IS NULL OR :keyword = ''
+                OR LOWER(d.title) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
+                OR LOWER(d.officialNumber) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
+                OR LOWER(d.draftCode) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\')
+        ORDER BY d.id DESC
+    """)
+    Page<Document> findAssignedDocuments(
+            @Param("bookId") Long bookId,
+            @Param("typeCd") String typeCd,
+            @Param("orgId") Long orgId,
+            @Param("status") DocumentStatus status,
+            @Param("keyword") String keyword,
+            Pageable pageable
+    );
 }

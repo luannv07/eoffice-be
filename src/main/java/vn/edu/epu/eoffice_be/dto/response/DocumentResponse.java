@@ -43,6 +43,8 @@ public class DocumentResponse {
 
     // UC15-UC17: Các trường phát hành văn bản
     String officialNumber;
+    Long documentBookId;
+    String documentBookCode;
     LocalDate issueDate;
     LocalDate effectiveDate;
     String officialFilePath;
