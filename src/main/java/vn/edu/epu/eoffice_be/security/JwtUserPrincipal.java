@@ -10,9 +10,8 @@ import java.security.Principal;
 import java.util.List;
 
 @Getter
-@RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class JwtUserPrincipal implements Principal, Serializable, UserIdAwarePrincipal {
+public class JwtUserPrincipal implements Principal, Serializable, UserIdAwarePrincipal, OrgAwarePrincipal {
 
 	Long userId;
 
@@ -23,6 +22,30 @@ public class JwtUserPrincipal implements Principal, Serializable, UserIdAwarePri
 	boolean profileCompleted;
 
 	List<String> permissions;
+
+	Long orgId;
+
+	public JwtUserPrincipal(Long userId, String username, String role, boolean profileCompleted, List<String> permissions) {
+		this(userId, username, role, profileCompleted, permissions, null);
+	}
+
+	public JwtUserPrincipal(Long userId, String username, String role, boolean profileCompleted, List<String> permissions, Long orgId) {
+		this.userId = userId;
+		this.username = username;
+		this.role = role;
+		this.profileCompleted = profileCompleted;
+		this.permissions = permissions;
+		this.orgId = orgId;
+	}
+
+	@Override
+	public Long getOrgId() {
+		return orgId;
+	}
+
+	public Long orgId() {
+		return orgId;
+	}
 
 	// Record-style accessors for compatibility with previous record usage
 	public Long userId() {

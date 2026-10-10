@@ -24,6 +24,7 @@ import vn.edu.epu.eoffice_be.dto.response.LoginResponse;
 import vn.edu.epu.eoffice_be.dto.response.MeResponse;
 import vn.edu.epu.eoffice_be.entity.UserInfo;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
+import vn.edu.epu.eoffice_be.repository.PositionAssignmentRepository;
 import vn.edu.epu.eoffice_be.repository.UserInfoRepository;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
 import vn.edu.epu.eoffice_be.utils.AccountStatusUtils;
@@ -39,6 +40,7 @@ public class AuthService {
 
 	final UserLoginRepository userLoginRepository;
 	final UserInfoRepository userInfoRepository;
+	final PositionAssignmentRepository positionAssignmentRepository;
 	final PasswordEncoder passwordEncoder;
 	final JwtService jwtService;
 	final JwtProperties jwtProperties;
@@ -49,6 +51,18 @@ public class AuthService {
 	@NonFinal
 	@Value("${eoffice.auth.lockout-minutes:30}")
 	int lockoutMinutes;
+
+	private Long resolveUserOrgId(Long userId) {
+		if (positionAssignmentRepository == null || userId == null) {
+			return null;
+		}
+		var assignments = positionAssignmentRepository.findActiveAssignments(userId, Instant.now());
+		if (assignments != null && !assignments.isEmpty()) {
+			var node = assignments.get(0).getOrgNode();
+			return node != null ? node.getId() : null;
+		}
+		return null;
+	}
 
 	@Transactional
 	public LoginResponse login(LoginRequest request, String clientIp) {
@@ -75,8 +89,11 @@ public class AuthService {
 
 		UserInfo info = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(user.getId()).orElse(null);
 		boolean profileCompleted = info != null;
+		Long orgId = resolveUserOrgId(user.getId());
 		String refreshToken = jwtService.generateRefreshToken(user.getId(), user.getUsername(), user.getRole());
-		String accessToken = jwtService.generateAccessToken(user.getId(), user.getUsername(), user.getRole(), profileCompleted);
+		String accessToken = (orgId != null)
+				? jwtService.generateAccessToken(user.getId(), user.getUsername(), user.getRole(), profileCompleted, orgId)
+				: jwtService.generateAccessToken(user.getId(), user.getUsername(), user.getRole(), profileCompleted);
 		refreshTokenService.revokeAllActive(user.getId());
 		persistRefreshToken(user.getId(), refreshToken);
 
@@ -167,7 +184,10 @@ public class AuthService {
 						now.plus(jwtProperties.getRefreshTokenTtl()));
 		UserInfo info = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(userId).orElse(null);
 		boolean profileCompleted = info != null;
-		String accessToken = jwtService.generateAccessToken(user.getId(), user.getUsername(), user.getRole(), profileCompleted);
+		Long orgId = resolveUserOrgId(user.getId());
+		String accessToken = (orgId != null)
+				? jwtService.generateAccessToken(user.getId(), user.getUsername(), user.getRole(), profileCompleted, orgId)
+				: jwtService.generateAccessToken(user.getId(), user.getUsername(), user.getRole(), profileCompleted);
 
 		return LoginResponse.builder()
 						.accessToken(accessToken)

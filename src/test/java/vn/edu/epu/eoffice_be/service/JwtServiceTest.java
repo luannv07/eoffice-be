@@ -47,6 +47,16 @@ class JwtServiceTest {
 	}
 
 	@Test
+	void generateAccessTokenWithOrgIdShouldBeParsableWithOrgIdClaim() {
+		String token = jwtService.generateAccessToken(42L, "alice", Role.USER, true, 99L);
+
+		Claims claims = jwtService.parseAccessToken(token);
+		assertEquals("42", claims.getSubject());
+		assertEquals("alice", claims.get("username", String.class));
+		assertEquals(99L, claims.get("orgId", Number.class).longValue());
+	}
+
+	@Test
 	void generateRefreshTokenShouldBeParsableWithRefreshType() {
 		String token = jwtService.generateRefreshToken(42L, "alice", Role.ADMIN);
 

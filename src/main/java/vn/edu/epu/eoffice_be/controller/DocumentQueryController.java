@@ -168,9 +168,36 @@ public class DocumentQueryController {
         return ORG_ID_METHOD_CACHE.get(clazz);
     }
 
+    private boolean isAdmin(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return false;
+        }
+        if (authentication.getAuthorities() != null) {
+            boolean hasAdminAuthority = authentication.getAuthorities().stream()
+                    .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                    .anyMatch(auth -> "ROLE_ADMIN".equalsIgnoreCase(auth)
+                            || "ROLE_SYSTEM_ADMIN".equalsIgnoreCase(auth)
+                            || "ADMIN".equalsIgnoreCase(auth)
+                            || "SYSTEM_ADMIN".equalsIgnoreCase(auth));
+            if (hasAdminAuthority) {
+                return true;
+            }
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof vn.edu.epu.eoffice_be.security.JwtUserPrincipal jwtPrincipal) {
+            String role = jwtPrincipal.getRole();
+            return vn.edu.epu.eoffice_be.common.enums.Role.ADMIN.name().equalsIgnoreCase(role)
+                    || vn.edu.epu.eoffice_be.common.enums.Role.SYSTEM_ADMIN.name().equalsIgnoreCase(role);
+        }
+        return false;
+    }
+
     // UC16.1: Tra cứu danh sách văn bản ban hành
     @GetMapping("/published")
     public ResponseEntity<Object> getPublishedDocuments(Authentication authentication) {
+        if (isAdmin(authentication)) {
+            return ResponseEntity.ok(queryService.getAllPublishedDocuments());
+        }
         Long orgId = resolveUserOrgId(authentication);
         return ResponseEntity.ok(queryService.getPublishedDocuments(orgId));
     }
@@ -178,6 +205,9 @@ public class DocumentQueryController {
     // UC16.2: Xem chi tiết trích yếu
     @GetMapping("/{id}/details")
     public ResponseEntity<Object> getDocumentDetails(@PathVariable Long id, Authentication authentication) {
+        if (isAdmin(authentication)) {
+            return ResponseEntity.ok(queryService.getDocumentDetailsForAdmin(id));
+        }
         Long orgId = resolveUserOrgId(authentication);
         return ResponseEntity.ok(queryService.getDocumentDetails(id, orgId));
     }
@@ -185,8 +215,13 @@ public class DocumentQueryController {
     // UC16.3: Tải file PDF chính thức
     @GetMapping("/{id}/download")
     public ResponseEntity<Resource> downloadDocument(@PathVariable Long id, Authentication authentication) {
-        Long orgId = resolveUserOrgId(authentication);
-        byte[] pdfBytes = queryService.downloadDocument(id, orgId);
+        byte[] pdfBytes;
+        if (isAdmin(authentication)) {
+            pdfBytes = queryService.downloadDocumentForAdmin(id);
+        } else {
+            Long orgId = resolveUserOrgId(authentication);
+            pdfBytes = queryService.downloadDocument(id, orgId);
+        }
         ByteArrayResource resource = new ByteArrayResource(pdfBytes);
 
         return ResponseEntity.ok()
