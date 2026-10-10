@@ -182,4 +182,35 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
     default Optional<Document> findAccessiblePublishedDocument(Long documentId, Long orgId) {
         return findAccessiblePublishedDocument(documentId, orgId, null);
     }
+
+    /**
+     * BE-04: Lấy danh sách văn bản đã được cấp số của một sổ văn bản.
+     */
+    @Query("""
+        SELECT d FROM Document d
+        WHERE d.deleteFlg = false
+          AND d.officialNumber IS NOT NULL
+          AND (
+            d.documentBook.id = :bookId
+            OR (
+                d.documentBook IS NULL
+                AND (:typeCd IS NOT NULL AND UPPER(d.documentTypeCd) = UPPER(:typeCd))
+                AND (:orgId IS NOT NULL AND (d.issuingOrgNode.id = :orgId OR d.issuingOrg.id = :orgId))
+            )
+          )
+          AND (:status IS NULL OR d.status = :status)
+          AND (:keyword IS NULL OR :keyword = ''
+                OR LOWER(d.title) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                OR LOWER(d.officialNumber) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                OR LOWER(d.draftCode) LIKE LOWER(CONCAT('%', :keyword, '%')))
+        ORDER BY d.id DESC
+    """)
+    Page<Document> findAssignedDocuments(
+            @Param("bookId") Long bookId,
+            @Param("typeCd") String typeCd,
+            @Param("orgId") Long orgId,
+            @Param("status") DocumentStatus status,
+            @Param("keyword") String keyword,
+            Pageable pageable
+    );
 }

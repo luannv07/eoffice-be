@@ -192,14 +192,26 @@ public class DocumentQueryController {
         return false;
     }
 
-    // UC16.1: Tra cứu danh sách văn bản ban hành
+    // UC16.1: Tra cứu danh sách văn bản ban hành (BE-04: hỗ trợ lọc theo documentBookId)
     @GetMapping("/published")
-    public ResponseEntity<Object> getPublishedDocuments(Authentication authentication) {
+    public ResponseEntity<Object> getPublishedDocuments(
+            @RequestParam(required = false) Long documentBookId,
+            Authentication authentication) {
         if (isAdmin(authentication)) {
+            if (documentBookId != null) {
+                return ResponseEntity.ok(queryService.getAllPublishedDocuments(documentBookId));
+            }
             return ResponseEntity.ok(queryService.getAllPublishedDocuments());
         }
         Long orgId = resolveUserOrgId(authentication);
+        if (documentBookId != null) {
+            return ResponseEntity.ok(queryService.getPublishedDocuments(orgId, documentBookId));
+        }
         return ResponseEntity.ok(queryService.getPublishedDocuments(orgId));
+    }
+
+    public ResponseEntity<Object> getPublishedDocuments(Authentication authentication) {
+        return getPublishedDocuments(null, authentication);
     }
 
     // UC16.2: Xem chi tiết trích yếu

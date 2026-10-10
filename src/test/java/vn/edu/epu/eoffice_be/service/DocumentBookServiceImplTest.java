@@ -8,6 +8,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
@@ -309,6 +310,29 @@ class DocumentBookServiceImplTest {
 	}
 
 	@Test
+	void assignNumber_AlreadyHasOfficialNumber_ThrowsException() {
+		Document doc = Document.builder()
+				.id(5001L)
+				.status(DocumentStatus.APPROVED)
+				.officialNumber("99/QĐ-ĐHEPU")
+				.documentTypeCd("QD")
+				.issuingOrgNode(orgNode)
+				.build();
+
+		when(documentBookRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(book));
+		when(documentRepository.findById(5001L)).thenReturn(Optional.of(doc));
+
+		AssignDocumentNumberRequest req = new AssignDocumentNumberRequest();
+		req.setBookId(1L);
+		req.setDocumentId(5001L);
+
+		BusinessException ex = assertThrows(BusinessException.class, () -> documentBookService.assignNumber(req));
+		assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
+		assertTrue(ex.getMessage().contains("Văn bản đã được cấp số hiệu"));
+		verify(documentBookRepository, never()).save(any(DocumentBook.class));
+	}
+
+	@Test
 	void assignNumber_DocumentTypeMismatch_ThrowsException() {
 		book.setDocumentType(docType);
 		Document doc = Document.builder()
@@ -581,5 +605,27 @@ class DocumentBookServiceImplTest {
 		var page = documentBookService.getAll(req);
 		assertEquals(1, page.getTotalElements());
 		assertEquals("SVD-QD-DHEPU-2026", page.getContent().get(0).getBookCode());
+	}
+
+	@Test
+	void getAssignedDocuments_Success() {
+		Document doc = Document.builder()
+				.id(5001L)
+				.title("Quyết định ban hành")
+				.officialNumber("1/QĐ-ĐHEPU")
+				.status(DocumentStatus.APPROVED)
+				.documentBook(book)
+				.documentTypeCd("QD")
+				.build();
+
+		when(documentBookRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(book));
+		when(documentRepository.findAssignedDocuments(eq(1L), any(), any(), any(), any(), any(Pageable.class)))
+				.thenReturn(new PageImpl<>(List.of(doc)));
+
+		var result = documentBookService.getAssignedDocuments(1L, null, null, PageRequest.of(0, 10));
+		assertNotNull(result);
+		assertEquals(1, result.getTotalElements());
+		assertEquals("1/QĐ-ĐHEPU", result.getContent().get(0).getOfficialNumber());
+		assertEquals(1L, result.getContent().get(0).getDocumentBookId());
 	}
 }

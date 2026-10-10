@@ -8,15 +8,20 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import vn.edu.epu.eoffice_be.common.annotation.Auditable;
 import vn.edu.epu.eoffice_be.common.dto.BaseResponse;
 import vn.edu.epu.eoffice_be.common.dto.PageResponse;
+import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.dto.request.AssignDocumentNumberRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentBookCreateRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentBookFilterRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentBookUpdateRequest;
 import vn.edu.epu.eoffice_be.dto.response.AssignDocumentNumberResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentBookResponse;
+import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
 import vn.edu.epu.eoffice_be.service.DocumentBookService;
 
 @RestController
@@ -136,5 +141,23 @@ public class DocumentBookController {
 	public BaseResponse<AssignDocumentNumberResponse> assignNumber(
 			@Valid @RequestBody AssignDocumentNumberRequest request) {
 		return BaseResponse.success(documentBookService.assignNumber(request));
+	}
+
+	@Operation(
+			summary = "Danh sách văn bản đã cấp số theo sổ văn bản (BE-04)",
+			description = "Lấy danh sách các văn bản đã được cấp số từ sổ văn bản này, có hỗ trợ phân trang và tìm kiếm theo từ khóa / trạng thái."
+	)
+	@ApiResponse(responseCode = "200", description = "Lấy danh sách văn bản thành công")
+	@ApiResponse(responseCode = "404", description = "Không tìm thấy sổ văn bản")
+	@GetMapping("/{id}/assigned-documents")
+	@PreAuthorize("isAuthenticated()")
+	public BaseResponse<PageResponse<DocumentResponse>> getAssignedDocuments(
+			@PathVariable Long id,
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "10") int size,
+			@RequestParam(required = false) String keyword,
+			@RequestParam(required = false) DocumentStatus status) {
+		Pageable pageable = PageRequest.of(Math.max(page, 0), Math.max(size, 1), Sort.by(Sort.Direction.DESC, "id"));
+		return BaseResponse.success(PageResponse.from(documentBookService.getAssignedDocuments(id, keyword, status, pageable)));
 	}
 }
