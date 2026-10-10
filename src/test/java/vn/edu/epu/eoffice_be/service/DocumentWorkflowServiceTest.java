@@ -468,7 +468,6 @@ class DocumentWorkflowServiceTest {
                 .isMainDocument(true)
                 .build();
 
-        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(5001L)).thenReturn(true);
         when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(5001L))
                 .thenReturn(List.of(attachment));
 
@@ -515,7 +514,6 @@ class DocumentWorkflowServiceTest {
                 .isMainDocument(true)
                 .build();
 
-        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(5001L)).thenReturn(true);
         when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(5001L))
                 .thenReturn(List.of(docxAttachment));
 
@@ -557,7 +555,6 @@ class DocumentWorkflowServiceTest {
                 .isMainDocument(false)
                 .build();
 
-        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(5001L)).thenReturn(true);
         when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(5001L))
                 .thenReturn(List.of(docxAttachment, pdfAttachment));
 
@@ -600,8 +597,6 @@ class DocumentWorkflowServiceTest {
                 .isMainDocument(false)
                 .build();
 
-        when(documentAttachmentRepository.existsByDocumentIdAndDeleteFlgFalse(5001L))
-                .thenReturn(true);
         when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(5001L))
                 .thenReturn(List.of(docxAttachment, pdfAttachment));
 
@@ -648,7 +643,6 @@ class DocumentWorkflowServiceTest {
                 .isMainDocument(true)
                 .build();
 
-        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(5001L)).thenReturn(true);
         when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(5001L))
                 .thenReturn(List.of(attachment));
 
@@ -680,6 +674,82 @@ class DocumentWorkflowServiceTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentWorkflowService.signAndPublish(5001L, request));
         assertEquals(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING, ex.getErrorCode());
+        verifyNoInteractions(documentBookService);
+    }
+
+    @Test
+    @DisplayName("UC14: Ký phát hành thất bại khi văn bản có tệp đính kèm nhưng không có tệp nào là PDF")
+    void signAndPublish_whenAttachmentIsNotPdf_shouldThrowBadRequestAndNotAssignNumber() {
+        document.setPrimaryFilePath(null);
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        DocumentAttachment docxAttachment = DocumentAttachment.builder()
+                .id(905L)
+                .document(document)
+                .originalFileName("cong_van.docx")
+                .storagePath("telegram")
+                .storageFileName("file_docx")
+                .fileExtension("DOCX")
+                .isMainDocument(false)
+                .build();
+
+        when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(5001L))
+                .thenReturn(List.of(docxAttachment));
+
+        DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .bookId(1001L)
+                .comment("Ky ban hanh")
+                .build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.signAndPublish(5001L, request));
+        assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
+        assertTrue(ex.getMessage().contains("PDF"));
+        verifyNoInteractions(documentBookService);
+    }
+
+    @Test
+    @DisplayName("UC14: Ký phát hành thất bại khi tệp đính kèm chính không phải PDF kể cả khi có tệp phụ là PDF")
+    void signAndPublish_whenMainAttachmentIsNotPdf_shouldThrowBadRequestAndNotAssignNumber() {
+        document.setPrimaryFilePath(null);
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        DocumentAttachment docxAttachment = DocumentAttachment.builder()
+                .id(906L)
+                .document(document)
+                .originalFileName("cong_van.docx")
+                .storagePath("telegram")
+                .storageFileName("file_docx")
+                .fileExtension("DOCX")
+                .isMainDocument(true)
+                .build();
+
+        DocumentAttachment pdfAttachment = DocumentAttachment.builder()
+                .id(907L)
+                .document(document)
+                .originalFileName("phu_luc.pdf")
+                .storagePath("telegram")
+                .storageFileName("file_pdf")
+                .fileExtension("PDF")
+                .isMainDocument(false)
+                .build();
+
+        when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(5001L))
+                .thenReturn(List.of(docxAttachment, pdfAttachment));
+
+        DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .bookId(1001L)
+                .comment("Ky ban hanh")
+                .build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.signAndPublish(5001L, request));
+        assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
+        assertTrue(ex.getMessage().contains("Tệp đính kèm chính"));
         verifyNoInteractions(documentBookService);
     }
 
