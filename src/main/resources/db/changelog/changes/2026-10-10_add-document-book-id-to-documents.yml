@@ -4,6 +4,8 @@ databaseChangeLog:
   - changeSet:
       id: 2026-10-10-add-document-book-id-to-documents
       author: eoffice-dev
+      validCheckSum:
+        - ANY
       changes:
         - addColumn:
             tableName: documents
@@ -23,6 +25,8 @@ databaseChangeLog:
       id: 2026-10-10-backfill-document-book-id-pg
       author: eoffice-dev
       dbms: postgresql
+      validCheckSum:
+        - ANY
       changes:
         - sql:
             sql: |-

@@ -6,18 +6,16 @@ databaseChangeLog:
       id: 2026-10-10-resync-document-books-sequence-pg
       author: eoffice-dev
       dbms: postgresql
+      validCheckSum:
+        - ANY
       changes:
         - sql:
+            splitStatements: false
+            stripComments: false
             sql: |-
-              DO $$
-              BEGIN
-                IF EXISTS (SELECT 1 FROM pg_class WHERE relkind = 'S' AND relname = 'document_books_seq') THEN
-                  PERFORM setval('document_books_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM document_books), 10000) + 50, false);
-                END IF;
-                IF EXISTS (SELECT 1 FROM pg_class WHERE relkind = 'S' AND relname = 'document_books_id_seq') THEN
-                  PERFORM setval('document_books_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM document_books), 10000) + 50, false);
-                END IF;
-              END $$;
+              SELECT setval(c.oid, GREATEST((SELECT COALESCE(MAX(id), 0) FROM document_books), 10000) + 50, false)
+              FROM pg_class c
+              WHERE c.relkind = 'S' AND c.relname IN ('document_books_seq', 'document_books_id_seq');
       rollback:
         - sql:
             sql: SELECT 1
