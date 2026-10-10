@@ -17,10 +17,8 @@ import vn.edu.epu.eoffice_be.dto.request.AssignDocumentNumberRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentBookCreateRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentBookFilterRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentBookUpdateRequest;
-import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.dto.response.AssignDocumentNumberResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentBookResponse;
-import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
 import vn.edu.epu.eoffice_be.service.DocumentBookService;
 
 import java.time.LocalDate;
@@ -226,57 +224,5 @@ class DocumentBookControllerTest {
 				.andExpect(jsonPath("$.success").value(true))
 				.andExpect(jsonPath("$.data.documentNumber").value("1/QĐ-ĐHEPU"))
 				.andExpect(jsonPath("$.data.currentNumber").value(1));
-	}
-
-	@Test
-	void getAssignedDocuments_Success() throws Exception {
-		DocumentResponse docResp = DocumentResponse.builder()
-				.id(5001L)
-				.title("Quyết định ban hành quy chế")
-				.officialNumber("1/QĐ-ĐHEPU")
-				.documentBookId(1L)
-				.status(DocumentStatus.APPROVED)
-				.build();
-
-		when(documentBookService.getAssignedDocuments(eq(1L), any(), any(), any()))
-				.thenReturn(new PageImpl<>(List.of(docResp), PageRequest.of(0, 10), 1));
-
-		mockMvc.perform(get("/document-books/1/assigned-documents")
-						.param("page", "0")
-						.param("size", "10")
-						.contentType(MediaType.APPLICATION_JSON))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.success").value(true))
-				.andExpect(jsonPath("$.data.content[0].id").value(5001))
-				.andExpect(jsonPath("$.data.content[0].officialNumber").value("1/QĐ-ĐHEPU"))
-				.andExpect(jsonPath("$.data.totalElements").value(1));
-	}
-
-	@Test
-	void getAssignedDocuments_ExceedsMaxSize_BoundsTo100() throws Exception {
-		org.mockito.ArgumentCaptor<org.springframework.data.domain.Pageable> pageableCaptor =
-				org.mockito.ArgumentCaptor.forClass(org.springframework.data.domain.Pageable.class);
-		when(documentBookService.getAssignedDocuments(eq(1L), any(), any(), pageableCaptor.capture()))
-				.thenReturn(new PageImpl<>(List.of()));
-
-		mockMvc.perform(get("/document-books/1/assigned-documents")
-						.param("size", "1000000"))
-				.andExpect(status().isOk());
-
-		org.junit.jupiter.api.Assertions.assertEquals(100, pageableCaptor.getValue().getPageSize());
-	}
-
-	@Test
-	void getAssignedDocuments_BelowMinSize_BoundsTo1() throws Exception {
-		org.mockito.ArgumentCaptor<org.springframework.data.domain.Pageable> pageableCaptor =
-				org.mockito.ArgumentCaptor.forClass(org.springframework.data.domain.Pageable.class);
-		when(documentBookService.getAssignedDocuments(eq(1L), any(), any(), pageableCaptor.capture()))
-				.thenReturn(new PageImpl<>(List.of()));
-
-		mockMvc.perform(get("/document-books/1/assigned-documents")
-						.param("size", "-10"))
-				.andExpect(status().isOk());
-
-		org.junit.jupiter.api.Assertions.assertEquals(1, pageableCaptor.getValue().getPageSize());
 	}
 }

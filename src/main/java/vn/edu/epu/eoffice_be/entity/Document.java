@@ -124,10 +124,6 @@ public class Document extends BaseEntity {
     @JoinColumn(name = "parent_document_id")
     Document parentDocument;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "document_book_id")
-    DocumentBook documentBook;
-
     @Column(name = "recipients_text", length = 1000)
     String recipientsText;
 
