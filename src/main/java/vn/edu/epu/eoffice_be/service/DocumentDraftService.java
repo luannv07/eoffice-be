@@ -138,7 +138,7 @@ public class DocumentDraftService {
         }
 
         // Kiểm tra trạng thái: chỉ cho phép sửa khi là DRAFT hoặc REJECTED
-        if (document.getStatus() != DocumentStatus.DRAFT && document.getStatus() != DocumentStatus.REJECTED) {
+        if (document.getStatus() != DocumentStatus.DRAFT && document.getStatus() != DocumentStatus.REJECTED&& document.getStatus() != DocumentStatus.NEEDS_REVISION) {
             throw new BusinessException(ErrorCode.DOCUMENT_INVALID_STATUS,
                     "Không thể chỉnh sửa văn bản đang ở trạng thái: " + document.getStatus().getDescription());
         }

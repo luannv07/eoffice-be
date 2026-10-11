@@ -88,8 +88,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             DocumentStatus.WAITING_APPROVAL,
             DocumentStatus.IN_REVIEW,
             DocumentStatus.PENDING_SIGN,
-            DocumentStatus.SUBMITTED,
-            DocumentStatus.DRAFT
+            DocumentStatus.SUBMITTED
     );
 
     @Override
@@ -107,7 +106,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         // Quyết định hành động chuyển tiếp phù hợp với trạng thái hiện tại
         WorkflowAction action;
         if (document.getStatus() == DocumentStatus.SUBMITTED
-                || document.getStatus() == DocumentStatus.IN_REVIEW) {
+                || document.getStatus() == DocumentStatus.IN_REVIEW
+                || document.getStatus() == DocumentStatus.PENDING_REVIEW) {
             action = WorkflowAction.REVIEW_APPROVE;
         } else if (document.getStatus() == DocumentStatus.LEADER_REVIEW
                 || document.getStatus() == DocumentStatus.PENDING_APPROVAL
@@ -156,6 +156,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public DocumentDetailResponse initialSign(Long documentId, DocumentInitialSignRequest request) {
         UserLogin actor = getCurrentActor();
         Document document = findDocumentOrThrow(documentId);
@@ -213,6 +214,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public DocumentDetailResponse signAndPublish(Long documentId, DocumentPublishRequest request) {
         UserLogin actor = getCurrentActor();
         Document document = findDocumentOrThrow(documentId);
@@ -632,7 +634,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                         .id(log.getId())
                         .documentId(log.getDocument() != null ? log.getDocument().getId() : null)
                         .actorUsername(log.getActor() != null ? log.getActor().getUsername() : null)
-                        .actorRole(null)
+                        .actorRole(log.getActor() != null && log.getActor().getRole() != null 
+                        ? log.getActor().getRole().name() 
+                        : null)
                         .action(log.getAction() != null ? log.getAction().name() : null)
                         .comment(log.getComment())
                         .createdAt(log.getCreatedDate() != null ? LocalDateTime.ofInstant(log.getCreatedDate(), ZONE_VN) : null)
@@ -845,12 +849,28 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 ? doc.getStatus()
                 : DocumentStatus.DRAFT;
 
+        DocumentStatus toStatus = currentStatus;
+        if (workflowEngine != null) {
+            try {
+                toStatus = workflowEngine.getNextStatus(currentStatus, act);
+            } catch (BusinessException ex) {
+                // Ngoại lệ nghiệp vụ mong đợi: hành động không làm thay đổi trạng thái trong ma trận
+                log.warn("Hành động '{}' không làm thay đổi trạng thái từ '{}'. Giữ nguyên trạng thái hiện tại. Lý do: {}",
+                        act, currentStatus, ex.getMessage());
+                toStatus = currentStatus;
+            } catch (Exception ex) {
+                // Ngoại lệ hệ thống không mong đợi: ghi log error để truy vết
+                log.error("Lỗi không mong muốn khi tính trạng thái tiếp theo cho hành động '{}' từ trạng thái '{}'",
+                        act, currentStatus, ex);
+                toStatus = currentStatus;
+            }
+        }
         DocumentWorkflowLog log = DocumentWorkflowLog.builder()
                 .document(doc)
                 .actor(actor)
                 .action(act)
                 .fromStatus(currentStatus)
-                .toStatus(currentStatus)
+                .toStatus(toStatus)
                 .comment(comment)
                 .build();
         documentWorkflowLogRepository.save(log);
