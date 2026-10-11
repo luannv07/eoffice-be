@@ -3,6 +3,7 @@ package vn.edu.epu.eoffice_be.service;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
@@ -22,11 +23,13 @@ import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.Nullable;
 import vn.edu.epu.eoffice_be.dto.request.AssignDocumentNumberRequest;
 import vn.edu.epu.eoffice_be.dto.response.AssignDocumentNumberResponse;
 
+@Slf4j
 @Service
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class DocumentPublishService {
@@ -49,17 +52,32 @@ public class DocumentPublishService {
         this.distributionRepository = distributionRepository;
         this.documentBookService = documentBookService;
     }
-
+    
     @Transactional
     public Document publishDocument(Long documentId, PublishRequest request) {
         Document doc = documentRepository.findById(documentId)
-                .orElseThrow(() -> new IllegalArgumentException("Document not found: " + documentId));
-
+                .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND,"Không tìm thấy văn bản có id"+ documentId));
+        
+        if(Boolean.TRUE.equals(doc.isDeleteFlg())){
+            throw new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND, "Văn bản đã bị xoá");
+        }
+        Set<DocumentStatus> validStatuses = Set.of(
+            DocumentStatus.APPROVED, 
+            DocumentStatus.PENDING_SIGN, 
+            DocumentStatus.LEADER_REVIEW
+        );
+        if (doc.getStatus() != null && !validStatuses.contains(doc.getStatus())) {
+            throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATUS, 
+                    "Chỉ có thể ban hành văn bản đã được phê duyệt");
+        }
         String computedHash = calculateSha256(doc.getOfficialFilePath());
-        applyDocumentMetadata(doc, request, computedHash);
+        applyDocumentMetadata(doc, request,computedHash);
 
         Document savedDoc = documentRepository.save(doc);
         distributeDocument(savedDoc.getId(), request);
+
+        log.info("Ban hành văn bản thành công: id={}, số hiệu={}", 
+            savedDoc.getId(), savedDoc.getOfficialNumber());
 
         return savedDoc;
     }
