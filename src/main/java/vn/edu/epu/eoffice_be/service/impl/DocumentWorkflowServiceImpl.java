@@ -847,12 +847,20 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 ? doc.getStatus()
                 : DocumentStatus.DRAFT;
 
+        DocumentStatus toStatus = currentStatus;
+        if (workflowEngine != null) {
+            try {
+                toStatus = workflowEngine.getNextStatus(currentStatus, act);
+            } catch (Exception ignored) {
+                // Nếu hành động không làm đổi trạng thái thì giữ nguyên currentStatus
+            }
+        }
         DocumentWorkflowLog log = DocumentWorkflowLog.builder()
                 .document(doc)
                 .actor(actor)
                 .action(act)
                 .fromStatus(currentStatus)
-                .toStatus(currentStatus)
+                .toStatus(toStatus)
                 .comment(comment)
                 .build();
         documentWorkflowLogRepository.save(log);
