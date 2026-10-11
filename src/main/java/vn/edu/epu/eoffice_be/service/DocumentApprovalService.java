@@ -275,7 +275,7 @@ public class DocumentApprovalService {
         }
 
         // Kiểm tra trạng thái: văn bản phải đang ở trạng thái WAITING_APPROVAL
-        if (document.getStatus() != DocumentStatus.WAITING_APPROVAL) {
+        if (document.getStatus() != DocumentStatus.WAITING_APPROVAL && document.getStatus() != DocumentStatus.SUBMITTED) {
             throw new BusinessException(ErrorCode.DOCUMENT_INVALID_STATUS,
                     "Chỉ có thể thu hồi văn bản đang ở trạng thái Chờ duyệt");
         }

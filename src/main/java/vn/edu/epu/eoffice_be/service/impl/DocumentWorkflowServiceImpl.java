@@ -88,8 +88,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             DocumentStatus.WAITING_APPROVAL,
             DocumentStatus.IN_REVIEW,
             DocumentStatus.PENDING_SIGN,
-            DocumentStatus.SUBMITTED,
-            DocumentStatus.DRAFT
+            DocumentStatus.SUBMITTED
     );
 
     @Override
@@ -107,7 +106,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         // Quyết định hành động chuyển tiếp phù hợp với trạng thái hiện tại
         WorkflowAction action;
         if (document.getStatus() == DocumentStatus.SUBMITTED
-                || document.getStatus() == DocumentStatus.IN_REVIEW) {
+                || document.getStatus() == DocumentStatus.IN_REVIEW
+                || document.getStatus() == DocumentStatus.PENDING_REVIEW) {
             action = WorkflowAction.REVIEW_APPROVE;
         } else if (document.getStatus() == DocumentStatus.LEADER_REVIEW
                 || document.getStatus() == DocumentStatus.PENDING_APPROVAL
