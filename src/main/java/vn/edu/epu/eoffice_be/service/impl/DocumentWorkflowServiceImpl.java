@@ -634,7 +634,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                         .id(log.getId())
                         .documentId(log.getDocument() != null ? log.getDocument().getId() : null)
                         .actorUsername(log.getActor() != null ? log.getActor().getUsername() : null)
-                        .actorRole(null)
+                        .actorRole(log.getActor() != null && log.getActor().getRole() != null 
+                        ? log.getActor().getRole().name() 
+                        : null)
                         .action(log.getAction() != null ? log.getAction().name() : null)
                         .comment(log.getComment())
                         .createdAt(log.getCreatedDate() != null ? LocalDateTime.ofInstant(log.getCreatedDate(), ZONE_VN) : null)
