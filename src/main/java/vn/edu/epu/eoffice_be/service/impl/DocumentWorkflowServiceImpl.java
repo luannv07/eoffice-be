@@ -853,8 +853,16 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         if (workflowEngine != null) {
             try {
                 toStatus = workflowEngine.getNextStatus(currentStatus, act);
-            } catch (Exception ignored) {
-                // Nếu hành động không làm đổi trạng thái thì giữ nguyên currentStatus
+            } catch (BusinessException ex) {
+                // Ngoại lệ nghiệp vụ mong đợi: hành động không làm thay đổi trạng thái trong ma trận
+                log.warn("Hành động '{}' không làm thay đổi trạng thái từ '{}'. Giữ nguyên trạng thái hiện tại. Lý do: {}",
+                        act, currentStatus, ex.getMessage());
+                toStatus = currentStatus;
+            } catch (Exception ex) {
+                // Ngoại lệ hệ thống không mong đợi: ghi log error để truy vết
+                log.error("Lỗi không mong muốn khi tính trạng thái tiếp theo cho hành động '{}' từ trạng thái '{}'",
+                        act, currentStatus, ex);
+                toStatus = currentStatus;
             }
         }
         DocumentWorkflowLog log = DocumentWorkflowLog.builder()

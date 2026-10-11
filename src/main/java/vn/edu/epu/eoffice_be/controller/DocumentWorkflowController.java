@@ -149,7 +149,7 @@ public class DocumentWorkflowController {
 
     // UC-NEW-2: Danh sách văn bản chờ ban hành
     @PreAuthorize("hasAnyRole('LEADER', 'REVIEWER', 'ADMIN', 'SYSTEM_ADMIN')")
-    @Operation(summary = "Danh sách văn bản chờ ban hành (PENDING_ISSUANCE)")
+    @Operation(summary = "Danh sách văn bản chờ ban hành    (PENDING_ISSUANCE)")
     @GetMapping("/pending-publish")
     public BaseResponse<Page<PendingDocumentResponse>> getPendingPublishDocuments(
             @PageableDefault(size = 10) Pageable pageable) {

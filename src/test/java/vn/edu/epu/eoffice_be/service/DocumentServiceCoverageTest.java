@@ -273,7 +273,7 @@ class DocumentServiceCoverageTest {
         assertNotNull(result.getOfficialHash());
 
         when(documentRepository.findById(2L)).thenReturn(Optional.empty());
-        assertThrows(IllegalArgumentException.class, () -> documentPublishService.publishDocument(2L, req));
+        assertThrows(BusinessException.class, () -> documentPublishService.publishDocument(2L, req));
     }
 
     @Test

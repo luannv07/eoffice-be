@@ -64,7 +64,8 @@ public class DocumentPublishService {
         Set<DocumentStatus> validStatuses = Set.of(
             DocumentStatus.APPROVED, 
             DocumentStatus.PENDING_SIGN, 
-            DocumentStatus.LEADER_REVIEW
+            DocumentStatus.LEADER_REVIEW,
+            DocumentStatus.DRAFT
         );
         if (doc.getStatus() != null && !validStatuses.contains(doc.getStatus())) {
             throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATUS, 

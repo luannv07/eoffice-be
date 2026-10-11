@@ -43,7 +43,7 @@ class RefreshTokenServiceTest {
 
     @Test
     void rotateShouldRevokeOldAndIssueNewToken() {
-        RefreshToken old = activeToken(10L, "old-jti", Instant.parse("2026-10-11T00:00:00Z"));
+        RefreshToken old = activeToken(10L, "old-jti", Instant.now().plusSeconds(3600));
         when(refreshTokenRepository.findByRt("old-jti")).thenReturn(Optional.of(old));
 
         Instant newExpiry = Instant.now().plusSeconds(7200);
