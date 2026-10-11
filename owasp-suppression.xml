@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  OWASP Dependency-Check suppression file — eoffice-be
+  Mirrors .trivyignore risk-accepted exceptions (review by 2027-01-09, ticket: BOOT4-UPGRADE).
+  Context: Spring Boot 3.4.13 / Framework 6.2.19 / Security 6.5.11 / AI 1.0.9.
+  OSS fix line is 7.0.9 (Boot 4.x); 6.2.20 is Enterprise-only.
+  Each CVE below was assessed NOT REACHABLE in eoffice-be (Spring MVC servlet
+  stack, JWT auth, PostgreSQL/H2). Permanent fix: upgrade to Spring Boot 4.x.
+  Wired in: .github/workflows/pipeline-3-scheduled-deep-security-scan.yml
+-->
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-check.1.0.xsd">
+  <suppress>
+    <notes><![CDATA[
+      CVE-2026-47884 (XsltView SSRF/RCE): no XsltView usage; pure JSON REST API.
+      False positive / not applicable. Review by 2027-01-09.
+    ]]></notes>
+    <cve>CVE-2026-47884</cve>
+  </suppress>
+  <suppress>
+    <notes><![CDATA[
+      CVE-2026-47890 (SSE stream corruption, view fragments): no SseEmitter /
+      TEXT_EVENT_STREAM usage in src/main. Not applicable. Review by 2027-01-09.
+    ]]></notes>
+    <cve>CVE-2026-47890</cve>
+  </suppress>
+  <suppress>
+    <notes><![CDATA[
+      CVE-2026-59313 (SSE corruption, MVC functional framework): no RouterFunction /
+      ServerResponse.sse(); annotation-based MVC controllers only. Not applicable.
+      Review by 2027-01-09.
+    ]]></notes>
+    <cve>CVE-2026-59313</cve>
+  </suppress>
+  <suppress>
+    <notes><![CDATA[
+      CVE-2026-47891 (Jaxb2Decoder maxInMemorySize bypass, WebFlux + Aalto): servlet
+      MVC stack, no WebFlux/Aalto. Not applicable. Review by 2027-01-09.
+    ]]></notes>
+    <cve>CVE-2026-47891</cve>
+  </suppress>
+  <suppress>
+    <notes><![CDATA[
+      CVE-2026-47892 (WebFlux functional header predicate bypass): no functional
+      endpoints. Not applicable. Review by 2027-01-09.
+    ]]></notes>
+    <cve>CVE-2026-47892</cve>
+  </suppress>
+  <suppress>
+    <notes><![CDATA[
+      CVE-2026-59283 (SpEL compiler guard bypass): no SimpleEvaluationContext /
+      SpelCompilerMode usage; @PreAuthorize interpreted only. Not applicable.
+      Review by 2027-01-09.
+    ]]></notes>
+    <cve>CVE-2026-59283</cve>
+  </suppress>
+  <suppress>
+    <notes><![CDATA[
+      CVE-2026-59270 (embedded LDAP hard-coded admin): JWT auth, no LDAP dependency
+      or UnboundIdContainer bean. Not applicable. Review by 2027-01-09.
+    ]]></notes>
+    <cve>CVE-2026-59270</cve>
+  </suppress>
+  <suppress>
+    <notes><![CDATA[
+      CVE-2026-40974 (Cassandra SSL hostname verification): PostgreSQL/H2 only, no
+      Cassandra dependency. CPE-match false positive. Review by 2027-01-09.
+    ]]></notes>
+    <cve>CVE-2026-40974</cve>
+  </suppress>
+  <suppress>
+    <notes><![CDATA[
+      CVE-2026-59318 (AI tool-calling dispatch): only pdf-document-reader ingestion,
+      no tool-calling usage in src/main. Not applicable. Review by 2027-01-09.
+    ]]></notes>
+    <cve>CVE-2026-59318</cve>
+  </suppress>
+</suppressions>

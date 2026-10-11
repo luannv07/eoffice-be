@@ -40,6 +40,7 @@ jobs:
             -DoutputDirectory=security-reports \
             -DdataDirectory=$HOME/.cache/dependency-check \
             -DnvdApiKey=${{ secrets.NVD_API_KEY }} \
+            -DsuppressionFile=owasp-suppression.xml \
             -DfailBuildOnCVSS=9
 
       - name: 4. Install Trivy CLI
@@ -65,6 +66,7 @@ jobs:
             --format json \
             --output security-reports/trivy-full.json \
             --ignore-unfixed \
+            --ignorefile .trivyignore \
             --exit-code 0
 
       - name: 6. Generate SBOM (CycloneDX)

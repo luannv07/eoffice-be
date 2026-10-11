@@ -7,3 +7,48 @@
 # Severity: CRITICAL
 # Status: False positive / Not applicable to this architecture
 CVE-2026-47884
+
+# --- Risk-accepted exceptions (review by 2027-01-09, ticket: BOOT4-UPGRADE) ---
+# Context: Spring Boot 3.4.13 / Framework 6.2.19 / Security 6.5.11 / AI 1.0.9.
+# OSS fix line is 7.0.9 (Boot 4.x); 6.2.20 is Enterprise-only, so no free patch exists
+# on the 6.2.x line. Each CVE below was assessed NOT REACHABLE in eoffice-be
+# (Spring MVC servlet stack, JWT auth, PostgreSQL/H2, no Cassandra/LDAP/SSE/
+# XsltView/WebFlux-functional/tool-calling usage in src/main). Permanent fix:
+# upgrade to Spring Boot 4.x / Framework 7.0.9.
+
+# CVE-2026-47890: SSE stream corruption with view fragments (spring-webmvc).
+# Rationale: no SseEmitter / TEXT_EVENT_STREAM usage in src/main (verified by grep).
+CVE-2026-47890
+
+# CVE-2026-59313: SSE stream corruption in MVC functional web framework.
+# Rationale: no RouterFunction / ServerResponse.sse() usage; only @RestController
+# MVC endpoints plus a CorsFilter (verified by grep).
+CVE-2026-59313
+
+# CVE-2026-47891: maxInMemorySize bypass in Jaxb2Decoder (WebFlux + Aalto XML).
+# Rationale: servlet MVC stack (spring-boot-starter-web); no WebFlux, no Aalto dependency.
+CVE-2026-47891
+
+# CVE-2026-47892: header predicate bypass in WebFlux functional endpoints.
+# Rationale: no functional endpoints; MVC annotation-based controllers only.
+CVE-2026-47892
+
+# CVE-2026-59283: SpEL safety guard bypass via expression compiler.
+# Rationale: no SimpleEvaluationContext / SpelCompilerMode usage; @PreAuthorize
+# uses Spring Security interpreted evaluation, compiler mode never enabled.
+CVE-2026-59283
+
+# CVE-2026-59270: embedded UnboundID LDAP server hard-coded admin credential.
+# Rationale: JWT-based auth (jjwt); no spring-security-ldap / unboundid dependency,
+# no UnboundIdContainer bean (verified by grep + pom).
+CVE-2026-59270
+
+# CVE-2026-40974: Cassandra SSL auto-config disables hostname verification.
+# Rationale: PostgreSQL (AWS RDS) + H2 only; no Cassandra dependency (verified in pom).
+# Pure CPE-match false positive on the spring-boot jar.
+CVE-2026-40974
+
+# CVE-2026-59318: Spring AI tool-calling unadvertised dispatch (prompt injection).
+# Rationale: only spring-ai-pdf-document-reader (PDF ingestion) is used; no
+# ToolCallback / ChatClient tool-calling / @Tool usage in src/main (verified by grep).
+CVE-2026-59318
