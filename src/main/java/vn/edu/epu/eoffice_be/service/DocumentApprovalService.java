@@ -212,7 +212,7 @@ public class DocumentApprovalService {
         DocumentStatus prevStatus = document.getStatus();
 
         // Chuyển trạng thái văn bản sang WAITING_APPROVAL
-        document.setStatus(DocumentStatus.WAITING_APPROVAL);
+        document.setStatus(DocumentStatus.IN_REVIEW);
         document.setSubmittedAt(now);
         Document savedDocument = documentRepository.save(document);
 
@@ -233,7 +233,7 @@ public class DocumentApprovalService {
                 .actorUser(sender)
                 .action(DocumentProcessAction.SUBMIT_APPROVAL)
                 .fromStatus(prevStatus != null ? prevStatus.name() : DocumentStatus.DRAFT.name())
-                .toStatus(DocumentStatus.WAITING_APPROVAL.name())
+                .toStatus(DocumentStatus.IN_REVIEW.name())
                 .note("Gửi văn bản tới cán bộ duyệt: " + approver.getUsername() +
                         (request.getSubmitNote() != null ? ". Ghi chú: " + request.getSubmitNote() : ""))
                 .build();
@@ -275,7 +275,7 @@ public class DocumentApprovalService {
         }
 
         // Kiểm tra trạng thái: văn bản phải đang ở trạng thái WAITING_APPROVAL
-        if (document.getStatus() != DocumentStatus.WAITING_APPROVAL && document.getStatus() != DocumentStatus.SUBMITTED) {
+        if (document.getStatus() != DocumentStatus.IN_REVIEW)  {
             throw new BusinessException(ErrorCode.DOCUMENT_INVALID_STATUS,
                     "Chỉ có thể thu hồi văn bản đang ở trạng thái Chờ duyệt");
         }
@@ -309,7 +309,7 @@ public class DocumentApprovalService {
                 .document(savedDocument)
                 .actorUser(user)
                 .action(DocumentProcessAction.RECALL_APPROVAL)
-                .fromStatus(DocumentStatus.WAITING_APPROVAL.name())
+                .fromStatus(DocumentStatus.IN_REVIEW.name())
                 .toStatus(DocumentStatus.DRAFT.name())
                 .note("Thu hồi yêu cầu duyệt. Lý do: " + recallReason)
                 .build();

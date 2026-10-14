@@ -69,7 +69,7 @@ class DocumentWorkflowServiceIntegrationTest {
                 .documentTypeCd("CONG_VAN")
                 .drafter(user)
                 .issuingOrg(org)
-                .status(DocumentStatus.SUBMITTED)
+                .status(DocumentStatus.IN_REVIEW	)
                 .deleteFlg(false)
                 .build();
         Document savedDoc = documentRepository.save(doc);
@@ -95,7 +95,7 @@ class DocumentWorkflowServiceIntegrationTest {
                     .filter(p -> p.getId().equals(savedDoc.getId()))
                     .findFirst()
                     .orElseThrow();
-            assertEquals("Văn thư tiếp nhận", pendingDoc.getCurrentHolder(), "Trạng thái SUBMITTED phải ánh xạ tới 'Văn thư tiếp nhận'");
+            assertEquals("Cán bộ thẩm định / ký nháy", pendingDoc.getCurrentHolder(), "Trạng thái IN_REVIEW phải ánh xạ tới 'Cán bộ thẩm định / ký nháy'");
         } finally {
             SecurityContextHolder.clearContext();
         }

@@ -106,7 +106,7 @@ class DocumentTest {
     @Test
     @DisplayName("validateStatus: Thành công khi status khác null")
     void validateStatus_whenStatusIsNotNull_shouldNotThrow() throws Exception {
-        document.setStatus(DocumentStatus.SUBMITTED);
+        document.setStatus(DocumentStatus.IN_REVIEW	);
 
         Method validateMethod = Document.class.getDeclaredMethod("validateStatus");
         validateMethod.setAccessible(true);

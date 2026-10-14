@@ -156,7 +156,7 @@ class DocumentWorkflowControllerTest {
                 .assignedOrgNodeId(20L)
                 .build();
 
-        DocumentDetailResponse response = mockDocumentDetailResponse(DocumentStatus.PENDING_SIGN);
+        DocumentDetailResponse response = mockDocumentDetailResponse(DocumentStatus.APPROVED);
         when(documentWorkflowService.approve(eq(100L), any(DocumentApproveRequest.class))).thenReturn(response);
 
         mockMvc.perform(post("/documents/100/workflow/approve")
@@ -164,7 +164,7 @@ class DocumentWorkflowControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.status").value("PENDING_SIGN"));
+                .andExpect(jsonPath("$.data.status").value("APPROVED"));
 
         verify(documentWorkflowService).approve(eq(100L), any(DocumentApproveRequest.class));
     }
@@ -284,7 +284,7 @@ class DocumentWorkflowControllerTest {
                 .comment("Đã rà soát thể thức")
                 .build();
 
-        DocumentDetailResponse response = mockDocumentDetailResponse(DocumentStatus.INITIAL_SIGNED);
+        DocumentDetailResponse response = mockDocumentDetailResponse(DocumentStatus.IN_REVIEW);
         when(documentWorkflowService.initialSign(eq(100L), any(DocumentInitialSignRequest.class))).thenReturn(response);
 
         mockMvc.perform(post("/documents/100/workflow/initial-sign")
@@ -292,7 +292,7 @@ class DocumentWorkflowControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.status").value("INITIAL_SIGNED"));
+                .andExpect(jsonPath("$.data.status").value("IN_REVIEW"));
 
         verify(documentWorkflowService).initialSign(eq(100L), any(DocumentInitialSignRequest.class));
     }

@@ -96,7 +96,7 @@ class DocumentApprovalServiceTest {
         when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(true);
         when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.of(approver));
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(documentDraftService.mapToDocumentResponse(any())).thenReturn(DocumentResponse.builder().id(docId).status(DocumentStatus.WAITING_APPROVAL).build());
+        when(documentDraftService.mapToDocumentResponse(any())).thenReturn(DocumentResponse.builder().id(docId).status(DocumentStatus.IN_REVIEW).build());
 
         SubmitApprovalRequest request = SubmitApprovalRequest.builder()
                 .approverUserId(approverId)
@@ -106,7 +106,7 @@ class DocumentApprovalServiceTest {
         DocumentResponse response = documentApprovalService.submitForApproval(docId, request, senderId);
 
         assertNotNull(response);
-        assertEquals(DocumentStatus.WAITING_APPROVAL, doc.getStatus());
+        assertEquals(DocumentStatus.IN_REVIEW, doc.getStatus());
         assertNotNull(doc.getSubmittedAt());
 
         verify(documentApprovalRequestRepository).save(any(DocumentApprovalRequest.class));
@@ -191,7 +191,7 @@ class DocumentApprovalServiceTest {
                 .id(docId)
                 .draftCode("DT-2026-00001")
                 .creatorUser(user)
-                .status(DocumentStatus.WAITING_APPROVAL)
+                .status(DocumentStatus.IN_REVIEW)
                 .build();
 
         DocumentApprovalRequest approvalReq = DocumentApprovalRequest.builder()
@@ -228,7 +228,7 @@ class DocumentApprovalServiceTest {
         Document doc = Document.builder()
                 .id(docId)
                 .creatorUser(user)
-                .status(DocumentStatus.WAITING_APPROVAL)
+                .status(DocumentStatus.IN_REVIEW)
                 .build();
 
         DocumentApprovalRequest approvalReq = DocumentApprovalRequest.builder()
@@ -428,7 +428,7 @@ class DocumentApprovalServiceTest {
         Long docId = 1L;
         Long senderId = 100L;
         UserLogin creator = UserLogin.builder().id(senderId).role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.WAITING_APPROVAL).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.IN_REVIEW).build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(creator));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
@@ -466,7 +466,7 @@ class DocumentApprovalServiceTest {
         Long userId = 200L;
         UserLogin user = UserLogin.builder().id(userId).role(Role.USER).build();
         UserLogin creator = UserLogin.builder().id(100L).role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.WAITING_APPROVAL).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.IN_REVIEW).build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(user));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
@@ -575,7 +575,7 @@ class DocumentApprovalServiceTest {
         when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(true);
         when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.of(approver));
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(documentDraftService.mapToDocumentResponse(any())).thenReturn(DocumentResponse.builder().id(docId).status(DocumentStatus.WAITING_APPROVAL).build());
+        when(documentDraftService.mapToDocumentResponse(any())).thenReturn(DocumentResponse.builder().id(docId).status(DocumentStatus.IN_REVIEW).build());
 
         SubmitApprovalRequest request = SubmitApprovalRequest.builder()
                 .approverUserId(approverId)
@@ -588,7 +588,7 @@ class DocumentApprovalServiceTest {
         verify(documentProcessLogRepository).save(logCaptor.capture());
         DocumentProcessLog capturedLog = logCaptor.getValue();
         assertEquals("REJECTED", capturedLog.getFromStatus());
-        assertEquals("WAITING_APPROVAL", capturedLog.getToStatus());
+        assertEquals("IN_REVIEW", capturedLog.getToStatus());
     }
 
     @Test

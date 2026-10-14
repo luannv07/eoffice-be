@@ -84,11 +84,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
 
     public static final List<DocumentStatus> PENDING_STATUSES = List.of(
-            DocumentStatus.PENDING_APPROVAL,
-            DocumentStatus.WAITING_APPROVAL,
-            DocumentStatus.IN_REVIEW,
-            DocumentStatus.PENDING_SIGN,
-            DocumentStatus.SUBMITTED
+        DocumentStatus.IN_REVIEW,
+        DocumentStatus.PENDING_APPROVAL,
+        DocumentStatus.APPROVED
     );
 
     @Override
@@ -105,17 +103,13 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
         // Quyết định hành động chuyển tiếp phù hợp với trạng thái hiện tại
         WorkflowAction action;
-        if (document.getStatus() == DocumentStatus.SUBMITTED
-                || document.getStatus() == DocumentStatus.IN_REVIEW
-                || document.getStatus() == DocumentStatus.PENDING_REVIEW) {
-            action = WorkflowAction.REVIEW_APPROVE;
-        } else if (document.getStatus() == DocumentStatus.LEADER_REVIEW
-                || document.getStatus() == DocumentStatus.PENDING_APPROVAL
-                || document.getStatus() == DocumentStatus.WAITING_APPROVAL) {
-            action = WorkflowAction.LEADER_APPROVE;
-        } else {
-            throw new BusinessException(ErrorCode.INVALID_WORKFLOW_STATE);
-        }
+            if (document.getStatus() == DocumentStatus.IN_REVIEW) {
+                action = WorkflowAction.REVIEW_APPROVE;
+            } else if (document.getStatus() == DocumentStatus.PENDING_APPROVAL) {
+                action = WorkflowAction.LEADER_APPROVE;
+            } else {
+                throw new BusinessException(ErrorCode.INVALID_WORKFLOW_STATE);
+            }
 
         // Kiểm tra thẩm quyền người xử lý trước khi thực hiện chuyển đổi
         validateActorAuthorization(document, actor, action);
@@ -673,8 +667,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                         vn.edu.epu.eoffice_be.common.enums.ErrorCode.DOCUMENT_NOT_FOUND,
                         "Không tìm thấy văn bản: " + documentId));
 
-        if (doc.getStatus() == vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED
-                || doc.getStatus() == vn.edu.epu.eoffice_be.common.enums.DocumentStatus.ISSUED) {
+        if (doc.getStatus() == DocumentStatus.PUBLISHED) {
             return;
         }
 
@@ -752,7 +745,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 || currentActor.getRole() == Role.SYSTEM_ADMIN;
         Long filterUserId = isPrivileged ? null : currentActor.getId();
         return documentRepository
-                .searchDocuments(filterUserId, DocumentStatus.PENDING_SIGN, null, null, pageable)
+                .searchDocuments(filterUserId, DocumentStatus.APPROVED, null, null, pageable)
                 .map(doc -> PendingDocumentResponse.builder()
                         .id(doc.getId())
                         .title(doc.getTitle())
@@ -802,11 +795,13 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             return "Bộ phận xử lý văn bản";
         }
         return switch (status) {
-            case SUBMITTED -> "Văn thư tiếp nhận";
-            case PENDING_REVIEW, IN_REVIEW -> "Chuyên viên thẩm định";
-            case PENDING_APPROVAL, WAITING_APPROVAL, LEADER_REVIEW -> "Lãnh đạo phê duyệt";
-            case PENDING_SIGN -> "Lãnh đạo ký số";
-            case APPROVED -> "Lãnh đạo ký ban hành";
+            case DRAFT -> "Người soạn thảo";
+            case IN_REVIEW -> "Cán bộ thẩm định / ký nháy";
+            case PENDING_APPROVAL -> "Lãnh đạo phê duyệt";
+            case APPROVED -> "Lãnh đạo ký phát hành";
+            case PUBLISHED -> "Văn bản đã ban hành";
+            case NEEDS_REVISION -> "Người soạn thảo chỉnh sửa";
+            case REJECTED -> "Đã từ chối";
             default -> "Bộ phận xử lý văn bản";
         };
     }

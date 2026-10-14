@@ -401,7 +401,7 @@ class DocumentControllerTest {
 
         DocumentResponse doc = DocumentResponse.builder()
                 .id(1L)
-                .status(DocumentStatus.WAITING_APPROVAL)
+                .status(DocumentStatus.IN_REVIEW)
                 .build();
 
         when(documentApprovalService.submitForApproval(eq(1L), any(SubmitApprovalRequest.class), eq(100L)))
@@ -413,7 +413,7 @@ class DocumentControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.status").value("WAITING_APPROVAL"));
+                .andExpect(jsonPath("$.data.status").value("IN_REVIEW"));
     }
 
     @Test

@@ -17,9 +17,8 @@ class DocumentStatusTest {
         assertEquals("Đã ban hành chính thức", DocumentStatus.PUBLISHED.getDescription());
         assertEquals("Bị từ chối phê duyệt", DocumentStatus.REJECTED.getDescription());
         assertEquals("Dự thảo / Bản nháp", DocumentStatus.DRAFT.getDescription());
-        assertEquals("Đã gửi duyệt", DocumentStatus.SUBMITTED.getDescription());
-        assertEquals("Chờ duyệt", DocumentStatus.WAITING_APPROVAL.getDescription());
-        assertEquals("Đã phát hành", DocumentStatus.ISSUED.getDescription());
+        assertEquals("Đang thẩm định & ký nháy", DocumentStatus.IN_REVIEW.getDescription());
+        assertEquals("Chờ lãnh đạo phê duyệt", DocumentStatus.PENDING_APPROVAL.getDescription());
     }
 
     @Test

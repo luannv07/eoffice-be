@@ -108,7 +108,7 @@ class DocumentAttachmentServiceTest {
         Long docId = 1L;
 
         UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.ISSUED).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.PUBLISHED).build();
 
         MockMultipartFile file = new MockMultipartFile("file", "doc.pdf", "application/pdf", "dummy".getBytes());
 
@@ -288,7 +288,7 @@ class DocumentAttachmentServiceTest {
 
         UserLogin creator = UserLogin.builder().id(creatorId).username("creator").role(Role.USER).build();
         UserLogin anyUser = UserLogin.builder().id(anyUserId).username("employee").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.ISSUED).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.PUBLISHED).build();
         DocumentAttachment att = DocumentAttachment.builder().id(attId).document(doc).originalFileName("decision.pdf").build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(anyUserId)).thenReturn(Optional.of(anyUser));
@@ -349,7 +349,7 @@ class DocumentAttachmentServiceTest {
 
         UserLogin creator = UserLogin.builder().id(creatorId).username("creator").role(Role.USER).build();
         UserLogin approver = UserLogin.builder().id(approverId).username("approver").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.WAITING_APPROVAL).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.IN_REVIEW).build();
         DocumentAttachment att = DocumentAttachment.builder().id(attId).document(doc).originalFileName("draft.docx").build();
 
         DocumentApprovalRequest pendingReq = DocumentApprovalRequest.builder()
@@ -380,7 +380,7 @@ class DocumentAttachmentServiceTest {
 
         UserLogin creator = UserLogin.builder().id(creatorId).username("creator").role(Role.USER).build();
         UserLogin formerApprover = UserLogin.builder().id(formerApproverId).username("formerApprover").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.WAITING_APPROVAL).build();
+        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.IN_REVIEW).build();
 
         DocumentApprovalRequest oldReq = DocumentApprovalRequest.builder()
                 .id(50L)

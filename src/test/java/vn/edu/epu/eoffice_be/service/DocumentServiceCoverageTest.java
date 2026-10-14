@@ -284,7 +284,7 @@ class DocumentServiceCoverageTest {
 
         Document doc2 = new Document();
         doc2.setId(2L);
-        doc2.setStatus(DocumentStatus.PENDING_SIGN);
+        doc2.setStatus(DocumentStatus.APPROVED);
 
         Document doc3 = new Document();
         doc3.setId(3L);
@@ -532,7 +532,7 @@ class DocumentServiceCoverageTest {
         Document doc2 = new Document();
         doc2.setId(12L);
         doc2.setTitle("Doc 2");
-        doc2.setStatus(DocumentStatus.PENDING_SIGN);
+        doc2.setStatus(DocumentStatus.APPROVED);
 
         lenient().when(documentRepository.findByStatusInAndDeleteFlgFalse(any()))
                 .thenReturn(List.of(doc1, doc2));
@@ -811,7 +811,7 @@ class DocumentServiceCoverageTest {
     void testDocumentWorkflowService_PendingDocumentsWithVariousStatuses() {
         Document doc1 = new Document();
         doc1.setId(701L);
-        doc1.setStatus(DocumentStatus.PENDING_SIGN);
+        doc1.setStatus(DocumentStatus.APPROVED);
 
         Document doc2 = new Document();
         doc2.setId(702L);
@@ -986,7 +986,7 @@ class DocumentServiceCoverageTest {
 
         Document pendingDoc = new Document();
         pendingDoc.setId(600L);
-        pendingDoc.setStatus(DocumentStatus.WAITING_APPROVAL);
+        pendingDoc.setStatus(DocumentStatus.IN_REVIEW);
         pendingDoc.setCreatorUser(creator);
 
         when(documentRepository.findById(600L)).thenReturn(Optional.of(pendingDoc));

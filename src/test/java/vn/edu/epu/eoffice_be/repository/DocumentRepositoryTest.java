@@ -117,7 +117,7 @@ class DocumentRepositoryTest {
                     .documentTypeCd("CONG_VAN")
                     .drafter(user)
                     .issuingOrg(org)
-                    .status(DocumentStatus.SUBMITTED)
+                    .status(DocumentStatus.IN_REVIEW	)
                     .deleteFlg(false)
                     .build();
             documentRepository.save(doc);
@@ -129,20 +129,20 @@ class DocumentRepositoryTest {
                 .documentTypeCd("CONG_VAN")
                 .drafter(user)
                 .issuingOrg(org)
-                .status(DocumentStatus.SUBMITTED)
+                .status(DocumentStatus.IN_REVIEW	)
                 .deleteFlg(true)
                 .build();
         documentRepository.save(docDeleted);
 
         Page<Document> page = documentRepository.findByStatusIn(
-                List.of(DocumentStatus.SUBMITTED),
+                List.of(DocumentStatus.IN_REVIEW	),
                 PageRequest.of(0, 3)
         );
 
         assertNotNull(page);
         assertTrue(page.getTotalElements() >= 5);
         assertEquals(3, page.getContent().size());
-        assertTrue(page.getContent().stream().allMatch(d -> d.getStatus() == DocumentStatus.SUBMITTED));
+        assertTrue(page.getContent().stream().allMatch(d -> d.getStatus() == DocumentStatus.IN_REVIEW	));
         assertFalse(page.getContent().stream().anyMatch(d -> d.getId().equals(docDeleted.getId())),
                 "Phân trang phải loại trừ văn bản bị xóa mềm");
     }
@@ -158,7 +158,7 @@ class DocumentRepositoryTest {
                 .documentTypeCd("CONG_VAN")
                 .drafter(user)
                 .issuingOrg(org)
-                .status(DocumentStatus.PENDING_REVIEW)
+                .status(DocumentStatus.IN_REVIEW)
                 .deleteFlg(false)
                 .build();
         documentRepository.save(docActive);
@@ -168,14 +168,14 @@ class DocumentRepositoryTest {
                 .documentTypeCd("CONG_VAN")
                 .drafter(user)
                 .issuingOrg(org)
-                .status(DocumentStatus.PENDING_REVIEW)
+                .status(DocumentStatus.IN_REVIEW)
                 .deleteFlg(true)
                 .build();
         documentRepository.save(docDeleted);
 
         // 1. Kiểm tra list
         List<Document> list = documentRepository.findByStatusInAndDeleteFlgFalse(
-                List.of(DocumentStatus.PENDING_REVIEW)
+                List.of(DocumentStatus.IN_REVIEW)
         );
         assertNotNull(list);
         assertTrue(list.stream().anyMatch(d -> d.getId().equals(docActive.getId())));
@@ -183,7 +183,7 @@ class DocumentRepositoryTest {
 
         // 2. Kiểm tra pageable
         Page<Document> page = documentRepository.findByStatusInAndDeleteFlgFalse(
-                List.of(DocumentStatus.PENDING_REVIEW),
+                List.of(DocumentStatus.IN_REVIEW),
                 PageRequest.of(0, 10)
         );
         assertNotNull(page);
@@ -203,7 +203,7 @@ class DocumentRepositoryTest {
                     .documentTypeCd("CONG_VAN")
                     .drafter(user)
                     .issuingOrg(org)
-                    .status(DocumentStatus.PENDING_SIGN)
+                    .status(DocumentStatus.APPROVED)
                     .deleteFlg(false)
                     .build();
             documentRepository.save(doc);
@@ -215,19 +215,19 @@ class DocumentRepositoryTest {
                 .documentTypeCd("CONG_VAN")
                 .drafter(user)
                 .issuingOrg(org)
-                .status(DocumentStatus.PENDING_SIGN)
+                .status(DocumentStatus.APPROVED)
                 .deleteFlg(true)
                 .build();
         documentRepository.save(docDeleted);
 
         // Trang 0, size 2 (không có sort từ caller)
         Page<Document> page0 = documentRepository.findByStatusInAndDeleteFlgFalse(
-                List.of(DocumentStatus.PENDING_SIGN),
+                List.of(DocumentStatus.APPROVED),
                 PageRequest.of(0, 2)
         );
         // Trang 1, size 2
         Page<Document> page1 = documentRepository.findByStatusInAndDeleteFlgFalse(
-                List.of(DocumentStatus.PENDING_SIGN),
+                List.of(DocumentStatus.APPROVED),
                 PageRequest.of(1, 2)
         );
 
@@ -248,7 +248,7 @@ class DocumentRepositoryTest {
         // Kiểm tra phương thức tương thích findByStatusIn trả về kết quả tương đương
         @SuppressWarnings("deprecation")
         Page<Document> compatPage0 = documentRepository.findByStatusIn(
-                List.of(DocumentStatus.PENDING_SIGN),
+                List.of(DocumentStatus.APPROVED),
                 PageRequest.of(0, 2)
         );
         assertEquals(page0.getContent().get(0).getId(), compatPage0.getContent().get(0).getId());

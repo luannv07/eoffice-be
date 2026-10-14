@@ -63,8 +63,6 @@ public class DocumentPublishService {
         }
         Set<DocumentStatus> validStatuses = Set.of(
             DocumentStatus.APPROVED, 
-            DocumentStatus.PENDING_SIGN, 
-            DocumentStatus.LEADER_REVIEW,
             DocumentStatus.DRAFT
         );
         if (doc.getStatus() != null && !validStatuses.contains(doc.getStatus())) {
@@ -208,7 +206,7 @@ public class DocumentPublishService {
             throw new org.springframework.security.access.AccessDeniedException("Yêu cầu xác thực người dùng");
         }
 
-        if (doc.getStatus() == DocumentStatus.PUBLISHED || doc.getStatus() == DocumentStatus.ISSUED) {
+        if (doc.getStatus() == DocumentStatus.PUBLISHED) {
             return;
         }
 

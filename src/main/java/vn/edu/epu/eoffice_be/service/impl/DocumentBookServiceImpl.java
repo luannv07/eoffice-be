@@ -205,10 +205,8 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 			document = documentRepository.findById(request.getDocumentId())
 					.orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
-			if (document.getStatus() != DocumentStatus.APPROVED
-					&& document.getStatus() != DocumentStatus.LEADER_REVIEW
-					&& document.getStatus() != DocumentStatus.PENDING_SIGN) {
-				throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATUS, "Văn bản chưa ở trạng thái Đã phê duyệt (APPROVED) hoặc Chờ ký");
+			if (document.getStatus() != DocumentStatus.APPROVED) {
+				throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATUS, "Văn bản chưa ở trạng thái Đã phê duyệt");
 			}
 
 			if (document.getOfficialNumber() != null && !document.getOfficialNumber().isBlank()) {

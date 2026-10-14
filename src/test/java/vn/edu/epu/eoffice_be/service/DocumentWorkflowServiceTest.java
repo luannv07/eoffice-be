@@ -112,7 +112,7 @@ class DocumentWorkflowServiceTest {
                 .documentTypeCd("KE_HOACH")
                 .drafter(leader)
                 .issuingOrg(orgNode)
-                .status(DocumentStatus.SUBMITTED)
+                .status(DocumentStatus.IN_REVIEW	)
                 .build();
 
         JwtUserPrincipal principal = new JwtUserPrincipal(1002L, "leader", Role.ADMIN.name(), true, List.of());
@@ -156,7 +156,7 @@ class DocumentWorkflowServiceTest {
     @Test
     @DisplayName("UC12: Duyệt văn bản ở trạng thái LEADER_REVIEW thì action là LEADER_APPROVE")
     void approve_whenLeaderReview_shouldUseLeaderApprove() {
-        document.setStatus(DocumentStatus.LEADER_REVIEW);
+        document.setStatus(DocumentStatus.PENDING_APPROVAL);
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
@@ -206,7 +206,7 @@ class DocumentWorkflowServiceTest {
     @Test
     @DisplayName("UC12: Duyệt văn bản ở trạng thái WAITING_APPROVAL thì action là LEADER_APPROVE")
     void approve_whenWaitingApproval_shouldUseLeaderApprove() {
-        document.setStatus(DocumentStatus.WAITING_APPROVAL);
+        document.setStatus(DocumentStatus.PENDING_APPROVAL);
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
@@ -816,7 +816,7 @@ class DocumentWorkflowServiceTest {
                 .action(WorkflowAction.SUBMIT)
                 .actor(leader)
                 .fromStatus(DocumentStatus.DRAFT)
-                .toStatus(DocumentStatus.SUBMITTED)
+                .toStatus(DocumentStatus.IN_REVIEW	)
                 .comment("Gui duyet")
                 .build();
 
@@ -988,41 +988,37 @@ class DocumentWorkflowServiceTest {
     }
 
     @Test
-    @DisplayName("getPendingDocuments: Ánh xạ currentHolder chính xác cho WAITING_APPROVAL và SUBMITTED")
-    void getPendingDocuments_currentHolderMapping_shouldReturnCorrectHolder() {
-        Document docWaiting = Document.builder()
+    @DisplayName("getPendingDocuments: Ánh xạ currentHolder chính xác cho PENDING_APPROVAL và IN_REVIEW")
+        void getPendingDocuments_currentHolderMapping_shouldReturnCorrectHolder() {
+        Document docPendingApproval = Document.builder()
                 .title("Đề xuất chờ duyệt")
-                .status(DocumentStatus.WAITING_APPROVAL)
+                .status(DocumentStatus.PENDING_APPROVAL)
                 .build();
-        docWaiting.setId(102L);
-
-        Document docSubmitted = Document.builder()
+        docPendingApproval.setId(102L);
+        Document docInReview = Document.builder()
                 .title("Văn bản mới gửi")
-                .status(DocumentStatus.SUBMITTED)
+                .status(DocumentStatus.IN_REVIEW)
                 .build();
-        docSubmitted.setId(103L);
-
+        docInReview.setId(103L);
         when(documentRepository.findByStatusInAndDeleteFlgFalse(eq(DocumentWorkflowServiceImpl.PENDING_STATUSES)))
-                .thenReturn(List.of(docWaiting, docSubmitted));
-
+                .thenReturn(List.of(docPendingApproval, docInReview));
         List<PendingDocumentResponse> list = documentWorkflowService.getPendingDocuments();
-
         assertNotNull(list);
         assertEquals(2, list.size());
-        assertEquals("Lãnh đạo phê duyệt", list.get(0).getCurrentHolder(), "WAITING_APPROVAL phải là Lãnh đạo phê duyệt");
-        assertEquals("Văn thư tiếp nhận", list.get(1).getCurrentHolder(), "SUBMITTED phải là Văn thư tiếp nhận");
-    }
+        assertEquals("Lãnh đạo phê duyệt", list.get(0).getCurrentHolder(), "PENDING_APPROVAL phải là Lãnh đạo phê duyệt");
+        assertEquals("Cán bộ thẩm định / ký nháy", list.get(1).getCurrentHolder(), "IN_REVIEW phải là Cán bộ thẩm định / ký nháy");
+        }
 
     @Test
     @DisplayName("PENDING_STATUSES: Chứa PENDING_SIGN và hỗ trợ chuyển đổi trạng thái chờ ký")
     void pendingStatuses_shouldContainPendingSign() {
-        assertTrue(DocumentWorkflowServiceImpl.PENDING_STATUSES.contains(DocumentStatus.PENDING_SIGN),
-                "PENDING_STATUSES phải chứa DocumentStatus.PENDING_SIGN");
+        assertTrue(DocumentWorkflowServiceImpl.PENDING_STATUSES.contains(DocumentStatus.APPROVED),
+                "PENDING_STATUSES phải chứa DocumentStatus.APPROVED");
 
         Document doc = new Document();
-        doc.setStatus("PENDING_SIGN");
-        assertEquals(DocumentStatus.PENDING_SIGN, doc.getStatus(),
-                "Chuỗi 'PENDING_SIGN' phải được gán đúng sang enum PENDING_SIGN");
+        doc.setStatus("APPROVED");
+        assertEquals(DocumentStatus.APPROVED, doc.getStatus(),
+                "Chuỗi 'APPROVED' phải được gán đúng sang enum APPROVED");
         assertTrue(DocumentWorkflowServiceImpl.PENDING_STATUSES.contains(doc.getStatus()),
                 "Văn bản với trạng thái PENDING_SIGN phải nằm trong danh sách pending");
     }
