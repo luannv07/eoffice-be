@@ -34,9 +34,13 @@ import vn.edu.epu.eoffice_be.dto.response.DocumentSignatureVerifyResponse;
 import vn.edu.epu.eoffice_be.dto.response.SignatureItemResponse;
 
 import java.io.ByteArrayInputStream;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.cert.X509Certificate;
 import java.time.LocalDateTime;
@@ -625,33 +629,74 @@ public class PdfSignatureVerifier {
         revokeSerials(List.of(serialHex));
     }
 
+    private static final Object CRL_FILE_MUTEX = new Object();
+
     /**
      * Thêm tập hợp các số serial chứng thư vào danh sách thu hồi CRL (revoked.json).
+     * Đảm bảo an toàn đa luồng (thread-safe) và an toàn đa tiến trình (multi-process safe) bằng FileLock.
      */
     public synchronized void revokeSerials(Collection<String> serialHexes) {
         if (serialHexes == null || serialHexes.isEmpty()) {
             return;
         }
 
-        try {
-            Path path = Paths.get(revokedPath);
-            if (path.getParent() != null) {
-                Files.createDirectories(path.getParent());
-            }
-
-            ObjectMapper mapper = (this.objectMapper != null) ? this.objectMapper : new ObjectMapper();
-            Set<String> set = new LinkedHashSet<>(loadRevokedSerials());
-            for (String s : serialHexes) {
-                if (s != null && !s.isBlank()) {
-                    set.add(s.trim().toLowerCase());
+        synchronized (CRL_FILE_MUTEX) {
+            try {
+                Path path = Paths.get(revokedPath);
+                if (path.getParent() != null) {
+                    Files.createDirectories(path.getParent());
                 }
-            }
 
-            mapper.writerWithDefaultPrettyPrinter().writeValue(path.toFile(), set);
-            log.info("Đã cập nhật danh sách thu hồi CRL ({}) với các serials: {}", path, serialHexes);
-        } catch (Exception e) {
-            log.error("Lỗi khi ghi danh sách thu hồi CRL vào '{}': {}", revokedPath, e.getMessage(), e);
-            throw new RuntimeException("Không thể cập nhật danh sách thu hồi CRL: " + e.getMessage(), e);
+                ObjectMapper mapper = (this.objectMapper != null) ? this.objectMapper : new ObjectMapper();
+
+                try (FileChannel channel = FileChannel.open(path,
+                        StandardOpenOption.CREATE,
+                        StandardOpenOption.READ,
+                        StandardOpenOption.WRITE);
+                     FileLock lock = channel.lock()) {
+
+                    Set<String> set = new LinkedHashSet<>();
+                    if (channel.size() > 0) {
+                        channel.position(0);
+                        ByteBuffer inBuffer = ByteBuffer.allocate((int) channel.size());
+                        while (inBuffer.hasRemaining()) {
+                            channel.read(inBuffer);
+                        }
+                        try {
+                            List<String> list = mapper.readValue(inBuffer.array(), new TypeReference<List<String>>() {});
+                            if (list != null) {
+                                for (String s : list) {
+                                    if (s != null && !s.isBlank()) {
+                                        set.add(s.trim().toLowerCase());
+                                    }
+                                }
+                            }
+                        } catch (Exception parseEx) {
+                            log.warn("Không thể parse nội dung hiện tại của '{}': {}", revokedPath, parseEx.getMessage());
+                        }
+                    }
+
+                    for (String s : serialHexes) {
+                        if (s != null && !s.isBlank()) {
+                            set.add(s.trim().toLowerCase());
+                        }
+                    }
+
+                    byte[] updatedBytes = mapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(set);
+                    channel.truncate(0);
+                    channel.position(0);
+                    ByteBuffer outBuffer = ByteBuffer.wrap(updatedBytes);
+                    while (outBuffer.hasRemaining()) {
+                        channel.write(outBuffer);
+                    }
+                    channel.force(true);
+
+                    log.info("Đã cập nhật danh sách thu hồi CRL ({}) với các serials: {}", path, serialHexes);
+                }
+            } catch (Exception e) {
+                log.error("Lỗi khi ghi danh sách thu hồi CRL vào '{}': {}", revokedPath, e.getMessage(), e);
+                throw new RuntimeException("Không thể cập nhật danh sách thu hồi CRL: " + e.getMessage(), e);
+            }
         }
     }
 
