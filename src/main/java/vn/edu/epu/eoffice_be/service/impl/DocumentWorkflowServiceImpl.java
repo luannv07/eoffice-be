@@ -1153,6 +1153,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     @Transactional(readOnly = true)
     public DocumentSignatureVerifyResponse verifyDocumentSignatures(Long documentId) {
         Document document = findDocumentOrThrow(documentId);
+        UserLogin actor = getCurrentActor();
+        validateDocumentReadAccess(document, actor);
         byte[] pdfBytes = loadDocumentPdfBytes(document);
 
         if (pdfSignatureVerifier == null) {

@@ -1668,6 +1668,53 @@ class DocumentWorkflowServiceTest {
     }
 
     @Test
+    @DisplayName("verifyDocumentSignatures: Ném FORBIDDEN khi người dùng không có quyền truy cập văn bản")
+    void verifyDocumentSignatures_whenUnauthorized_shouldThrowForbidden() {
+        UserLogin regularUser = UserLogin.builder().id(9999L).username("stranger").role(Role.USER).build();
+        JwtUserPrincipal principal = new JwtUserPrincipal(9999L, "stranger", Role.USER.name(), true, List.of());
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, List.of()));
+        lenient().when(userLoginRepository.findByIdAndDeleteFlgFalse(9999L)).thenReturn(Optional.of(regularUser));
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.verifyDocumentSignatures(5001L));
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("verifyDocumentSignatures: Cho phép kiểm định chữ ký khi văn bản đã PUBLISHED")
+    void verifyDocumentSignatures_whenDocumentPublished_shouldAllowRegularUser() {
+        UserLogin regularUser = UserLogin.builder().id(9999L).username("stranger").role(Role.USER).build();
+        JwtUserPrincipal principal = new JwtUserPrincipal(9999L, "stranger", Role.USER.name(), true, List.of());
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, List.of()));
+        lenient().when(userLoginRepository.findByIdAndDeleteFlgFalse(9999L)).thenReturn(Optional.of(regularUser));
+
+        Document publishedDoc = Document.builder()
+                .id(5001L)
+                .title("Van ban da ban hanh")
+                .status(DocumentStatus.PUBLISHED)
+                .primaryFilePath("official/published.pdf")
+                .build();
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(publishedDoc));
+        when(fileStorageService.loadFileBytes("official/published.pdf")).thenReturn(new byte[]{1, 2, 3});
+
+        DocumentSignatureVerifyResponse mockResponse = DocumentSignatureVerifyResponse.builder()
+                .overallStatus("VALID")
+                .overallStatusDesc("HỢP LỆ")
+                .totalSignatures(1)
+                .build();
+        when(pdfSignatureVerifier.verify(any(byte[].class))).thenReturn(mockResponse);
+
+        DocumentSignatureVerifyResponse result = documentWorkflowService.verifyDocumentSignatures(5001L);
+        assertNotNull(result);
+        assertEquals("VALID", result.getOverallStatus());
+        assertEquals(5001L, result.getDocumentId());
+    }
+
+    @Test
     @DisplayName("REVOKE: Thu hồi văn bản đã ban hành thành công và đồng bộ CRL")
     void revokeDocument_success() {
         Long docId = 5001L;

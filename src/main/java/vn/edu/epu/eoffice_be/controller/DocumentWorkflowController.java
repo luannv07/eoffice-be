@@ -168,9 +168,9 @@ public class DocumentWorkflowController {
         return BaseResponse.success(documentWorkflowService.getPendingPublishDocuments(pageable));
     }
 
-    // UC-SIG-VERIFY: Kiểm định 7 tiêu chí bảo mật chữ ký số PDF
+    // UC-SIG-VERIFY: Kiểm định 7 tiêu chí bảo mật chữ ký số PDF (yêu cầu quyền truy cập văn bản)
     @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Kiểm định 7 tiêu chí bảo mật toàn bộ chữ ký số trên tài liệu PDF")
+    @Operation(summary = "Kiểm định 7 tiêu chí bảo mật toàn bộ chữ ký số trên tài liệu PDF (yêu cầu quyền xem văn bản)")
     @GetMapping("/{id}/signatures/verify")
     public BaseResponse<DocumentSignatureVerifyResponse> verifySignatures(@PathVariable Long id) {
         return BaseResponse.success(documentWorkflowService.verifyDocumentSignatures(id));
