@@ -1,7 +1,10 @@
 package vn.edu.epu.eoffice_be.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -38,18 +41,23 @@ public class DocumentPublishRequest {
     @Schema(description = "Lời phê hoặc ý kiến của Lãnh đạo ký phát hành", example = "Ký duyệt ban hành và chuyển văn thư đóng dấu lưu trữ")
     private String comment;
 
+    @Min(value = 1, message = "Số trang đặt chữ ký phải lớn hơn hoặc bằng 1")
     @Schema(description = "Số trang đặt chữ ký / con dấu phát hành (1-based, mặc định là trang cuối)", example = "1")
     private Integer signaturePage;
 
+    @PositiveOrZero(message = "Tọa độ X phải lớn hơn hoặc bằng 0")
     @Schema(description = "Tọa độ X góc trái dưới khung chữ ký (PDF points, chuẩn A4 rộng 595pt)", example = "350.0")
     private Float signatureX;
 
+    @PositiveOrZero(message = "Tọa độ Y phải lớn hơn hoặc bằng 0")
     @Schema(description = "Tọa độ Y góc trái dưới khung chữ ký (PDF points, chuẩn A4 cao 842pt)", example = "150.0")
     private Float signatureY;
 
+    @Positive(message = "Chiều rộng khung con dấu phải là số dương")
     @Schema(description = "Chiều rộng khung con dấu (PDF points, mặc định 180pt)", example = "180.0")
     private Float signatureWidth;
 
+    @Positive(message = "Chiều cao khung con dấu phải là số dương")
     @Schema(description = "Chiều cao khung con dấu (PDF points, mặc định 60pt)", example = "60.0")
     private Float signatureHeight;
 
