@@ -672,5 +672,6 @@ class DocumentWorkflowControllerTest {
         assertNotNull(DocumentWorkflowController.class.getMethod("getDocumentTimeline", Long.class).getAnnotation(PreAuthorize.class));
         assertNotNull(DocumentWorkflowController.class.getMethod("getPendingReviewDocuments", Pageable.class).getAnnotation(PreAuthorize.class));
         assertNotNull(DocumentWorkflowController.class.getMethod("verifySignatures", Long.class).getAnnotation(PreAuthorize.class));
+        assertNotNull(DocumentWorkflowController.class.getMethod("verifySignatures", Long.class).getAnnotation(Auditable.class));
     }
 }

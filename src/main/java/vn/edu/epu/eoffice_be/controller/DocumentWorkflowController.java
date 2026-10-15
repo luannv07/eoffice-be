@@ -169,6 +169,7 @@ public class DocumentWorkflowController {
     }
 
     // UC-SIG-VERIFY: Kiểm định 7 tiêu chí bảo mật chữ ký số PDF (yêu cầu quyền truy cập văn bản)
+    @Auditable
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Kiểm định 7 tiêu chí bảo mật toàn bộ chữ ký số trên tài liệu PDF (yêu cầu quyền xem văn bản)")
     @GetMapping("/{id}/signatures/verify")
