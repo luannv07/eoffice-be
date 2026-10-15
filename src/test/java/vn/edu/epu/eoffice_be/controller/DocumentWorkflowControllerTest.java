@@ -58,6 +58,7 @@ import vn.edu.epu.eoffice_be.dto.request.DocumentRejectRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRevisionRequest;
 import vn.edu.epu.eoffice_be.dto.PendingDocumentResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentDetailResponse;
+import vn.edu.epu.eoffice_be.dto.response.DocumentSignatureVerifyResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentWorkflowLogResponse;
 import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
 import vn.edu.epu.eoffice_be.service.DocumentWorkflowService;
@@ -156,7 +157,7 @@ class DocumentWorkflowControllerTest {
                 .assignedOrgNodeId(20L)
                 .build();
 
-        DocumentDetailResponse response = mockDocumentDetailResponse(DocumentStatus.PENDING_SIGN);
+        DocumentDetailResponse response = mockDocumentDetailResponse(DocumentStatus.APPROVED);
         when(documentWorkflowService.approve(eq(100L), any(DocumentApproveRequest.class))).thenReturn(response);
 
         mockMvc.perform(post("/documents/100/workflow/approve")
@@ -164,7 +165,7 @@ class DocumentWorkflowControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.status").value("PENDING_SIGN"));
+                .andExpect(jsonPath("$.data.status").value("APPROVED"));
 
         verify(documentWorkflowService).approve(eq(100L), any(DocumentApproveRequest.class));
     }
@@ -284,7 +285,7 @@ class DocumentWorkflowControllerTest {
                 .comment("Đã rà soát thể thức")
                 .build();
 
-        DocumentDetailResponse response = mockDocumentDetailResponse(DocumentStatus.INITIAL_SIGNED);
+        DocumentDetailResponse response = mockDocumentDetailResponse(DocumentStatus.IN_REVIEW);
         when(documentWorkflowService.initialSign(eq(100L), any(DocumentInitialSignRequest.class))).thenReturn(response);
 
         mockMvc.perform(post("/documents/100/workflow/initial-sign")
@@ -292,7 +293,7 @@ class DocumentWorkflowControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.status").value("INITIAL_SIGNED"));
+                .andExpect(jsonPath("$.data.status").value("IN_REVIEW"));
 
         verify(documentWorkflowService).initialSign(eq(100L), any(DocumentInitialSignRequest.class));
     }
@@ -322,21 +323,24 @@ class DocumentWorkflowControllerTest {
     }
 
     @Test
-    @DisplayName("UC14: Ký số phát hành thất bại khi bookId bị null - Trả về 400 BAD_REQUEST")
-    void signAndPublish_whenBookIdNull_shouldReturn400() throws Exception {
+    @DisplayName("UC14: Ký số phát hành thất bại khi chưa có số và thiếu sổ văn bản - Trả về 400 BAD_REQUEST")
+    void signAndPublish_whenBookIdNullAndServiceThrowsBadRequest_shouldReturn400() throws Exception {
         DocumentPublishRequest request = DocumentPublishRequest.builder()
                 .bookId(null)
                 .comment("Ký ban hành")
                 .build();
+
+        when(documentWorkflowService.signAndPublish(eq(100L), any(DocumentPublishRequest.class)))
+                .thenThrow(new BusinessException(ErrorCode.BAD_REQUEST, "Bắt buộc chọn sổ văn bản để cấp số chính thức hoặc cấp số trước khi ban hành"));
 
         mockMvc.perform(post("/documents/100/workflow/sign-and-publish")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.errorCode").value(ErrorCode.VALIDATION_ERROR.getCode()));
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.BAD_REQUEST.getCode()));
 
-        verify(documentWorkflowService, never()).signAndPublish(anyLong(), any());
+        verify(documentWorkflowService).signAndPublish(eq(100L), any(DocumentPublishRequest.class));
     }
 
     @Test
@@ -614,6 +618,43 @@ class DocumentWorkflowControllerTest {
     }
 
     @Test
+    @DisplayName("GET /{id}/signatures/verify: Trả về 403 FORBIDDEN khi người dùng không có quyền truy cập văn bản")
+    void verifySignatures_whenForbidden_shouldReturn403() throws Exception {
+        setAuthRole("LEADER");
+
+        when(documentWorkflowService.verifyDocumentSignatures(100L))
+                .thenThrow(new BusinessException(ErrorCode.FORBIDDEN));
+
+        mockMvc.perform(get("/documents/100/signatures/verify"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.FORBIDDEN.getCode()));
+    }
+
+    @Test
+    @DisplayName("GET /{id}/signatures/verify: Trả về 200 OK khi người dùng có quyền truy cập văn bản")
+    void verifySignatures_whenAuthorized_shouldReturn200() throws Exception {
+        setAuthRole("USER");
+
+        DocumentSignatureVerifyResponse mockResponse = DocumentSignatureVerifyResponse.builder()
+                .documentId(100L)
+                .documentTitle("Kế hoạch công tác năm 2026")
+                .overallStatus("VALID")
+                .overallStatusDesc("HỢP LỆ")
+                .totalSignatures(1)
+                .build();
+
+        when(documentWorkflowService.verifyDocumentSignatures(100L))
+                .thenReturn(mockResponse);
+
+        mockMvc.perform(get("/documents/100/signatures/verify"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.documentId").value(100L))
+                .andExpect(jsonPath("$.data.overallStatus").value("VALID"));
+    }
+
+    @Test
     @DisplayName("Xác minh cấu hình bảo mật: DocumentWorkflowController có đầy đủ @PreAuthorize và @Auditable (Issue 19)")
     void verifySecurityAnnotationsOnClassAndMethods() throws NoSuchMethodException {
         // Class annotations
@@ -630,5 +671,7 @@ class DocumentWorkflowControllerTest {
         assertNotNull(DocumentWorkflowController.class.getMethod("reject", Long.class, DocumentRejectRequest.class).getAnnotation(PreAuthorize.class));
         assertNotNull(DocumentWorkflowController.class.getMethod("getDocumentTimeline", Long.class).getAnnotation(PreAuthorize.class));
         assertNotNull(DocumentWorkflowController.class.getMethod("getPendingReviewDocuments", Pageable.class).getAnnotation(PreAuthorize.class));
+        assertNotNull(DocumentWorkflowController.class.getMethod("verifySignatures", Long.class).getAnnotation(PreAuthorize.class));
+        assertNotNull(DocumentWorkflowController.class.getMethod("verifySignatures", Long.class).getAnnotation(Auditable.class));
     }
 }

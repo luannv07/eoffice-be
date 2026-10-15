@@ -81,7 +81,9 @@ public class DocumentDraftService {
                 .content(request.getContent())
                 .documentTypeCd(request.getDocumentTypeCd())
                 .issuingOrgNode(issuingOrg)
+                .issuingOrg(issuingOrg)
                 .creatorUser(creator)
+                .drafter(creator)
                 .status(DocumentStatus.DRAFT)
                 .currentVersion(1)
                 .securityLevel(request.getSecurityLevel())
@@ -152,6 +154,7 @@ public class DocumentDraftService {
         document.setContent(request.getContent());
         document.setDocumentTypeCd(request.getDocumentTypeCd());
         document.setIssuingOrgNode(issuingOrg);
+        document.setIssuingOrg(issuingOrg);
         if (request.getSecurityLevel() != null) {
             document.setSecurityLevel(request.getSecurityLevel());
         }

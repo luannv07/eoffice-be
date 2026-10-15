@@ -119,8 +119,8 @@ class DocumentPublishRequestTest {
     }
 
     @Test
-    @DisplayName("DocumentPublishRequest: Không hợp lệ khi bookId null")
-    void testBookId_WhenNull_IsInvalid() {
+    @DisplayName("DocumentPublishRequest: Hợp lệ khi bookId null (cho phép kế thừa số hiệu đã cấp)")
+    void testBookId_WhenNull_IsValid() {
         DocumentPublishRequest request = DocumentPublishRequest.builder()
                 .bookId(null)
                 .officialNumber("123/QD-EPU")
@@ -129,7 +129,6 @@ class DocumentPublishRequestTest {
                 .build();
 
         Set<ConstraintViolation<DocumentPublishRequest>> violations = validator.validate(request);
-        assertFalse(violations.isEmpty());
-        assertTrue(violations.stream().anyMatch(v -> "bookId".equals(v.getPropertyPath().toString())));
+        assertTrue(violations.isEmpty());
     }
 }

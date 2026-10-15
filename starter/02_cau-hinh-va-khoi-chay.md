@@ -70,7 +70,18 @@ flowchart TD
    COOKIE_SECURE=false
    ```
 
-2. **Khởi chạy Backend (Terminal / PowerShell):**
+2. **Khởi tạo Root CA nội bộ (Chỉ cần chạy 1 lần cho máy mới clone code):**
+   ```powershell
+   # Trên Windows (PowerShell):
+   .\scripts\init-ca.ps1
+
+   # Trên Linux / macOS:
+   chmod +x ./scripts/init-ca.sh
+   ./scripts/init-ca.sh
+   ```
+   *(Script đã có chốt chặn chống ghi đè: nếu đã có CA hoặc chứng thư user thì script sẽ dừng ngay).*
+
+3. **Khởi chạy Backend (Terminal / PowerShell):**
    ```powershell
    # Trên Windows
    .\mvnw.cmd spring-boot:run

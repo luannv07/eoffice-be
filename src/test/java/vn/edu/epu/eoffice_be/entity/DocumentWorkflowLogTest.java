@@ -26,7 +26,7 @@ class DocumentWorkflowLogTest {
                 .action(WorkflowAction.SUBMIT)
                 .actor(actor)
                 .fromStatus(DocumentStatus.DRAFT)
-                .toStatus(DocumentStatus.SUBMITTED)
+                .toStatus(DocumentStatus.IN_REVIEW	)
                 .comment("Da nop ho so")
                 .leadershipInstruction("Chuyen phong ban chu tri")
                 .assignedOrgNode(org)
@@ -40,7 +40,7 @@ class DocumentWorkflowLogTest {
         assertEquals(WorkflowAction.SUBMIT, log.getAction());
         assertEquals(actor, log.getActor());
         assertEquals(DocumentStatus.DRAFT, log.getFromStatus());
-        assertEquals(DocumentStatus.SUBMITTED, log.getToStatus());
+        assertEquals(DocumentStatus.IN_REVIEW	, log.getToStatus());
         assertEquals("Da nop ho so", log.getComment());
         assertEquals("Chuyen phong ban chu tri", log.getLeadershipInstruction());
         assertEquals(org, log.getAssignedOrgNode());
@@ -124,7 +124,7 @@ class DocumentWorkflowLogTest {
 
         DocumentWorkflowLog log = assertDoesNotThrow(() -> new DocumentWorkflowLog(
                 1L, null, WorkflowAction.SUBMIT, null,
-                DocumentStatus.DRAFT, DocumentStatus.SUBMITTED, "ok",
+                DocumentStatus.DRAFT, DocumentStatus.IN_REVIEW	, "ok",
                 null, null, null, false, instant, localDateTime
         ));
 

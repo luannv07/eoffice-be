@@ -30,7 +30,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
-import vn.edu.epu.eoffice_be.dto.StampInfo;
 import vn.edu.epu.eoffice_be.service.PdfProcessingService;
 
 import java.awt.Color;
@@ -288,85 +287,6 @@ public class PdfProcessingServiceImpl implements PdfProcessingService {
 
     public X509Certificate getCertificate() {
         return this.epuCertificate;
-    }
-
-    @Override
-    public byte[] applyInitialSignStamp(byte[] pdfBytes, StampInfo stampInfo) {
-        if (pdfBytes == null || pdfBytes.length == 0 || stampInfo == null) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST);
-        }
-
-        try (PDDocument document = Loader.loadPDF(pdfBytes);
-             ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-
-            int totalPages = document.getNumberOfPages();
-            if (totalPages == 0) {
-                throw new BusinessException(ErrorCode.BAD_REQUEST);
-            }
-
-            PDPage lastPage = document.getPage(totalPages - 1);
-            PDRectangle mediaBox = lastPage.getMediaBox();
-
-            float stampWidth = 190f;
-            float stampHeight = 55f;
-            float x = mediaBox.getWidth() - stampWidth - 30f;
-            float y = 35f;
-
-            try (PDPageContentStream cs = new PDPageContentStream(
-                    document, lastPage, PDPageContentStream.AppendMode.APPEND, true, true)) {
-
-                // 1. Khung viền con dấu (xanh dương)
-                cs.setStrokingColor(new Color(16, 76, 151));
-                cs.setLineWidth(1.2f);
-                cs.addRect(x, y, stampWidth, stampHeight);
-                cs.stroke();
-
-                // 2. Nền mờ nhẹ
-                cs.setNonStrokingColor(new Color(240, 245, 255));
-                cs.addRect(x + 1, y + 1, stampWidth - 2, stampHeight - 2);
-                cs.fill();
-
-                // 3. Tiêu đề
-                cs.beginText();
-                cs.setNonStrokingColor(new Color(16, 76, 151));
-                cs.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD), 8f);
-                cs.newLineAtOffset(x + 8, y + stampHeight - 12);
-                cs.showText("[ DAU KY NHAY DIEN TU - EPU ]");
-                cs.endText();
-
-                // 4. Họ tên người ký
-                cs.beginText();
-                cs.setNonStrokingColor(new Color(33, 37, 41));
-                cs.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD), 7.5f);
-                cs.newLineAtOffset(x + 8, y + stampHeight - 24);
-                String safeName = toAscii("Can bo: " + (stampInfo.getSignerName() != null ? stampInfo.getSignerName() : ""));
-                cs.showText(safeName);
-                cs.endText();
-
-                // 5. Chức vụ
-                cs.beginText();
-                cs.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA), 7f);
-                cs.newLineAtOffset(x + 8, y + stampHeight - 35);
-                String safePos = toAscii("Chuc vu: " + (stampInfo.getPositionTitle() != null ? stampInfo.getPositionTitle() : ""));
-                cs.showText(safePos);
-                cs.endText();
-
-                // 6. Thời gian
-                cs.beginText();
-                cs.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA_OBLIQUE), 6.5f);
-                cs.newLineAtOffset(x + 8, y + stampHeight - 46);
-                String safeDate = toAscii("Thoi gian: " + (stampInfo.getSignDate() != null ? stampInfo.getSignDate() : ""));
-                cs.showText(safeDate);
-                cs.endText();
-            }
-
-            document.save(baos);
-            log.info("Nhung dau ky nhay thanh cong vao trang cuoi file PDF.");
-            return baos.toByteArray();
-        } catch (IOException e) {
-            log.error("Loi khi xu ly dong dau ky nhay tren PDF", e);
-            throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR);
-        }
     }
 
     @Override

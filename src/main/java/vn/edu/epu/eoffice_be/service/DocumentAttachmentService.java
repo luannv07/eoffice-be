@@ -169,7 +169,7 @@ public class DocumentAttachmentService {
 
         boolean isCreator = document.getCreatorUser() != null && document.getCreatorUser().getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
-        boolean isPublished = document.getStatus() == DocumentStatus.ISSUED || document.getStatus() == DocumentStatus.APPROVED;
+        boolean isPublished = document.getStatus() == DocumentStatus.PUBLISHED || document.getStatus() == DocumentStatus.APPROVED;
 
         boolean isApprover = documentApprovalRequestRepository
                 .findByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(document.getId()).stream()

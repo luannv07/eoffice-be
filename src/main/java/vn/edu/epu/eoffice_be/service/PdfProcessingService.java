@@ -1,17 +1,6 @@
 package vn.edu.epu.eoffice_be.service;
 
-import vn.edu.epu.eoffice_be.dto.StampInfo;
-
 public interface PdfProcessingService {
-
-    /**
-     * UC13: Nhúng con dấu Digital Stamp ký nháy vào trang cuối cùng của file PDF.
-     *
-     * @param pdfBytes  Dữ liệu PDF gốc
-     * @param stampInfo Thông tin con dấu (người ký, chức vụ, ngày giờ)
-     * @return Dữ liệu PDF mới đã được đóng dấu ký nháy
-     */
-    byte[] applyInitialSignStamp(byte[] pdfBytes, StampInfo stampInfo);
 
     /**
      * UC14: Ký số điện tử PKI X.509 PAdES và đặt cờ niêm phong CERTIFIED_NO_CHANGES_ALLOWED.

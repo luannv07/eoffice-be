@@ -2,6 +2,8 @@ databaseChangeLog:
   - changeSet:
       id: 2026-09-12-seed-sample-org-and-document
       author: dev
+      validCheckSum: 
+      - ANY
       preConditions:
         - onFail: MARK_RAN
         - sqlCheck:
@@ -56,7 +58,7 @@ databaseChangeLog:
               - column: { name: signer_id, valueNumeric: 2001 }
               - column: { name: urgency_level_cd, value: 'NORMAL' }
               - column: { name: security_level_cd, value: 'NORMAL' }
-              - column: { name: status, value: 'SUBMITTED' }
+              - column: { name: status, value: 'IN_REVIEW' }
               - column: { name: recipients_text, value: 'Các phòng ban, khoa đào tạo' }
               - column: { name: primary_file_path, value: 'sample.pdf' }
               - column: { name: delete_flg, valueBoolean: false }

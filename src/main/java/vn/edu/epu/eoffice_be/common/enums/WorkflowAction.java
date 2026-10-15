@@ -11,7 +11,8 @@ public enum WorkflowAction {
     LEADER_APPROVE("Lãnh đạo phê duyệt"),
     SIGN_AND_PUBLISH("Ký phát hành chính thức"),
     REJECT("Từ chối phê duyệt"),
-    WITHDRAW("Thu hồi yêu cầu duyệt");
+    WITHDRAW("Thu hồi yêu cầu duyệt"),
+    REVOKE("Thu hồi văn bản đã ban hành");
     private final String description;
     WorkflowAction(String description) {
         this.description = description;

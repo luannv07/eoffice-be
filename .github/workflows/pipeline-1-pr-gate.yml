@@ -34,6 +34,11 @@ jobs:
           java-version: "21"
           cache: "maven"
 
+      - name: 2.1. Initialize PKI Root CA
+        run: |
+          chmod +x scripts/init-ca.sh
+          ./scripts/init-ca.sh
+
       - name: 3. Build (Tests + Static Analysis)
         run: mvn -B clean verify
 

@@ -174,6 +174,16 @@ public class Document extends BaseEntity {
         if (this.status == null) {
             throw new IllegalStateException("Document status cannot be null");
         }
+        if (this.issuingOrg == null && this.issuingOrgNode != null) {
+            this.issuingOrg = this.issuingOrgNode;
+        } else if (this.issuingOrgNode == null && this.issuingOrg != null) {
+            this.issuingOrgNode = this.issuingOrg;
+        }
+        if (this.drafter == null && this.creatorUser != null) {
+            this.drafter = this.creatorUser;
+        } else if (this.creatorUser == null && this.drafter != null) {
+            this.creatorUser = this.drafter;
+        }
     }
 
     public static final ZoneId DEFAULT_BUSINESS_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");

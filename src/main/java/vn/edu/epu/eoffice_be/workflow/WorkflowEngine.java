@@ -32,69 +32,43 @@ public class WorkflowEngine {
             new EnumMap<>(DocumentStatus.class);
 
     static {
-        // DRAFT
+         // 1. DRAFT (Dự thảo): Gửi duyệt sẽ chuyển sang IN_REVIEW
         Map<WorkflowAction, DocumentStatus> draftTransitions = new EnumMap<>(WorkflowAction.class);
-        draftTransitions.put(WorkflowAction.SUBMIT, DocumentStatus.SUBMITTED);
+        draftTransitions.put(WorkflowAction.SUBMIT, DocumentStatus.IN_REVIEW);
         TRANSITION_MATRIX.put(DocumentStatus.DRAFT, draftTransitions);
-
-        // SUBMITTED
-        Map<WorkflowAction, DocumentStatus> submittedTransitions = new EnumMap<>(WorkflowAction.class);
-        submittedTransitions.put(WorkflowAction.REVIEW_APPROVE, DocumentStatus.IN_REVIEW);
-        submittedTransitions.put(WorkflowAction.INITIAL_SIGN, DocumentStatus.IN_REVIEW);
-        submittedTransitions.put(WorkflowAction.WITHDRAW, DocumentStatus.DRAFT);
-        submittedTransitions.put(WorkflowAction.REQUEST_REVISION, DocumentStatus.NEEDS_REVISION);
-        submittedTransitions.put(WorkflowAction.REJECT, DocumentStatus.REJECTED);
-        TRANSITION_MATRIX.put(DocumentStatus.SUBMITTED, submittedTransitions);
-
-        // WAITING_APPROVAL: Hỗ trợ linh hoạt cả luồng phê duyệt lãnh đạo trực tiếp và thẩm định/ký nháy
-        Map<WorkflowAction, DocumentStatus> waitingApprovalTransitions = new EnumMap<>(WorkflowAction.class);
-        waitingApprovalTransitions.put(WorkflowAction.LEADER_APPROVE, DocumentStatus.APPROVED);
-        waitingApprovalTransitions.put(WorkflowAction.REVIEW_APPROVE, DocumentStatus.IN_REVIEW);
-        waitingApprovalTransitions.put(WorkflowAction.INITIAL_SIGN, DocumentStatus.IN_REVIEW);
-        waitingApprovalTransitions.put(WorkflowAction.SIGN_AND_PUBLISH, DocumentStatus.PUBLISHED);
-        waitingApprovalTransitions.put(WorkflowAction.WITHDRAW, DocumentStatus.DRAFT);
-        waitingApprovalTransitions.put(WorkflowAction.REQUEST_REVISION, DocumentStatus.NEEDS_REVISION);
-        waitingApprovalTransitions.put(WorkflowAction.REJECT, DocumentStatus.REJECTED);
-        TRANSITION_MATRIX.put(DocumentStatus.WAITING_APPROVAL, waitingApprovalTransitions);
-
-        // IN_REVIEW
+        // 2. IN_REVIEW (Đang thẩm định & ký nháy)
         Map<WorkflowAction, DocumentStatus> inReviewTransitions = new EnumMap<>(WorkflowAction.class);
-        inReviewTransitions.put(WorkflowAction.INITIAL_SIGN, DocumentStatus.IN_REVIEW);
-        inReviewTransitions.put(WorkflowAction.REVIEW_APPROVE, DocumentStatus.LEADER_REVIEW);
-        inReviewTransitions.put(WorkflowAction.LEADER_APPROVE, DocumentStatus.APPROVED);
-        inReviewTransitions.put(WorkflowAction.REQUEST_REVISION, DocumentStatus.NEEDS_REVISION);
-        inReviewTransitions.put(WorkflowAction.REJECT, DocumentStatus.REJECTED);
+        inReviewTransitions.put(WorkflowAction.INITIAL_SIGN, DocumentStatus.IN_REVIEW); // Ký nháy từng người, vẫn ở IN_REVIEW
+        inReviewTransitions.put(WorkflowAction.REVIEW_APPROVE, DocumentStatus.PENDING_APPROVAL); // Ký xong hết / Duyệt chuyển tiếp lên Lãnh đạo
+        inReviewTransitions.put(WorkflowAction.REQUEST_REVISION, DocumentStatus.NEEDS_REVISION); // Trả về sửa
+        inReviewTransitions.put(WorkflowAction.REJECT, DocumentStatus.REJECTED); // Từ chối
+        inReviewTransitions.put(WorkflowAction.WITHDRAW, DocumentStatus.DRAFT); // Rút lại bản nháp
         TRANSITION_MATRIX.put(DocumentStatus.IN_REVIEW, inReviewTransitions);
-        TRANSITION_MATRIX.put(DocumentStatus.PENDING_REVIEW, inReviewTransitions);
-
-        // LEADER_REVIEW & PENDING_APPROVAL
-        Map<WorkflowAction, DocumentStatus> leaderReviewTransitions = new EnumMap<>(WorkflowAction.class);
-        leaderReviewTransitions.put(WorkflowAction.LEADER_APPROVE, DocumentStatus.APPROVED);
-        leaderReviewTransitions.put(WorkflowAction.SIGN_AND_PUBLISH, DocumentStatus.PUBLISHED);
-        leaderReviewTransitions.put(WorkflowAction.REQUEST_REVISION, DocumentStatus.NEEDS_REVISION);
-        leaderReviewTransitions.put(WorkflowAction.REJECT, DocumentStatus.REJECTED);
-        TRANSITION_MATRIX.put(DocumentStatus.LEADER_REVIEW, leaderReviewTransitions);
-        TRANSITION_MATRIX.put(DocumentStatus.PENDING_APPROVAL, new EnumMap<>(leaderReviewTransitions));
-
-        // APPROVED — chờ ban hành (ký số phát hành chính thức)
+        // 3. PENDING_APPROVAL (Chờ lãnh đạo phê duyệt)
+        Map<WorkflowAction, DocumentStatus> pendingApprovalTransitions = new EnumMap<>(WorkflowAction.class);
+        pendingApprovalTransitions.put(WorkflowAction.LEADER_APPROVE, DocumentStatus.APPROVED); // Lãnh đạo duyệt nội dung
+        pendingApprovalTransitions.put(WorkflowAction.REQUEST_REVISION, DocumentStatus.NEEDS_REVISION); // Lãnh đạo yêu cầu sửa
+        pendingApprovalTransitions.put(WorkflowAction.REJECT, DocumentStatus.REJECTED); // Lãnh đạo bác bỏ
+        TRANSITION_MATRIX.put(DocumentStatus.PENDING_APPROVAL, pendingApprovalTransitions);
+        // 4. APPROVED (Đã duyệt: Văn thư cấp số, chờ Ký số PKI phát hành)
         Map<WorkflowAction, DocumentStatus> approvedTransitions = new EnumMap<>(WorkflowAction.class);
-        approvedTransitions.put(WorkflowAction.SIGN_AND_PUBLISH, DocumentStatus.PUBLISHED);
+        approvedTransitions.put(WorkflowAction.SIGN_AND_PUBLISH, DocumentStatus.PUBLISHED); // Ký số PKI ban hành
         approvedTransitions.put(WorkflowAction.REQUEST_REVISION, DocumentStatus.NEEDS_REVISION);
-        approvedTransitions.put(WorkflowAction.REJECT, DocumentStatus.REJECTED);
         TRANSITION_MATRIX.put(DocumentStatus.APPROVED, approvedTransitions);
-
-        // PENDING_SIGN — chờ ký số
-        Map<WorkflowAction, DocumentStatus> pendingSignTransitions = new EnumMap<>(WorkflowAction.class);
-        pendingSignTransitions.put(WorkflowAction.SIGN_AND_PUBLISH, DocumentStatus.PUBLISHED);
-        pendingSignTransitions.put(WorkflowAction.REQUEST_REVISION, DocumentStatus.NEEDS_REVISION);
-        pendingSignTransitions.put(WorkflowAction.REJECT, DocumentStatus.REJECTED);
-        TRANSITION_MATRIX.put(DocumentStatus.PENDING_SIGN, pendingSignTransitions);
-
-        // NEEDS_REVISION
+        // 5. NEEDS_REVISION (Yêu cầu chỉnh sửa)
         Map<WorkflowAction, DocumentStatus> needsRevisionTransitions = new EnumMap<>(WorkflowAction.class);
-        needsRevisionTransitions.put(WorkflowAction.SUBMIT, DocumentStatus.SUBMITTED);
-        needsRevisionTransitions.put(WorkflowAction.WITHDRAW, DocumentStatus.DRAFT);
+        needsRevisionTransitions.put(WorkflowAction.SUBMIT, DocumentStatus.IN_REVIEW); // Sửa xong gửi duyệt lại
+        needsRevisionTransitions.put(WorkflowAction.WITHDRAW, DocumentStatus.DRAFT); // Rút về hẳn DRAFT
         TRANSITION_MATRIX.put(DocumentStatus.NEEDS_REVISION, needsRevisionTransitions);
+        // 6. PUBLISHED (Đã ban hành: cho phép Thu hồi văn bản)
+        Map<WorkflowAction, DocumentStatus> publishedTransitions = new EnumMap<>(WorkflowAction.class);
+        publishedTransitions.put(WorkflowAction.REVOKE, DocumentStatus.REVOKED);
+        TRANSITION_MATRIX.put(DocumentStatus.PUBLISHED, publishedTransitions);
+        // 7. REJECTED (Bị từ chối: cho phép nạp file v2 gửi duyệt lại hoặc rút về DRAFT)
+        Map<WorkflowAction, DocumentStatus> rejectedTransitions = new EnumMap<>(WorkflowAction.class);
+        rejectedTransitions.put(WorkflowAction.SUBMIT, DocumentStatus.IN_REVIEW);
+        rejectedTransitions.put(WorkflowAction.WITHDRAW, DocumentStatus.DRAFT);
+        TRANSITION_MATRIX.put(DocumentStatus.REJECTED, rejectedTransitions);
     }
 
     /**
@@ -120,8 +94,8 @@ public class WorkflowEngine {
         // 1. Kiểm tra trạng thái có cho phép action không
         getNextStatus(document.getStatus(), action);
 
-        // 2. Yêu cầu bắt buộc lý do khi từ chối hoặc yêu cầu sửa đổi
-        if ((action == WorkflowAction.REQUEST_REVISION || action == WorkflowAction.REJECT)
+        // 2. Yêu cầu bắt buộc lý do khi từ chối, yêu cầu sửa đổi hoặc thu hồi
+        if ((action == WorkflowAction.REQUEST_REVISION || action == WorkflowAction.REJECT || action == WorkflowAction.REVOKE)
                 && (comment == null || comment.trim().isBlank())) {
             throw new BusinessException(ErrorCode.BAD_REQUEST);
         }
@@ -156,7 +130,8 @@ public class WorkflowEngine {
             case SUBMIT, WITHDRAW -> isDrafter;
             case REVIEW_APPROVE, INITIAL_SIGN, REQUEST_REVISION, REJECT -> isReviewerOrLeader;
             case LEADER_APPROVE -> role == Role.LEADER || isAssignedSigner;
-            case SIGN_AND_PUBLISH -> isAssignedSigner;
+            case SIGN_AND_PUBLISH -> role == Role.CLERK || isAssignedSigner;
+            case REVOKE -> isAssignedSigner || role == Role.LEADER;
         };
     }
 

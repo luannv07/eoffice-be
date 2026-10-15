@@ -11,7 +11,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
-import vn.edu.epu.eoffice_be.dto.StampInfo;
 import vn.edu.epu.eoffice_be.service.impl.PdfProcessingServiceImpl;
 
 import org.junit.jupiter.api.io.TempDir;
@@ -46,45 +45,6 @@ class PdfProcessingServiceTest {
 
         assertNotNull(pdfBytes);
         assertTrue(pdfBytes.length > 0);
-    }
-
-    @Test
-    @DisplayName("UC13: Nhúng Digital Stamp ký nháy vào PDF thành công")
-    void applyInitialSignStamp_shouldAddStampSuccessfully() {
-        byte[] originalPdf = pdfProcessingService.createSamplePdf("Du thao", "Noi dung du thao van ban");
-
-        StampInfo stampInfo = StampInfo.builder()
-                .signerName("Nguyen Van A")
-                .positionTitle("Truong Bo Mon")
-                .signDate("2026-09-10 16:00:00")
-                .note("Tham dinh noi dung")
-                .build();
-
-        byte[] stampedPdf = pdfProcessingService.applyInitialSignStamp(originalPdf, stampInfo);
-
-        assertNotNull(stampedPdf);
-        assertTrue(stampedPdf.length > originalPdf.length);
-    }
-
-    @Test
-    @DisplayName("Ném lỗi BAD_REQUEST khi stampInfo null hoặc pdfBytes rỗng")
-    void applyInitialSignStamp_nullInputs_shouldThrowBadRequest() {
-        byte[] originalPdf = pdfProcessingService.createSamplePdf("Du thao", "Noi dung du thao van ban");
-
-        // stampInfo null
-        BusinessException exNullStamp = assertThrows(BusinessException.class, () ->
-                pdfProcessingService.applyInitialSignStamp(originalPdf, null));
-        assertEquals(ErrorCode.BAD_REQUEST, exNullStamp.getErrorCode());
-
-        // pdfBytes null hoặc rỗng
-        StampInfo stampInfo = StampInfo.builder().signerName("Nguyen Van A").build();
-        BusinessException exNullPdf = assertThrows(BusinessException.class, () ->
-                pdfProcessingService.applyInitialSignStamp(null, stampInfo));
-        assertEquals(ErrorCode.BAD_REQUEST, exNullPdf.getErrorCode());
-
-        BusinessException exEmptyPdf = assertThrows(BusinessException.class, () ->
-                pdfProcessingService.applyInitialSignStamp(new byte[0], stampInfo));
-        assertEquals(ErrorCode.BAD_REQUEST, exEmptyPdf.getErrorCode());
     }
 
     @Test

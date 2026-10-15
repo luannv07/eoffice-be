@@ -61,26 +61,24 @@ class WorkflowEngineTest {
     @DisplayName("State Machine: DRAFT -> SUBMITTED khi gửi duyệt")
     void getNextStatus_fromDraft_submit_shouldReturnSubmitted() {
         DocumentStatus next = workflowEngine.getNextStatus(DocumentStatus.DRAFT, WorkflowAction.SUBMIT);
-        assertEquals(DocumentStatus.SUBMITTED, next);
+        assertEquals(DocumentStatus.IN_REVIEW	, next);
     }
 
     @Test
     @DisplayName("State Machine: SUBMITTED -> IN_REVIEW khi ký nháy hoặc duyệt sơ bộ")
     void getNextStatus_fromSubmitted_initialSign_shouldReturnInReview() {
-        DocumentStatus next = workflowEngine.getNextStatus(DocumentStatus.SUBMITTED, WorkflowAction.INITIAL_SIGN);
+        DocumentStatus next = workflowEngine.getNextStatus(DocumentStatus.IN_REVIEW	, WorkflowAction.INITIAL_SIGN);
         assertEquals(DocumentStatus.IN_REVIEW, next);
     }
 
     @Test
-    @DisplayName("State Machine: WAITING_APPROVAL -> APPROVED khi lãnh đạo phê duyệt hoặc IN_REVIEW khi ký nháy/thẩm định")
-    void getNextStatus_fromWaitingApproval_transitions_shouldSucceed() {
-        assertEquals(DocumentStatus.APPROVED, workflowEngine.getNextStatus(DocumentStatus.WAITING_APPROVAL, WorkflowAction.LEADER_APPROVE));
-        assertEquals(DocumentStatus.IN_REVIEW, workflowEngine.getNextStatus(DocumentStatus.WAITING_APPROVAL, WorkflowAction.REVIEW_APPROVE));
-        assertEquals(DocumentStatus.IN_REVIEW, workflowEngine.getNextStatus(DocumentStatus.WAITING_APPROVAL, WorkflowAction.INITIAL_SIGN));
-        assertEquals(DocumentStatus.PUBLISHED, workflowEngine.getNextStatus(DocumentStatus.WAITING_APPROVAL, WorkflowAction.SIGN_AND_PUBLISH));
-        assertEquals(DocumentStatus.DRAFT, workflowEngine.getNextStatus(DocumentStatus.WAITING_APPROVAL, WorkflowAction.WITHDRAW));
-        assertEquals(DocumentStatus.NEEDS_REVISION, workflowEngine.getNextStatus(DocumentStatus.WAITING_APPROVAL, WorkflowAction.REQUEST_REVISION));
-        assertEquals(DocumentStatus.REJECTED, workflowEngine.getNextStatus(DocumentStatus.WAITING_APPROVAL, WorkflowAction.REJECT));
+    @DisplayName("State Machine: IN_REVIEW transitions")
+    void getNextStatus_fromInReview_transitions_shouldSucceed() {
+        assertEquals(DocumentStatus.IN_REVIEW, workflowEngine.getNextStatus(DocumentStatus.IN_REVIEW, WorkflowAction.INITIAL_SIGN));
+        assertEquals(DocumentStatus.PENDING_APPROVAL, workflowEngine.getNextStatus(DocumentStatus.IN_REVIEW, WorkflowAction.REVIEW_APPROVE));
+        assertEquals(DocumentStatus.NEEDS_REVISION, workflowEngine.getNextStatus(DocumentStatus.IN_REVIEW, WorkflowAction.REQUEST_REVISION));
+        assertEquals(DocumentStatus.REJECTED, workflowEngine.getNextStatus(DocumentStatus.IN_REVIEW, WorkflowAction.REJECT));
+        assertEquals(DocumentStatus.DRAFT, workflowEngine.getNextStatus(DocumentStatus.IN_REVIEW, WorkflowAction.WITHDRAW));
     }
 
     @Test
@@ -88,7 +86,6 @@ class WorkflowEngineTest {
     void getNextStatus_fromPendingApproval_leaderApprove_shouldReturnApproved() {
         DocumentStatus next = workflowEngine.getNextStatus(DocumentStatus.PENDING_APPROVAL, WorkflowAction.LEADER_APPROVE);
         assertEquals(DocumentStatus.APPROVED, next);
-        assertEquals(DocumentStatus.PUBLISHED, workflowEngine.getNextStatus(DocumentStatus.PENDING_APPROVAL, WorkflowAction.SIGN_AND_PUBLISH));
         assertEquals(DocumentStatus.NEEDS_REVISION, workflowEngine.getNextStatus(DocumentStatus.PENDING_APPROVAL, WorkflowAction.REQUEST_REVISION));
         assertEquals(DocumentStatus.REJECTED, workflowEngine.getNextStatus(DocumentStatus.PENDING_APPROVAL, WorkflowAction.REJECT));
     }
@@ -97,14 +94,28 @@ class WorkflowEngineTest {
     @DisplayName("State Machine: IN_REVIEW -> LEADER_REVIEW khi duyệt chuyển cấp lãnh đạo")
     void getNextStatus_fromInReview_reviewApprove_shouldReturnLeaderReview() {
         DocumentStatus next = workflowEngine.getNextStatus(DocumentStatus.IN_REVIEW, WorkflowAction.REVIEW_APPROVE);
-        assertEquals(DocumentStatus.LEADER_REVIEW, next);
+        assertEquals(DocumentStatus.PENDING_APPROVAL, next);
     }
 
     @Test
-    @DisplayName("State Machine: LEADER_REVIEW -> PUBLISHED khi ký phát hành")
-    void getNextStatus_fromLeaderReview_signAndPublish_shouldReturnPublished() {
-        DocumentStatus next = workflowEngine.getNextStatus(DocumentStatus.LEADER_REVIEW, WorkflowAction.SIGN_AND_PUBLISH);
+    @DisplayName("State Machine: APPROVED -> PUBLISHED khi ký phát hành")
+    void getNextStatus_fromApproved_signAndPublish_shouldReturnPublished() {
+        DocumentStatus next = workflowEngine.getNextStatus(DocumentStatus.APPROVED, WorkflowAction.SIGN_AND_PUBLISH);
         assertEquals(DocumentStatus.PUBLISHED, next);
+    }
+
+    @Test
+    @DisplayName("State Machine: PUBLISHED -> REVOKED khi thu hồi văn bản")
+    void getNextStatus_fromPublished_revoke_shouldReturnRevoked() {
+        DocumentStatus next = workflowEngine.getNextStatus(DocumentStatus.PUBLISHED, WorkflowAction.REVOKE);
+        assertEquals(DocumentStatus.REVOKED, next);
+    }
+
+    @Test
+    @DisplayName("State Machine: REJECTED transitions (SUBMIT -> IN_REVIEW, WITHDRAW -> DRAFT)")
+    void getNextStatus_fromRejected_transitions_shouldSucceed() {
+        assertEquals(DocumentStatus.IN_REVIEW, workflowEngine.getNextStatus(DocumentStatus.REJECTED, WorkflowAction.SUBMIT));
+        assertEquals(DocumentStatus.DRAFT, workflowEngine.getNextStatus(DocumentStatus.REJECTED, WorkflowAction.WITHDRAW));
     }
 
     @Test
@@ -144,9 +155,9 @@ class WorkflowEngineTest {
         );
 
         assertNotNull(log);
-        assertEquals(DocumentStatus.SUBMITTED, document.getStatus());
+        assertEquals(DocumentStatus.IN_REVIEW	, document.getStatus());
         assertEquals(DocumentStatus.DRAFT, log.getFromStatus());
-        assertEquals(DocumentStatus.SUBMITTED, log.getToStatus());
+        assertEquals(DocumentStatus.IN_REVIEW	, log.getToStatus());
         assertEquals(WorkflowAction.SUBMIT, log.getAction());
 
         verify(documentRepository).save(document);
@@ -218,6 +229,10 @@ class WorkflowEngineTest {
         // Assigned signer có thể LEADER_APPROVE, SIGN_AND_PUBLISH
         assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, assignedSigner, WorkflowAction.SIGN_AND_PUBLISH));
         assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, assignedSigner, WorkflowAction.LEADER_APPROVE));
+
+        // Cán bộ văn thư (CLERK) có thể SIGN_AND_PUBLISH
+        UserLogin clerk = UserLogin.builder().id(3005L).username("vanthu").role(Role.CLERK).build();
+        assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, clerk, WorkflowAction.SIGN_AND_PUBLISH));
     }
 
     @Test
@@ -269,23 +284,5 @@ class WorkflowEngineTest {
         BusinessException exWithdraw = assertThrows(BusinessException.class, () ->
                 workflowEngine.validateActorPermission(document, drafter, WorkflowAction.WITHDRAW));
         assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, exWithdraw.getErrorCode());
-    }
-
-    @Test
-    @DisplayName("State Machine: LEADER_REVIEW và PENDING_APPROVAL không dùng chung instance Map (chống aliasing)")
-    void stateMachine_leaderReviewAndPendingApproval_shouldHaveIndependentMapInstances() throws Exception {
-        java.lang.reflect.Field field = WorkflowEngine.class.getDeclaredField("TRANSITION_MATRIX");
-        field.setAccessible(true);
-        @SuppressWarnings("unchecked")
-        Map<DocumentStatus, Map<WorkflowAction, DocumentStatus>> matrix =
-                (Map<DocumentStatus, Map<WorkflowAction, DocumentStatus>>) field.get(null);
-
-        Map<WorkflowAction, DocumentStatus> leaderReviewMap = matrix.get(DocumentStatus.LEADER_REVIEW);
-        Map<WorkflowAction, DocumentStatus> pendingApprovalMap = matrix.get(DocumentStatus.PENDING_APPROVAL);
-
-        assertNotNull(leaderReviewMap);
-        assertNotNull(pendingApprovalMap);
-        assertNotSame(leaderReviewMap, pendingApprovalMap, "LEADER_REVIEW và PENDING_APPROVAL phải có instance Map độc lập, không được dùng chung");
-        assertEquals(leaderReviewMap, pendingApprovalMap, "Hai map phải có cùng nội dung ban đầu");
     }
 }

@@ -1,0 +1,29 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-10-15-seed-clerk-user
+      author: dev
+      validCheckSum:
+        - ANY
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: "SELECT COUNT(*) FROM user_logins WHERE username = 'vanthu'"
+      changes:
+        - sql:
+            sql: |-
+              -- Tài khoản Cán bộ Văn thư (Role: CLERK, Position: VT)
+              INSERT INTO user_logins (id, username, password_hash, role, user_status_cd, must_change_password, failed_login_attempts, delete_flg)
+              VALUES (3003, 'vanthu', '$2a$10$wJtK1f3r6H6/w5xT1Lg/8OB1tS5y.U.YcEqx4Pq1mZ3v3s1k8K8Qe', 'CLERK', 'ACTIVE', false, 0, false);
+
+              INSERT INTO user_infos (id, user_login_id, full_name, employment_status_cd, delete_flg)
+              VALUES (3103, 3003, 'Nguyễn Thị Văn Thư', 'ACTIVE', false);
+
+              INSERT INTO position_assignments (id, user_login_id, org_node_id, position_cd, effective_from, delete_flg)
+              VALUES (3203, 3003, 5001, 'VT', CURRENT_TIMESTAMP, false);
+      rollback:
+        - sql:
+            sql: |-
+              DELETE FROM position_assignments WHERE id = 3203;
+              DELETE FROM user_infos WHERE id = 3103;
+              DELETE FROM user_logins WHERE id = 3003;

@@ -8,6 +8,8 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.repository.DocumentDistributionRepository;
@@ -47,7 +49,7 @@ public class DocumentQueryService {
 
     public Object getDocumentDetailsForAdmin(Long id) {
         Document document = documentRepository.findByIdAndDeleteFlgFalse(id)
-                .filter(d -> d.getStatus() == vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED || d.getStatus() == vn.edu.epu.eoffice_be.common.enums.DocumentStatus.ISSUED)
+                .filter(d -> d.getStatus() == DocumentStatus.PUBLISHED || d.getStatus() == DocumentStatus.ISSUED)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền truy cập văn bản với ID: " + id));
 
         java.util.Map<String, Object> details = new java.util.LinkedHashMap<>();
@@ -68,9 +70,8 @@ public class DocumentQueryService {
 
     public byte[] downloadDocumentForAdmin(Long documentId) {
         Document doc = documentRepository.findByIdAndDeleteFlgFalse(documentId)
-                .filter(d -> d.getStatus() == vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED || d.getStatus() == vn.edu.epu.eoffice_be.common.enums.DocumentStatus.ISSUED)
+                .filter(d -> d.getStatus() == DocumentStatus.PUBLISHED || d.getStatus() == DocumentStatus.ISSUED)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền tải văn bản: " + documentId));
-
         return readDocumentFileContent(doc, documentId);
     }
 
@@ -198,4 +199,4 @@ public class DocumentQueryService {
             throw new IllegalArgumentException("Đường dẫn tệp không hợp lệ", ex);
         }
     }
-}
+}

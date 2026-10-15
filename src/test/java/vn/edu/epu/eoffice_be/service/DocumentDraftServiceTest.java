@@ -263,7 +263,7 @@ class DocumentDraftServiceTest {
         Document doc = Document.builder()
                 .id(docId)
                 .creatorUser(creator)
-                .status(DocumentStatus.WAITING_APPROVAL)
+                .status(DocumentStatus.IN_REVIEW)
                 .build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
@@ -322,7 +322,7 @@ class DocumentDraftServiceTest {
                 .summary("Trích yếu")
                 .drafter(drafter)
                 .creatorUser(null)
-                .status(DocumentStatus.SUBMITTED)
+                .status(DocumentStatus.IN_REVIEW	)
                 .currentVersion(1)
                 .build();
 
@@ -711,7 +711,7 @@ class DocumentDraftServiceTest {
                 .id(docId)
                 .draftCode("DT-2026-00001")
                 .creatorUser(creator)
-                .status(DocumentStatus.PENDING_REVIEW)
+                .status(DocumentStatus.IN_REVIEW)
                 .build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));

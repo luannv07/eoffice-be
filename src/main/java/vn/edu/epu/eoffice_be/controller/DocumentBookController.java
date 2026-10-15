@@ -139,7 +139,7 @@ public class DocumentBookController {
 	@ApiResponse(responseCode = "400", description = "Sổ văn bản đã đóng hoặc thông tin không hợp lệ")
 	@ApiResponse(responseCode = "404", description = "Không tìm thấy sổ văn bản")
 	@PostMapping("/assign-number")
-	@PreAuthorize("hasAnyRole('ADMIN', 'SYSTEM_ADMIN', 'LEADER') or hasAuthority('DOCUMENT_ASSIGN_NUMBER')")
+	@PreAuthorize("hasAnyRole('CLERK', 'ADMIN', 'SYSTEM_ADMIN') or hasAuthority('DOCUMENT_ASSIGN_NUMBER')")
 	public BaseResponse<AssignDocumentNumberResponse> assignNumber(
 			@Valid @RequestBody AssignDocumentNumberRequest request) {
 		return BaseResponse.success(documentBookService.assignNumber(request));

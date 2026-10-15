@@ -16,29 +16,36 @@ import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.enums.Role;
 import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
-import vn.edu.epu.eoffice_be.dto.StampInfo;
 import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
 import vn.edu.epu.eoffice_be.dto.request.DocumentApproveRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentInitialSignRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentPublishRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRejectRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRevisionRequest;
+import vn.edu.epu.eoffice_be.dto.request.DocumentRevokeRequest;
 import vn.edu.epu.eoffice_be.dto.PendingDocumentResponse;
 import vn.edu.epu.eoffice_be.dto.WorkflowTimelineResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentDetailResponse;
+import vn.edu.epu.eoffice_be.dto.response.DocumentSignatureVerifyResponse;
+import vn.edu.epu.eoffice_be.dto.response.SignatureItemResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentWorkflowLogResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.entity.DocumentAttachment;
 import vn.edu.epu.eoffice_be.entity.DocumentWorkflowLog;
 import vn.edu.epu.eoffice_be.entity.OrgNode;
+import vn.edu.epu.eoffice_be.entity.PositionAssignment;
 import vn.edu.epu.eoffice_be.entity.UserInfo;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
 import vn.edu.epu.eoffice_be.repository.DocumentAttachmentRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentWorkflowLogRepository;
 import vn.edu.epu.eoffice_be.repository.OrgNodeRepository;
+import vn.edu.epu.eoffice_be.repository.PositionAssignmentRepository;
 import vn.edu.epu.eoffice_be.repository.UserInfoRepository;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
+import vn.edu.epu.eoffice_be.security.pki.PdfSigner;
+import vn.edu.epu.eoffice_be.security.pki.PdfSignatureVerifier;
+import vn.edu.epu.eoffice_be.security.pki.SignaturePosition;
 import vn.edu.epu.eoffice_be.service.DocumentWorkflowService;
 import vn.edu.epu.eoffice_be.service.FileStorageService;
 import vn.edu.epu.eoffice_be.service.PdfProcessingService;
@@ -72,10 +79,28 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     private final DocumentBookService documentBookService;
     private final DocumentAttachmentRepository documentAttachmentRepository;
     private final vn.edu.epu.eoffice_be.storage.FileStorageService unifiedStorageService;
+    private final PdfSigner pdfSigner;
+    private final PositionAssignmentRepository positionAssignmentRepository;
+    private final PdfSignatureVerifier pdfSignatureVerifier;
 
     public DocumentWorkflowServiceImpl(DocumentRepository documentRepository,
                                        DocumentWorkflowLogRepository documentWorkflowLogRepository) {
-        this(documentRepository, documentWorkflowLogRepository, null, null, null, null, null, null, null, null, null);
+        this(
+                documentRepository,
+                documentWorkflowLogRepository,
+                null, // userLoginRepository
+                null, // userInfoRepository
+                null, // orgNodeRepository
+                null, // workflowEngine
+                null, // fileStorageService
+                null, // pdfProcessingService
+                null, // documentBookService
+                null, // documentAttachmentRepository
+                null, // unifiedStorageService
+                null, // pdfSigner
+                null, // positionAssignmentRepository
+                null  // pdfSignatureVerifier
+        );
     }
 
     private static final ZoneId ZONE_VN = ZoneId.of("Asia/Ho_Chi_Minh");
@@ -84,11 +109,10 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
 
     public static final List<DocumentStatus> PENDING_STATUSES = List.of(
-            DocumentStatus.PENDING_APPROVAL,
-            DocumentStatus.WAITING_APPROVAL,
-            DocumentStatus.IN_REVIEW,
-            DocumentStatus.PENDING_SIGN,
-            DocumentStatus.SUBMITTED
+        DocumentStatus.IN_REVIEW,
+        DocumentStatus.PENDING_APPROVAL,
+        DocumentStatus.PENDING_SIGN,
+        DocumentStatus.APPROVED
     );
 
     @Override
@@ -105,13 +129,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
         // Quyết định hành động chuyển tiếp phù hợp với trạng thái hiện tại
         WorkflowAction action;
-        if (document.getStatus() == DocumentStatus.SUBMITTED
-                || document.getStatus() == DocumentStatus.IN_REVIEW
-                || document.getStatus() == DocumentStatus.PENDING_REVIEW) {
+        if (document.getStatus() == DocumentStatus.IN_REVIEW) {
             action = WorkflowAction.REVIEW_APPROVE;
-        } else if (document.getStatus() == DocumentStatus.LEADER_REVIEW
-                || document.getStatus() == DocumentStatus.PENDING_APPROVAL
-                || document.getStatus() == DocumentStatus.WAITING_APPROVAL) {
+        } else if (document.getStatus() == DocumentStatus.PENDING_APPROVAL) {
             action = WorkflowAction.LEADER_APPROVE;
         } else {
             throw new BusinessException(ErrorCode.INVALID_WORKFLOW_STATE);
@@ -120,17 +140,163 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         // Kiểm tra thẩm quyền người xử lý trước khi thực hiện chuyển đổi
         validateActorAuthorization(document, actor, action);
 
-        workflowEngine.executeTransition(
-                document,
-                action,
-                actor,
-                request.getComment(),
-                request.getLeadershipInstruction(),
-                assignedOrg,
-                null
-        );
+        // Tự động ký nháy lần 2 nếu văn bản đang ở IN_REVIEW (Cán bộ thẩm định duyệt chuyển tiếp)
+        String signatureHash = null;
+        String newPdfPath = null;
+        if (action == WorkflowAction.REVIEW_APPROVE) {
+            byte[] currentPdfBytes = loadDocumentPdfBytesSafely(document);
+            if (currentPdfBytes != null && currentPdfBytes.length > 0 && pdfSigner != null && fileStorageService != null) {
+                String signerFullName = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(actor.getId())
+                        .map(UserInfo::getFullName)
+                        .orElse(actor.getUsername());
+                SignerTitleInfo titleInfo = resolveSignerTitleInfo(actor);
+                String signerDisplayName = (titleInfo.title() != null && !titleInfo.title().isBlank())
+                        ? signerFullName + " - " + titleInfo.title()
+                        : signerFullName;
+
+                String signReason = (request.getComment() != null && !request.getComment().isBlank())
+                        ? request.getComment()
+                        : "Ký nháy thẩm định văn bản";
+
+                PdfSigner.SignResult signResult;
+                try {
+                    signResult = pdfSigner.signBytes(
+                            currentPdfBytes,
+                            String.valueOf(actor.getId()),
+                            signerDisplayName,
+                            signReason
+                    );
+                } catch (IllegalStateException ex) {
+                    if (ex.getMessage() != null && ex.getMessage().contains("User đã ký")) {
+                        throw new BusinessException(ErrorCode.BAD_REQUEST,
+                                "Người dùng [ID=" + actor.getId() + "] đã thực hiện ký trên tài liệu này rồi, không được phép ký đè lần 2!");
+                    }
+                    throw ex;
+                }
+                byte[] stampedPdfBytes = signResult.signedPdfBytes();
+                newPdfPath = fileStorageService.storeFile(
+                        stampedPdfBytes,
+                        "initial_signed_" + document.getId() + ".pdf",
+                        "drafts"
+                );
+                document.setPrimaryFilePath(newPdfPath);
+                signatureHash = signResult.outPdfSha256();
+                log.info("Đã tự động ký nháy lần 2 (thẩm định) cho văn bản id={}, người ký={}, hash={}",
+                        document.getId(), actor.getUsername(), signatureHash);
+            }
+        } else if (action == WorkflowAction.LEADER_APPROVE) {
+            byte[] currentPdfBytes = loadDocumentPdfBytesSafely(document);
+            if (currentPdfBytes != null && currentPdfBytes.length > 0 && pdfSigner != null && fileStorageService != null) {
+                String signerFullName = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(actor.getId())
+                        .map(UserInfo::getFullName)
+                        .orElse(actor.getUsername());
+                SignerTitleInfo titleInfo = resolveSignerTitleInfo(actor);
+                String signerDisplayName = (titleInfo.title() != null && !titleInfo.title().isBlank())
+                        ? signerFullName + " - " + titleInfo.title()
+                        : signerFullName;
+
+                String signReason = (request.getComment() != null && !request.getComment().isBlank())
+                        ? request.getComment()
+                        : "Hiệu trưởng phê duyệt văn bản";
+
+                SignaturePosition pos = resolveApproveSignaturePosition(request);
+
+                PdfSigner.SignResult signResult;
+                try {
+                    signResult = pdfSigner.signVisibleBytes(
+                            currentPdfBytes,
+                            String.valueOf(actor.getId()),
+                            signerDisplayName,
+                            titleInfo.title(),
+                            titleInfo.orgUnit(),
+                            signReason,
+                            pos
+                    );
+                } catch (IllegalStateException ex) {
+                    if (ex.getMessage() != null && ex.getMessage().contains("User đã ký")) {
+                        throw new BusinessException(ErrorCode.BAD_REQUEST,
+                                "Người dùng [ID=" + actor.getId() + "] đã thực hiện ký trên tài liệu này rồi, không được phép ký đè lần 2!");
+                    }
+                    throw ex;
+                }
+                byte[] stampedPdfBytes = signResult.signedPdfBytes();
+                newPdfPath = fileStorageService.storeFile(
+                        stampedPdfBytes,
+                        "leader_signed_" + document.getId() + ".pdf",
+                        "drafts"
+                );
+                document.setPrimaryFilePath(newPdfPath);
+                signatureHash = signResult.outPdfSha256();
+                log.info("Đã tự động ký số hiển thị (Hiệu trưởng duyệt) cho văn bản id={}, người ký={}, hash={}",
+                        document.getId(), actor.getUsername(), signatureHash);
+            }
+        }
+
+        try {
+            workflowEngine.executeTransition(
+                    document,
+                    action,
+                    actor,
+                    request.getComment(),
+                    request.getLeadershipInstruction(),
+                    assignedOrg,
+                    signatureHash
+            );
+        } catch (Exception ex) {
+            if (newPdfPath != null && fileStorageService != null) {
+                fileStorageService.deleteFile(newPdfPath);
+            }
+            throw ex;
+        }
 
         return mapToDetailResponse(document);
+    }
+
+    private SignaturePosition resolveApproveSignaturePosition(DocumentApproveRequest request) {
+        if (request == null) {
+            return new SignaturePosition(9999, 380f, 120f, 150f, 80f);
+        }
+        int page = (request.getSignaturePage() != null && request.getSignaturePage() > 0)
+                ? request.getSignaturePage()
+                : 9999;
+        float x = request.getSignatureX() != null ? request.getSignatureX() : 380f;
+        float y = request.getSignatureY() != null ? request.getSignatureY() : 120f;
+        float width = (request.getSignatureWidth() != null && request.getSignatureWidth() > 0)
+                ? request.getSignatureWidth()
+                : 150f;
+        float height = (request.getSignatureHeight() != null && request.getSignatureHeight() > 0)
+                ? request.getSignatureHeight()
+                : 80f;
+        return new SignaturePosition(page, x, y, width, height);
+    }
+
+    private byte[] loadDocumentPdfBytesSafely(Document document) {
+        try {
+            return loadDocumentPdfBytes(document);
+        } catch (BusinessException e) {
+            if (e.getErrorCode() == ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING) {
+                return null;
+            }
+            throw e;
+        }
+    }
+
+    private SignaturePosition resolveSignaturePosition(DocumentPublishRequest request) {
+        if (request == null) {
+            return new SignaturePosition(1, 350f, 150f, 180f, 60f);
+        }
+        int page = (request.getSignaturePage() != null && request.getSignaturePage() > 0)
+                ? request.getSignaturePage()
+                : 1;
+        float x = request.getSignatureX() != null ? request.getSignatureX() : 350f;
+        float y = request.getSignatureY() != null ? request.getSignatureY() : 150f;
+        float width = (request.getSignatureWidth() != null && request.getSignatureWidth() > 0)
+                ? request.getSignatureWidth()
+                : 180f;
+        float height = (request.getSignatureHeight() != null && request.getSignatureHeight() > 0)
+                ? request.getSignatureHeight()
+                : 60f;
+        return new SignaturePosition(page, x, y, width, height);
     }
 
     @Override
@@ -151,7 +317,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 null,
                 null
         );
-
+        freezePreviousDocumentFiles(document);
+        documentRepository.save(document);
         return mapToDetailResponse(document);
     }
 
@@ -169,22 +336,37 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
         byte[] currentPdfBytes = loadDocumentPdfBytes(document);
 
-        // 2. Lấy thông tin người ký để in con dấu
+        // 2. Lấy thông tin người ký để cấp chứng thư hoặc ghi nhận danh tính
         String signerFullName = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(actor.getId())
                 .map(UserInfo::getFullName)
                 .orElse(actor.getUsername());
+        SignerTitleInfo titleInfo = resolveSignerTitleInfo(actor);
+        String signerDisplayName = (titleInfo.title() != null && !titleInfo.title().isBlank())
+                ? signerFullName + " - " + titleInfo.title()
+                : signerFullName;
 
-        StampInfo stampInfo = StampInfo.builder()
-                .signerName(signerFullName)
-                .positionTitle("Can bo tham dinh")
-                .signDate(DATE_TIME_FORMATTER.format(Instant.now()))
-                .note("Tham dinh noi dung")
-                .build();
+        // 3. Thực hiện Ký nháy số chuẩn BouncyCastle CMS Detached bằng PdfSigner (lưu tăng dần, bảo toàn chữ ký cũ)
+        String signReason = (request.getComment() != null && !request.getComment().isBlank())
+                ? request.getComment()
+                : "Ký nháy văn bản";
+        PdfSigner.SignResult signResult;
+        try {
+            signResult = pdfSigner.signBytes(
+                    currentPdfBytes,
+                    String.valueOf(actor.getId()),
+                    signerDisplayName,
+                    signReason
+            );
+        } catch (IllegalStateException ex) {
+            if (ex.getMessage() != null && ex.getMessage().contains("User đã ký")) {
+                throw new BusinessException(ErrorCode.BAD_REQUEST,
+                        "Người dùng [ID=" + actor.getId() + "] đã thực hiện ký trên tài liệu này rồi, không được phép ký đè lần 2!");
+            }
+            throw ex;
+        }
+        byte[] stampedPdfBytes = signResult.signedPdfBytes();
 
-        // 3. Gọi PDFBox vẽ con dấu ký nháy vào trang cuối file PDF
-        byte[] stampedPdfBytes = pdfProcessingService.applyInitialSignStamp(currentPdfBytes, stampInfo);
-
-        // 4. Lưu bản PDF mới vào storage và tính mã băm SHA-256
+        // 4. Lưu bản PDF mới vào storage và lấy mã băm SHA-256 từ chữ ký số
         String newPdfPath = fileStorageService.storeFile(
                 stampedPdfBytes,
                 "initial_signed_" + document.getId() + ".pdf",
@@ -192,7 +374,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         );
         document.setPrimaryFilePath(newPdfPath);
 
-        String signatureHash = fileStorageService.computeSha256(stampedPdfBytes);
+        String signatureHash = signResult.outPdfSha256();
 
         // 5. Điều hướng luồng duyệt và ghi log (chạy trong @Transactional của WorkflowEngine)
         try {
@@ -238,9 +420,12 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         // Kiểm tra file PDF nguồn TRƯỚC KHI cấp số và ký số: nếu chưa có file đính kèm chính thì báo lỗi
         ensureDocumentPdfExists(document);
 
-        // 2. Cấp số chính thức qua Sổ văn bản (Pessimistic Write Lock)
+        // 2. Cấp số chính thức qua Sổ văn bản (Pessimistic Write Lock) hoặc kế thừa số đã cấp
         String officialNumber;
-        if (request.getBookId() != null && documentBookService != null) {
+        if (document.getOfficialNumber() != null && !document.getOfficialNumber().isBlank()) {
+            // Tự động kế thừa số hiệu đã được cấp từ sổ văn bản ở bước Cấp số (APPROVED)
+            officialNumber = document.getOfficialNumber();
+        } else if (request.getBookId() != null && documentBookService != null) {
             AssignDocumentNumberRequest assignReq = new AssignDocumentNumberRequest();
             assignReq.setBookId(request.getBookId());
             assignReq.setDocumentId(documentId);
@@ -250,11 +435,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             officialNumber = numberResp.getDocumentNumber();
         } else if (request.getOfficialNumber() != null && !request.getOfficialNumber().isBlank()) {
             officialNumber = request.getOfficialNumber();
-        } else if (document.getOfficialNumber() != null && !document.getOfficialNumber().isBlank()) {
-            // Tự động kế thừa số hiệu đã được cấp từ sổ văn bản ở bước Chờ ban hành (APPROVED)
-            officialNumber = document.getOfficialNumber();
         } else {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "Bắt buộc chọn sổ văn bản để cấp số chính thức");
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "Bắt buộc chọn sổ văn bản để cấp số chính thức hoặc cấp số trước khi ban hành");
         }
 
         // Kiểm tra null/blank trước khi gọi .trim() để tránh NullPointerException
@@ -277,17 +459,48 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         byte[] currentPdfBytes = loadDocumentPdfBytes(document);
 
         // 4. Ký số điện tử PKI X.509 PAdES và đặt cờ niêm phong CERTIFIED_NO_CHANGES_ALLOWED
-        String signerDisplayName = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(actor.getId())
+        SignerTitleInfo titleInfo = resolveSignerTitleInfo(actor);
+        String signerFullName = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(actor.getId())
                 .map(UserInfo::getFullName)
                 .orElse(actor.getUsername());
+        String signerDisplayName = (titleInfo.title() != null && !titleInfo.title().isBlank())
+                ? signerFullName + " - " + titleInfo.title()
+                : signerFullName;
 
-        byte[] certifiedPdfBytes = pdfProcessingService.signAndCertifyPdf(
-                currentPdfBytes,
+        // 4.1. Ký nháy của Cán bộ Văn thư trước khi phát hành chính thức
+        byte[] pdfToCertify = currentPdfBytes;
+        try {
+            PdfSigner.SignResult initialSignResult = pdfSigner.signBytes(
+                    currentPdfBytes,
+                    actor.getId().toString(),
+                    signerDisplayName,
+                    "Văn thư ký nháy duyệt ban hành: " + officialNumber
+            );
+            if (initialSignResult != null && initialSignResult.signedPdfBytes() != null) {
+                pdfToCertify = initialSignResult.signedPdfBytes();
+                log.info("Đã ký nháy duyệt ban hành cho văn bản id={}, người ký={}", document.getId(), actor.getUsername());
+            }
+        } catch (IllegalStateException ex) {
+            // Nếu người dùng đã ký nháy trên tài liệu trước đó (ví dụ ở bước cấp số), tiếp tục sử dụng bản PDF hiện tại
+            log.info("Người dùng {} đã ký trên tài liệu id={}, tiếp tục ban hành niêm phong", actor.getUsername(), document.getId());
+        } catch (Exception ex) {
+            log.warn("Không thể thực hiện ký nháy trước khi phát hành cho văn bản id={}: {}", document.getId(), ex.getMessage());
+        }
+
+        // 4.2. Ban hành chính thức kèm khóa niêm phong DocMDP (P=1: CERTIFIED_NO_CHANGES_ALLOWED)
+        SignaturePosition pos = resolveSignaturePosition(request);
+        PdfSigner.SignResult signResult = pdfSigner.signAndCertifyBytes(
+                pdfToCertify,
+                actor.getId().toString(),
                 signerDisplayName,
-                "Ban hanh van ban: " + officialNumber
+                titleInfo.title(),
+                titleInfo.orgUnit(),
+                "Ban hanh van ban: " + officialNumber,
+                pos
         );
+        byte[] certifiedPdfBytes = signResult.signedPdfBytes();
 
-        // 4. Lưu file PDF chính thức vào thư mục riêng biệt "official"
+        // 4.3. Lưu file PDF chính thức vào thư mục riêng biệt "official"
         String officialPath = fileStorageService.storeFile(
                 certifiedPdfBytes,
                 "official_" + document.getId() + ".pdf",
@@ -335,8 +548,24 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 null,
                 null
         );
+        freezePreviousDocumentFiles(document);
+        documentRepository.save(document);
 
         return mapToDetailResponse(document);
+    }
+
+    private void freezePreviousDocumentFiles(Document document) {
+        document.setPrimaryFilePath(null);
+        if (documentAttachmentRepository != null && document.getId() != null) {
+            List<DocumentAttachment> mainAttachments = documentAttachmentRepository
+                    .findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(document.getId());
+            if (mainAttachments != null && !mainAttachments.isEmpty()) {
+                for (DocumentAttachment att : mainAttachments) {
+                    att.setMainDocument(false);
+                    documentAttachmentRepository.save(att);
+                }
+            }
+        }
     }
 
     @Override
@@ -599,6 +828,63 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         return "/documents/" + documentId + "/files/" + fileType;
     }
 
+    private record SignerTitleInfo(String title, String orgUnit) {}
+
+    /**
+     * Xác định Chức vụ (TITLE) và Phòng ban/Đơn vị (OU) của người ký theo nguyên tắc 2 lớp:
+     * 1. Lớp 1: Quyết định bổ nhiệm thực tế trong position_assignments đang có hiệu lực.
+     * 2. Lớp 2: Fallback theo vai trò Role hệ thống sang danh xưng tiếng Việt chuẩn hành chính.
+     */
+    private SignerTitleInfo resolveSignerTitleInfo(UserLogin user) {
+        if (user == null) {
+            return new SignerTitleInfo(null, null);
+        }
+
+        // Lớp 1: Kiểm tra bổ nhiệm thực tế trong bảng position_assignments
+        if (positionAssignmentRepository != null && user.getId() != null) {
+            try {
+                List<PositionAssignment> assignments = positionAssignmentRepository.findActiveAssignments(user.getId(), Instant.now());
+                if (assignments != null && !assignments.isEmpty()) {
+                    PositionAssignment pa = assignments.get(0);
+                    String posName = resolvePositionName(pa.getPositionCd());
+                    String orgName = pa.getOrgNode() != null ? pa.getOrgNode().getNameVn() : null;
+                    return new SignerTitleInfo(posName, orgName);
+                }
+            } catch (Exception ex) {
+                log.warn("Lỗi khi tìm kiếm quyết định bổ nhiệm cho user {}: {}", user.getId(), ex.getMessage());
+            }
+        }
+
+        // Lớp 2: Fallback sang danh xưng tiếng Việt chuẩn theo Role hệ thống
+        Role role = user.getRole();
+        if (role != null) {
+            return switch (role) {
+                case SYSTEM_ADMIN -> new SignerTitleInfo("Quản trị viên hệ thống", "Ban Quản trị");
+                case ADMIN -> new SignerTitleInfo("Quản trị viên", "Ban Quản trị");
+                case LEADER -> new SignerTitleInfo("Lãnh đạo đơn vị", "Ban Giám hiệu");
+                case REVIEWER -> new SignerTitleInfo("Cán bộ thẩm định", "Phòng ban chuyên môn");
+                case USER -> new SignerTitleInfo("Chuyên viên", "Trường Đại học Điện Lực");
+                case CLERK -> new SignerTitleInfo("Cán bộ văn thư", "Phòng Hành chính - Tổng hợp");
+            };
+        }
+
+        return new SignerTitleInfo(null, null);
+    }
+
+    private String resolvePositionName(String positionCd) {
+        if (positionCd == null) return null;
+        return switch (positionCd) {
+            case "HT" -> "Hiệu trưởng";
+            case "PHT" -> "Phó Hiệu trưởng";
+            case "TK" -> "Trưởng khoa";
+            case "PK" -> "Phó Trưởng khoa";
+            case "TP" -> "Trưởng phòng";
+            case "PP" -> "Phó Trưởng phòng";
+            case "CV" -> "Chuyên viên";
+            default -> positionCd;
+        };
+    }
+
     private DocumentWorkflowLogResponse mapToLogResponse(DocumentWorkflowLog log) {
         return DocumentWorkflowLogResponse.builder()
                 .id(log.getId())
@@ -673,8 +959,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                         vn.edu.epu.eoffice_be.common.enums.ErrorCode.DOCUMENT_NOT_FOUND,
                         "Không tìm thấy văn bản: " + documentId));
 
-        if (doc.getStatus() == vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED
-                || doc.getStatus() == vn.edu.epu.eoffice_be.common.enums.DocumentStatus.ISSUED) {
+        if (doc.getStatus() == DocumentStatus.PUBLISHED) {
             return;
         }
 
@@ -802,11 +1087,14 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             return "Bộ phận xử lý văn bản";
         }
         return switch (status) {
-            case SUBMITTED -> "Văn thư tiếp nhận";
-            case PENDING_REVIEW, IN_REVIEW -> "Chuyên viên thẩm định";
-            case PENDING_APPROVAL, WAITING_APPROVAL, LEADER_REVIEW -> "Lãnh đạo phê duyệt";
+            case DRAFT -> "Người soạn thảo";
+            case IN_REVIEW -> "Cán bộ thẩm định / ký nháy";
+            case PENDING_APPROVAL -> "Lãnh đạo phê duyệt";
             case PENDING_SIGN -> "Lãnh đạo ký số";
-            case APPROVED -> "Lãnh đạo ký ban hành";
+            case APPROVED -> "Lãnh đạo ký phát hành";
+            case PUBLISHED -> "Văn bản đã ban hành";
+            case NEEDS_REVISION -> "Người soạn thảo chỉnh sửa";
+            case REJECTED -> "Đã từ chối";
             default -> "Bộ phận xử lý văn bản";
         };
     }
@@ -874,5 +1162,63 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 .comment(comment)
                 .build();
         documentWorkflowLogRepository.save(log);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DocumentSignatureVerifyResponse verifyDocumentSignatures(Long documentId) {
+        Document document = findDocumentOrThrow(documentId);
+        UserLogin actor = getCurrentActor();
+        validateDocumentReadAccess(document, actor);
+        byte[] pdfBytes = loadDocumentPdfBytes(document);
+
+        if (pdfSignatureVerifier == null) {
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "Dịch vụ kiểm định chữ ký số (PdfSignatureVerifier) chưa được khởi tạo.");
+        }
+
+        DocumentSignatureVerifyResponse response = pdfSignatureVerifier.verify(pdfBytes);
+        response.setDocumentId(document.getId());
+        response.setDocumentTitle(document.getTitle());
+        return response;
+    }
+
+    @Override
+    @Transactional
+    public DocumentDetailResponse revokeDocument(Long documentId, DocumentRevokeRequest request) {
+        UserLogin actor = getCurrentActor();
+        Document document = findDocumentOrThrow(documentId);
+
+        // 1. Kiểm tra thẩm quyền thu hồi văn bản (chỉ Lãnh đạo hoặc Quản trị viên)
+        validateActorAuthorization(document, actor, WorkflowAction.REVOKE);
+
+        // 2. Chuyển trạng thái sang REVOKED và ghi vết kiểm toán
+        workflowEngine.executeTransition(
+                document,
+                WorkflowAction.REVOKE,
+                actor,
+                request.getComment(),
+                null,
+                null,
+                null
+        );
+
+        // 3. Tự động đồng bộ số Serial của chữ ký ban hành vào danh sách thu hồi CRL (revoked.json)
+        try {
+            byte[] pdfBytes = loadDocumentPdfBytes(document);
+            if (pdfBytes != null && pdfBytes.length > 0 && pdfSignatureVerifier != null) {
+                DocumentSignatureVerifyResponse verifyResp = pdfSignatureVerifier.verify(pdfBytes);
+                if (verifyResp != null && verifyResp.getSignatures() != null) {
+                    for (SignatureItemResponse item : verifyResp.getSignatures()) {
+                        if (item.getSerialHex() != null && !item.getSerialHex().isBlank()) {
+                            pdfSignatureVerifier.revokeSerial(item.getSerialHex());
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Không thể tự động đồng bộ danh sách thu hồi CRL cho văn bản id={}: {}", documentId, e.getMessage());
+        }
+
+        return mapToDetailResponse(document);
     }
 }

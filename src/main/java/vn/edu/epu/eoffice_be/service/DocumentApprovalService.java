@@ -16,6 +16,7 @@ import vn.edu.epu.eoffice_be.dto.request.SubmitApprovalRequest;
 import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
 import vn.edu.epu.eoffice_be.dto.response.EligibleApproverResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
+import vn.edu.epu.eoffice_be.entity.DocumentAttachment;
 import vn.edu.epu.eoffice_be.entity.DocumentApprovalRequest;
 import vn.edu.epu.eoffice_be.entity.DocumentProcessLog;
 import vn.edu.epu.eoffice_be.entity.OrgNode;
@@ -32,6 +33,8 @@ import vn.edu.epu.eoffice_be.repository.PositionAssignmentRepository;
 import vn.edu.epu.eoffice_be.repository.PositionPermissionRepository;
 import vn.edu.epu.eoffice_be.repository.UserInfoRepository;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
+import vn.edu.epu.eoffice_be.security.pki.PdfSigner;
+import vn.edu.epu.eoffice_be.service.FileStorageService;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -56,6 +59,9 @@ public class DocumentApprovalService {
     private final PositionPermissionRepository positionPermissionRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final DocumentDraftService documentDraftService;
+    private final FileStorageService fileStorageService;
+    private final vn.edu.epu.eoffice_be.storage.FileStorageService unifiedStorageService;
+    private final PdfSigner pdfSigner;
 
     /**
      * Lấy danh sách cán bộ có thẩm quyền duyệt văn bản (theo đơn vị hoặc toàn hệ thống)
@@ -185,16 +191,30 @@ public class DocumentApprovalService {
                     "Hồ sơ chưa đầy đủ: Tiêu đề và trích yếu văn bản không được để trống");
         }
 
-        // 2. Phải có tệp đính kèm chính (DOCX hoặc PDF) hoặc nội dung chi tiết
+        // 2. Kiểm tra tệp đính kèm và xử lý nâng phiên bản khi gửi duyệt lại (Resubmission)
+        boolean isResubmission = document.getStatus() == DocumentStatus.NEEDS_REVISION 
+                || document.getStatus() == DocumentStatus.REJECTED;
+
         boolean hasMainAttachment = documentAttachmentRepository
                 .existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(documentId);
         boolean hasAnyAttachment = documentAttachmentRepository
                 .existsByDocumentIdAndDeleteFlgFalse(documentId);
         boolean hasContent = document.getContent() != null && !document.getContent().isBlank();
 
-        if (!hasMainAttachment && !hasAnyAttachment && !hasContent) {
-            throw new BusinessException(ErrorCode.DOCUMENT_INCOMPLETE_DOSSIER,
-                    "Hồ sơ chưa đầy đủ: Bắt buộc phải đính kèm tệp văn bản (DOCX hoặc PDF) hoặc nội dung chi tiết trước khi gửi duyệt");
+        if (isResubmission) {
+            if (!hasMainAttachment) {
+                throw new BusinessException(ErrorCode.DOCUMENT_INCOMPLETE_DOSSIER,
+                        "Tệp PDF cũ đã bị đóng băng do bị từ chối/yêu cầu sửa. Bắt buộc phải tải lên tệp PDF mới (v2) trước khi gửi duyệt lại!");
+            }
+            int currentVer = document.getCurrentVersion() > 0
+                    ? document.getCurrentVersion()
+                    : 1;
+            document.setCurrentVersion(currentVer + 1);
+        } else {
+            if (!hasMainAttachment && !hasAnyAttachment && !hasContent) {
+                throw new BusinessException(ErrorCode.DOCUMENT_INCOMPLETE_DOSSIER,
+                        "Hồ sơ chưa đầy đủ: Bắt buộc phải đính kèm tệp văn bản (DOCX hoặc PDF) hoặc nội dung chi tiết trước khi gửi duyệt");
+            }
         }
 
         // Kiểm tra người nhận duyệt
@@ -208,11 +228,53 @@ public class DocumentApprovalService {
 
         Instant now = Instant.now();
 
+        // Tự động ký nháy lần 1 nếu hồ sơ có tệp PDF (Người soạn thảo ký nháy tự động)
+        String signatureHash = null;
+        byte[] pdfBytes = loadDocumentPdfBytes(document);
+        if (pdfBytes != null && pdfBytes.length > 0 && pdfSigner != null && fileStorageService != null) {
+            String signerFullName = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(sender.getId())
+                    .map(UserInfo::getFullName)
+                    .orElse(sender.getUsername());
+            SignerTitleInfo titleInfo = resolveSignerTitleInfo(sender);
+            String signerDisplayName = (titleInfo.title() != null && !titleInfo.title().isBlank())
+                    ? signerFullName + " - " + titleInfo.title()
+                    : signerFullName;
+
+            String signReason = (request.getSubmitNote() != null && !request.getSubmitNote().isBlank())
+                    ? request.getSubmitNote()
+                    : "Ký nháy văn bản (Người soạn thảo)";
+
+            try {
+                PdfSigner.SignResult signResult = pdfSigner.signBytes(
+                        pdfBytes,
+                        String.valueOf(sender.getId()),
+                        signerDisplayName,
+                        titleInfo.title(),
+                        titleInfo.orgUnit(),
+                        signReason
+                );
+                byte[] stampedPdfBytes = signResult.signedPdfBytes();
+                String newPdfPath = fileStorageService.storeFile(
+                        stampedPdfBytes,
+                        "initial_signed_" + document.getId() + ".pdf",
+                        "drafts"
+                );
+                document.setPrimaryFilePath(newPdfPath);
+                signatureHash = signResult.outPdfSha256();
+                log.info("Đã tự động ký nháy lần 1 cho văn bản id={}, người ký={}, hash={}",
+                        document.getId(), sender.getUsername(), signatureHash);
+            } catch (Exception ex) {
+                log.error("Lỗi khi tự động ký nháy văn bản id={}: {}", document.getId(), ex.getMessage(), ex);
+                throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR,
+                        "Lỗi khi tự động ký nháy văn bản: " + ex.getMessage());
+            }
+        }
+
         // Lưu trạng thái nguồn trước khi đổi trạng thái (Issue 18)
         DocumentStatus prevStatus = document.getStatus();
 
         // Chuyển trạng thái văn bản sang WAITING_APPROVAL
-        document.setStatus(DocumentStatus.WAITING_APPROVAL);
+        document.setStatus(DocumentStatus.IN_REVIEW);
         document.setSubmittedAt(now);
         Document savedDocument = documentRepository.save(document);
 
@@ -228,14 +290,17 @@ public class DocumentApprovalService {
         documentApprovalRequestRepository.save(approvalRequest);
 
         // Ghi nhật ký tiến trình với fromStatus chính xác từ trạng thái nguồn (Issue 18)
+        String logNote = "Gửi văn bản tới cán bộ duyệt: " + approver.getUsername() +
+                (request.getSubmitNote() != null ? ". Ghi chú: " + request.getSubmitNote() : "") +
+                (signatureHash != null ? " [Đã ký nháy tự động, SHA256: " + signatureHash + "]" : "");
+
         DocumentProcessLog processLog = DocumentProcessLog.builder()
                 .document(savedDocument)
                 .actorUser(sender)
                 .action(DocumentProcessAction.SUBMIT_APPROVAL)
                 .fromStatus(prevStatus != null ? prevStatus.name() : DocumentStatus.DRAFT.name())
-                .toStatus(DocumentStatus.WAITING_APPROVAL.name())
-                .note("Gửi văn bản tới cán bộ duyệt: " + approver.getUsername() +
-                        (request.getSubmitNote() != null ? ". Ghi chú: " + request.getSubmitNote() : ""))
+                .toStatus(DocumentStatus.IN_REVIEW.name())
+                .note(logNote)
                 .build();
         documentProcessLogRepository.save(processLog);
 
@@ -275,7 +340,7 @@ public class DocumentApprovalService {
         }
 
         // Kiểm tra trạng thái: văn bản phải đang ở trạng thái WAITING_APPROVAL
-        if (document.getStatus() != DocumentStatus.WAITING_APPROVAL && document.getStatus() != DocumentStatus.SUBMITTED) {
+        if (document.getStatus() != DocumentStatus.IN_REVIEW)  {
             throw new BusinessException(ErrorCode.DOCUMENT_INVALID_STATUS,
                     "Chỉ có thể thu hồi văn bản đang ở trạng thái Chờ duyệt");
         }
@@ -309,7 +374,7 @@ public class DocumentApprovalService {
                 .document(savedDocument)
                 .actorUser(user)
                 .action(DocumentProcessAction.RECALL_APPROVAL)
-                .fromStatus(DocumentStatus.WAITING_APPROVAL.name())
+                .fromStatus(DocumentStatus.IN_REVIEW.name())
                 .toStatus(DocumentStatus.DRAFT.name())
                 .note("Thu hồi yêu cầu duyệt. Lý do: " + recallReason)
                 .build();
@@ -386,5 +451,110 @@ public class DocumentApprovalService {
             }
         }
         return allowed;
+    }
+
+    private record SignerTitleInfo(String title, String orgUnit) {}
+
+    private SignerTitleInfo resolveSignerTitleInfo(UserLogin user) {
+        if (user == null) {
+            return new SignerTitleInfo(null, null);
+        }
+
+        if (positionAssignmentRepository != null && user.getId() != null) {
+            try {
+                List<PositionAssignment> assignments = positionAssignmentRepository.findActiveAssignments(user.getId(), Instant.now());
+                if (assignments != null && !assignments.isEmpty()) {
+                    PositionAssignment pa = assignments.get(0);
+                    String posName = resolvePositionName(pa.getPositionCd());
+                    String orgName = pa.getOrgNode() != null ? pa.getOrgNode().getNameVn() : null;
+                    return new SignerTitleInfo(posName, orgName);
+                }
+            } catch (Exception ex) {
+                log.warn("Lỗi khi tìm kiếm quyết định bổ nhiệm cho user {}: {}", user.getId(), ex.getMessage());
+            }
+        }
+
+        Role role = user.getRole();
+        if (role != null) {
+            return switch (role) {
+                case SYSTEM_ADMIN -> new SignerTitleInfo("Quản trị viên hệ thống", "Ban Quản trị");
+                case ADMIN -> new SignerTitleInfo("Quản trị viên", "Ban Quản trị");
+                case LEADER -> new SignerTitleInfo("Lãnh đạo đơn vị", "Ban Giám hiệu");
+                case REVIEWER -> new SignerTitleInfo("Cán bộ thẩm định", "Phòng ban chuyên môn");
+                case USER -> new SignerTitleInfo("Chuyên viên", "Trường Đại học Điện Lực");
+                case CLERK -> new SignerTitleInfo("Cán bộ văn thư", "Phòng Hành chính - Tổng hợp");
+            };
+        }
+
+        return new SignerTitleInfo(null, null);
+    }
+
+    private byte[] loadDocumentPdfBytes(Document document) {
+        if (document == null) {
+            return null;
+        }
+
+        if (document.getPrimaryFilePath() != null && !document.getPrimaryFilePath().isBlank()) {
+            if (fileStorageService != null) {
+                try {
+                    byte[] bytes = fileStorageService.loadFileBytes(document.getPrimaryFilePath());
+                    if (bytes != null && bytes.length > 0) {
+                        return bytes;
+                    }
+                } catch (Exception e) {
+                    log.warn("Không thể nạp file từ primaryFilePath '{}': {}", document.getPrimaryFilePath(), e.getMessage());
+                }
+            }
+        }
+
+        if (documentAttachmentRepository != null && document.getId() != null) {
+            List<DocumentAttachment> allAttachments = documentAttachmentRepository
+                    .findByDocumentIdAndDeleteFlgFalse(document.getId());
+
+            if (allAttachments != null && !allAttachments.isEmpty()) {
+                Optional<DocumentAttachment> mainAttachmentOpt = allAttachments.stream()
+                        .filter(att -> att != null && Boolean.TRUE.equals(att.isMainDocument()))
+                        .findFirst();
+
+                DocumentAttachment targetAttachment;
+                if (mainAttachmentOpt.isPresent()) {
+                    DocumentAttachment mainAtt = mainAttachmentOpt.get();
+                    if (!isPdfAttachment(mainAtt)) {
+                        return null;
+                    }
+                    targetAttachment = mainAtt;
+                } else {
+                    targetAttachment = allAttachments.stream()
+                            .filter(this::isPdfAttachment)
+                            .findFirst()
+                            .orElse(null);
+                }
+
+                if (targetAttachment != null && unifiedStorageService != null) {
+                    try {
+                        org.springframework.core.io.Resource res = unifiedStorageService.loadAsResource(
+                                targetAttachment.getStoragePath(), targetAttachment.getStorageFileName()
+                        );
+                        if (res != null && res.exists() && res.isReadable()) {
+                            try (java.io.InputStream is = res.getInputStream()) {
+                                byte[] bytes = is.readAllBytes();
+                                if (bytes.length > 0) {
+                                    return bytes;
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        log.warn("Không thể tải tệp PDF đính kèm từ unifiedStorageService: {}", e.getMessage());
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private boolean isPdfAttachment(DocumentAttachment att) {
+        if (att == null) return false;
+        return "PDF".equalsIgnoreCase(att.getFileExtension()) ||
+                (att.getOriginalFileName() != null && att.getOriginalFileName().toLowerCase().endsWith(".pdf"));
     }
 }
