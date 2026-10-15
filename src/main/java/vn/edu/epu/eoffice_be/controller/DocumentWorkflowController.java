@@ -93,7 +93,7 @@ public class DocumentWorkflowController {
         return BaseResponse.success(documentWorkflowService.initialSign(id, request));
     }
 
-    @PreAuthorize("hasAnyRole('CLERK', 'LEADER', 'ADMIN', 'SYSTEM_ADMIN')")
+    @PreAuthorize("hasAnyRole('LEADER', 'ADMIN', 'SYSTEM_ADMIN')")
     @Operation(summary = "Phê duyệt và Ký phát hành chính thức (UC14)")
     @PostMapping("/{id}/workflow/sign-and-publish")
     public BaseResponse<DocumentDetailResponse> signAndPublish(
