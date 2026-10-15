@@ -659,20 +659,24 @@ public class PdfSignatureVerifier {
                     if (channel.size() > 0) {
                         channel.position(0);
                         ByteBuffer inBuffer = ByteBuffer.allocate((int) channel.size());
-                        while (inBuffer.hasRemaining()) {
-                            channel.read(inBuffer);
+                        int bytesRead;
+                        while (inBuffer.hasRemaining() && (bytesRead = channel.read(inBuffer)) > 0) {
+                            // Tiếp tục đọc cho tới khi đầy buffer hoặc chạm EOF
                         }
-                        try {
-                            List<String> list = mapper.readValue(inBuffer.array(), new TypeReference<List<String>>() {});
-                            if (list != null) {
-                                for (String s : list) {
-                                    if (s != null && !s.isBlank()) {
-                                        set.add(s.trim().toLowerCase());
+                        inBuffer.flip();
+                        if (inBuffer.limit() > 0) {
+                            try {
+                                List<String> list = mapper.readValue(inBuffer.array(), 0, inBuffer.limit(), new TypeReference<List<String>>() {});
+                                if (list != null) {
+                                    for (String s : list) {
+                                        if (s != null && !s.isBlank()) {
+                                            set.add(s.trim().toLowerCase());
+                                        }
                                     }
                                 }
+                            } catch (Exception parseEx) {
+                                log.warn("Không thể parse nội dung hiện tại của '{}': {}", revokedPath, parseEx.getMessage());
                             }
-                        } catch (Exception parseEx) {
-                            log.warn("Không thể parse nội dung hiện tại của '{}': {}", revokedPath, parseEx.getMessage());
                         }
                     }
 
