@@ -96,6 +96,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     public static final List<DocumentStatus> PENDING_STATUSES = List.of(
         DocumentStatus.IN_REVIEW,
         DocumentStatus.PENDING_APPROVAL,
+        DocumentStatus.PENDING_SIGN,
         DocumentStatus.APPROVED
     );
 
@@ -1021,7 +1022,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 || currentActor.getRole() == Role.SYSTEM_ADMIN;
         Long filterUserId = isPrivileged ? null : currentActor.getId();
         return documentRepository
-                .searchDocuments(filterUserId, DocumentStatus.APPROVED, null, null, pageable)
+                .searchDocuments(filterUserId, DocumentStatus.PENDING_SIGN, null, null, pageable)
                 .map(doc -> PendingDocumentResponse.builder()
                         .id(doc.getId())
                         .title(doc.getTitle())
@@ -1074,6 +1075,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             case DRAFT -> "Người soạn thảo";
             case IN_REVIEW -> "Cán bộ thẩm định / ký nháy";
             case PENDING_APPROVAL -> "Lãnh đạo phê duyệt";
+            case PENDING_SIGN -> "Lãnh đạo ký số";
             case APPROVED -> "Lãnh đạo ký phát hành";
             case PUBLISHED -> "Văn bản đã ban hành";
             case NEEDS_REVISION -> "Người soạn thảo chỉnh sửa";

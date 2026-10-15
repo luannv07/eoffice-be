@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -1257,15 +1258,40 @@ class DocumentWorkflowServiceTest {
     @Test
     @DisplayName("PENDING_STATUSES: Chứa PENDING_SIGN và hỗ trợ chuyển đổi trạng thái chờ ký")
     void pendingStatuses_shouldContainPendingSign() {
-        assertTrue(DocumentWorkflowServiceImpl.PENDING_STATUSES.contains(DocumentStatus.APPROVED),
-                "PENDING_STATUSES phải chứa DocumentStatus.APPROVED");
+        assertTrue(DocumentWorkflowServiceImpl.PENDING_STATUSES.contains(DocumentStatus.PENDING_SIGN),
+                "PENDING_STATUSES phải chứa DocumentStatus.PENDING_SIGN");
 
         Document doc = new Document();
-        doc.setStatus("APPROVED");
-        assertEquals(DocumentStatus.APPROVED, doc.getStatus(),
-                "Chuỗi 'APPROVED' phải được gán đúng sang enum APPROVED");
+        doc.setStatus("PENDING_SIGN");
+        assertEquals(DocumentStatus.PENDING_SIGN, doc.getStatus(),
+                "Chuỗi 'PENDING_SIGN' phải được gán đúng sang enum PENDING_SIGN");
         assertTrue(DocumentWorkflowServiceImpl.PENDING_STATUSES.contains(doc.getStatus()),
                 "Văn bản với trạng thái PENDING_SIGN phải nằm trong danh sách pending");
+    }
+
+    @Test
+    @DisplayName("getPendingSignDocuments: Lọc văn bản theo trạng thái PENDING_SIGN qua searchDocuments")
+    void getPendingSignDocuments_shouldFilterByPendingSignStatus() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Document docPendingSign = Document.builder()
+                .title("Tờ trình ký số")
+                .status(DocumentStatus.PENDING_SIGN)
+                .build();
+        docPendingSign.setId(201L);
+        Page<Document> documentPage = new PageImpl<>(List.of(docPendingSign), pageable, 1);
+
+        when(documentRepository.searchDocuments(isNull(), eq(DocumentStatus.PENDING_SIGN), isNull(), isNull(), eq(pageable)))
+                .thenReturn(documentPage);
+
+        Page<PendingDocumentResponse> result = documentWorkflowService.getPendingSignDocuments(pageable);
+
+        assertNotNull(result);
+        assertEquals(1, result.getTotalElements());
+        assertEquals(201L, result.getContent().get(0).getId());
+        assertEquals("Tờ trình ký số", result.getContent().get(0).getTitle());
+        assertEquals(DocumentStatus.PENDING_SIGN.name(), result.getContent().get(0).getStatus());
+        assertEquals("Lãnh đạo ký số", result.getContent().get(0).getCurrentHolder());
+        verify(documentRepository).searchDocuments(isNull(), eq(DocumentStatus.PENDING_SIGN), isNull(), isNull(), eq(pageable));
     }
 
     @Test

@@ -18,6 +18,7 @@ public enum DocumentStatus {
     DRAFT("Dự thảo / Bản nháp"),
     IN_REVIEW("Đang thẩm định & ký nháy"),
     PENDING_APPROVAL("Chờ lãnh đạo phê duyệt"),
+    PENDING_SIGN("Chờ ký số"),
     APPROVED("Đã phê duyệt"),
     ISSUED("Đã phát hành"),
     PUBLISHED("Đã ban hành chính thức"),
