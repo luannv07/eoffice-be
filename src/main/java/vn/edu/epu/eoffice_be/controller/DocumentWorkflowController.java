@@ -30,7 +30,9 @@ import vn.edu.epu.eoffice_be.dto.request.DocumentInitialSignRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentPublishRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRejectRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRevisionRequest;
+import vn.edu.epu.eoffice_be.dto.request.DocumentRevokeRequest;
 import vn.edu.epu.eoffice_be.dto.response.DocumentDetailResponse;
+import vn.edu.epu.eoffice_be.dto.response.DocumentSignatureVerifyResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentWorkflowLogResponse;
 import vn.edu.epu.eoffice_be.service.DocumentWorkflowService;
 
@@ -91,7 +93,7 @@ public class DocumentWorkflowController {
         return BaseResponse.success(documentWorkflowService.initialSign(id, request));
     }
 
-    @PreAuthorize("hasAnyRole('LEADER', 'ADMIN', 'SYSTEM_ADMIN')")
+    @PreAuthorize("hasAnyRole('CLERK', 'LEADER', 'ADMIN', 'SYSTEM_ADMIN')")
     @Operation(summary = "Phê duyệt và Ký phát hành chính thức (UC14)")
     @PostMapping("/{id}/workflow/sign-and-publish")
     public BaseResponse<DocumentDetailResponse> signAndPublish(
@@ -109,6 +111,16 @@ public class DocumentWorkflowController {
             @Valid @RequestBody DocumentRejectRequest request
     ) {
         return BaseResponse.success(documentWorkflowService.reject(id, request));
+    }
+
+    @PreAuthorize("hasAnyRole('LEADER', 'ADMIN', 'SYSTEM_ADMIN')")
+    @Operation(summary = "Thu hồi văn bản đã ban hành chính thức")
+    @PostMapping("/{id}/workflow/revoke")
+    public BaseResponse<DocumentDetailResponse> revokeDocument(
+            @PathVariable Long id,
+            @Valid @RequestBody DocumentRevokeRequest request
+    ) {
+        return BaseResponse.success(documentWorkflowService.revokeDocument(id, request));
     }
 
     // UC17.1: Xem timeline luồng điều hành & bút phê lãnh đạo
@@ -148,11 +160,19 @@ public class DocumentWorkflowController {
     }
 
     // UC-NEW-2: Danh sách văn bản chờ ban hành
-    @PreAuthorize("hasAnyRole('LEADER', 'REVIEWER', 'ADMIN', 'SYSTEM_ADMIN')")
+    @PreAuthorize("hasAnyRole('CLERK', 'LEADER', 'REVIEWER', 'ADMIN', 'SYSTEM_ADMIN')")
     @Operation(summary = "Danh sách văn bản chờ ban hành    (PENDING_ISSUANCE)")
     @GetMapping("/pending-publish")
     public BaseResponse<Page<PendingDocumentResponse>> getPendingPublishDocuments(
             @PageableDefault(size = 10) Pageable pageable) {
         return BaseResponse.success(documentWorkflowService.getPendingPublishDocuments(pageable));
+    }
+
+    // UC-SIG-VERIFY: Kiểm định 7 tiêu chí bảo mật chữ ký số PDF
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Kiểm định 7 tiêu chí bảo mật toàn bộ chữ ký số trên tài liệu PDF")
+    @GetMapping("/{id}/signatures/verify")
+    public BaseResponse<DocumentSignatureVerifyResponse> verifySignatures(@PathVariable Long id) {
+        return BaseResponse.success(documentWorkflowService.verifyDocumentSignatures(id));
     }
 }

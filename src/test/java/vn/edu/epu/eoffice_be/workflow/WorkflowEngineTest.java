@@ -105,6 +105,20 @@ class WorkflowEngineTest {
     }
 
     @Test
+    @DisplayName("State Machine: PUBLISHED -> REVOKED khi thu hồi văn bản")
+    void getNextStatus_fromPublished_revoke_shouldReturnRevoked() {
+        DocumentStatus next = workflowEngine.getNextStatus(DocumentStatus.PUBLISHED, WorkflowAction.REVOKE);
+        assertEquals(DocumentStatus.REVOKED, next);
+    }
+
+    @Test
+    @DisplayName("State Machine: REJECTED transitions (SUBMIT -> IN_REVIEW, WITHDRAW -> DRAFT)")
+    void getNextStatus_fromRejected_transitions_shouldSucceed() {
+        assertEquals(DocumentStatus.IN_REVIEW, workflowEngine.getNextStatus(DocumentStatus.REJECTED, WorkflowAction.SUBMIT));
+        assertEquals(DocumentStatus.DRAFT, workflowEngine.getNextStatus(DocumentStatus.REJECTED, WorkflowAction.WITHDRAW));
+    }
+
+    @Test
     @DisplayName("State Machine: Chặn nhảy cóc trạng thái bất hợp lệ")
     void getNextStatus_invalidTransition_shouldThrowBusinessException() {
         BusinessException ex = assertThrows(BusinessException.class, () ->
@@ -215,6 +229,10 @@ class WorkflowEngineTest {
         // Assigned signer có thể LEADER_APPROVE, SIGN_AND_PUBLISH
         assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, assignedSigner, WorkflowAction.SIGN_AND_PUBLISH));
         assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, assignedSigner, WorkflowAction.LEADER_APPROVE));
+
+        // Cán bộ văn thư (CLERK) có thể SIGN_AND_PUBLISH
+        UserLogin clerk = UserLogin.builder().id(3005L).username("vanthu").role(Role.CLERK).build();
+        assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, clerk, WorkflowAction.SIGN_AND_PUBLISH));
     }
 
     @Test

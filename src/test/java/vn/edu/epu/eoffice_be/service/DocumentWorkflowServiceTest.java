@@ -1,12 +1,14 @@
 package vn.edu.epu.eoffice_be.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
@@ -43,17 +45,19 @@ import vn.edu.epu.eoffice_be.common.enums.Role;
 import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.dto.PendingDocumentResponse;
-import vn.edu.epu.eoffice_be.dto.StampInfo;
 import vn.edu.epu.eoffice_be.dto.request.AssignDocumentNumberRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentApproveRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentInitialSignRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentPublishRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRejectRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRevisionRequest;
+import vn.edu.epu.eoffice_be.dto.request.DocumentRevokeRequest;
 import vn.edu.epu.eoffice_be.dto.response.AssignDocumentNumberResponse;
 import vn.edu.epu.eoffice_be.service.DocumentBookService;
 import vn.edu.epu.eoffice_be.dto.response.DocumentDetailResponse;
+import vn.edu.epu.eoffice_be.dto.response.DocumentSignatureVerifyResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentWorkflowLogResponse;
+import vn.edu.epu.eoffice_be.dto.response.SignatureItemResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.entity.DocumentAttachment;
 import vn.edu.epu.eoffice_be.entity.DocumentWorkflowLog;
@@ -65,6 +69,7 @@ import vn.edu.epu.eoffice_be.repository.OrgNodeRepository;
 import vn.edu.epu.eoffice_be.repository.UserInfoRepository;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
 import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
+import vn.edu.epu.eoffice_be.security.pki.PdfSigner;
 import vn.edu.epu.eoffice_be.service.impl.DocumentWorkflowServiceImpl;
 import vn.edu.epu.eoffice_be.workflow.WorkflowEngine;
 
@@ -88,11 +93,15 @@ class DocumentWorkflowServiceTest {
     @Mock
     private PdfProcessingService pdfProcessingService;
     @Mock
+    private vn.edu.epu.eoffice_be.security.pki.PdfSigner pdfSigner;
+    @Mock
     private DocumentBookService documentBookService;
     @Mock
     private vn.edu.epu.eoffice_be.repository.DocumentAttachmentRepository documentAttachmentRepository;
     @Mock
     private vn.edu.epu.eoffice_be.storage.FileStorageService unifiedStorageService;
+    @Mock
+    private vn.edu.epu.eoffice_be.security.pki.PdfSignatureVerifier pdfSignatureVerifier;
 
     @InjectMocks
     private DocumentWorkflowServiceImpl documentWorkflowService;
@@ -154,6 +163,51 @@ class DocumentWorkflowServiceTest {
     }
 
     @Test
+    @DisplayName("UC12: Duyệt chuyển tiếp ở trạng thái IN_REVIEW tự động ký nháy thẩm định khi có tệp PDF")
+    void approve_whenInReviewWithPdf_shouldAutoInitialSign() {
+        document.setStatus(DocumentStatus.IN_REVIEW);
+        document.setPrimaryFilePath("drafts/doc_5001.pdf");
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        byte[] rawPdfBytes = "%PDF-1.5 test".getBytes();
+        byte[] signedPdfBytes = "%PDF-1.5 signed".getBytes();
+        when(fileStorageService.loadFileBytes("drafts/doc_5001.pdf")).thenReturn(rawPdfBytes);
+
+        PdfSigner.SignResult mockSignResult = new PdfSigner.SignResult(
+                "1002",
+                "leader",
+                "123456",
+                "hash_sig_reviewer_2",
+                new java.util.Date(),
+                "sig_user_1002",
+                null,
+                signedPdfBytes
+        );
+        when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString())).thenReturn(mockSignResult);
+        when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("drafts/initial_signed_5001.pdf");
+
+        DocumentApproveRequest request = DocumentApproveRequest.builder()
+                .comment("Dong y thong qua")
+                .build();
+
+        DocumentDetailResponse response = documentWorkflowService.approve(5001L, request);
+
+        assertNotNull(response);
+        assertEquals("drafts/initial_signed_5001.pdf", document.getPrimaryFilePath());
+        verify(pdfSigner).signBytes(any(byte[].class), anyString(), anyString(), anyString());
+        verify(workflowEngine).executeTransition(
+                document,
+                WorkflowAction.REVIEW_APPROVE,
+                leader,
+                "Dong y thong qua",
+                null,
+                null,
+                "hash_sig_reviewer_2"
+        );
+    }
+
+    @Test
     @DisplayName("UC12: Duyệt văn bản ở trạng thái LEADER_REVIEW thì action là LEADER_APPROVE")
     void approve_whenLeaderReview_shouldUseLeaderApprove() {
         document.setStatus(DocumentStatus.PENDING_APPROVAL);
@@ -202,6 +256,59 @@ class DocumentWorkflowServiceTest {
                 null
         );
     }
+
+    @Test
+    @DisplayName("UC12: Hiệu trưởng duyệt văn bản có PDF sẽ tự động ký số hiển thị với ảnh con dấu/chữ ký")
+    void approve_whenPendingApprovalWithPdf_shouldAutoSignVisible() {
+        document.setStatus(DocumentStatus.PENDING_APPROVAL);
+        document.setPrimaryFilePath("drafts/doc_5001.pdf");
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        byte[] rawPdfBytes = "%PDF-1.5 test".getBytes();
+        byte[] signedPdfBytes = "%PDF-1.5 leader signed".getBytes();
+        when(fileStorageService.loadFileBytes("drafts/doc_5001.pdf")).thenReturn(rawPdfBytes);
+
+        PdfSigner.SignResult mockSignResult = new PdfSigner.SignResult(
+                "1002",
+                "Hiệu trưởng",
+                "123456",
+                "hash_sig_leader_visible",
+                new java.util.Date(),
+                "sig_approve_1002",
+                null,
+                signedPdfBytes
+        );
+        when(pdfSigner.signVisibleBytes(any(byte[].class), anyString(), anyString(), any(), any(), anyString(), any()))
+                .thenReturn(mockSignResult);
+        when(fileStorageService.storeFile(any(byte[].class), eq("leader_signed_5001.pdf"), eq("drafts")))
+                .thenReturn("drafts/leader_signed_5001.pdf");
+
+        DocumentApproveRequest request = DocumentApproveRequest.builder()
+                .comment("Hiệu trưởng đồng ý duyệt")
+                .signaturePage(1)
+                .signatureX(380f)
+                .signatureY(120f)
+                .signatureWidth(150f)
+                .signatureHeight(80f)
+                .build();
+
+        DocumentDetailResponse response = documentWorkflowService.approve(5001L, request);
+
+        assertNotNull(response);
+        assertEquals("drafts/leader_signed_5001.pdf", document.getPrimaryFilePath());
+        verify(pdfSigner).signVisibleBytes(any(byte[].class), eq("1002"), anyString(), any(), any(), contains("Hiệu trưởng đồng ý duyệt"), any());
+        verify(workflowEngine).executeTransition(
+                document,
+                WorkflowAction.LEADER_APPROVE,
+                leader,
+                "Hiệu trưởng đồng ý duyệt",
+                null,
+                null,
+                "hash_sig_leader_visible"
+        );
+    }
+
 
     @Test
     @DisplayName("UC12: Duyệt văn bản ở trạng thái WAITING_APPROVAL thì action là LEADER_APPROVE")
@@ -286,6 +393,35 @@ class DocumentWorkflowServiceTest {
     }
 
     @Test
+    @DisplayName("requestRevision: Đóng băng tệp cũ (primaryFilePath = null, isMainDocument = false)")
+    void requestRevision_freezesPreviousDocumentFiles() {
+        document.setPrimaryFilePath("drafts/old_initial_signed.pdf");
+        DocumentAttachment mainAttachment = DocumentAttachment.builder()
+                .id(999L)
+                .document(document)
+                .originalFileName("old_doc.pdf")
+                .isMainDocument(true)
+                .build();
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+        when(documentAttachmentRepository.findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(5001L))
+                .thenReturn(List.of(mainAttachment));
+
+        DocumentRevisionRequest request = DocumentRevisionRequest.builder()
+                .comment("Can bo sung phan phan cong nhiem vu")
+                .build();
+
+        DocumentDetailResponse response = documentWorkflowService.requestRevision(5001L, request);
+
+        assertNotNull(response);
+        assertNull(document.getPrimaryFilePath());
+        assertFalse(mainAttachment.isMainDocument());
+        verify(documentAttachmentRepository).save(mainAttachment);
+        verify(documentRepository).save(document);
+    }
+
+    @Test
     @DisplayName("UC13: Ký nháy văn bản và lưu mã băm SHA-256")
     void initialSign_success() {
         document.setPrimaryFilePath("drafts/sample.pdf");
@@ -294,9 +430,11 @@ class DocumentWorkflowServiceTest {
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
         when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
-        when(pdfProcessingService.applyInitialSignStamp(any(byte[].class), any(StampInfo.class))).thenReturn(mockBytes);
+        when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString()))
+                .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
+                        "1002", "leader", "123456", "mock_sha256_hash", new java.util.Date(), "sig_user_1002", null, mockBytes
+                ));
         when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("drafts/stamped.pdf");
-        when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("mock_sha256_hash");
 
         DocumentInitialSignRequest request = DocumentInitialSignRequest.builder()
                 .comment("Da ra soat the thuc")
@@ -328,7 +466,10 @@ class DocumentWorkflowServiceTest {
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
         when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
-        when(pdfProcessingService.signAndCertifyPdf(any(byte[].class), anyString(), anyString())).thenReturn(mockBytes);
+        when(pdfSigner.signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
+                        "1002", "leader", "123456", "official_sha256_hash", new java.util.Date(), "sig_publish_1002", null, mockBytes
+                ));
         when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("official/doc_5001.pdf");
         when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("official_sha256_hash");
         when(documentBookService.assignNumber(any(AssignDocumentNumberRequest.class))).thenReturn(
@@ -366,6 +507,72 @@ class DocumentWorkflowServiceTest {
     }
 
     @Test
+    @DisplayName("UC14: Cán bộ Văn thư ban hành văn bản đã được cấp số, tự động ký nháy và niêm phong DocMDP P=1")
+    void signAndPublish_byClerk_whenDocumentAlreadyHasOfficialNumber_shouldInitialSignAndCertify() {
+        UserLogin clerk = UserLogin.builder()
+                .id(3003L)
+                .username("vanthu")
+                .role(Role.CLERK)
+                .build();
+
+        document.setStatus(DocumentStatus.APPROVED);
+        document.setOfficialNumber("1/QĐ-ĐHEPU");
+        document.setPrimaryFilePath("drafts/leader_signed_5001.pdf");
+        byte[] mockBytes = new byte[]{1, 2, 3};
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(3003L)).thenReturn(Optional.of(clerk));
+        when(fileStorageService.loadFileBytes("drafts/leader_signed_5001.pdf")).thenReturn(mockBytes);
+
+        Authentication auth = org.mockito.Mockito.mock(Authentication.class);
+        when(auth.isAuthenticated()).thenReturn(true);
+        when(auth.getPrincipal()).thenReturn(new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(3003L, "vanthu", "CLERK", true, List.of()));
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
+        try {
+            when(pdfSigner.signBytes(any(byte[].class), eq("3003"), anyString(), contains("Văn thư ký nháy")))
+                    .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
+                            "3003", "Cán bộ văn thư", "clerk123", "hash_clerk_initial", new java.util.Date(), "sig_user_3003", null, mockBytes
+                    ));
+            when(pdfSigner.signAndCertifyBytes(any(), eq("3003"), anyString(), any(), any(), anyString(), any()))
+                    .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
+                            "3003", "Cán bộ văn thư", "clerk123", "official_sha256_hash", new java.util.Date(), "sig_publish_3003", null, mockBytes
+                    ));
+            when(fileStorageService.storeFile(any(byte[].class), eq("official_5001.pdf"), eq("official"))).thenReturn("official/official_5001.pdf");
+            when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("official_sha256_hash");
+
+            DocumentPublishRequest request = DocumentPublishRequest.builder()
+                    .comment("Văn thư ban hành chính thức")
+                    .build();
+
+            DocumentDetailResponse response = documentWorkflowService.signAndPublish(5001L, request);
+
+            assertNotNull(response);
+            assertEquals("1/QĐ-ĐHEPU", document.getOfficialNumber());
+            assertEquals("official/official_5001.pdf", document.getOfficialFilePath());
+            assertEquals("official_sha256_hash", document.getOfficialHash());
+
+            // Không gọi assignNumber nữa vì đã có số hiệu
+            verify(documentBookService, never()).assignNumber(any());
+            // Văn thư đã ký nháy trước khi niêm phong
+            verify(pdfSigner).signBytes(any(byte[].class), eq("3003"), anyString(), contains("Văn thư ký nháy"));
+            // Niêm phong chính thức DocMDP P=1
+            verify(pdfSigner).signAndCertifyBytes(any(), eq("3003"), anyString(), any(), any(), anyString(), any());
+            verify(workflowEngine).executeTransition(
+                    document,
+                    WorkflowAction.SIGN_AND_PUBLISH,
+                    clerk,
+                    "Văn thư ban hành chính thức",
+                    null,
+                    null,
+                    "official_sha256_hash"
+            );
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Test
     @DisplayName("initialSign: nếu workflow transition thất bại thì phải xóa file đã lưu trong storage")
     void initialSign_transitionFails_shouldCleanUpStoredFile() {
         document.setPrimaryFilePath("drafts/sample.pdf");
@@ -374,9 +581,11 @@ class DocumentWorkflowServiceTest {
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
         when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
-        when(pdfProcessingService.applyInitialSignStamp(any(byte[].class), any(StampInfo.class))).thenReturn(mockBytes);
+        when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString()))
+                .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
+                        "1002", "leader", "123456", "mock_sha256_hash", new java.util.Date(), "sig_user_1002", null, mockBytes
+                ));
         when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("drafts/stamped_failed.pdf");
-        when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("mock_sha256_hash");
 
         doThrow(new BusinessException(ErrorCode.INVALID_WORKFLOW_STATE))
                 .when(workflowEngine).executeTransition(
@@ -403,7 +612,10 @@ class DocumentWorkflowServiceTest {
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
         when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
-        when(pdfProcessingService.signAndCertifyPdf(any(byte[].class), anyString(), anyString())).thenReturn(mockBytes);
+        when(pdfSigner.signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
+                        "1002", "leader", "123456", "official_sha256_hash", new java.util.Date(), "sig_publish_1002", null, mockBytes
+                ));
         when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("official/doc_failed.pdf");
         when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("official_sha256_hash");
 
@@ -473,9 +685,11 @@ class DocumentWorkflowServiceTest {
 
         org.springframework.core.io.ByteArrayResource res = new org.springframework.core.io.ByteArrayResource(mockBytes);
         when(unifiedStorageService.loadAsResource("telegram", "file_12345")).thenReturn(res);
-        when(pdfProcessingService.applyInitialSignStamp(any(byte[].class), any(StampInfo.class))).thenReturn(mockBytes);
+        when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString()))
+                .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
+                        "1002", "leader", "123456", "mock_sha256_hash", new java.util.Date(), "sig_user_1002", null, mockBytes
+                ));
         when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("drafts/stamped.pdf");
-        when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("mock_sha256_hash");
 
         DocumentInitialSignRequest request = DocumentInitialSignRequest.builder()
                 .comment("Ký nháy từ file đính kèm")
@@ -602,9 +816,11 @@ class DocumentWorkflowServiceTest {
 
         org.springframework.core.io.ByteArrayResource res = new org.springframework.core.io.ByteArrayResource(mockBytes);
         when(unifiedStorageService.loadAsResource("telegram", "file_pdf")).thenReturn(res);
-        when(pdfProcessingService.applyInitialSignStamp(any(byte[].class), any(StampInfo.class))).thenReturn(mockBytes);
+        when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString()))
+                .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
+                        "1002", "leader", "123456", "mock_sha256_hash", new java.util.Date(), "sig_user_1002", null, mockBytes
+                ));
         when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("drafts/stamped.pdf");
-        when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("mock_sha256_hash");
 
         DocumentInitialSignRequest request = DocumentInitialSignRequest.builder()
                 .comment("Ký nháy tệp PDF khi không có tệp chính")
@@ -794,6 +1010,35 @@ class DocumentWorkflowServiceTest {
     }
 
     @Test
+    @DisplayName("reject: Đóng băng tệp cũ (primaryFilePath = null, isMainDocument = false)")
+    void reject_freezesPreviousDocumentFiles() {
+        document.setPrimaryFilePath("drafts/old_initial_signed.pdf");
+        DocumentAttachment mainAttachment = DocumentAttachment.builder()
+                .id(999L)
+                .document(document)
+                .originalFileName("old_doc.pdf")
+                .isMainDocument(true)
+                .build();
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+        when(documentAttachmentRepository.findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(5001L))
+                .thenReturn(List.of(mainAttachment));
+
+        DocumentRejectRequest request = DocumentRejectRequest.builder()
+                .comment("Khong phu hop voi chu truong")
+                .build();
+
+        DocumentDetailResponse response = documentWorkflowService.reject(5001L, request);
+
+        assertNotNull(response);
+        assertNull(document.getPrimaryFilePath());
+        assertFalse(mainAttachment.isMainDocument());
+        verify(documentAttachmentRepository).save(mainAttachment);
+        verify(documentRepository).save(document);
+    }
+
+    @Test
     @DisplayName("Chưa xác thực ném lỗi BusinessException UNAUTHORIZED")
     void approve_unauthenticated_shouldThrowException() {
         SecurityContextHolder.clearContext();
@@ -892,7 +1137,7 @@ class DocumentWorkflowServiceTest {
                 () -> documentWorkflowService.initialSign(5001L, request));
         assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, ex.getErrorCode());
 
-        verify(pdfProcessingService, never()).applyInitialSignStamp(any(), any());
+        verify(pdfSigner, never()).signBytes(any(), any(), any(), any());
         verify(fileStorageService, never()).storeFile(any(), any(), any());
     }
 
@@ -914,7 +1159,7 @@ class DocumentWorkflowServiceTest {
                 () -> documentWorkflowService.signAndPublish(5001L, request));
         assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, ex.getErrorCode());
 
-        verify(pdfProcessingService, never()).signAndCertifyPdf(any(), any(), any());
+        verify(pdfSigner, never()).signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any());
         verify(fileStorageService, never()).storeFile(any(), any(), any());
     }
 
@@ -937,7 +1182,7 @@ class DocumentWorkflowServiceTest {
         assertEquals(ErrorCode.VALIDATION_ERROR, ex.getErrorCode());
         assertTrue(ex.getMessage().contains("effectiveDate"));
 
-        verify(pdfProcessingService, never()).signAndCertifyPdf(any(), any(), any());
+        verify(pdfSigner, never()).signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any());
         verify(fileStorageService, never()).storeFile(any(), any(), any());
     }
 
@@ -1156,7 +1401,10 @@ class DocumentWorkflowServiceTest {
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
         when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
-        when(pdfProcessingService.signAndCertifyPdf(any(), anyString(), anyString())).thenReturn(mockBytes);
+        when(pdfSigner.signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
+                        "1002", "leader", "123456", "hash", new java.util.Date(), "sig_publish_1002", null, mockBytes
+                ));
         when(fileStorageService.storeFile(any(), anyString(), anyString())).thenReturn("official/doc_5001.pdf");
         when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("hash");
 
@@ -1174,6 +1422,57 @@ class DocumentWorkflowServiceTest {
     }
 
     @Test
+    @DisplayName("UC14: Ký phát hành tích hợp cả ký nháy của Hiệu trưởng và ký tọa độ niêm phong DocMDP")
+    void signAndPublish_withCoordinates_shouldInitialSignAndCertifyAtPosition() {
+        document.setPrimaryFilePath("drafts/sample.pdf");
+        byte[] rawBytes = new byte[]{1, 2, 3};
+        byte[] initialSignedBytes = new byte[]{4, 5, 6};
+        byte[] certifiedBytes = new byte[]{7, 8, 9};
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+        when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(rawBytes);
+
+        when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString()))
+                .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
+                        "1002", "leader", "123456", "initial_hash", new java.util.Date(), "sig_user_1002", null, initialSignedBytes
+                ));
+
+        when(pdfSigner.signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
+                        "1002", "leader", "123456", "official_hash", new java.util.Date(), "sig_publish_1002", null, certifiedBytes
+                ));
+        when(fileStorageService.storeFile(any(), anyString(), anyString())).thenReturn("official/doc_5001.pdf");
+        when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("official_hash");
+
+        DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .officialNumber("125/QD-DHEPU")
+                .signaturePage(2)
+                .signatureX(400f)
+                .signatureY(200f)
+                .signatureWidth(180f)
+                .signatureHeight(60f)
+                .build();
+
+        DocumentDetailResponse response = documentWorkflowService.signAndPublish(5001L, request);
+
+        assertNotNull(response);
+        assertEquals("official/doc_5001.pdf", document.getOfficialFilePath());
+        assertEquals("official_hash", document.getOfficialHash());
+
+        verify(pdfSigner).signBytes(eq(rawBytes), eq("1002"), anyString(), anyString());
+        verify(pdfSigner).signAndCertifyBytes(
+                eq(initialSignedBytes),
+                eq("1002"),
+                anyString(),
+                any(),
+                any(),
+                anyString(),
+                org.mockito.ArgumentMatchers.argThat(p -> p != null && p.page() == 2 && p.x() == 400f && p.y() == 200f)
+        );
+    }
+
+    @Test
     @DisplayName("signAndPublish: fallback thành công khi effectiveDate null (effectiveDate = issueDate)")
     void signAndPublish_whenEffectiveDateNull_shouldFallbackToIssueDate() {
         document.setPrimaryFilePath("drafts/sample.pdf");
@@ -1181,7 +1480,10 @@ class DocumentWorkflowServiceTest {
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
         when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
-        when(pdfProcessingService.signAndCertifyPdf(any(), anyString(), anyString())).thenReturn(mockBytes);
+        when(pdfSigner.signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
+                        "1002", "leader", "123456", "hash", new java.util.Date(), "sig_publish_1002", null, mockBytes
+                ));
         when(fileStorageService.storeFile(any(), anyString(), anyString())).thenReturn("official/doc_5001.pdf");
         when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("hash");
 
@@ -1225,7 +1527,10 @@ class DocumentWorkflowServiceTest {
 
         byte[] mockBytes = new byte[]{1, 2, 3};
         when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
-        when(pdfProcessingService.signAndCertifyPdf(any(byte[].class), anyString(), anyString())).thenReturn(mockBytes);
+        when(pdfSigner.signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
+                        "1002", "leader", "123456", "hash_sha256", new java.util.Date(), "sig_publish_1002", null, mockBytes
+                ));
         when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("official/doc_5001.pdf");
         when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("hash_sha256");
 
@@ -1310,5 +1615,83 @@ class DocumentWorkflowServiceTest {
         Pageable customSortPageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdDate"));
         org.springframework.data.domain.Page<?> res = documentWorkflowService.getWorkflowHistory(docId, customSortPageable);
         org.junit.jupiter.api.Assertions.assertNotNull(res);
+    }
+
+    @Test
+    @DisplayName("UC-SIG-VERIFY: Kiểm định chữ ký số văn bản thành công")
+    void verifyDocumentSignatures_shouldReturnVerificationResult() {
+        Long docId = 5001L;
+        document.setPrimaryFilePath("drafts/test_signed.pdf");
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(document));
+        when(fileStorageService.loadFileBytes("drafts/test_signed.pdf")).thenReturn(new byte[]{1, 2, 3});
+
+        DocumentSignatureVerifyResponse mockResponse = DocumentSignatureVerifyResponse.builder()
+                .overallStatus("VALID")
+                .overallStatusDesc("HỢP LỆ")
+                .totalSignatures(1)
+                .build();
+        when(pdfSignatureVerifier.verify(any(byte[].class))).thenReturn(mockResponse);
+
+        DocumentSignatureVerifyResponse result = documentWorkflowService.verifyDocumentSignatures(docId);
+
+        assertNotNull(result);
+        assertEquals("VALID", result.getOverallStatus());
+        assertEquals(docId, result.getDocumentId());
+        assertEquals("Du thao Ke hoach 2026", result.getDocumentTitle());
+        verify(pdfSignatureVerifier).verify(any(byte[].class));
+    }
+
+    @Test
+    @DisplayName("REVOKE: Thu hồi văn bản đã ban hành thành công và đồng bộ CRL")
+    void revokeDocument_success() {
+        Long docId = 5001L;
+        document.setStatus(DocumentStatus.PUBLISHED);
+        document.setPrimaryFilePath("official/test_signed.pdf");
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(document));
+        when(fileStorageService.loadFileBytes("official/test_signed.pdf")).thenReturn(new byte[]{1, 2, 3});
+
+        SignatureItemResponse item = SignatureItemResponse.builder()
+                .serialHex("ABC123456789")
+                .build();
+        DocumentSignatureVerifyResponse verifyResp = DocumentSignatureVerifyResponse.builder()
+                .signatures(List.of(item))
+                .build();
+        when(pdfSignatureVerifier.verify(any(byte[].class))).thenReturn(verifyResp);
+
+        DocumentRevokeRequest req = DocumentRevokeRequest.builder()
+                .comment("Thu hồi văn bản do sai số liệu")
+                .build();
+
+        DocumentDetailResponse resp = documentWorkflowService.revokeDocument(docId, req);
+
+        assertNotNull(resp);
+        verify(workflowEngine).validateActorPermission(document, leader, WorkflowAction.REVOKE);
+        verify(workflowEngine).executeTransition(
+                document,
+                WorkflowAction.REVOKE,
+                leader,
+                "Thu hồi văn bản do sai số liệu",
+                null,
+                null,
+                null
+        );
+        verify(pdfSignatureVerifier).revokeSerial("ABC123456789");
+    }
+
+    @Test
+    @DisplayName("REVOKE: Không đủ thẩm quyền thu hồi văn bản ném BusinessException")
+    void revokeDocument_unauthorized_shouldThrowException() {
+        Long docId = 5001L;
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(document));
+
+        doThrow(new BusinessException(ErrorCode.FORBIDDEN, "Không có quyền thu hồi văn bản"))
+                .when(workflowEngine).validateActorPermission(document, leader, WorkflowAction.REVOKE);
+
+        DocumentRevokeRequest req = DocumentRevokeRequest.builder()
+                .comment("Thu hồi trái phép")
+                .build();
+
+        assertThrows(BusinessException.class, () -> documentWorkflowService.revokeDocument(docId, req));
+        verify(workflowEngine, never()).executeTransition(any(), any(), any(), any(), any(), any(), any());
     }
 }

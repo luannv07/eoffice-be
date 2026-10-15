@@ -8,6 +8,8 @@ spring:
     version: "@project.version@"
   jackson:
     time-zone: UTC
+    deserialization:
+      fail-on-unknown-properties: false
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     properties:
@@ -59,6 +61,10 @@ eoffice:
     key-alias: ${PKI_KEY_ALIAS:}
     key-password: ${PKI_KEY_PASSWORD:}
     fallback-keystore-path: ${PKI_FALLBACK_KEYSTORE_PATH:./uploads/keystore/epu-pki.p12}
+    ca-keystore-path: ${PKI_CA_KEYSTORE_PATH:./uploads/keystores/ca/ca.p12}
+    ca-cert-path: ${PKI_CA_CERT_PATH:./uploads/keystores/ca/ca.crt}
+    user-keystores-dir: ${PKI_USER_KEYSTORES_DIR:./uploads/keystores/users}
+    default-keystore-password: ${DEMO_KS_PASSWORD:changeit}
   jwt:
     issuer: eoffice-be
     secret-key: ${JWT_SECRET}

@@ -7,7 +7,8 @@ public enum Role {
 	ADMIN,
 	SYSTEM_ADMIN,
 	REVIEWER,
-	LEADER;
+	LEADER,
+	CLERK;
 
 	public static Role from(String value) {
 		return EnumUtils.fromString(Role.class, value);

@@ -11,8 +11,11 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
+import vn.edu.epu.eoffice_be.common.enums.Role;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.dto.request.AssignDocumentNumberRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentBookCreateRequest;
@@ -24,10 +27,13 @@ import vn.edu.epu.eoffice_be.entity.DictionaryItem;
 import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.entity.DocumentBook;
 import vn.edu.epu.eoffice_be.entity.OrgNode;
+import vn.edu.epu.eoffice_be.entity.UserLogin;
 import vn.edu.epu.eoffice_be.repository.DictionaryItemRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentBookRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import vn.edu.epu.eoffice_be.repository.OrgNodeRepository;
+import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
+import vn.edu.epu.eoffice_be.security.pki.PdfSigner;
 import vn.edu.epu.eoffice_be.service.impl.DocumentBookServiceImpl;
 
 import java.time.LocalDate;
@@ -53,6 +59,27 @@ class DocumentBookServiceImplTest {
 
 	@Mock
 	DocumentRepository documentRepository;
+
+	@Mock
+	vn.edu.epu.eoffice_be.security.pki.PdfSigner pdfSigner;
+
+	@Mock
+	vn.edu.epu.eoffice_be.service.FileStorageService fileStorageService;
+
+	@Mock
+	vn.edu.epu.eoffice_be.storage.FileStorageService unifiedStorageService;
+
+	@Mock
+	vn.edu.epu.eoffice_be.repository.UserLoginRepository userLoginRepository;
+
+	@Mock
+	vn.edu.epu.eoffice_be.repository.UserInfoRepository userInfoRepository;
+
+	@Mock
+	vn.edu.epu.eoffice_be.repository.DocumentWorkflowLogRepository documentWorkflowLogRepository;
+
+	@Mock
+	vn.edu.epu.eoffice_be.repository.DocumentAttachmentRepository documentAttachmentRepository;
 
 	@InjectMocks
 	DocumentBookServiceImpl documentBookService;
@@ -644,5 +671,81 @@ class DocumentBookServiceImplTest {
 		var result = documentBookService.getAssignedDocuments(1L, "  100%_special\\char  ", null, PageRequest.of(0, 10));
 		assertNotNull(result);
 		verify(documentRepository).findAssignedDocuments(eq(1L), any(), any(), any(), eq("100\\%\\_special\\\\char"), any(Pageable.class));
+	}
+
+	@Test
+	void assignNumber_WithPdfAndClerk_SignsPdfSuccessfully() {
+		UserLogin clerk = UserLogin.builder()
+				.id(3003L)
+				.username("vanthu")
+				.role(Role.CLERK)
+				.build();
+		Document doc = Document.builder()
+				.id(5001L)
+				.status(DocumentStatus.APPROVED)
+				.documentTypeCd("QD")
+				.primaryFilePath("uploads/sample.pdf")
+				.issuingOrg(orgNode)
+				.build();
+
+		Authentication auth = mock(Authentication.class);
+		when(auth.isAuthenticated()).thenReturn(true);
+		when(auth.getPrincipal()).thenReturn(new JwtUserPrincipal(3003L, "vanthu", "CLERK", true, List.of()));
+		SecurityContextHolder.getContext().setAuthentication(auth);
+
+		when(userLoginRepository.findByIdAndDeleteFlgFalse(3003L)).thenReturn(Optional.of(clerk));
+		when(documentBookRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(book));
+		when(documentRepository.findById(5001L)).thenReturn(Optional.of(doc));
+		when(fileStorageService.loadFileBytes("uploads/sample.pdf")).thenReturn(new byte[]{1, 2, 3});
+		PdfSigner.SignResult signResult = new PdfSigner.SignResult(
+				"3003", "Cán bộ Văn thư", "serial123", "hash_clerk_sha256",
+				new java.util.Date(), "sig_clerk", java.nio.file.Path.of("drafts/test.pdf"), new byte[]{4, 5, 6}
+		);
+		when(pdfSigner.signBytes(any(byte[].class), eq("3003"), anyString(), anyString())).thenReturn(signResult);
+		when(fileStorageService.storeFile(any(byte[].class), eq("initial_signed_5001.pdf"), eq("drafts")))
+				.thenReturn("drafts/initial_signed_5001.pdf");
+
+		AssignDocumentNumberRequest req = new AssignDocumentNumberRequest();
+		req.setBookId(1L);
+		req.setDocumentId(5001L);
+		req.setEffectiveDate(LocalDate.of(2026, 9, 10));
+
+		try {
+			AssignDocumentNumberResponse res = documentBookService.assignNumber(req);
+			assertNotNull(res);
+			assertEquals("1/QĐ-ĐHEPU", res.getDocumentNumber());
+			assertEquals("hash_clerk_sha256", res.getSignatureHash());
+			assertEquals("drafts/initial_signed_5001.pdf", res.getSignedPdfPath());
+			assertEquals("drafts/initial_signed_5001.pdf", doc.getPrimaryFilePath());
+			verify(pdfSigner).signBytes(any(byte[].class), eq("3003"), anyString(), contains("Văn thư cấp số văn bản"));
+		} finally {
+			SecurityContextHolder.clearContext();
+		}
+	}
+
+	@Test
+	void assignNumber_AsLeader_ThrowsForbidden() {
+		UserLogin leader = UserLogin.builder()
+				.id(3001L)
+				.username("leader")
+				.role(Role.LEADER)
+				.build();
+
+		Authentication auth = mock(Authentication.class);
+		when(auth.isAuthenticated()).thenReturn(true);
+		when(auth.getPrincipal()).thenReturn(new JwtUserPrincipal(3001L, "leader", "LEADER", true, List.of()));
+		SecurityContextHolder.getContext().setAuthentication(auth);
+
+		when(userLoginRepository.findByIdAndDeleteFlgFalse(3001L)).thenReturn(Optional.of(leader));
+
+		AssignDocumentNumberRequest req = new AssignDocumentNumberRequest();
+		req.setBookId(1L);
+
+		try {
+			BusinessException ex = assertThrows(BusinessException.class, () -> documentBookService.assignNumber(req));
+			assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+		} finally {
+			SecurityContextHolder.clearContext();
+		}
 	}
 }

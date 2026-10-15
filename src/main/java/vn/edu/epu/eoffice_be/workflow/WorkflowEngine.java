@@ -60,6 +60,15 @@ public class WorkflowEngine {
         needsRevisionTransitions.put(WorkflowAction.SUBMIT, DocumentStatus.IN_REVIEW); // Sửa xong gửi duyệt lại
         needsRevisionTransitions.put(WorkflowAction.WITHDRAW, DocumentStatus.DRAFT); // Rút về hẳn DRAFT
         TRANSITION_MATRIX.put(DocumentStatus.NEEDS_REVISION, needsRevisionTransitions);
+        // 6. PUBLISHED (Đã ban hành: cho phép Thu hồi văn bản)
+        Map<WorkflowAction, DocumentStatus> publishedTransitions = new EnumMap<>(WorkflowAction.class);
+        publishedTransitions.put(WorkflowAction.REVOKE, DocumentStatus.REVOKED);
+        TRANSITION_MATRIX.put(DocumentStatus.PUBLISHED, publishedTransitions);
+        // 7. REJECTED (Bị từ chối: cho phép nạp file v2 gửi duyệt lại hoặc rút về DRAFT)
+        Map<WorkflowAction, DocumentStatus> rejectedTransitions = new EnumMap<>(WorkflowAction.class);
+        rejectedTransitions.put(WorkflowAction.SUBMIT, DocumentStatus.IN_REVIEW);
+        rejectedTransitions.put(WorkflowAction.WITHDRAW, DocumentStatus.DRAFT);
+        TRANSITION_MATRIX.put(DocumentStatus.REJECTED, rejectedTransitions);
     }
 
     /**
@@ -85,8 +94,8 @@ public class WorkflowEngine {
         // 1. Kiểm tra trạng thái có cho phép action không
         getNextStatus(document.getStatus(), action);
 
-        // 2. Yêu cầu bắt buộc lý do khi từ chối hoặc yêu cầu sửa đổi
-        if ((action == WorkflowAction.REQUEST_REVISION || action == WorkflowAction.REJECT)
+        // 2. Yêu cầu bắt buộc lý do khi từ chối, yêu cầu sửa đổi hoặc thu hồi
+        if ((action == WorkflowAction.REQUEST_REVISION || action == WorkflowAction.REJECT || action == WorkflowAction.REVOKE)
                 && (comment == null || comment.trim().isBlank())) {
             throw new BusinessException(ErrorCode.BAD_REQUEST);
         }
@@ -121,7 +130,8 @@ public class WorkflowEngine {
             case SUBMIT, WITHDRAW -> isDrafter;
             case REVIEW_APPROVE, INITIAL_SIGN, REQUEST_REVISION, REJECT -> isReviewerOrLeader;
             case LEADER_APPROVE -> role == Role.LEADER || isAssignedSigner;
-            case SIGN_AND_PUBLISH -> isAssignedSigner;
+            case SIGN_AND_PUBLISH -> role == Role.CLERK || isAssignedSigner;
+            case REVOKE -> isAssignedSigner || role == Role.LEADER;
         };
     }
 

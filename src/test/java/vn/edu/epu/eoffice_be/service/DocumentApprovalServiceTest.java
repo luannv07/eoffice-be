@@ -30,6 +30,8 @@ import vn.edu.epu.eoffice_be.repository.PositionAssignmentRepository;
 import vn.edu.epu.eoffice_be.repository.PositionPermissionRepository;
 import vn.edu.epu.eoffice_be.repository.UserInfoRepository;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
+import vn.edu.epu.eoffice_be.security.pki.PdfSigner;
+import vn.edu.epu.eoffice_be.service.FileStorageService;
 
 import java.util.List;
 import java.util.Optional;
@@ -67,6 +69,12 @@ class DocumentApprovalServiceTest {
     private ApplicationEventPublisher eventPublisher;
     @Mock
     private DocumentDraftService documentDraftService;
+    @Mock
+    private FileStorageService fileStorageService;
+    @Mock
+    private vn.edu.epu.eoffice_be.storage.FileStorageService unifiedStorageService;
+    @Mock
+    private PdfSigner pdfSigner;
 
     @InjectMocks
     private DocumentApprovalService documentApprovalService;
@@ -112,6 +120,66 @@ class DocumentApprovalServiceTest {
         verify(documentApprovalRequestRepository).save(any(DocumentApprovalRequest.class));
         verify(documentProcessLogRepository).save(any(DocumentProcessLog.class));
         verify(eventPublisher).publishEvent(any(DocumentSubmittedEvent.class));
+    }
+
+    @Test
+    @DisplayName("Gửi duyệt tự động ký nháy khi hồ sơ có tệp PDF (Task 1)")
+    void submitForApproval_WithPdfAttachment_AutoInitialSignsSuccessfully() {
+        Long docId = 1L;
+        Long senderId = 100L;
+        Long approverId = 200L;
+
+        UserLogin sender = UserLogin.builder().id(senderId).username("author").role(Role.USER).build();
+        UserLogin approver = UserLogin.builder().id(approverId).username("dean").role(Role.ADMIN).build();
+
+        Document doc = Document.builder()
+                .id(docId)
+                .draftCode("DT-2026-00001")
+                .title("Kế hoạch công tác năm 2026")
+                .summary("Chi tiết kế hoạch")
+                .content("Nội dung kế hoạch")
+                .creatorUser(sender)
+                .status(DocumentStatus.DRAFT)
+                .primaryFilePath("drafts/doc_1.pdf")
+                .build();
+
+        byte[] rawPdfBytes = "%PDF-1.5 test".getBytes();
+        byte[] signedPdfBytes = "%PDF-1.5 signed".getBytes();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(sender));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(true);
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.of(approver));
+        when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(documentDraftService.mapToDocumentResponse(any())).thenReturn(DocumentResponse.builder().id(docId).status(DocumentStatus.IN_REVIEW).build());
+
+        when(fileStorageService.loadFileBytes("drafts/doc_1.pdf")).thenReturn(rawPdfBytes);
+        PdfSigner.SignResult mockSignResult = new PdfSigner.SignResult(
+                String.valueOf(senderId),
+                "author",
+                "123456",
+                "sha256hash123",
+                new java.util.Date(),
+                "sig_user_" + senderId,
+                null,
+                signedPdfBytes
+        );
+        when(pdfSigner.signBytes(any(), any(), any(), any(), any(), any())).thenReturn(mockSignResult);
+        when(fileStorageService.storeFile(any(), any(), any())).thenReturn("drafts/initial_signed_1.pdf");
+
+        SubmitApprovalRequest request = SubmitApprovalRequest.builder()
+                .approverUserId(approverId)
+                .submitNote("Gửi thầy duyệt")
+                .build();
+
+        DocumentResponse response = documentApprovalService.submitForApproval(docId, request, senderId);
+
+        assertNotNull(response);
+        assertEquals(DocumentStatus.IN_REVIEW, doc.getStatus());
+        assertEquals("drafts/initial_signed_1.pdf", doc.getPrimaryFilePath());
+
+        verify(pdfSigner).signBytes(any(), any(), any(), any(), any(), any());
+        verify(fileStorageService).storeFile(any(), any(), any());
     }
 
     @Test
@@ -589,6 +657,77 @@ class DocumentApprovalServiceTest {
         DocumentProcessLog capturedLog = logCaptor.getValue();
         assertEquals("REJECTED", capturedLog.getFromStatus());
         assertEquals("IN_REVIEW", capturedLog.getToStatus());
+        assertEquals(2, doc.getCurrentVersion());
+    }
+
+    @Test
+    @DisplayName("Gửi duyệt lại từ REJECTED hoặc NEEDS_REVISION mà chưa tải tệp chính mới thì ném lỗi DOCUMENT_INCOMPLETE_DOSSIER")
+    void submitForApproval_Resubmission_WithoutNewMainAttachment_ThrowsIncompleteDossier() {
+        Long docId = 2L;
+        Long senderId = 100L;
+        Long approverId = 200L;
+
+        UserLogin sender = UserLogin.builder().id(senderId).username("author").role(Role.USER).build();
+        Document doc = Document.builder()
+                .id(docId)
+                .title("Kế hoạch")
+                .summary("Trích yếu")
+                .creatorUser(sender)
+                .status(DocumentStatus.NEEDS_REVISION)
+                .currentVersion(1)
+                .build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(sender));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        // Chưa có file chính mới
+        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(false);
+
+        SubmitApprovalRequest request = SubmitApprovalRequest.builder()
+                .approverUserId(approverId)
+                .submitNote("Gửi lại")
+                .build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentApprovalService.submitForApproval(docId, request, senderId));
+        assertEquals(ErrorCode.DOCUMENT_INCOMPLETE_DOSSIER, ex.getErrorCode());
+        assertTrue(ex.getMessage().contains("Tệp PDF cũ đã bị đóng băng"));
+    }
+
+    @Test
+    @DisplayName("Gửi duyệt lại từ NEEDS_REVISION khi đã tải tệp v2 thành công: tăng currentVersion từ 1 lên 2")
+    void submitForApproval_Resubmission_WithNewMainAttachment_IncrementsVersion() {
+        Long docId = 3L;
+        Long senderId = 100L;
+        Long approverId = 200L;
+
+        UserLogin sender = UserLogin.builder().id(senderId).username("author").role(Role.USER).build();
+        UserLogin approver = UserLogin.builder().id(approverId).username("dean").role(Role.ADMIN).build();
+
+        Document doc = Document.builder()
+                .id(docId)
+                .title("Kế hoạch v2")
+                .summary("Trích yếu v2")
+                .creatorUser(sender)
+                .status(DocumentStatus.NEEDS_REVISION)
+                .currentVersion(1)
+                .build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(sender));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(true);
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.of(approver));
+        when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(documentDraftService.mapToDocumentResponse(any())).thenReturn(DocumentResponse.builder().id(docId).status(DocumentStatus.IN_REVIEW).build());
+
+        SubmitApprovalRequest request = SubmitApprovalRequest.builder()
+                .approverUserId(approverId)
+                .submitNote("Đã sửa nội dung và tải file v2")
+                .build();
+
+        documentApprovalService.submitForApproval(docId, request, senderId);
+
+        assertEquals(2, doc.getCurrentVersion());
+        assertEquals(DocumentStatus.IN_REVIEW, doc.getStatus());
     }
 
     @Test

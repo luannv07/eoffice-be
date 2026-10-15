@@ -10,6 +10,7 @@ import vn.edu.epu.eoffice_be.dto.request.DocumentPublishRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRejectRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRevisionRequest;
 import vn.edu.epu.eoffice_be.dto.response.DocumentDetailResponse;
+import vn.edu.epu.eoffice_be.dto.response.DocumentSignatureVerifyResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentWorkflowLogResponse;
 
 import java.util.List;
@@ -83,6 +84,17 @@ public interface DocumentWorkflowService {
      * UC-NEW-2: Danh sách văn bản chờ ban hành (PENDING_ISSUANCE).
      */
     Page<PendingDocumentResponse> getPendingPublishDocuments(Pageable pageable);
+
+    /**
+     * UC-SIG-VERIFY: Kiểm định 7 tiêu chí bảo mật toàn bộ chữ ký số trên tài liệu PDF.
+     */
+    DocumentSignatureVerifyResponse verifyDocumentSignatures(Long documentId);
+
+    /**
+     * UC-REVOKE: Thu hồi văn bản đã ban hành chính thức, chuyển trạng thái sang REVOKED
+     * và tự động đồng bộ số serial của chứng thư vào danh sách thu hồi CRL.
+     */
+    DocumentDetailResponse revokeDocument(Long documentId, vn.edu.epu.eoffice_be.dto.request.DocumentRevokeRequest request);
 
     default void logAction(Long documentId, String username, String role, String action, String comment) {}
 }

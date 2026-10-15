@@ -322,21 +322,24 @@ class DocumentWorkflowControllerTest {
     }
 
     @Test
-    @DisplayName("UC14: Ký số phát hành thất bại khi bookId bị null - Trả về 400 BAD_REQUEST")
-    void signAndPublish_whenBookIdNull_shouldReturn400() throws Exception {
+    @DisplayName("UC14: Ký số phát hành thất bại khi chưa có số và thiếu sổ văn bản - Trả về 400 BAD_REQUEST")
+    void signAndPublish_whenBookIdNullAndServiceThrowsBadRequest_shouldReturn400() throws Exception {
         DocumentPublishRequest request = DocumentPublishRequest.builder()
                 .bookId(null)
                 .comment("Ký ban hành")
                 .build();
+
+        when(documentWorkflowService.signAndPublish(eq(100L), any(DocumentPublishRequest.class)))
+                .thenThrow(new BusinessException(ErrorCode.BAD_REQUEST, "Bắt buộc chọn sổ văn bản để cấp số chính thức hoặc cấp số trước khi ban hành"));
 
         mockMvc.perform(post("/documents/100/workflow/sign-and-publish")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.errorCode").value(ErrorCode.VALIDATION_ERROR.getCode()));
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.BAD_REQUEST.getCode()));
 
-        verify(documentWorkflowService, never()).signAndPublish(anyLong(), any());
+        verify(documentWorkflowService).signAndPublish(eq(100L), any(DocumentPublishRequest.class));
     }
 
     @Test

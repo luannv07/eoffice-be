@@ -35,4 +35,10 @@ public class AssignDocumentNumberResponse {
 
 	@Schema(description = "ID văn bản được cấp số (nếu có)", example = "2001")
 	Long documentId;
+
+	@Schema(description = "Mã băm SHA-256 của chữ ký nháy văn thư", example = "a1b2c3d4...")
+	String signatureHash;
+
+	@Schema(description = "Đường dẫn file PDF đã được văn thư ký nháy", example = "drafts/initial_signed_2001.pdf")
+	String signedPdfPath;
 }

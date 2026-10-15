@@ -1,0 +1,39 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-10-15-seed-leader-and-reviewer-users
+      author: dev
+      validCheckSum:
+        - ANY
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: "SELECT COUNT(*) FROM user_logins WHERE username IN ('hieutruong', 'thamdinh')"
+      changes:
+        - sql:
+            sql: |-
+              -- 1. Tài khoản Hiệu trưởng (Role: LEADER, Position: HT)
+              INSERT INTO user_logins (id, username, password_hash, role, user_status_cd, must_change_password, failed_login_attempts, delete_flg)
+              VALUES (3001, 'hieutruong', '$2a$10$wJtK1f3r6H6/w5xT1Lg/8OB1tS5y.U.YcEqx4Pq1mZ3v3s1k8K8Qe', 'LEADER', 'ACTIVE', false, 0, false);
+
+              INSERT INTO user_infos (id, user_login_id, full_name, employment_status_cd, delete_flg)
+              VALUES (3101, 3001, 'GS.TS Nguyễn Hiệu Trưởng', 'ACTIVE', false);
+
+              INSERT INTO position_assignments (id, user_login_id, org_node_id, position_cd, effective_from, delete_flg)
+              VALUES (3201, 3001, 5001, 'HT', CURRENT_TIMESTAMP, false);
+
+              -- 2. Tài khoản Cán bộ thẩm định (Role: REVIEWER, Position: TP)
+              INSERT INTO user_logins (id, username, password_hash, role, user_status_cd, must_change_password, failed_login_attempts, delete_flg)
+              VALUES (3002, 'thamdinh', '$2a$10$wJtK1f3r6H6/w5xT1Lg/8OB1tS5y.U.YcEqx4Pq1mZ3v3s1k8K8Qe', 'REVIEWER', 'ACTIVE', false, 0, false);
+
+              INSERT INTO user_infos (id, user_login_id, full_name, employment_status_cd, delete_flg)
+              VALUES (3102, 3002, 'ThS. Trần Thẩm Định', 'ACTIVE', false);
+
+              INSERT INTO position_assignments (id, user_login_id, org_node_id, position_cd, effective_from, delete_flg)
+              VALUES (3202, 3002, 5001, 'TP', CURRENT_TIMESTAMP, false);
+      rollback:
+        - sql:
+            sql: |-
+              DELETE FROM position_assignments WHERE id IN (3201, 3202);
+              DELETE FROM user_infos WHERE id IN (3101, 3102);
+              DELETE FROM user_logins WHERE id IN (3001, 3002);

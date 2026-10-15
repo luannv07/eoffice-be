@@ -19,8 +19,7 @@ import java.time.Instant;
 @Schema(description = "Yêu cầu phê duyệt và ký phát hành văn bản chính thức (UC14)")
 public class DocumentPublishRequest {
 
-    @NotNull(message = "Bắt buộc chọn sổ văn bản để cấp số")
-    @Schema(description = "ID sổ văn bản dùng để cấp số", requiredMode = Schema.RequiredMode.REQUIRED, example = "1001")
+    @Schema(description = "ID sổ văn bản dùng để cấp số (nếu chưa được cấp số trước đó)", example = "1001")
     private Long bookId;
 
     @Size(max = 100, message = "Số hiệu văn bản không được vượt quá 100 ký tự")
@@ -38,6 +37,21 @@ public class DocumentPublishRequest {
     @Size(max = 2000, message = "Lời phê hoặc ý kiến tối đa 2000 ký tự")
     @Schema(description = "Lời phê hoặc ý kiến của Lãnh đạo ký phát hành", example = "Ký duyệt ban hành và chuyển văn thư đóng dấu lưu trữ")
     private String comment;
+
+    @Schema(description = "Số trang đặt chữ ký / con dấu phát hành (1-based, mặc định là trang cuối)", example = "1")
+    private Integer signaturePage;
+
+    @Schema(description = "Tọa độ X góc trái dưới khung chữ ký (PDF points, chuẩn A4 rộng 595pt)", example = "350.0")
+    private Float signatureX;
+
+    @Schema(description = "Tọa độ Y góc trái dưới khung chữ ký (PDF points, chuẩn A4 cao 842pt)", example = "150.0")
+    private Float signatureY;
+
+    @Schema(description = "Chiều rộng khung con dấu (PDF points, mặc định 180pt)", example = "180.0")
+    private Float signatureWidth;
+
+    @Schema(description = "Chiều cao khung con dấu (PDF points, mặc định 60pt)", example = "60.0")
+    private Float signatureHeight;
 
     @jakarta.validation.constraints.AssertTrue(message = "Ngày có hiệu lực (effectiveDate) không được trước ngày ban hành (issueDate)")
     public boolean isEffectiveDateValid() {

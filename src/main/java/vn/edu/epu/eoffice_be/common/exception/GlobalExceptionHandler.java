@@ -95,6 +95,29 @@ public class GlobalExceptionHandler {
                 .body(BaseResponse.error("Lỗi lưu trữ tệp. Vui lòng thử lại sau", ErrorCode.STORAGE_ERROR.getCode()));
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<BaseResponse<Void>> handleIllegalStateException(IllegalStateException ex) {
+        if (ex.getMessage() != null && ex.getMessage().contains("User đã ký")) {
+            log.warn("Cảnh báo chữ ký trùng lặp: {}", ex.getMessage());
+            return ResponseEntity.status(ErrorCode.BAD_REQUEST.getStatus())
+                    .body(BaseResponse.error("Người dùng đã thực hiện ký trên tài liệu này rồi, không được phép ký đè lần 2!", ErrorCode.BAD_REQUEST.getCode()));
+        }
+        log.error("Unhandled IllegalStateException", ex);
+        return ResponseEntity.status(ErrorCode.INTERNAL_SERVER_ERROR.getStatus())
+                .body(BaseResponse.error(ErrorCode.INTERNAL_SERVER_ERROR.getMessage(), ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
+    }
+
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<BaseResponse<Void>> handleHttpMessageNotReadable(org.springframework.http.converter.HttpMessageNotReadableException ex) {
+        log.warn("Malformed JSON or unrecognized property: {}", ex.getMessage());
+        String message = "Dữ liệu JSON gửi lên không hợp lệ hoặc chứa trường không đúng định dạng";
+        if (ex.getCause() instanceof com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException upe) {
+            message = "Trường '" + upe.getPropertyName() + "' không được hỗ trợ trong API này";
+        }
+        return ResponseEntity.status(ErrorCode.BAD_REQUEST.getStatus())
+                .body(BaseResponse.error(message, ErrorCode.BAD_REQUEST.getCode()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<BaseResponse<Void>> handleGenericException(Exception ex) {
         log.error("Unhandled exception", ex);
