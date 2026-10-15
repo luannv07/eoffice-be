@@ -1,5 +1,6 @@
 package vn.edu.epu.eoffice_be.service;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -11,7 +12,10 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
@@ -118,6 +122,21 @@ class DocumentBookServiceImplTest {
 				.isClosed(false)
 				.deleteFlg(false)
 				.build();
+
+		UserLogin clerk = UserLogin.builder()
+				.id(3003L)
+				.username("vanthu")
+				.role(Role.CLERK)
+				.build();
+		JwtUserPrincipal principal = new JwtUserPrincipal(3003L, "vanthu", "CLERK", true, List.of("ROLE_CLERK"));
+		Authentication auth = new UsernamePasswordAuthenticationToken(principal, null, List.of(new SimpleGrantedAuthority("ROLE_CLERK")));
+		SecurityContextHolder.getContext().setAuthentication(auth);
+		lenient().when(userLoginRepository.findByIdAndDeleteFlgFalse(3003L)).thenReturn(Optional.of(clerk));
+	}
+
+	@AfterEach
+	void tearDown() {
+		SecurityContextHolder.clearContext();
 	}
 
 	@Test
@@ -747,5 +766,29 @@ class DocumentBookServiceImplTest {
 		} finally {
 			SecurityContextHolder.clearContext();
 		}
+	}
+
+	@Test
+	void assignNumber_WhenNoAuthentication_ThrowsUnauthorized() {
+		SecurityContextHolder.clearContext();
+
+		AssignDocumentNumberRequest req = new AssignDocumentNumberRequest();
+		req.setBookId(1L);
+
+		BusinessException ex = assertThrows(BusinessException.class, () -> documentBookService.assignNumber(req));
+		assertEquals(ErrorCode.UNAUTHORIZED, ex.getErrorCode());
+	}
+
+	@Test
+	void assignNumber_WhenAnonymousAuthentication_ThrowsUnauthorized() {
+		Authentication anonymous = new AnonymousAuthenticationToken(
+				"key", "anonymousUser", List.of(new SimpleGrantedAuthority("ROLE_ANONYMOUS")));
+		SecurityContextHolder.getContext().setAuthentication(anonymous);
+
+		AssignDocumentNumberRequest req = new AssignDocumentNumberRequest();
+		req.setBookId(1L);
+
+		BusinessException ex = assertThrows(BusinessException.class, () -> documentBookService.assignNumber(req));
+		assertEquals(ErrorCode.UNAUTHORIZED, ex.getErrorCode());
 	}
 }

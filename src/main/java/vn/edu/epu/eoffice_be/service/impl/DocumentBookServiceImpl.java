@@ -382,7 +382,7 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 	private void validateClerkPermission(UserLogin actor) {
 		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 		if (auth == null || !auth.isAuthenticated() || auth instanceof AnonymousAuthenticationToken) {
-			return; // Hỗ trợ backward compatibility cho test cases không inject authentication
+			throw new BusinessException(ErrorCode.UNAUTHORIZED);
 		}
 		if (actor == null) {
 			throw new BusinessException(ErrorCode.UNAUTHORIZED);
