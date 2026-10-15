@@ -272,7 +272,6 @@ public class PdfSigner {
                 }
             } catch (SecurityException se) {
                 log.warn("Không thể thiết lập phân quyền bảo mật cho {}: {}", path, se.getMessage());
-                throw se;
             }
         }
     }
