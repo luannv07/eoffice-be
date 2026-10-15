@@ -85,7 +85,22 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
     public DocumentWorkflowServiceImpl(DocumentRepository documentRepository,
                                        DocumentWorkflowLogRepository documentWorkflowLogRepository) {
-        this(documentRepository, documentWorkflowLogRepository, null, null, null, null, null, null, null, null, null, null, null, null);
+        this(
+                documentRepository,
+                documentWorkflowLogRepository,
+                null, // userLoginRepository
+                null, // userInfoRepository
+                null, // orgNodeRepository
+                null, // workflowEngine
+                null, // fileStorageService
+                null, // pdfProcessingService
+                null, // documentBookService
+                null, // documentAttachmentRepository
+                null, // unifiedStorageService
+                null, // pdfSigner
+                null, // positionAssignmentRepository
+                null  // pdfSignatureVerifier
+        );
     }
 
     private static final ZoneId ZONE_VN = ZoneId.of("Asia/Ho_Chi_Minh");
