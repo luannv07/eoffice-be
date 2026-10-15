@@ -241,24 +241,24 @@ public class PdfSigner {
     /**
      * Thiết lập phân quyền nghiêm ngặt cho file keystore/chứng thư (chỉ cho phép owner đọc/ghi: rw------- / 600).
      */
-    private void applyStrictFilePermissions(Path path) {
+    private void applyStrictFilePermissions(Path path) throws IOException {
         applyOwnerOnlyPermissions(path, false);
     }
 
     /**
      * Gán quyền sở hữu độc quyền (Owner-only access) tương thích đa nền tảng POSIX và non-POSIX.
      */
-    private void applyOwnerOnlyPermissions(Path path, boolean isDirectory) {
+    private void applyOwnerOnlyPermissions(Path path, boolean isDirectory) throws IOException {
         if (path == null || !Files.exists(path)) {
             return;
         }
-        try {
-            if (path.getFileSystem().supportedFileAttributeViews().contains("posix")) {
-                Set<PosixFilePermission> perms = isDirectory
-                        ? PosixFilePermissions.fromString("rwx------")
-                        : PosixFilePermissions.fromString("rw-------");
-                Files.setPosixFilePermissions(path, perms);
-            } else {
+        if (path.getFileSystem().supportedFileAttributeViews().contains("posix")) {
+            Set<PosixFilePermission> perms = isDirectory
+                    ? PosixFilePermissions.fromString("rwx------")
+                    : PosixFilePermissions.fromString("rw-------");
+            Files.setPosixFilePermissions(path, perms);
+        } else {
+            try {
                 File file = path.toFile();
                 file.setReadable(false, false);
                 file.setReadable(true, true);
@@ -270,9 +270,10 @@ public class PdfSigner {
                 } else {
                     file.setExecutable(false, false);
                 }
+            } catch (SecurityException se) {
+                log.warn("Không thể thiết lập phân quyền bảo mật cho {}: {}", path, se.getMessage());
+                throw se;
             }
-        } catch (Exception e) {
-            log.warn("Không thể thiết lập phân quyền bảo mật cho {}: {}", path, e.getMessage());
         }
     }
 
