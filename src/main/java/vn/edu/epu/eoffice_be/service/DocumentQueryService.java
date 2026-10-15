@@ -49,7 +49,7 @@ public class DocumentQueryService {
 
     public Object getDocumentDetailsForAdmin(Long id) {
         Document document = documentRepository.findByIdAndDeleteFlgFalse(id)
-                .filter(d -> d.getStatus() == DocumentStatus.PUBLISHED)
+                .filter(d -> d.getStatus() == DocumentStatus.PUBLISHED || d.getStatus() == DocumentStatus.ISSUED)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền truy cập văn bản với ID: " + id));
 
         java.util.Map<String, Object> details = new java.util.LinkedHashMap<>();
@@ -70,7 +70,7 @@ public class DocumentQueryService {
 
     public byte[] downloadDocumentForAdmin(Long documentId) {
         Document doc = documentRepository.findByIdAndDeleteFlgFalse(documentId)
-                .filter(d -> d.getStatus() == DocumentStatus.PUBLISHED)
+                .filter(d -> d.getStatus() == DocumentStatus.PUBLISHED || d.getStatus() == DocumentStatus.ISSUED)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền tải văn bản: " + documentId));
         return readDocumentFileContent(doc, documentId);
     }

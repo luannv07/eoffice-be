@@ -19,6 +19,7 @@ public enum DocumentStatus {
     IN_REVIEW("Đang thẩm định & ký nháy"),
     PENDING_APPROVAL("Chờ lãnh đạo phê duyệt"),
     APPROVED("Đã phê duyệt"),
+    ISSUED("Đã phát hành"),
     PUBLISHED("Đã ban hành chính thức"),
     NEEDS_REVISION("Yêu cầu chỉnh sửa"),
     REJECTED("Bị từ chối phê duyệt"),
