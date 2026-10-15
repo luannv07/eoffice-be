@@ -49,11 +49,15 @@ import java.time.temporal.ChronoUnit;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
@@ -61,6 +65,7 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Lớp thực hiện ký số phê duyệt / ký nháy (Approval Signature) trên tài liệu PDF sử dụng Apache PDFBox 3.x
@@ -152,6 +157,9 @@ public class PdfSigner {
         }
 
         try {
+            Path userKeystoresPath = Paths.get(userKeystoresDir);
+            ensureStrictDirectoryPermissions(userKeystoresPath);
+
             char[] password = (defaultKeystorePassword != null) ? defaultKeystorePassword.toCharArray() : new char[0];
             Crypto.P12Bundle caBundle = Crypto.loadP12(caP12, password);
             X509Certificate caCert = caBundle.getEndEntityCertificate();
@@ -205,11 +213,66 @@ public class PdfSigner {
             Path userCrtPath = Paths.get(userKeystoresDir).resolve("user_" + userId + ".crt");
             Certificate[] chain = new Certificate[]{userCert, caCert};
             Crypto.saveP12(userP12Path, password, "user", userPair.getPrivate(), chain);
+            applyStrictFilePermissions(userP12Path);
             Crypto.saveCertPem(userCrtPath, userCert);
+            applyStrictFilePermissions(userCrtPath);
             log.info("Tu dong cap phat thanh cong chung thu so PKI cho User [{}] - {}", userId, safeName);
         } catch (Exception e) {
             log.error("Loi khi tu dong cap phat chung thu so cho User [{}]: {}", userId, e.getMessage(), e);
             throw new RuntimeException("Khong the tu dong cap phat chung thu so: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Thiết lập phân quyền nghiêm ngặt cho thư mục chứa keystore (chỉ cho phép owner truy cập: rwx------ / 700).
+     */
+    private void ensureStrictDirectoryPermissions(Path dir) throws IOException {
+        if (!Files.exists(dir)) {
+            if (dir.getFileSystem().supportedFileAttributeViews().contains("posix")) {
+                Set<PosixFilePermission> perms = PosixFilePermissions.fromString("rwx------");
+                Files.createDirectories(dir, PosixFilePermissions.asFileAttribute(perms));
+            } else {
+                Files.createDirectories(dir);
+            }
+        }
+        applyOwnerOnlyPermissions(dir, true);
+    }
+
+    /**
+     * Thiết lập phân quyền nghiêm ngặt cho file keystore/chứng thư (chỉ cho phép owner đọc/ghi: rw------- / 600).
+     */
+    private void applyStrictFilePermissions(Path path) {
+        applyOwnerOnlyPermissions(path, false);
+    }
+
+    /**
+     * Gán quyền sở hữu độc quyền (Owner-only access) tương thích đa nền tảng POSIX và non-POSIX.
+     */
+    private void applyOwnerOnlyPermissions(Path path, boolean isDirectory) {
+        if (path == null || !Files.exists(path)) {
+            return;
+        }
+        try {
+            if (path.getFileSystem().supportedFileAttributeViews().contains("posix")) {
+                Set<PosixFilePermission> perms = isDirectory
+                        ? PosixFilePermissions.fromString("rwx------")
+                        : PosixFilePermissions.fromString("rw-------");
+                Files.setPosixFilePermissions(path, perms);
+            } else {
+                File file = path.toFile();
+                file.setReadable(false, false);
+                file.setReadable(true, true);
+                file.setWritable(false, false);
+                file.setWritable(true, true);
+                if (isDirectory) {
+                    file.setExecutable(false, false);
+                    file.setExecutable(true, true);
+                } else {
+                    file.setExecutable(false, false);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Không thể thiết lập phân quyền bảo mật cho {}: {}", path, e.getMessage());
         }
     }
 
