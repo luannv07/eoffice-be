@@ -17,38 +17,46 @@ CVE-2026-47884
 # upgrade to Spring Boot 4.x / Framework 7.0.9.
 
 # CVE-2026-47890: SSE stream corruption with view fragments (spring-webmvc).
-# Rationale: no SseEmitter / TEXT_EVENT_STREAM usage in src/main (verified by grep).
+# Rationale (not-reachable): no SseEmitter / TEXT_EVENT_STREAM usage in src/main (verified by grep).
+# Expires: 2027-01-09 | Ticket: BOOT4-UPGRADE
 CVE-2026-47890
 
 # CVE-2026-59313: SSE stream corruption in MVC functional web framework.
-# Rationale: no RouterFunction / ServerResponse.sse() usage; only @RestController
+# Rationale (not-reachable): no RouterFunction / ServerResponse.sse() usage; only @RestController
 # MVC endpoints plus a CorsFilter (verified by grep).
+# Expires: 2027-01-09 | Ticket: BOOT4-UPGRADE
 CVE-2026-59313
 
 # CVE-2026-47891: maxInMemorySize bypass in Jaxb2Decoder (WebFlux + Aalto XML).
-# Rationale: servlet MVC stack (spring-boot-starter-web); no WebFlux, no Aalto dependency.
+# Rationale (not-reachable): servlet MVC stack (spring-boot-starter-web); no WebFlux, no Aalto dependency.
+# Expires: 2027-01-09 | Ticket: BOOT4-UPGRADE
 CVE-2026-47891
 
 # CVE-2026-47892: header predicate bypass in WebFlux functional endpoints.
-# Rationale: no functional endpoints; MVC annotation-based controllers only.
+# Rationale (not-reachable): no functional endpoints; MVC annotation-based controllers only.
+# Expires: 2027-01-09 | Ticket: BOOT4-UPGRADE
 CVE-2026-47892
 
 # CVE-2026-59283: SpEL safety guard bypass via expression compiler.
-# Rationale: no SimpleEvaluationContext / SpelCompilerMode usage; @PreAuthorize
+# Rationale (not-reachable): no SimpleEvaluationContext / SpelCompilerMode usage; @PreAuthorize
 # uses Spring Security interpreted evaluation, compiler mode never enabled.
+# Expires: 2027-01-09 | Ticket: BOOT4-UPGRADE
 CVE-2026-59283
 
 # CVE-2026-59270: embedded UnboundID LDAP server hard-coded admin credential.
-# Rationale: JWT-based auth (jjwt); no spring-security-ldap / unboundid dependency,
+# Rationale (not-reachable): JWT-based auth (jjwt); no spring-security-ldap / unboundid dependency,
 # no UnboundIdContainer bean (verified by grep + pom).
+# Expires: 2027-01-09 | Ticket: BOOT4-UPGRADE
 CVE-2026-59270
 
 # CVE-2026-40974: Cassandra SSL auto-config disables hostname verification.
-# Rationale: PostgreSQL (AWS RDS) + H2 only; no Cassandra dependency (verified in pom).
+# Rationale (not-reachable): PostgreSQL (AWS RDS) + H2 only; no Cassandra dependency (verified in pom).
 # Pure CPE-match false positive on the spring-boot jar.
+# Expires: 2027-01-09 | Ticket: BOOT4-UPGRADE
 CVE-2026-40974
 
 # CVE-2026-59318: Spring AI tool-calling unadvertised dispatch (prompt injection).
-# Rationale: only spring-ai-pdf-document-reader (PDF ingestion) is used; no
+# Rationale (not-reachable): only spring-ai-pdf-document-reader (PDF ingestion) is used; no
 # ToolCallback / ChatClient tool-calling / @Tool usage in src/main (verified by grep).
+# Expires: 2027-01-09 | Ticket: BOOT4-UPGRADE
 CVE-2026-59318

@@ -29,6 +29,9 @@ jobs:
           cache: maven
 
       - name: 3. Build Spring Boot JAR
+        # NOTE: tests run in Pipeline 1 PR Gate (with init-ca PKI setup).
+        # P2 keeps -DskipTests: this runner has no Root CA (uploads/ is gitignored,
+        # no init-ca step here), so PKI tests would error and block deploy.
         run: mvn clean package -DskipTests
 
       - name: 4. Build Docker image
@@ -58,6 +61,7 @@ jobs:
       - name: 9. Health check
         env:
           HEALTH_CHECK_URL: ${{ secrets.HEALTH_CHECK_URL }}
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
         run: |
           for i in {1..15}; do
             if curl --fail --silent --show-error "$HEALTH_CHECK_URL" > /dev/null; then
@@ -68,4 +72,14 @@ jobs:
             sleep 10
           done
           echo "Health check failed after 15 attempts"
+          heroku logs --tail 200 -a ${{ secrets.HEROKU_APP_NAME }} > heroku-failure.log 2>&1 || true
+          cat heroku-failure.log || true
           exit 1
+
+      - name: Upload Heroku logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: heroku-failure-log
+          path: heroku-failure.log
+          if-no-files-found: warn
