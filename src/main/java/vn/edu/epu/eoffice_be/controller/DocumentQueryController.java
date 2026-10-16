@@ -192,12 +192,39 @@ public class DocumentQueryController {
         return false;
     }
 
+    private boolean canViewAllPublishedDocuments(Authentication authentication) {
+        if (isAdmin(authentication)) {
+            return true;
+        }
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return false;
+        }
+        if (authentication.getAuthorities() != null) {
+            boolean hasPrivilegedAuthority = authentication.getAuthorities().stream()
+                    .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                    .anyMatch(auth -> "ROLE_LEADER".equalsIgnoreCase(auth)
+                            || "ROLE_CLERK".equalsIgnoreCase(auth)
+                            || "LEADER".equalsIgnoreCase(auth)
+                            || "CLERK".equalsIgnoreCase(auth));
+            if (hasPrivilegedAuthority) {
+                return true;
+            }
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof vn.edu.epu.eoffice_be.security.JwtUserPrincipal jwtPrincipal) {
+            String role = jwtPrincipal.getRole();
+            return vn.edu.epu.eoffice_be.common.enums.Role.LEADER.name().equalsIgnoreCase(role)
+                    || vn.edu.epu.eoffice_be.common.enums.Role.CLERK.name().equalsIgnoreCase(role);
+        }
+        return false;
+    }
+
     // UC16.1: Tra cứu danh sách văn bản ban hành (BE-04: hỗ trợ lọc theo documentBookId)
     @GetMapping("/published")
     public ResponseEntity<Object> getPublishedDocuments(
             @RequestParam(required = false) Long documentBookId,
             Authentication authentication) {
-        if (isAdmin(authentication)) {
+        if (canViewAllPublishedDocuments(authentication)) {
             if (documentBookId != null) {
                 return ResponseEntity.ok(queryService.getAllPublishedDocuments(documentBookId));
             }
@@ -213,7 +240,7 @@ public class DocumentQueryController {
     // UC16.2: Xem chi tiết trích yếu
     @GetMapping("/{id}/details")
     public ResponseEntity<Object> getDocumentDetails(@PathVariable Long id, Authentication authentication) {
-        if (isAdmin(authentication)) {
+        if (canViewAllPublishedDocuments(authentication)) {
             return ResponseEntity.ok(queryService.getDocumentDetailsForAdmin(id));
         }
         Long orgId = resolveUserOrgId(authentication);
@@ -224,7 +251,7 @@ public class DocumentQueryController {
     @GetMapping("/{id}/download")
     public ResponseEntity<Resource> downloadDocument(@PathVariable Long id, Authentication authentication) {
         byte[] pdfBytes;
-        if (isAdmin(authentication)) {
+        if (canViewAllPublishedDocuments(authentication)) {
             pdfBytes = queryService.downloadDocumentForAdmin(id);
         } else {
             Long orgId = resolveUserOrgId(authentication);

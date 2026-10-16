@@ -605,4 +605,118 @@ class DocumentQueryControllerTest {
         assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(null, auth));
         verifyNoInteractions(documentQueryService);
     }
-}
+
+    @Test
+    void testGetPublishedDocuments_LeaderRole_SuccessWithoutOrgId() {
+        doReturn(List.of(new SimpleGrantedAuthority("ROLE_LEADER"))).when(auth).getAuthorities();
+        when(documentQueryService.getAllPublishedDocuments()).thenReturn(List.of());
+
+        ResponseEntity<Object> response = documentQueryController.getPublishedDocuments(null, auth);
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        verify(documentQueryService).getAllPublishedDocuments();
+    }
+
+    @Test
+    void testGetPublishedDocuments_ClerkRole_SuccessWithoutOrgId() {
+        doReturn(List.of(new SimpleGrantedAuthority("ROLE_CLERK"))).when(auth).getAuthorities();
+        when(documentQueryService.getAllPublishedDocuments()).thenReturn(List.of());
+
+        ResponseEntity<Object> response = documentQueryController.getPublishedDocuments(null, auth);
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        verify(documentQueryService).getAllPublishedDocuments();
+    }
+
+    @Test
+    void testGetPublishedDocuments_LeaderRole_WithDocumentBookId_Success() {
+        doReturn(List.of(new SimpleGrantedAuthority("LEADER"))).when(auth).getAuthorities();
+        when(documentQueryService.getAllPublishedDocuments(5L)).thenReturn(List.of());
+
+        ResponseEntity<Object> response = documentQueryController.getPublishedDocuments(5L, auth);
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        verify(documentQueryService).getAllPublishedDocuments(5L);
+    }
+
+    @Test
+    void testGetDocumentDetails_LeaderRole_SuccessWithoutOrgId() {
+        doReturn(List.of(new SimpleGrantedAuthority("ROLE_LEADER"))).when(auth).getAuthorities();
+        when(documentQueryService.getDocumentDetailsForAdmin(10L)).thenReturn(java.util.Map.of("id", 10L));
+
+        ResponseEntity<Object> response = documentQueryController.getDocumentDetails(10L, auth);
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        verify(documentQueryService).getDocumentDetailsForAdmin(10L);
+    }
+
+    @Test
+    void testGetDocumentDetails_ClerkRole_SuccessWithoutOrgId() {
+        doReturn(List.of(new SimpleGrantedAuthority("ROLE_CLERK"))).when(auth).getAuthorities();
+        when(documentQueryService.getDocumentDetailsForAdmin(10L)).thenReturn(java.util.Map.of("id", 10L));
+
+        ResponseEntity<Object> response = documentQueryController.getDocumentDetails(10L, auth);
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        verify(documentQueryService).getDocumentDetailsForAdmin(10L);
+    }
+
+    @Test
+    void testDownloadDocument_LeaderRole_SuccessWithoutOrgId() {
+        doReturn(List.of(new SimpleGrantedAuthority("ROLE_LEADER"))).when(auth).getAuthorities();
+        byte[] content = "PDF_CONTENT".getBytes(StandardCharsets.UTF_8);
+        when(documentQueryService.downloadDocumentForAdmin(10L)).thenReturn(content);
+
+        ResponseEntity<Resource> response = documentQueryController.downloadDocument(10L, auth);
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        verify(documentQueryService).downloadDocumentForAdmin(10L);
+    }
+
+    @Test
+    void testDownloadDocument_ClerkRole_SuccessWithoutOrgId() {
+        doReturn(List.of(new SimpleGrantedAuthority("ROLE_CLERK"))).when(auth).getAuthorities();
+        byte[] content = "PDF_CONTENT".getBytes(StandardCharsets.UTF_8);
+        when(documentQueryService.downloadDocumentForAdmin(10L)).thenReturn(content);
+
+        ResponseEntity<Resource> response = documentQueryController.downloadDocument(10L, auth);
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        verify(documentQueryService).downloadDocumentForAdmin(10L);
+    }
+
+    @Test
+    void testGetPublishedDocuments_JwtUserPrincipalLeader_SuccessWithoutOrgId() {
+        vn.edu.epu.eoffice_be.security.JwtUserPrincipal leaderPrincipal =
+                new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(3L, "leader", "LEADER", true, List.of());
+        when(auth.getPrincipal()).thenReturn(leaderPrincipal);
+        when(documentQueryService.getAllPublishedDocuments()).thenReturn(List.of());
+
+        ResponseEntity<Object> response = documentQueryController.getPublishedDocuments(null, auth);
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        verify(documentQueryService).getAllPublishedDocuments();
+    }
+
+    @Test
+    void testGetPublishedDocuments_JwtUserPrincipalClerk_SuccessWithoutOrgId() {
+        vn.edu.epu.eoffice_be.security.JwtUserPrincipal clerkPrincipal =
+                new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(4L, "clerk", "CLERK", true, List.of());
+        when(auth.getPrincipal()).thenReturn(clerkPrincipal);
+        when(documentQueryService.getAllPublishedDocuments()).thenReturn(List.of());
+
+        ResponseEntity<Object> response = documentQueryController.getPublishedDocuments(null, auth);
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        verify(documentQueryService).getAllPublishedDocuments();
+    }
+}
