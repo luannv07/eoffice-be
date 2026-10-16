@@ -695,7 +695,7 @@ class DocumentQueryControllerTest {
         lenient().when(auth.getPrincipal()).thenReturn(leaderPrincipal);
         doReturn(List.of(new SimpleGrantedAuthority("ROLE_LEADER"))).when(auth).getAuthorities();
         when(documentQueryService.getDocumentDetailsForStaff(999L, 50L))
-                .thenThrow(new IllegalArgumentException("Không tìm thấy hoặc không có quyền truy cập văn bản với ID: 999"));
+                .thenThrow(new IllegalArgumentException("Không tìm thấy văn bản với ID: 999"));
 
         assertThrows(IllegalArgumentException.class, () -> documentQueryController.getDocumentDetails(999L, auth));
         verify(documentQueryService).getDocumentDetailsForStaff(999L, 50L);
@@ -758,17 +758,21 @@ class DocumentQueryControllerTest {
     }
 
     @Test
-    void testGetDocumentDetails_LeaderRole_MissingOrgId_FallsBackToSystemWideOrgId() {
+    void testGetDocumentDetails_LeaderRole_MissingOrgId_ThrowsAccessDeniedException() {
         doReturn(List.of(new SimpleGrantedAuthority("ROLE_LEADER"))).when(auth).getAuthorities();
         when(auth.getPrincipal()).thenReturn(new MissingOrgIdPrincipal());
-        when(documentQueryService.getDocumentDetailsForStaff(10L, DocumentQueryController.SYSTEM_WIDE_ORG_ID))
-                .thenReturn(java.util.Map.of("id", 10L));
 
-        ResponseEntity<Object> response = documentQueryController.getDocumentDetails(10L, auth);
+        assertThrows(AccessDeniedException.class, 
+                () -> documentQueryController.getDocumentDetails(10L, auth));
+    }
 
-        assertNotNull(response);
-        assertEquals(200, response.getStatusCode().value());
-        verify(documentQueryService).getDocumentDetailsForStaff(10L, DocumentQueryController.SYSTEM_WIDE_ORG_ID);
+    @Test
+    void testDownloadDocument_LeaderRole_MissingOrgId_ThrowsAccessDeniedException() {
+        doReturn(List.of(new SimpleGrantedAuthority("ROLE_LEADER"))).when(auth).getAuthorities();
+        when(auth.getPrincipal()).thenReturn(new MissingOrgIdPrincipal());
+
+        assertThrows(AccessDeniedException.class, 
+                () -> documentQueryController.downloadDocument(10L, auth));
     }
 
     @Test

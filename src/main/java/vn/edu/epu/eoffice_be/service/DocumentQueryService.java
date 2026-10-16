@@ -70,7 +70,7 @@ public class DocumentQueryService {
             throw new IllegalArgumentException("ID văn bản không được để trống");
         }
         Document document = documentRepository.findByIdAndDeleteFlgFalse(id)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền truy cập văn bản với ID: " + id));
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy văn bản với ID: " + id));
 
         validateStaffAccess(document, orgId);
 
@@ -107,7 +107,7 @@ public class DocumentQueryService {
             throw new IllegalArgumentException("ID văn bản không được để trống");
         }
         Document doc = documentRepository.findByIdAndDeleteFlgFalse(documentId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền tải văn bản: " + documentId));
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy văn bản với ID: " + documentId));
 
         validateStaffAccess(doc, orgId);
         return readDocumentFileContent(doc, documentId);

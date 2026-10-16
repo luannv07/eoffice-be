@@ -577,6 +577,16 @@ class DocumentServiceCoverageTest {
         assertThrows(IllegalArgumentException.class, () -> documentQueryService.getDocumentDetailsForStaff(null));
         assertThrows(IllegalArgumentException.class, () -> documentQueryService.downloadDocumentForStaff(null));
 
+        // 8b. Entity not found in repository throws IllegalArgumentException distinguishing from AccessDeniedException
+        when(documentRepository.findByIdAndDeleteFlgFalse(999L)).thenReturn(Optional.empty());
+        IllegalArgumentException notFoundDetailsEx = assertThrows(IllegalArgumentException.class, 
+                () -> documentQueryService.getDocumentDetailsForStaff(999L, 50L));
+        assertEquals("Không tìm thấy văn bản với ID: 999", notFoundDetailsEx.getMessage());
+
+        IllegalArgumentException notFoundDownloadEx = assertThrows(IllegalArgumentException.class, 
+                () -> documentQueryService.downloadDocumentForStaff(999L, 50L));
+        assertEquals("Không tìm thấy văn bản với ID: 999", notFoundDownloadEx.getMessage());
+
         // 9. Verify isStaffAuthorizedForDocument boolean helper
         assertTrue(documentQueryService.isStaffAuthorizedForDocument(publishedDoc, 50L));
         assertTrue(documentQueryService.isStaffAuthorizedForDocument(publishedDoc, 0L));

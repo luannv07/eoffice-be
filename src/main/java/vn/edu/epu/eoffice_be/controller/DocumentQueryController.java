@@ -206,8 +206,8 @@ public class DocumentQueryController {
         try {
             return resolveUserOrgId(authentication);
         } catch (AccessDeniedException e) {
-            log.warn("Không tìm thấy thông tin orgId từ principal của nhân viên đặc quyền, sử dụng fallback hệ thống: {}", e.getMessage());
-            return SYSTEM_WIDE_ORG_ID;
+            log.warn("Không thể xác định thông tin đơn vị (orgId) từ principal của nhân viên đặc quyền: {}", e.getMessage());
+            throw e;
         }
     }
 
