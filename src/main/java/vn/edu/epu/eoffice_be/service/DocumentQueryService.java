@@ -6,9 +6,11 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import vn.edu.epu.eoffice_be.common.enums.DocumentSecurityLevel;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
@@ -61,18 +63,24 @@ public class DocumentQueryService {
         return details;
     }
 
-    public Object getDocumentDetailsForStaff(Long id) {
+    @PreAuthorize("hasAnyRole('LEADER', 'CLERK', 'ADMIN', 'SYSTEM_ADMIN')")
+    public Object getDocumentDetailsForStaff(Long id, Long orgId) {
         Document document = documentRepository.findByIdAndDeleteFlgFalse(id)
                 .filter(d -> d.getStatus() == DocumentStatus.PUBLISHED)
+                .filter(d -> isStaffAuthorizedForDocument(d, orgId))
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền truy cập văn bản với ID: " + id));
 
         java.util.Map<String, Object> details = new java.util.LinkedHashMap<>();
         details.put("id", document.getId());
         details.put("title", document.getTitle());
         details.put("status", document.getStatus());
-        details.put("orgId", null);
+        details.put("orgId", orgId);
         details.put("updatedAt", document.getUpdatedDate());
         return details;
+    }
+
+    public Object getDocumentDetailsForStaff(Long id) {
+        return getDocumentDetailsForStaff(id, null);
     }
 
     public byte[] downloadDocument(Long documentId, Long orgId) {
@@ -89,11 +97,42 @@ public class DocumentQueryService {
         return readDocumentFileContent(doc, documentId);
     }
 
-    public byte[] downloadDocumentForStaff(Long documentId) {
+    @PreAuthorize("hasAnyRole('LEADER', 'CLERK', 'ADMIN', 'SYSTEM_ADMIN')")
+    public byte[] downloadDocumentForStaff(Long documentId, Long orgId) {
         Document doc = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .filter(d -> d.getStatus() == DocumentStatus.PUBLISHED)
+                .filter(d -> isStaffAuthorizedForDocument(d, orgId))
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền tải văn bản: " + documentId));
         return readDocumentFileContent(doc, documentId);
+    }
+
+    public byte[] downloadDocumentForStaff(Long documentId) {
+        return downloadDocumentForStaff(documentId, null);
+    }
+
+    /**
+     * Xác thực quyền hạn truy cập văn bản cho vai trò nhân viên đặc quyền (LEADER/CLERK).
+     * <p>
+     * Business Rule (UC-16 / Policy Decision):
+     * 1. Văn bản phải ở trạng thái PUBLISHED và chưa bị xóa mềm.
+     * 2. Văn bản có mức độ bảo mật TUYỆT MẬT (SECRET) chỉ dành riêng cho Quản trị viên (ADMIN);
+     *    các vai trò nhân viên / lãnh đạo đơn vị không được phép truy cập để bảo đảm an toàn dữ liệu nhạy cảm.
+     * 3. Với các văn bản phát hành thông thường hoặc bảo mật khác, LEADER và CLERK có thẩm quyền
+     *    tra cứu và tải trên toàn hệ thống theo quy định chỉ đạo và quản lý văn thư của trường.
+     * </p>
+     *
+     * @param doc   Tài liệu cần kiểm tra
+     * @param orgId Mã đơn vị của người dùng (nếu có)
+     * @return true nếu được phép truy cập, ngược lại false
+     */
+    public boolean isStaffAuthorizedForDocument(Document doc, Long orgId) {
+        if (doc == null || doc.getStatus() != DocumentStatus.PUBLISHED) {
+            return false;
+        }
+        if (doc.getSecurityLevel() == DocumentSecurityLevel.SECRET) {
+            return false;
+        }
+        return true;
     }
 
     private byte[] readDocumentFileContent(Document doc, Long documentId) {

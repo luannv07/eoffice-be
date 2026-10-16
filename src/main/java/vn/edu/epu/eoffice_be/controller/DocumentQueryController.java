@@ -184,8 +184,27 @@ public class DocumentQueryController {
         return hasAnyRole(authentication, Role.LEADER, Role.CLERK);
     }
 
+    /**
+     * Business Rule (UC-16 / Policy Decision):
+     * Xác định người dùng có đặc quyền xem toàn bộ văn bản đã ban hành trên toàn hệ thống hay không.
+     * <p>
+     * Theo quy định nghiệp vụ quản lý văn bản của trường (được phê duyệt bởi Product Owner / Ban Giám hiệu),
+     * bên cạnh Quản trị viên (ADMIN, SYSTEM_ADMIN), các vai trò Lãnh đạo (LEADER) và Văn thư (CLERK)
+     * được cấp quyền tra cứu toàn hệ thống các văn bản đã ban hành (PUBLISHED) để phục vụ công tác điều hành,
+     * chỉ đạo và lưu trữ văn thư toàn trường mà không bị giới hạn theo đơn vị (orgId).
+     * </p>
+     */
     private boolean canViewAllPublishedDocuments(Authentication authentication) {
         return isAdmin(authentication) || isPrivilegedStaff(authentication);
+    }
+
+    private Long resolveUserOrgIdSafely(Authentication authentication) {
+        try {
+            return resolveUserOrgId(authentication);
+        } catch (Exception e) {
+            log.debug("User has privileged staff role without orgId: {}", e.getMessage());
+            return null;
+        }
     }
 
     private boolean hasAnyRole(Authentication authentication, Role... roles) {
@@ -202,6 +221,7 @@ public class DocumentQueryController {
     }
 
     // UC16.1: Tra cứu danh sách văn bản ban hành (BE-04: hỗ trợ lọc theo documentBookId)
+    // Business Rule UC-16: ADMIN, SYSTEM_ADMIN, LEADER và CLERK được xem toàn bộ danh sách văn bản ban hành toàn hệ thống.
     @GetMapping("/published")
     public ResponseEntity<Object> getPublishedDocuments(
             @RequestParam(required = false) Long documentBookId,
@@ -226,7 +246,8 @@ public class DocumentQueryController {
             return ResponseEntity.ok(queryService.getDocumentDetailsForAdmin(id));
         }
         if (isPrivilegedStaff(authentication)) {
-            return ResponseEntity.ok(queryService.getDocumentDetailsForStaff(id));
+            Long orgId = resolveUserOrgIdSafely(authentication);
+            return ResponseEntity.ok(queryService.getDocumentDetailsForStaff(id, orgId));
         }
         Long orgId = resolveUserOrgId(authentication);
         return ResponseEntity.ok(queryService.getDocumentDetails(id, orgId));
@@ -239,7 +260,8 @@ public class DocumentQueryController {
         if (isAdmin(authentication)) {
             pdfBytes = queryService.downloadDocumentForAdmin(id);
         } else if (isPrivilegedStaff(authentication)) {
-            pdfBytes = queryService.downloadDocumentForStaff(id);
+            Long orgId = resolveUserOrgIdSafely(authentication);
+            pdfBytes = queryService.downloadDocumentForStaff(id, orgId);
         } else {
             Long orgId = resolveUserOrgId(authentication);
             pdfBytes = queryService.downloadDocument(id, orgId);

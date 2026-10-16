@@ -504,6 +504,13 @@ class DocumentServiceCoverageTest {
         publishedDoc.setId(510L);
         publishedDoc.setTitle("TB Huong dan");
         publishedDoc.setStatus(DocumentStatus.PUBLISHED);
+        publishedDoc.setSecurityLevel(vn.edu.epu.eoffice_be.common.enums.DocumentSecurityLevel.NORMAL);
+
+        Document secretDoc = new Document();
+        secretDoc.setId(513L);
+        secretDoc.setTitle("Văn bản tuyệt mật");
+        secretDoc.setStatus(DocumentStatus.PUBLISHED);
+        secretDoc.setSecurityLevel(vn.edu.epu.eoffice_be.common.enums.DocumentSecurityLevel.SECRET);
 
         Document issuedDoc = new Document();
         issuedDoc.setId(511L);
@@ -516,20 +523,29 @@ class DocumentServiceCoverageTest {
         when(documentRepository.findByIdAndDeleteFlgFalse(510L)).thenReturn(Optional.of(publishedDoc));
         when(documentRepository.findByIdAndDeleteFlgFalse(511L)).thenReturn(Optional.of(issuedDoc));
         when(documentRepository.findByIdAndDeleteFlgFalse(512L)).thenReturn(Optional.of(draftDoc));
+        when(documentRepository.findByIdAndDeleteFlgFalse(513L)).thenReturn(Optional.of(secretDoc));
 
-        // Staff can view and download PUBLISHED document
-        Object details = documentQueryService.getDocumentDetailsForStaff(510L);
+        // Staff can view and download PUBLISHED document (with and without orgId)
+        Object details = documentQueryService.getDocumentDetailsForStaff(510L, 50L);
         assertNotNull(details);
-        byte[] bytes = documentQueryService.downloadDocumentForStaff(510L);
+        byte[] bytes = documentQueryService.downloadDocumentForStaff(510L, 50L);
         assertNotNull(bytes);
 
+        // Staff CANNOT view or download SECRET document (Admin only)
+        assertThrows(IllegalArgumentException.class, () -> documentQueryService.getDocumentDetailsForStaff(513L, 50L));
+        assertThrows(IllegalArgumentException.class, () -> documentQueryService.downloadDocumentForStaff(513L, 50L));
+
         // Staff CANNOT view or download ISSUED document (Admin only)
-        assertThrows(IllegalArgumentException.class, () -> documentQueryService.getDocumentDetailsForStaff(511L));
-        assertThrows(IllegalArgumentException.class, () -> documentQueryService.downloadDocumentForStaff(511L));
+        assertThrows(IllegalArgumentException.class, () -> documentQueryService.getDocumentDetailsForStaff(511L, 50L));
+        assertThrows(IllegalArgumentException.class, () -> documentQueryService.downloadDocumentForStaff(511L, 50L));
 
         // Staff CANNOT view or download DRAFT document
-        assertThrows(IllegalArgumentException.class, () -> documentQueryService.getDocumentDetailsForStaff(512L));
-        assertThrows(IllegalArgumentException.class, () -> documentQueryService.downloadDocumentForStaff(512L));
+        assertThrows(IllegalArgumentException.class, () -> documentQueryService.getDocumentDetailsForStaff(512L, 50L));
+        assertThrows(IllegalArgumentException.class, () -> documentQueryService.downloadDocumentForStaff(512L, 50L));
+
+        // Single-arg overloads also delegate correctly
+        assertNotNull(documentQueryService.getDocumentDetailsForStaff(510L));
+        assertNotNull(documentQueryService.downloadDocumentForStaff(510L));
     }
 
     @Test
