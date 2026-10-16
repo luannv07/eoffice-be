@@ -1,0 +1,15 @@
+# E-Office ZAP baseline rule configuration file (Tab-separated values).
+# Format: <rule-id><TAB><WARN|FAIL|INFO|IGNORE><TAB>(optional comment)
+# Generates the default with: zaproxy/baseline -g gen.conf (all rules WARN).
+# Triage workflow (Scopus Q2 upgrade doc, Chuong 4.2): WARN -> FAIL to block the
+# build, or IGNORE with a time-bounded exception + approver signature.
+#
+# Baseline: every rule not listed here stays WARN (ZAP default).
+
+10011	WARN	(Cookie Without Secure Flag)
+10015	WARN	(Incomplete or No Cache-control and Pragma HTTP Header Set)
+
+# Example (commented): ignore noisy static-asset URLs once triaged.
+# *	OUTOFSCOPE	.*\.(js|css|png|ico)(\?.*)?$
+# Example (commented): never attack logout / destructive endpoints on staging.
+# *	OUTOFSCOPE	.*/api/v1/auth/logout.*
