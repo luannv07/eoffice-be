@@ -28,8 +28,11 @@ jobs:
           java-version: 21
           cache: maven
 
-      - name: 3. Build Spring Boot JAR (with tests)
-        run: mvn -B clean package
+      - name: 3. Build Spring Boot JAR
+        # NOTE: tests run in Pipeline 1 PR Gate (with init-ca PKI setup).
+        # P2 keeps -DskipTests: this runner has no Root CA (uploads/ is gitignored,
+        # no init-ca step here), so PKI tests would error and block deploy.
+        run: mvn clean package -DskipTests
 
       - name: 4. Build Docker image
         run: |
