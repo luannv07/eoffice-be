@@ -756,4 +756,26 @@ class DocumentQueryControllerTest {
         assertEquals(200, response.getStatusCode().value());
         verify(documentQueryService).getAllPublishedDocuments();
     }
+
+    @Test
+    void testGetDocumentDetails_LeaderRole_MissingOrgId_FallsBackToSystemWideOrgId() {
+        doReturn(List.of(new SimpleGrantedAuthority("ROLE_LEADER"))).when(auth).getAuthorities();
+        when(auth.getPrincipal()).thenReturn(new MissingOrgIdPrincipal());
+        when(documentQueryService.getDocumentDetailsForStaff(10L, DocumentQueryController.SYSTEM_WIDE_ORG_ID))
+                .thenReturn(java.util.Map.of("id", 10L));
+
+        ResponseEntity<Object> response = documentQueryController.getDocumentDetails(10L, auth);
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        verify(documentQueryService).getDocumentDetailsForStaff(10L, DocumentQueryController.SYSTEM_WIDE_ORG_ID);
+    }
+
+    @Test
+    void testGetDocumentDetails_LeaderRole_Unauthenticated_ThrowsException() {
+        when(auth.isAuthenticated()).thenReturn(false);
+
+        assertThrows(AuthenticationCredentialsNotFoundException.class, 
+                () -> documentQueryController.getDocumentDetails(10L, auth));
+    }
 }

@@ -175,6 +175,7 @@ public class DocumentQueryController {
     }
 
     private static final String ROLE_PREFIX = "ROLE_";
+    public static final Long SYSTEM_WIDE_ORG_ID = 0L;
 
     private boolean isAdmin(Authentication authentication) {
         return hasAnyRole(authentication, Role.ADMIN, Role.SYSTEM_ADMIN);
@@ -195,15 +196,18 @@ public class DocumentQueryController {
      * </p>
      */
     private boolean canViewAllPublishedDocuments(Authentication authentication) {
-        return isAdmin(authentication) || isPrivilegedStaff(authentication);
+        return hasAnyRole(authentication, Role.ADMIN, Role.SYSTEM_ADMIN, Role.LEADER, Role.CLERK);
     }
 
     private Long resolveUserOrgIdSafely(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new AuthenticationCredentialsNotFoundException("Người dùng chưa được xác thực");
+        }
         try {
             return resolveUserOrgId(authentication);
-        } catch (Exception e) {
-            log.debug("User has privileged staff role without orgId: {}", e.getMessage());
-            return null;
+        } catch (AccessDeniedException e) {
+            log.warn("Không tìm thấy thông tin orgId từ principal của nhân viên đặc quyền, sử dụng fallback hệ thống: {}", e.getMessage());
+            return SYSTEM_WIDE_ORG_ID;
         }
     }
 
