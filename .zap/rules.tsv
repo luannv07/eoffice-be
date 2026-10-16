@@ -12,4 +12,6 @@
 # Example (commented): ignore noisy static-asset URLs once triaged.
 # *	OUTOFSCOPE	.*\.(js|css|png|ico)(\?.*)?$
 # Example (commented): never attack logout / destructive endpoints on staging.
-# *	OUTOFSCOPE	.*/api/v1/auth/logout.*
+# Active: do not attack logout on staging (avoids session invalidation on baseline unauthenticated scan).
+*	OUTOFSCOPE	.*/api/v1/auth/logout.*
+# NOTE: other destructive exclusions (e.g. delete DB) stay commented — baseline is unauthenticated.

@@ -10,7 +10,9 @@
 #      github.event.workflow_run is null, so the draft condition would skip every run).
 #   4. Added JSON report (-J) for machine-readable evidence, artifact upload (always),
 #      timeout, concurrency, least-privilege permissions.
-# Required secret: STAGING_BASE_URL (app root, e.g. https://<app>.herokuapp.com, no trailing slash).
+# Required secrets (fallback chain): STAGING_BASE_URL preferred (app root, e.g. https://<app>.herokuapp.com, no trailing slash);
+# fallback HEALTH_CHECK_URL (full https://<app>.herokuapp.com/actuator/health) -> strip suffix /actuator/health to derive app root.
+# Fails only when both are empty.
 # Follow-ups from Table 3 not yet in this baseline (need ZAP context + auth script +
 # OpenAPI import): authenticated scan (POST /api/v1/auth/login -> Bearer JWT),
 # ZAP context file with Included/Excluded URLs, SARIF import to code scanning.
@@ -46,21 +48,27 @@ jobs:
       - name: Verify Staging Environment Health
         env:
           STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+          HEALTH_CHECK_URL: ${{ secrets.HEALTH_CHECK_URL }}
         run: |
           set -euo pipefail
-          if [ -z "${STAGING_BASE_URL:-}" ]; then
-            echo "::error::Missing required secret STAGING_BASE_URL (staging app root URL)"
+          APP_ROOT="${STAGING_BASE_URL:-}"
+          if [ -z "${APP_ROOT}" ] && [ -n "${HEALTH_CHECK_URL:-}" ]; then
+            APP_ROOT="${HEALTH_CHECK_URL%/actuator/health}"
+          fi
+          if [ -z "${APP_ROOT}" ]; then
+            echo "::error::Missing both secrets STAGING_BASE_URL and HEALTH_CHECK_URL (need app root or full /actuator/health URL)"
             exit 1
           fi
-          echo "Checking staging health at ${STAGING_BASE_URL}/actuator/health ..."
-          curl --fail --silent --show-error "${STAGING_BASE_URL}/actuator/health" > /dev/null
+          echo "Checking staging health at ${APP_ROOT}/actuator/health ..."
+          curl --fail --silent --show-error "${APP_ROOT}/actuator/health" > /dev/null
+          echo "APP_ROOT=${APP_ROOT}" >> "$GITHUB_ENV"
 
       - name: Run OWASP ZAP Baseline Scan (DAST)
-        uses: zaproxy/action-baseline@v0.12.0
+        uses: zaproxy/action-baseline@66042c8e7e24680119199a017e5b0e8603bf4dae # v0.12.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           docker_name: 'ghcr.io/zaproxy/zaproxy:stable'
-          target: ${{ secrets.STAGING_BASE_URL }}
+          target: ${{ env.APP_ROOT }}
           rules_file_name: '.zap/rules.tsv'
           cmd_options: '-a -j -J zap_report.json -r zap_report.html -x zap_report.xml -z "-config api.disablekey=true"'
           fail_action: true
