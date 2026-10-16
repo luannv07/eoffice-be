@@ -8,7 +8,7 @@
   stack, JWT auth, PostgreSQL/H2). Permanent fix: upgrade to Spring Boot 4.x.
   Wired in: .github/workflows/pipeline-3-scheduled-deep-security-scan.yml
 -->
-<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-check.1.0.xsd">
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.4.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.4.xsd https://dependency-check.github.io/DependencyCheck/dependency-suppression.1.4.xsd">
   <suppress>
     <notes><![CDATA[
       CVE-2026-47884 (XsltView SSRF/RCE): no XsltView usage; pure JSON REST API.

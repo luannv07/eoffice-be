@@ -32,18 +32,7 @@ jobs:
           restore-keys: |
             owasp-db-${{ runner.os }}-
 
-      - name: 3. OWASP Dependency Check
-        run: |
-          mkdir -p security-reports
-          mvn -B org.owasp:dependency-check-maven:check \
-            -Dformat=JSON \
-            -DoutputDirectory=security-reports \
-            -DdataDirectory=$HOME/.cache/dependency-check \
-            -DnvdApiKey=${{ secrets.NVD_API_KEY }} \
-            -DsuppressionFile=owasp-suppression.xml \
-            -DfailBuildOnCVSS=9
-
-      - name: 4. Install Trivy CLI
+      - name: 3. Install Trivy CLI
         shell: bash
         run: |
           set -euo pipefail
@@ -57,10 +46,11 @@ jobs:
           sudo apt-get install -y trivy
           trivy --version
 
-      - name: 5. Full Trivy scan (filesystem)
+      - name: 4. Full Trivy scan (filesystem)
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p security-reports
           trivy fs . \
             --scanners vuln,misconfig,secret,license \
             --format json \
@@ -69,7 +59,7 @@ jobs:
             --ignorefile .trivyignore \
             --exit-code 0
 
-      - name: 6. Generate SBOM (CycloneDX)
+      - name: 5. Generate SBOM (CycloneDX)
         shell: bash
         run: |
           set -euo pipefail
@@ -78,13 +68,24 @@ jobs:
             --output security-reports/sbom-cyclonedx.json \
             --exit-code 0
 
-      - name: 7. Upload report artifact
+      - name: 6. Upload report artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: deep-security-reports-${{ github.run_id }}
           path: security-reports/
           if-no-files-found: warn
+
+      - name: 7. OWASP Dependency Check
+        run: |
+          mkdir -p security-reports
+          mvn -B org.owasp:dependency-check-maven:check \
+            -Dformat=JSON \
+            -DoutputDirectory=security-reports \
+            -DdataDirectory=$HOME/.cache/dependency-check \
+            -DnvdApiKey=${{ secrets.NVD_API_KEY }} \
+            -DsuppressionFile=owasp-suppression.xml \
+            -DfailBuildOnCVSS=9
 
       - name: 8. Fail if CRITICAL or CVSS >= 9
         shell: bash
