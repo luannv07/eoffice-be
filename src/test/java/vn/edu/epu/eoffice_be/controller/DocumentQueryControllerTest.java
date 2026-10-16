@@ -778,4 +778,30 @@ class DocumentQueryControllerTest {
         assertThrows(AuthenticationCredentialsNotFoundException.class, 
                 () -> documentQueryController.getDocumentDetails(10L, auth));
     }
+
+    @Test
+    void testGetDocumentDetails_LeaderRole_AccessDenied_PropagatesException() {
+        vn.edu.epu.eoffice_be.security.JwtUserPrincipal leaderPrincipal =
+                new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(3L, "leader", "LEADER", true, List.of(), 50L);
+        lenient().when(auth.getPrincipal()).thenReturn(leaderPrincipal);
+        doReturn(List.of(new SimpleGrantedAuthority("ROLE_LEADER"))).when(auth).getAuthorities();
+        when(documentQueryService.getDocumentDetailsForStaff(513L, 50L))
+                .thenThrow(new AccessDeniedException("Văn bản tuyệt mật chỉ dành riêng cho Quản trị viên"));
+
+        assertThrows(AccessDeniedException.class, () -> documentQueryController.getDocumentDetails(513L, auth));
+        verify(documentQueryService).getDocumentDetailsForStaff(513L, 50L);
+    }
+
+    @Test
+    void testDownloadDocument_LeaderRole_AccessDenied_PropagatesException() {
+        vn.edu.epu.eoffice_be.security.JwtUserPrincipal leaderPrincipal =
+                new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(3L, "leader", "LEADER", true, List.of(), 50L);
+        lenient().when(auth.getPrincipal()).thenReturn(leaderPrincipal);
+        doReturn(List.of(new SimpleGrantedAuthority("ROLE_LEADER"))).when(auth).getAuthorities();
+        when(documentQueryService.downloadDocumentForStaff(513L, 50L))
+                .thenThrow(new AccessDeniedException("Văn bản tuyệt mật chỉ dành riêng cho Quản trị viên"));
+
+        assertThrows(AccessDeniedException.class, () -> documentQueryController.downloadDocument(513L, auth));
+        verify(documentQueryService).downloadDocumentForStaff(513L, 50L);
+    }
 }

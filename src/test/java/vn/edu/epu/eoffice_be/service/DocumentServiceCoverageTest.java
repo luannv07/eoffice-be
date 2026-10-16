@@ -18,6 +18,7 @@ import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.entity.DocumentDistribution;
 import vn.edu.epu.eoffice_be.entity.DocumentWorkflowLog;
+import vn.edu.epu.eoffice_be.entity.OrgNode;
 import vn.edu.epu.eoffice_be.repository.DocumentDistributionRepository;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
@@ -500,52 +501,93 @@ class DocumentServiceCoverageTest {
 
     @Test
     void testStaffDocumentQueryAndDownload_Permissions() {
+        OrgNode orgNode50 = OrgNode.builder().id(50L).nameVn("Phòng Đào tạo").build();
+
         Document publishedDoc = new Document();
         publishedDoc.setId(510L);
         publishedDoc.setTitle("TB Huong dan");
         publishedDoc.setStatus(DocumentStatus.PUBLISHED);
         publishedDoc.setSecurityLevel(vn.edu.epu.eoffice_be.common.enums.DocumentSecurityLevel.NORMAL);
+        publishedDoc.setIssuingOrgNode(orgNode50);
 
         Document secretDoc = new Document();
         secretDoc.setId(513L);
         secretDoc.setTitle("Văn bản tuyệt mật");
         secretDoc.setStatus(DocumentStatus.PUBLISHED);
         secretDoc.setSecurityLevel(vn.edu.epu.eoffice_be.common.enums.DocumentSecurityLevel.SECRET);
+        secretDoc.setIssuingOrgNode(orgNode50);
 
         Document issuedDoc = new Document();
         issuedDoc.setId(511L);
         issuedDoc.setStatus(DocumentStatus.ISSUED);
+        issuedDoc.setIssuingOrgNode(orgNode50);
 
         Document draftDoc = new Document();
         draftDoc.setId(512L);
         draftDoc.setStatus(DocumentStatus.DRAFT);
+        draftDoc.setIssuingOrgNode(orgNode50);
 
         when(documentRepository.findByIdAndDeleteFlgFalse(510L)).thenReturn(Optional.of(publishedDoc));
         when(documentRepository.findByIdAndDeleteFlgFalse(511L)).thenReturn(Optional.of(issuedDoc));
         when(documentRepository.findByIdAndDeleteFlgFalse(512L)).thenReturn(Optional.of(draftDoc));
         when(documentRepository.findByIdAndDeleteFlgFalse(513L)).thenReturn(Optional.of(secretDoc));
 
-        // Staff can view and download PUBLISHED document (with and without orgId)
+        // 1. Staff can view and download PUBLISHED document with matching orgId
         Object details = documentQueryService.getDocumentDetailsForStaff(510L, 50L);
         assertNotNull(details);
         byte[] bytes = documentQueryService.downloadDocumentForStaff(510L, 50L);
         assertNotNull(bytes);
 
-        // Staff CANNOT view or download SECRET document (Admin only)
-        assertThrows(IllegalArgumentException.class, () -> documentQueryService.getDocumentDetailsForStaff(513L, 50L));
-        assertThrows(IllegalArgumentException.class, () -> documentQueryService.downloadDocumentForStaff(513L, 50L));
+        // 2. Staff can view and download with system-wide orgId (0L)
+        assertNotNull(documentQueryService.getDocumentDetailsForStaff(510L, 0L));
+        assertNotNull(documentQueryService.downloadDocumentForStaff(510L, 0L));
 
-        // Staff CANNOT view or download ISSUED document (Admin only)
-        assertThrows(IllegalArgumentException.class, () -> documentQueryService.getDocumentDetailsForStaff(511L, 50L));
-        assertThrows(IllegalArgumentException.class, () -> documentQueryService.downloadDocumentForStaff(511L, 50L));
+        // 3. Issue [5/6]: Negative test where orgId is mismatched (99L != 50L) throws AccessDeniedException
+        assertThrows(AccessDeniedException.class, () -> documentQueryService.getDocumentDetailsForStaff(510L, 99L));
+        assertThrows(AccessDeniedException.class, () -> documentQueryService.downloadDocumentForStaff(510L, 99L));
 
-        // Staff CANNOT view or download DRAFT document
-        assertThrows(IllegalArgumentException.class, () -> documentQueryService.getDocumentDetailsForStaff(512L, 50L));
-        assertThrows(IllegalArgumentException.class, () -> documentQueryService.downloadDocumentForStaff(512L, 50L));
+        // 4. Issue [4/6]: Staff CANNOT view or download SECRET document (Admin only) -> throws AccessDeniedException
+        assertThrows(AccessDeniedException.class, () -> documentQueryService.getDocumentDetailsForStaff(513L, 50L));
+        assertThrows(AccessDeniedException.class, () -> documentQueryService.downloadDocumentForStaff(513L, 50L));
 
-        // Single-arg overloads also delegate correctly
+        // 5. Issue [4/6]: Staff CANNOT view or download ISSUED document (Admin only) -> throws AccessDeniedException
+        assertThrows(AccessDeniedException.class, () -> documentQueryService.getDocumentDetailsForStaff(511L, 50L));
+        assertThrows(AccessDeniedException.class, () -> documentQueryService.downloadDocumentForStaff(511L, 50L));
+
+        // 6. Issue [4/6]: Staff CANNOT view or download DRAFT document -> throws AccessDeniedException
+        assertThrows(AccessDeniedException.class, () -> documentQueryService.getDocumentDetailsForStaff(512L, 50L));
+        assertThrows(AccessDeniedException.class, () -> documentQueryService.downloadDocumentForStaff(512L, 50L));
+
+        // 7. Issue [6/6]: Single-arg overloads also delegate correctly, allow PUBLISHED and enforce security against SECRET/ISSUED/DRAFT
         assertNotNull(documentQueryService.getDocumentDetailsForStaff(510L));
         assertNotNull(documentQueryService.downloadDocumentForStaff(510L));
+
+        assertThrows(AccessDeniedException.class, () -> documentQueryService.getDocumentDetailsForStaff(513L));
+        assertThrows(AccessDeniedException.class, () -> documentQueryService.downloadDocumentForStaff(513L));
+
+        assertThrows(AccessDeniedException.class, () -> documentQueryService.getDocumentDetailsForStaff(511L));
+        assertThrows(AccessDeniedException.class, () -> documentQueryService.downloadDocumentForStaff(511L));
+
+        assertThrows(AccessDeniedException.class, () -> documentQueryService.getDocumentDetailsForStaff(512L));
+        assertThrows(AccessDeniedException.class, () -> documentQueryService.downloadDocumentForStaff(512L));
+
+        // 8. Truly invalid arguments (null ID) throw IllegalArgumentException
+        assertThrows(IllegalArgumentException.class, () -> documentQueryService.getDocumentDetailsForStaff(null, 50L));
+        assertThrows(IllegalArgumentException.class, () -> documentQueryService.downloadDocumentForStaff(null, 50L));
+        assertThrows(IllegalArgumentException.class, () -> documentQueryService.getDocumentDetailsForStaff(null));
+        assertThrows(IllegalArgumentException.class, () -> documentQueryService.downloadDocumentForStaff(null));
+
+        // 9. Verify isStaffAuthorizedForDocument boolean helper
+        assertTrue(documentQueryService.isStaffAuthorizedForDocument(publishedDoc, 50L));
+        assertTrue(documentQueryService.isStaffAuthorizedForDocument(publishedDoc, 0L));
+        assertFalse(documentQueryService.isStaffAuthorizedForDocument(publishedDoc, 99L));
+        assertFalse(documentQueryService.isStaffAuthorizedForDocument(secretDoc, 50L));
+        assertFalse(documentQueryService.isStaffAuthorizedForDocument(issuedDoc, 50L));
+        assertFalse(documentQueryService.isStaffAuthorizedForDocument(draftDoc, 50L));
+        assertFalse(documentQueryService.isStaffAuthorizedForDocument(null, 50L));
+
+        // 10. Verify interaction with repository
+        org.mockito.Mockito.verify(documentRepository, org.mockito.Mockito.atLeastOnce()).findByIdAndDeleteFlgFalse(510L);
     }
 
     @Test
