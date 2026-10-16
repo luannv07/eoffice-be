@@ -630,7 +630,10 @@ class DocumentQueryControllerTest {
 
     @Test
     void testGetPublishedDocuments_LeaderRole_WithDocumentBookId_Success() {
-        doReturn(List.of(new SimpleGrantedAuthority("LEADER"))).when(auth).getAuthorities();
+        vn.edu.epu.eoffice_be.security.JwtUserPrincipal leaderPrincipal =
+                new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(3L, "leader", "LEADER", true, List.of(), 50L);
+        lenient().when(auth.getPrincipal()).thenReturn(leaderPrincipal);
+        doReturn(List.of(new SimpleGrantedAuthority("ROLE_LEADER"))).when(auth).getAuthorities();
         when(documentQueryService.getAllPublishedDocuments(5L)).thenReturn(List.of());
 
         ResponseEntity<Object> response = documentQueryController.getPublishedDocuments(5L, auth);
@@ -642,6 +645,9 @@ class DocumentQueryControllerTest {
 
     @Test
     void testGetDocumentDetails_LeaderRole_SuccessWithoutOrgId() {
+        vn.edu.epu.eoffice_be.security.JwtUserPrincipal leaderPrincipal =
+                new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(3L, "leader", "LEADER", true, List.of(), 50L);
+        lenient().when(auth.getPrincipal()).thenReturn(leaderPrincipal);
         doReturn(List.of(new SimpleGrantedAuthority("ROLE_LEADER"))).when(auth).getAuthorities();
         when(documentQueryService.getDocumentDetailsForStaff(10L)).thenReturn(java.util.Map.of("id", 10L));
 
@@ -654,6 +660,9 @@ class DocumentQueryControllerTest {
 
     @Test
     void testGetDocumentDetails_ClerkRole_SuccessWithoutOrgId() {
+        vn.edu.epu.eoffice_be.security.JwtUserPrincipal clerkPrincipal =
+                new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(4L, "clerk", "CLERK", true, List.of(), 50L);
+        lenient().when(auth.getPrincipal()).thenReturn(clerkPrincipal);
         doReturn(List.of(new SimpleGrantedAuthority("ROLE_CLERK"))).when(auth).getAuthorities();
         when(documentQueryService.getDocumentDetailsForStaff(10L)).thenReturn(java.util.Map.of("id", 10L));
 
@@ -665,7 +674,38 @@ class DocumentQueryControllerTest {
     }
 
     @Test
+    void testGetDocumentDetails_LeaderRole_WithDocumentIdAndOrgId_Success() {
+        vn.edu.epu.eoffice_be.security.JwtUserPrincipal leaderPrincipal =
+                new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(3L, "leader", "LEADER", true, List.of(), 50L);
+        lenient().when(auth.getPrincipal()).thenReturn(leaderPrincipal);
+        doReturn(List.of(new SimpleGrantedAuthority("ROLE_LEADER"))).when(auth).getAuthorities();
+        when(documentQueryService.getDocumentDetailsForStaff(10L)).thenReturn(java.util.Map.of("id", 10L));
+
+        ResponseEntity<Object> response = documentQueryController.getDocumentDetails(10L, auth);
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        verify(documentQueryService).getDocumentDetailsForStaff(10L);
+    }
+
+    @Test
+    void testGetDocumentDetails_LeaderRole_WithDocumentIdAndOrgId_Returns404WhenNotFound() {
+        vn.edu.epu.eoffice_be.security.JwtUserPrincipal leaderPrincipal =
+                new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(3L, "leader", "LEADER", true, List.of(), 50L);
+        lenient().when(auth.getPrincipal()).thenReturn(leaderPrincipal);
+        doReturn(List.of(new SimpleGrantedAuthority("ROLE_LEADER"))).when(auth).getAuthorities();
+        when(documentQueryService.getDocumentDetailsForStaff(999L))
+                .thenThrow(new IllegalArgumentException("Không tìm thấy hoặc không có quyền truy cập văn bản với ID: 999"));
+
+        assertThrows(IllegalArgumentException.class, () -> documentQueryController.getDocumentDetails(999L, auth));
+        verify(documentQueryService).getDocumentDetailsForStaff(999L);
+    }
+
+    @Test
     void testDownloadDocument_LeaderRole_SuccessWithoutOrgId() {
+        vn.edu.epu.eoffice_be.security.JwtUserPrincipal leaderPrincipal =
+                new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(3L, "leader", "LEADER", true, List.of(), 50L);
+        lenient().when(auth.getPrincipal()).thenReturn(leaderPrincipal);
         doReturn(List.of(new SimpleGrantedAuthority("ROLE_LEADER"))).when(auth).getAuthorities();
         byte[] content = "PDF_CONTENT".getBytes(StandardCharsets.UTF_8);
         when(documentQueryService.downloadDocumentForStaff(10L)).thenReturn(content);
@@ -679,6 +719,9 @@ class DocumentQueryControllerTest {
 
     @Test
     void testDownloadDocument_ClerkRole_SuccessWithoutOrgId() {
+        vn.edu.epu.eoffice_be.security.JwtUserPrincipal clerkPrincipal =
+                new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(4L, "clerk", "CLERK", true, List.of(), 50L);
+        lenient().when(auth.getPrincipal()).thenReturn(clerkPrincipal);
         doReturn(List.of(new SimpleGrantedAuthority("ROLE_CLERK"))).when(auth).getAuthorities();
         byte[] content = "PDF_CONTENT".getBytes(StandardCharsets.UTF_8);
         when(documentQueryService.downloadDocumentForStaff(10L)).thenReturn(content);
