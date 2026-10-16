@@ -61,6 +61,20 @@ public class DocumentQueryService {
         return details;
     }
 
+    public Object getDocumentDetailsForStaff(Long id) {
+        Document document = documentRepository.findByIdAndDeleteFlgFalse(id)
+                .filter(d -> d.getStatus() == DocumentStatus.PUBLISHED)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền truy cập văn bản với ID: " + id));
+
+        java.util.Map<String, Object> details = new java.util.LinkedHashMap<>();
+        details.put("id", document.getId());
+        details.put("title", document.getTitle());
+        details.put("status", document.getStatus());
+        details.put("orgId", null);
+        details.put("updatedAt", document.getUpdatedDate());
+        return details;
+    }
+
     public byte[] downloadDocument(Long documentId, Long orgId) {
         Document doc = documentRepository.findAccessiblePublishedDocument(documentId, orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền truy cập văn bản với ID: " + documentId));
@@ -71,6 +85,13 @@ public class DocumentQueryService {
     public byte[] downloadDocumentForAdmin(Long documentId) {
         Document doc = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .filter(d -> d.getStatus() == DocumentStatus.PUBLISHED || d.getStatus() == DocumentStatus.ISSUED)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền tải văn bản: " + documentId));
+        return readDocumentFileContent(doc, documentId);
+    }
+
+    public byte[] downloadDocumentForStaff(Long documentId) {
+        Document doc = documentRepository.findByIdAndDeleteFlgFalse(documentId)
+                .filter(d -> d.getStatus() == DocumentStatus.PUBLISHED)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền tải văn bản: " + documentId));
         return readDocumentFileContent(doc, documentId);
     }

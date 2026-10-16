@@ -499,6 +499,40 @@ class DocumentServiceCoverageTest {
     }
 
     @Test
+    void testStaffDocumentQueryAndDownload_Permissions() {
+        Document publishedDoc = new Document();
+        publishedDoc.setId(510L);
+        publishedDoc.setTitle("TB Huong dan");
+        publishedDoc.setStatus(DocumentStatus.PUBLISHED);
+
+        Document issuedDoc = new Document();
+        issuedDoc.setId(511L);
+        issuedDoc.setStatus(DocumentStatus.ISSUED);
+
+        Document draftDoc = new Document();
+        draftDoc.setId(512L);
+        draftDoc.setStatus(DocumentStatus.DRAFT);
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(510L)).thenReturn(Optional.of(publishedDoc));
+        when(documentRepository.findByIdAndDeleteFlgFalse(511L)).thenReturn(Optional.of(issuedDoc));
+        when(documentRepository.findByIdAndDeleteFlgFalse(512L)).thenReturn(Optional.of(draftDoc));
+
+        // Staff can view and download PUBLISHED document
+        Object details = documentQueryService.getDocumentDetailsForStaff(510L);
+        assertNotNull(details);
+        byte[] bytes = documentQueryService.downloadDocumentForStaff(510L);
+        assertNotNull(bytes);
+
+        // Staff CANNOT view or download ISSUED document (Admin only)
+        assertThrows(IllegalArgumentException.class, () -> documentQueryService.getDocumentDetailsForStaff(511L));
+        assertThrows(IllegalArgumentException.class, () -> documentQueryService.downloadDocumentForStaff(511L));
+
+        // Staff CANNOT view or download DRAFT document
+        assertThrows(IllegalArgumentException.class, () -> documentQueryService.getDocumentDetailsForStaff(512L));
+        assertThrows(IllegalArgumentException.class, () -> documentQueryService.downloadDocumentForStaff(512L));
+    }
+
+    @Test
     void testPendingDocumentResponseDto() {
         var res = new vn.edu.epu.eoffice_be.dto.PendingDocumentResponse();
         res.setId(100L);

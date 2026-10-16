@@ -13,13 +13,19 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.*;
+import vn.edu.epu.eoffice_be.common.enums.Role;
 import vn.edu.epu.eoffice_be.security.OrgAwarePrincipal;
 import vn.edu.epu.eoffice_be.service.DocumentQueryService;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 @RestController
@@ -168,55 +174,31 @@ public class DocumentQueryController {
         return ORG_ID_METHOD_CACHE.get(clazz);
     }
 
+    private static final String ROLE_PREFIX = "ROLE_";
+
     private boolean isAdmin(Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return false;
-        }
-        if (authentication.getAuthorities() != null) {
-            boolean hasAdminAuthority = authentication.getAuthorities().stream()
-                    .map(org.springframework.security.core.GrantedAuthority::getAuthority)
-                    .anyMatch(auth -> "ROLE_ADMIN".equalsIgnoreCase(auth)
-                            || "ROLE_SYSTEM_ADMIN".equalsIgnoreCase(auth)
-                            || "ADMIN".equalsIgnoreCase(auth)
-                            || "SYSTEM_ADMIN".equalsIgnoreCase(auth));
-            if (hasAdminAuthority) {
-                return true;
-            }
-        }
-        Object principal = authentication.getPrincipal();
-        if (principal instanceof vn.edu.epu.eoffice_be.security.JwtUserPrincipal jwtPrincipal) {
-            String role = jwtPrincipal.getRole();
-            return vn.edu.epu.eoffice_be.common.enums.Role.ADMIN.name().equalsIgnoreCase(role)
-                    || vn.edu.epu.eoffice_be.common.enums.Role.SYSTEM_ADMIN.name().equalsIgnoreCase(role);
-        }
-        return false;
+        return hasAnyRole(authentication, Role.ADMIN, Role.SYSTEM_ADMIN);
+    }
+
+    private boolean isPrivilegedStaff(Authentication authentication) {
+        return hasAnyRole(authentication, Role.LEADER, Role.CLERK);
     }
 
     private boolean canViewAllPublishedDocuments(Authentication authentication) {
-        if (isAdmin(authentication)) {
-            return true;
-        }
-        if (authentication == null || !authentication.isAuthenticated()) {
+        return isAdmin(authentication) || isPrivilegedStaff(authentication);
+    }
+
+    private boolean hasAnyRole(Authentication authentication, Role... roles) {
+        if (authentication == null || !authentication.isAuthenticated() || authentication.getAuthorities() == null) {
             return false;
         }
-        if (authentication.getAuthorities() != null) {
-            boolean hasPrivilegedAuthority = authentication.getAuthorities().stream()
-                    .map(org.springframework.security.core.GrantedAuthority::getAuthority)
-                    .anyMatch(auth -> "ROLE_LEADER".equalsIgnoreCase(auth)
-                            || "ROLE_CLERK".equalsIgnoreCase(auth)
-                            || "LEADER".equalsIgnoreCase(auth)
-                            || "CLERK".equalsIgnoreCase(auth));
-            if (hasPrivilegedAuthority) {
-                return true;
-            }
-        }
-        Object principal = authentication.getPrincipal();
-        if (principal instanceof vn.edu.epu.eoffice_be.security.JwtUserPrincipal jwtPrincipal) {
-            String role = jwtPrincipal.getRole();
-            return vn.edu.epu.eoffice_be.common.enums.Role.LEADER.name().equalsIgnoreCase(role)
-                    || vn.edu.epu.eoffice_be.common.enums.Role.CLERK.name().equalsIgnoreCase(role);
-        }
-        return false;
+        Set<String> targetRoles = Arrays.stream(roles)
+                .flatMap(r -> Stream.of(r.name(), ROLE_PREFIX + r.name()))
+                .collect(Collectors.toSet());
+
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(auth -> targetRoles.stream().anyMatch(tr -> tr.equalsIgnoreCase(auth)));
     }
 
     // UC16.1: Tra cứu danh sách văn bản ban hành (BE-04: hỗ trợ lọc theo documentBookId)
@@ -240,8 +222,11 @@ public class DocumentQueryController {
     // UC16.2: Xem chi tiết trích yếu
     @GetMapping("/{id}/details")
     public ResponseEntity<Object> getDocumentDetails(@PathVariable Long id, Authentication authentication) {
-        if (canViewAllPublishedDocuments(authentication)) {
+        if (isAdmin(authentication)) {
             return ResponseEntity.ok(queryService.getDocumentDetailsForAdmin(id));
+        }
+        if (isPrivilegedStaff(authentication)) {
+            return ResponseEntity.ok(queryService.getDocumentDetailsForStaff(id));
         }
         Long orgId = resolveUserOrgId(authentication);
         return ResponseEntity.ok(queryService.getDocumentDetails(id, orgId));
@@ -251,8 +236,10 @@ public class DocumentQueryController {
     @GetMapping("/{id}/download")
     public ResponseEntity<Resource> downloadDocument(@PathVariable Long id, Authentication authentication) {
         byte[] pdfBytes;
-        if (canViewAllPublishedDocuments(authentication)) {
+        if (isAdmin(authentication)) {
             pdfBytes = queryService.downloadDocumentForAdmin(id);
+        } else if (isPrivilegedStaff(authentication)) {
+            pdfBytes = queryService.downloadDocumentForStaff(id);
         } else {
             Long orgId = resolveUserOrgId(authentication);
             pdfBytes = queryService.downloadDocument(id, orgId);
