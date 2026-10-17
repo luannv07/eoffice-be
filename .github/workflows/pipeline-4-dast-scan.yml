@@ -63,6 +63,9 @@ jobs:
           curl --fail --silent --show-error "${APP_ROOT}/actuator/health" > /dev/null
           echo "APP_ROOT=${APP_ROOT}" >> "$GITHUB_ENV"
 
+      - name: Fix permissions for ZAP container
+        run: chmod 777 .
+
       - name: Run OWASP ZAP Baseline Scan (DAST)
         uses: zaproxy/action-baseline@66042c8e7e24680119199a017e5b0e8603bf4dae # v0.12.0
         with:
