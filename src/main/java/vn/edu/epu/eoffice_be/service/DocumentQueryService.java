@@ -6,9 +6,12 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import vn.edu.epu.eoffice_be.common.enums.DocumentSecurityLevel;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
@@ -61,6 +64,29 @@ public class DocumentQueryService {
         return details;
     }
 
+    @PreAuthorize("hasAnyRole('LEADER', 'CLERK', 'ADMIN', 'SYSTEM_ADMIN')")
+    public Object getDocumentDetailsForStaff(Long id, Long orgId) {
+        if (id == null) {
+            throw new IllegalArgumentException("ID văn bản không được để trống");
+        }
+        Document document = documentRepository.findByIdAndDeleteFlgFalse(id)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy văn bản với ID: " + id));
+
+        validateStaffAccess(document, orgId);
+
+        java.util.Map<String, Object> details = new java.util.LinkedHashMap<>();
+        details.put("id", document.getId());
+        details.put("title", document.getTitle());
+        details.put("status", document.getStatus());
+        details.put("orgId", orgId);
+        details.put("updatedAt", document.getUpdatedDate());
+        return details;
+    }
+
+    public Object getDocumentDetailsForStaff(Long id) {
+        return getDocumentDetailsForStaff(id, null);
+    }
+
     public byte[] downloadDocument(Long documentId, Long orgId) {
         Document doc = documentRepository.findAccessiblePublishedDocument(documentId, orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền truy cập văn bản với ID: " + documentId));
@@ -73,6 +99,64 @@ public class DocumentQueryService {
                 .filter(d -> d.getStatus() == DocumentStatus.PUBLISHED || d.getStatus() == DocumentStatus.ISSUED)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền tải văn bản: " + documentId));
         return readDocumentFileContent(doc, documentId);
+    }
+
+    @PreAuthorize("hasAnyRole('LEADER', 'CLERK', 'ADMIN', 'SYSTEM_ADMIN')")
+    public byte[] downloadDocumentForStaff(Long documentId, Long orgId) {
+        if (documentId == null) {
+            throw new IllegalArgumentException("ID văn bản không được để trống");
+        }
+        Document doc = documentRepository.findByIdAndDeleteFlgFalse(documentId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy văn bản với ID: " + documentId));
+
+        validateStaffAccess(doc, orgId);
+        return readDocumentFileContent(doc, documentId);
+    }
+
+    public byte[] downloadDocumentForStaff(Long documentId) {
+        return downloadDocumentForStaff(documentId, null);
+    }
+
+    /**
+     * Xác thực quyền hạn truy cập văn bản cho vai trò nhân viên đặc quyền (LEADER/CLERK).
+     * <p>
+     * Business Rule (UC-16 / Policy Decision):
+     * 1. Văn bản phải ở trạng thái PUBLISHED và chưa bị xóa mềm.
+     * 2. Văn bản có mức độ bảo mật TUYỆT MẬT (SECRET) chỉ dành riêng cho Quản trị viên (ADMIN);
+     *    các vai trò nhân viên / lãnh đạo đơn vị không được phép truy cập để bảo đảm an toàn dữ liệu nhạy cảm.
+     * 3. Với các văn bản phát hành thông thường, kiểm tra đơn vị (orgId): Nếu văn bản thuộc đơn vị cụ thể
+     *    và người dùng có orgId khác (không phải 0L/SYSTEM_WIDE), quyền truy cập sẽ bị từ chối.
+     * 4. Với các văn bản cấp trường hoặc khi orgId là SYSTEM_WIDE_ORG_ID (0L) / null, LEADER và CLERK có thẩm quyền
+     *    tra cứu và tải trên toàn hệ thống theo quy định chỉ đạo và quản lý văn thư của trường.
+     * </p>
+     *
+     * @param doc   Tài liệu cần kiểm tra
+     * @param orgId Mã đơn vị của người dùng (nếu có)
+     * @return true nếu được phép truy cập, ngược lại false
+     */
+    public boolean isStaffAuthorizedForDocument(Document doc, Long orgId) {
+        if (doc == null) {
+            return false;
+        }
+        try {
+            validateStaffAccess(doc, orgId);
+            return true;
+        } catch (AccessDeniedException e) {
+            return false;
+        }
+    }
+
+    private void validateStaffAccess(Document doc, Long orgId) {
+        if (doc == null || doc.getStatus() != DocumentStatus.PUBLISHED) {
+            throw new AccessDeniedException("Bạn không có quyền truy cập văn bản chưa ban hành");
+        }
+        if (doc.getSecurityLevel() == DocumentSecurityLevel.SECRET) {
+            throw new AccessDeniedException("Văn bản tuyệt mật chỉ dành riêng cho Quản trị viên");
+        }
+        Long docOrgId = doc.getOrgId();
+        if (docOrgId != null && orgId != null && !orgId.equals(0L) && !orgId.equals(docOrgId)) {
+            throw new AccessDeniedException("Văn bản thuộc đơn vị khác, bạn không có quyền truy cập");
+        }
     }
 
     private byte[] readDocumentFileContent(Document doc, Long documentId) {
