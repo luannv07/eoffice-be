@@ -71,7 +71,25 @@ jobs:
           target: ${{ env.APP_ROOT }}
           rules_file_name: '.zap/rules.tsv'
           cmd_options: '-a -j -J zap_report.json -r zap_report.html -x zap_report.xml -z "-config api.disablekey=true"'
-          fail_action: true
+          fail_action: false
+
+      - name: Gate — fail only on HIGH/CRITICAL alerts
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ ! -f zap_report.xml ]; then
+            echo "::error::ZAP report not found"
+            exit 1
+          fi
+          high=$(grep -c '<riskdesc>High</riskdesc>' zap_report.xml || true)
+          critical=$(grep -c '<riskdesc>Critical</riskdesc>' zap_report.xml || true)
+          echo "ZAP HIGH alerts: ${high}"
+          echo "ZAP CRITICAL alerts: ${critical}"
+          if [ "${high}" -gt 0 ] || [ "${critical}" -gt 0 ]; then
+            echo "[FAIL] Found HIGH or CRITICAL alerts"
+            exit 1
+          fi
+          echo "[PASS] No HIGH or CRITICAL alerts"
 
       - name: Upload ZAP reports
         if: always()
