@@ -79,7 +79,11 @@ public enum ErrorCode {
 	FILE_UNSAFE("FILE_UNSAFE", "Tệp tin không an toàn hoặc chứa nội dung độc hại", HttpStatus.BAD_REQUEST),
 	FILE_STORAGE_ERROR("FILE_STORAGE_ERROR", "Lỗi trong quá trình lưu trữ tệp tin", HttpStatus.INTERNAL_SERVER_ERROR),
 	APPROVER_NOT_ELIGIBLE("APPROVER_NOT_ELIGIBLE", "Người được chọn không có thẩm quyền duyệt văn bản này", HttpStatus.BAD_REQUEST),
-	DOCUMENT_NUMBER_ALREADY_EXISTS("DOCUMENT_NUMBER_ALREADY_EXISTS", "Số hiệu văn bản đã tồn tại trong hệ thống", HttpStatus.CONFLICT);
+	DOCUMENT_NUMBER_ALREADY_EXISTS("DOCUMENT_NUMBER_ALREADY_EXISTS", "Số hiệu văn bản đã tồn tại trong hệ thống", HttpStatus.CONFLICT),
+	POSITION_ASSIGNMENT_NOT_FOUND("POSITION_ASSIGNMENT_NOT_FOUND", "Không tìm thấy quyết định bổ nhiệm", HttpStatus.NOT_FOUND),
+	POSITION_ASSIGNMENT_OVERLAP("POSITION_ASSIGNMENT_OVERLAP", "Khoảng thời gian bổ nhiệm bị trùng lắp với quyết định hiện có của cùng tài khoản", HttpStatus.CONFLICT),
+	POSITION_ASSIGNMENT_ALREADY_DISMISSED("POSITION_ASSIGNMENT_ALREADY_DISMISSED", "Quyết định bổ nhiệm đã bị miễn nhiệm", HttpStatus.BAD_REQUEST),
+	POSITION_CD_INVALID("POSITION_CD_INVALID", "Mã chức vụ không hợp lệ", HttpStatus.BAD_REQUEST);
 
 	private final String code;
 	private final String message;

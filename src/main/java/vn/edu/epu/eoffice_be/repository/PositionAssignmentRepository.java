@@ -59,4 +59,18 @@ public interface PositionAssignmentRepository extends JpaRepository<PositionAssi
 	}
 
 	boolean existsByUserLoginIdAndDeleteFlgFalse(Long userLoginId);
+
+	@Query("""
+					SELECT COUNT(pa) > 0 FROM PositionAssignment pa
+					WHERE pa.userLogin.id = :userId
+					  AND pa.deleteFlg = false
+					  AND pa.actualDismissalDate IS NULL
+					  AND (pa.id <> :excludeId OR :excludeId IS NULL)
+					  AND (pa.effectiveTo IS NULL OR :from IS NULL OR pa.effectiveTo >= :from)
+					  AND (pa.effectiveFrom IS NULL OR :to IS NULL OR pa.effectiveFrom <= :to)
+					""")
+	boolean existsOverlappingAssignment(@Param("userId") Long userId,
+	                                    @Param("from") Instant from,
+	                                    @Param("to") Instant to,
+	                                    @Param("excludeId") Long excludeId);
 }
