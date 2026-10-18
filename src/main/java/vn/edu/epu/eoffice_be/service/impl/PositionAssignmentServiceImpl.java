@@ -4,6 +4,9 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
@@ -37,30 +40,24 @@ public class PositionAssignmentServiceImpl implements PositionAssignmentService 
 
 	@Override
 	@Transactional(readOnly = true)
-	public List<PositionAssignmentResponse> listByUser(Long userLoginId) {
-		return positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(userLoginId)
-						.stream()
-						.map(this::toResponse)
-						.toList();
+	public Page<PositionAssignmentResponse> listByUser(Long userLoginId, Pageable pageable) {
+		return positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(userLoginId, pageable)
+						.map(this::toResponse);
 	}
 
 	@Override
 	@Transactional(readOnly = true)
-	public List<PositionAssignmentResponse> listByOrgNode(Long orgNodeId) {
-		return positionAssignmentRepository.findByOrgNodeIdAndDeleteFlgFalse(orgNodeId)
-						.stream()
-						.map(this::toResponse)
-						.toList();
+	public Page<PositionAssignmentResponse> listByOrgNode(Long orgNodeId, Pageable pageable) {
+		return positionAssignmentRepository.findByOrgNodeIdAndDeleteFlgFalse(orgNodeId, pageable)
+						.map(this::toResponse);
 	}
 
 	@Override
 	@Transactional(readOnly = true)
-	public List<PositionAssignmentResponse> listActive(Long userId, Instant atTime) {
+	public Page<PositionAssignmentResponse> listActive(Long userId, Instant atTime, Pageable pageable) {
 		Instant effectiveAt = atTime != null ? atTime : Instant.now();
-		return positionAssignmentRepository.findActiveAssignments(userId, effectiveAt)
-						.stream()
-						.map(this::toResponse)
-						.toList();
+		return positionAssignmentRepository.findActiveAssignments(userId, effectiveAt, pageable)
+						.map(this::toResponse);
 	}
 
 	@Override
@@ -114,13 +111,17 @@ public class PositionAssignmentServiceImpl implements PositionAssignmentService 
 				throw new BusinessException(ErrorCode.BAD_REQUEST, "effectiveTo phải sau effectiveFrom");
 			}
 			assignment.setEffectiveTo(request.getEffectiveTo());
+			validateNoOverlap(assignment.getUserLogin().getId(),
+							assignment.getEffectiveFrom(), assignment.getEffectiveTo(), assignment.getId());
 		}
 
 		if (request.getActualDismissalDate() != null) {
 			if (assignment.getActualDismissalDate() != null) {
 				throw new BusinessException(ErrorCode.POSITION_ASSIGNMENT_ALREADY_DISMISSED);
 			}
-			assignment.setActualDismissalDate(request.getActualDismissalDate());
+			Instant dismissalDate = request.getActualDismissalDate();
+			validateDismissalDate(assignment, dismissalDate);
+			assignment.setActualDismissalDate(dismissalDate);
 			assignment.setDismissalReasonCd(request.getDismissalReasonCd());
 			assignment.setDismissalNote(request.getDismissalNote());
 		}
@@ -141,6 +142,8 @@ public class PositionAssignmentServiceImpl implements PositionAssignmentService 
 		Instant dismissalDate = request.getActualDismissalDate() != null
 						? request.getActualDismissalDate()
 						: Instant.now();
+
+		validateDismissalDate(assignment, dismissalDate);
 
 		assignment.setActualDismissalDate(dismissalDate);
 		assignment.setDismissalReasonCd(request.getDismissalReasonCd());
@@ -175,6 +178,17 @@ public class PositionAssignmentServiceImpl implements PositionAssignmentService 
 	private void validateNoOverlap(Long userId, Instant from, Instant to, Long excludeId) {
 		if (positionAssignmentRepository.existsOverlappingAssignment(userId, from, to, excludeId)) {
 			throw new BusinessException(ErrorCode.POSITION_ASSIGNMENT_OVERLAP);
+		}
+	}
+
+	private void validateDismissalDate(PositionAssignment assignment, Instant dismissalDate) {
+		if (!dismissalDate.isAfter(assignment.getEffectiveFrom())) {
+			throw new BusinessException(ErrorCode.BAD_REQUEST,
+							"Ngày miễn nhiệm phải sau ngày có hiệu lực (" + assignment.getEffectiveFrom() + ")");
+		}
+		if (assignment.getEffectiveTo() != null && dismissalDate.isAfter(assignment.getEffectiveTo())) {
+			throw new BusinessException(ErrorCode.BAD_REQUEST,
+							"Ngày miễn nhiệm không được sau ngày hết hiệu lực (" + assignment.getEffectiveTo() + ")");
 		}
 	}
 

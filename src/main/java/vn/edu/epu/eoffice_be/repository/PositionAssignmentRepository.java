@@ -1,5 +1,7 @@
 package vn.edu.epu.eoffice_be.repository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,6 +17,20 @@ public interface PositionAssignmentRepository extends JpaRepository<PositionAssi
 	List<PositionAssignment> findByUserLoginIdAndDeleteFlgFalse(Long userLoginId);
 
 	List<PositionAssignment> findByOrgNodeIdAndDeleteFlgFalse(Long orgNodeId);
+
+	Page<PositionAssignment> findByUserLoginIdAndDeleteFlgFalse(Long userLoginId, Pageable pageable);
+
+	Page<PositionAssignment> findByOrgNodeIdAndDeleteFlgFalse(Long orgNodeId, Pageable pageable);
+
+	@Query("""
+					SELECT pa FROM PositionAssignment pa
+					WHERE pa.userLogin.id = :userId
+					  AND pa.deleteFlg = false
+					  AND pa.actualDismissalDate IS NULL
+					  AND pa.effectiveFrom <= :atTime
+					  AND (pa.effectiveTo IS NULL OR pa.effectiveTo >= :atTime)
+					""")
+	Page<PositionAssignment> findActiveAssignments(@Param("userId") Long userId, @Param("atTime") Instant atTime, Pageable pageable);
 
 	@Query("""
 					SELECT DISTINCT pa FROM PositionAssignment pa

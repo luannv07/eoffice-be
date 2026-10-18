@@ -8,6 +8,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import vn.edu.epu.eoffice_be.common.annotation.Auditable;
@@ -18,7 +21,6 @@ import vn.edu.epu.eoffice_be.dto.response.PositionAssignmentResponse;
 import vn.edu.epu.eoffice_be.service.PositionAssignmentService;
 
 import java.time.Instant;
-import java.util.List;
 
 @RestController
 @RequestMapping("/position-assignments")
@@ -30,33 +32,38 @@ public class PositionAssignmentController {
 
 	private final PositionAssignmentService positionAssignmentService;
 
-	@Operation(summary = "Danh sách bổ nhiệm theo user", description = "Trả về tất cả quyết định bổ nhiệm (kể cả đã hết hiệu lực) của một tài khoản.")
+	@Operation(summary = "Danh sách bổ nhiệm theo user", description = "Trả về phân trang quyết định bổ nhiệm (kể cả đã hết hiệu lực) của một tài khoản.")
 	@ApiResponses({
 					@ApiResponse(responseCode = "200", description = "Danh sách bổ nhiệm của user")
 	})
 	@GetMapping("/user/{userLoginId}")
-	public BaseResponse<List<PositionAssignmentResponse>> listByUser(@PathVariable Long userLoginId) {
-		return BaseResponse.success(positionAssignmentService.listByUser(userLoginId));
+	public BaseResponse<Page<PositionAssignmentResponse>> listByUser(
+					@PathVariable Long userLoginId,
+					@PageableDefault(size = 20) Pageable pageable) {
+		return BaseResponse.success(positionAssignmentService.listByUser(userLoginId, pageable));
 	}
 
-	@Operation(summary = "Danh sách bổ nhiệm theo đơn vị", description = "Trả về tất cả quyết định bổ nhiệm trong một đơn vị tổ chức.")
+	@Operation(summary = "Danh sách bổ nhiệm theo đơn vị", description = "Trả về phân trang quyết định bổ nhiệm trong một đơn vị tổ chức.")
 	@ApiResponses({
 					@ApiResponse(responseCode = "200", description = "Danh sách bổ nhiệm của đơn vị")
 	})
 	@GetMapping("/org-node/{orgNodeId}")
-	public BaseResponse<List<PositionAssignmentResponse>> listByOrgNode(@PathVariable Long orgNodeId) {
-		return BaseResponse.success(positionAssignmentService.listByOrgNode(orgNodeId));
+	public BaseResponse<Page<PositionAssignmentResponse>> listByOrgNode(
+					@PathVariable Long orgNodeId,
+					@PageableDefault(size = 20) Pageable pageable) {
+		return BaseResponse.success(positionAssignmentService.listByOrgNode(orgNodeId, pageable));
 	}
 
-	@Operation(summary = "Danh sách bổ nhiệm đang hiệu lực", description = "Trả về các quyết định đang hiệu lực tại thời điểm cho trước (mặc định: hiện tại).")
+	@Operation(summary = "Danh sách bổ nhiệm đang hiệu lực", description = "Trả về phân trang các quyết định đang hiệu lực tại thời điểm cho trước (mặc định: hiện tại).")
 	@ApiResponses({
 					@ApiResponse(responseCode = "200", description = "Danh sách bổ nhiệm đang hiệu lực")
 	})
 	@GetMapping("/user/{userLoginId}/active")
-	public BaseResponse<List<PositionAssignmentResponse>> listActive(
+	public BaseResponse<Page<PositionAssignmentResponse>> listActive(
 					@PathVariable Long userLoginId,
-					@RequestParam(required = false) Instant atTime) {
-		return BaseResponse.success(positionAssignmentService.listActive(userLoginId, atTime));
+					@RequestParam(required = false) Instant atTime,
+					@PageableDefault(size = 20) Pageable pageable) {
+		return BaseResponse.success(positionAssignmentService.listActive(userLoginId, atTime, pageable));
 	}
 
 	@Operation(summary = "Chi tiết bổ nhiệm", description = "Lấy thông tin chi tiết một quyết định bổ nhiệm theo id.")
