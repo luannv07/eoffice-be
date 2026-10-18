@@ -161,7 +161,7 @@ class PositionAssignmentControllerTest {
 	@Test
 	void getDetailShouldReturn404WhenNotFound() throws Exception {
 		when(positionAssignmentService.getDetail(999L))
-						.thenReturnThrow(new BusinessException(vn.edu.epu.eoffice_be.common.enums.ErrorCode.POSITION_ASSIGNMENT_NOT_FOUND));
+						.thenThrow(new BusinessException(vn.edu.epu.eoffice_be.common.enums.ErrorCode.POSITION_ASSIGNMENT_NOT_FOUND));
 
 		mockMvc.perform(get("/position-assignments/999"))
 						.andExpect(status().isNotFound());
@@ -201,7 +201,7 @@ class PositionAssignmentControllerTest {
 		request.setEffectiveTo(Instant.parse("2027-12-31T23:59:59Z"));
 
 		when(positionAssignmentService.create(any(PositionAssignmentCreateRequest.class)))
-						.thenReturnThrow(new BusinessException(vn.edu.epu.eoffice_be.common.enums.ErrorCode.POSITION_CD_INVALID));
+						.thenThrow(new BusinessException(vn.edu.epu.eoffice_be.common.enums.ErrorCode.POSITION_CD_INVALID));
 
 		mockMvc.perform(post("/position-assignments")
 										.contentType(MediaType.APPLICATION_JSON)
@@ -219,7 +219,7 @@ class PositionAssignmentControllerTest {
 		request.setEffectiveTo(Instant.parse("2027-12-31T23:59:59Z"));
 
 		when(positionAssignmentService.create(any(PositionAssignmentCreateRequest.class)))
-						.thenReturnThrow(new BusinessException(vn.edu.epu.eoffice_be.common.enums.ErrorCode.POSITION_ASSIGNMENT_OVERLAP));
+						.thenThrow(new BusinessException(vn.edu.epu.eoffice_be.common.enums.ErrorCode.POSITION_ASSIGNMENT_OVERLAP));
 
 		mockMvc.perform(post("/position-assignments")
 										.contentType(MediaType.APPLICATION_JSON)
@@ -265,7 +265,7 @@ class PositionAssignmentControllerTest {
 		request.setEffectiveTo(Instant.parse("2028-12-31T23:59:59Z"));
 
 		when(positionAssignmentService.update(eq(999L), any(PositionAssignmentUpdateRequest.class)))
-						.thenReturnThrow(new BusinessException(vn.edu.epu.eoffice_be.common.enums.ErrorCode.POSITION_ASSIGNMENT_NOT_FOUND));
+						.thenThrow(new BusinessException(vn.edu.epu.eoffice_be.common.enums.ErrorCode.POSITION_ASSIGNMENT_NOT_FOUND));
 
 		mockMvc.perform(put("/position-assignments/999")
 										.contentType(MediaType.APPLICATION_JSON)
@@ -279,7 +279,7 @@ class PositionAssignmentControllerTest {
 		request.setEffectiveTo(Instant.parse("2028-12-31T23:59:59Z"));
 
 		when(positionAssignmentService.update(eq(10L), any(PositionAssignmentUpdateRequest.class)))
-						.thenReturnThrow(new BusinessException(vn.edu.epu.eoffice_be.common.enums.ErrorCode.POSITION_ASSIGNMENT_OVERLAP));
+						.thenThrow(new BusinessException(vn.edu.epu.eoffice_be.common.enums.ErrorCode.POSITION_ASSIGNMENT_OVERLAP));
 
 		mockMvc.perform(put("/position-assignments/10")
 										.contentType(MediaType.APPLICATION_JSON)
@@ -293,7 +293,7 @@ class PositionAssignmentControllerTest {
 		request.setActualDismissalDate(Instant.parse("2025-06-30T00:00:00Z"));
 
 		when(positionAssignmentService.update(eq(10L), any(PositionAssignmentUpdateRequest.class)))
-						.thenReturnThrow(new BusinessException(vn.edu.epu.eoffice_be.common.enums.ErrorCode.BAD_REQUEST));
+						.thenThrow(new BusinessException(vn.edu.epu.eoffice_be.common.enums.ErrorCode.BAD_REQUEST));
 
 		mockMvc.perform(put("/position-assignments/10")
 										.contentType(MediaType.APPLICATION_JSON)

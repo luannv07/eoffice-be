@@ -216,7 +216,7 @@ class PositionAssignmentServiceImplTest {
 						.thenReturn(Optional.of(user(1L)));
 		when(orgNodeRepository.findByIdAndDeleteFlgFalse(100L))
 						.thenReturn(Optional.of(orgNode(100L)));
-		when(positionAssignmentRepository.existsOverlappingAssignment(eq(1L), any(), any(), eq(false)))
+		when(positionAssignmentRepository.existsOverlappingAssignment(eq(1L), any(), any(), any()))
 						.thenReturn(false);
 		when(positionAssignmentRepository.save(any(PositionAssignment.class)))
 						.thenAnswer(inv -> {
@@ -247,7 +247,7 @@ class PositionAssignmentServiceImplTest {
 						.thenReturn(Optional.of(user(1L)));
 		when(orgNodeRepository.findByIdAndDeleteFlgFalse(100L))
 						.thenReturn(Optional.of(orgNode(100L)));
-		when(positionAssignmentRepository.existsOverlappingAssignment(eq(1L), any(), any(), eq(false)))
+		when(positionAssignmentRepository.existsOverlappingAssignment(eq(1L), any(), any(), any()))
 						.thenReturn(false);
 		when(positionAssignmentRepository.save(any(PositionAssignment.class)))
 						.thenAnswer(inv -> {
@@ -337,7 +337,7 @@ class PositionAssignmentServiceImplTest {
 						.thenReturn(Optional.of(user(1L)));
 		when(orgNodeRepository.findByIdAndDeleteFlgFalse(100L))
 						.thenReturn(Optional.of(orgNode(100L)));
-		when(positionAssignmentRepository.existsOverlappingAssignment(eq(1L), any(), any(), eq(false)))
+		when(positionAssignmentRepository.existsOverlappingAssignment(eq(1L), any(), any(), any()))
 						.thenReturn(true);
 
 		BusinessException ex = assertThrows(BusinessException.class,
@@ -608,7 +608,7 @@ class PositionAssignmentServiceImplTest {
 						.thenReturn(Optional.of(user(1L)));
 		when(orgNodeRepository.findByIdAndDeleteFlgFalse(100L))
 						.thenReturn(Optional.of(orgNode(100L)));
-		when(positionAssignmentRepository.existsOverlappingAssignment(eq(1L), any(), any(), eq(false)))
+		when(positionAssignmentRepository.existsOverlappingAssignment(eq(1L), any(), any(), any()))
 						.thenReturn(false);
 		when(positionAssignmentRepository.save(any(PositionAssignment.class)))
 						.thenAnswer(inv -> {
