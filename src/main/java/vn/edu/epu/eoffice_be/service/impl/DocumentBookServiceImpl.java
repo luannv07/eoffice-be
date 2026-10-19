@@ -360,6 +360,8 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 								.build();
 						documentWorkflowLogRepository.save(workflowLog);
 					}
+				} catch (BusinessException ex) {
+					throw ex;
 				} catch (Exception ex) {
 					log.error("Lỗi khi văn thư ký nháy văn bản id={}: {}", document.getId(), ex.getMessage(), ex);
 					throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR, "Lỗi khi văn thư ký nháy cấp số: " + ex.getMessage());

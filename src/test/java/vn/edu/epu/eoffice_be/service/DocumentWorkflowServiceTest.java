@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -28,6 +29,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -70,6 +73,7 @@ import vn.edu.epu.eoffice_be.repository.OrgNodeRepository;
 import vn.edu.epu.eoffice_be.repository.UserInfoRepository;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
 import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
+import vn.edu.epu.eoffice_be.security.pki.DuplicateSignatureException;
 import vn.edu.epu.eoffice_be.security.pki.PdfSigner;
 import vn.edu.epu.eoffice_be.service.impl.DocumentWorkflowServiceImpl;
 import vn.edu.epu.eoffice_be.workflow.WorkflowEngine;
@@ -134,6 +138,138 @@ class DocumentWorkflowServiceTest {
     @AfterEach
     void tearDown() {
         SecurityContextHolder.clearContext();
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ErrorCode.class, names = {
+            "PKI_CA_NOT_INITIALIZED", "PKI_CA_EXPIRED", "PKI_CA_RECOVERY_REQUIRED",
+            "PKI_STORAGE_ERROR", "PKI_USER_KEYSTORE_INVALID"
+    })
+    void signAndPublish_preliminarySignatureKeepsPkiErrorAndStopsPublishing(ErrorCode code) {
+        preparePublishDocument();
+        BusinessException failure = new BusinessException(code);
+        when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString())).thenThrow(failure);
+
+        BusinessException actual = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.signAndPublish(5001L, DocumentPublishRequest.builder().build()));
+
+        assertSame(failure, actual);
+        assertPublishingDidNotContinue();
+        verify(pdfSigner, never()).signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ErrorCode.class, names = {
+            "PKI_CA_NOT_INITIALIZED", "PKI_CA_EXPIRED", "PKI_CA_RECOVERY_REQUIRED",
+            "PKI_STORAGE_ERROR", "PKI_USER_KEYSTORE_INVALID"
+    })
+    void signAndPublish_certificationKeepsPkiErrorAndStopsPublishing(ErrorCode code) {
+        byte[] rawBytes = preparePublishDocument();
+        when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString()))
+                .thenReturn(testSignature(rawBytes));
+        BusinessException failure = new BusinessException(code);
+        when(pdfSigner.signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any())).thenThrow(failure);
+
+        BusinessException actual = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.signAndPublish(5001L, DocumentPublishRequest.builder().build()));
+
+        assertSame(failure, actual);
+        assertPublishingDidNotContinue();
+    }
+
+    @Test
+    void signAndPublish_untypedIllegalStateIsNotTreatedAsDuplicate() {
+        preparePublishDocument();
+        when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString()))
+                .thenThrow(new IllegalStateException("User đã ký - unrelated failure"));
+
+        BusinessException actual = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.signAndPublish(5001L, DocumentPublishRequest.builder().build()));
+
+        assertEquals(ErrorCode.SIGNATURE_PROCESS_ERROR, actual.getErrorCode());
+        assertPublishingDidNotContinue();
+        verify(pdfSigner, never()).signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void signAndPublish_missingPreliminaryResultStopsPublishing() {
+        preparePublishDocument();
+
+        BusinessException actual = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.signAndPublish(5001L, DocumentPublishRequest.builder().build()));
+
+        assertEquals(ErrorCode.SIGNATURE_PROCESS_ERROR, actual.getErrorCode());
+        assertPublishingDidNotContinue();
+        verify(pdfSigner, never()).signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void signAndPublish_duplicatePreliminarySignatureCertifiesExistingPdf() {
+        byte[] rawBytes = preparePublishDocument();
+        when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString()))
+                .thenThrow(new DuplicateSignatureException("User đã ký: 1002"));
+        when(pdfSigner.signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(testSignature(new byte[]{4, 5, 6}));
+        when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString()))
+                .thenReturn("official/doc_5001.pdf");
+        when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("official_hash");
+
+        documentWorkflowService.signAndPublish(5001L, DocumentPublishRequest.builder().build());
+
+        verify(pdfSigner).signAndCertifyBytes(eq(rawBytes), eq("1002"), anyString(), any(), any(), anyString(), any());
+        verify(workflowEngine).executeTransition(eq(document), eq(WorkflowAction.SIGN_AND_PUBLISH),
+                eq(leader), any(), any(), any(), eq("official_hash"));
+    }
+
+    @Test
+    void initialSign_missingCaKeepsErrorAndDoesNotChangeDocument() {
+        preparePublishDocument();
+        BusinessException failure = new BusinessException(ErrorCode.PKI_CA_NOT_INITIALIZED);
+        when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString())).thenThrow(failure);
+
+        BusinessException actual = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.initialSign(5001L, DocumentInitialSignRequest.builder().build()));
+
+        assertSame(failure, actual);
+        assertPublishingDidNotContinue();
+    }
+
+    @Test
+    void approve_missingCaKeepsErrorAndDoesNotChangeDocument() {
+        preparePublishDocument();
+        document.setStatus(DocumentStatus.IN_REVIEW);
+        BusinessException failure = new BusinessException(ErrorCode.PKI_CA_NOT_INITIALIZED);
+        when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString())).thenThrow(failure);
+
+        BusinessException actual = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.approve(5001L, DocumentApproveRequest.builder().build()));
+
+        assertSame(failure, actual);
+        assertEquals(DocumentStatus.IN_REVIEW, document.getStatus());
+        verify(workflowEngine, never()).executeTransition(any(), any(), any(), any(), any(), any(), any());
+        verify(fileStorageService, never()).storeFile(any(), any(), any());
+    }
+
+    private byte[] preparePublishDocument() {
+        document.setStatus(DocumentStatus.APPROVED);
+        document.setOfficialNumber("1/QD-DHEPU");
+        document.setPrimaryFilePath("drafts/sample.pdf");
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        byte[] rawBytes = new byte[]{1, 2, 3};
+        when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(rawBytes);
+        return rawBytes;
+    }
+
+    private PdfSigner.SignResult testSignature(byte[] bytes) {
+        return new PdfSigner.SignResult("1002", "leader", "123456", "signed_hash", new java.util.Date(),
+                "sig_user_1002", null, bytes);
+    }
+
+    private void assertPublishingDidNotContinue() {
+        assertEquals(DocumentStatus.APPROVED, document.getStatus());
+        assertNull(document.getOfficialFilePath());
+        verify(workflowEngine, never()).executeTransition(any(), any(), any(), any(), any(), any(), any());
+        verify(fileStorageService, never()).storeFile(any(), any(), any());
     }
 
     @Test
@@ -467,6 +603,8 @@ class DocumentWorkflowServiceTest {
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
         when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
+        when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString()))
+                .thenReturn(testSignature(mockBytes));
         when(pdfSigner.signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
                         "1002", "leader", "123456", "official_sha256_hash", new java.util.Date(), "sig_publish_1002", null, mockBytes
@@ -613,6 +751,8 @@ class DocumentWorkflowServiceTest {
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
         when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
+        when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString()))
+                .thenReturn(testSignature(mockBytes));
         when(pdfSigner.signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
                         "1002", "leader", "123456", "official_sha256_hash", new java.util.Date(), "sig_publish_1002", null, mockBytes
@@ -1427,6 +1567,8 @@ class DocumentWorkflowServiceTest {
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
         when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
+        when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString()))
+                .thenReturn(testSignature(mockBytes));
         when(pdfSigner.signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
                         "1002", "leader", "123456", "hash", new java.util.Date(), "sig_publish_1002", null, mockBytes
@@ -1506,6 +1648,8 @@ class DocumentWorkflowServiceTest {
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
         when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
+        when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString()))
+                .thenReturn(testSignature(mockBytes));
         when(pdfSigner.signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
                         "1002", "leader", "123456", "hash", new java.util.Date(), "sig_publish_1002", null, mockBytes
@@ -1553,6 +1697,8 @@ class DocumentWorkflowServiceTest {
 
         byte[] mockBytes = new byte[]{1, 2, 3};
         when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
+        when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString()))
+                .thenReturn(testSignature(mockBytes));
         when(pdfSigner.signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
                         "1002", "leader", "123456", "hash_sha256", new java.util.Date(), "sig_publish_1002", null, mockBytes

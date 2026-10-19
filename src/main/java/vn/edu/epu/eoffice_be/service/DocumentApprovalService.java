@@ -263,6 +263,8 @@ public class DocumentApprovalService {
                 signatureHash = signResult.outPdfSha256();
                 log.info("Đã tự động ký nháy lần 1 cho văn bản id={}, người ký={}, hash={}",
                         document.getId(), sender.getUsername(), signatureHash);
+            } catch (BusinessException ex) {
+                throw ex;
             } catch (Exception ex) {
                 log.error("Lỗi khi tự động ký nháy văn bản id={}: {}", document.getId(), ex.getMessage(), ex);
                 throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR,

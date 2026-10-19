@@ -4,6 +4,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -137,6 +139,33 @@ class DocumentBookServiceImplTest {
 	@AfterEach
 	void tearDown() {
 		SecurityContextHolder.clearContext();
+	}
+
+	@ParameterizedTest
+	@EnumSource(value = ErrorCode.class, names = {
+			"PKI_CA_NOT_INITIALIZED", "PKI_CA_EXPIRED", "PKI_CA_RECOVERY_REQUIRED",
+			"PKI_STORAGE_ERROR", "PKI_USER_KEYSTORE_INVALID"
+	})
+	void assignNumber_keepsPkiErrorAndDoesNotStoreSignedDocument(ErrorCode code) {
+		Document document = Document.builder().id(5001L).status(DocumentStatus.APPROVED)
+				.documentTypeCd("QD").primaryFilePath("drafts/sample.pdf").issuingOrg(orgNode).build();
+		when(documentBookRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(book));
+		when(documentRepository.findById(5001L)).thenReturn(Optional.of(document));
+		when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(new byte[]{1, 2, 3});
+		BusinessException failure = new BusinessException(code);
+		when(pdfSigner.signBytes(any(byte[].class), eq("3003"), anyString(), anyString())).thenThrow(failure);
+		AssignDocumentNumberRequest request = new AssignDocumentNumberRequest();
+		request.setBookId(1L);
+		request.setDocumentId(5001L);
+		request.setEffectiveDate(LocalDate.of(2026, 9, 10));
+
+		BusinessException actual = assertThrows(BusinessException.class, () -> documentBookService.assignNumber(request));
+
+		assertSame(failure, actual);
+		assertEquals(DocumentStatus.APPROVED, document.getStatus());
+		assertEquals("drafts/sample.pdf", document.getPrimaryFilePath());
+		verify(fileStorageService, never()).storeFile(any(), any(), any());
+		verify(documentWorkflowLogRepository, never()).save(any());
 	}
 
 	@Test

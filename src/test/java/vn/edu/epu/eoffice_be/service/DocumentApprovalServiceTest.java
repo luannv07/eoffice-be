@@ -3,6 +3,8 @@ package vn.edu.epu.eoffice_be.service;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -39,6 +41,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -78,6 +81,39 @@ class DocumentApprovalServiceTest {
 
     @InjectMocks
     private DocumentApprovalService documentApprovalService;
+
+    @ParameterizedTest
+    @EnumSource(value = ErrorCode.class, names = {
+            "PKI_CA_NOT_INITIALIZED", "PKI_CA_EXPIRED", "PKI_CA_RECOVERY_REQUIRED",
+            "PKI_STORAGE_ERROR", "PKI_USER_KEYSTORE_INVALID"
+    })
+    void submitForApproval_keepsPkiErrorAndDoesNotSubmitDocument(ErrorCode code) {
+        UserLogin sender = UserLogin.builder().id(100L).username("author").role(Role.USER).build();
+        UserLogin approver = UserLogin.builder().id(200L).username("dean").role(Role.ADMIN).build();
+        Document document = Document.builder().id(1L).title("Title").summary("Summary")
+                .creatorUser(sender).status(DocumentStatus.DRAFT).primaryFilePath("drafts/doc_1.pdf").build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(sender));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(200L)).thenReturn(Optional.of(approver));
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
+        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(1L))
+                .thenReturn(true);
+        when(fileStorageService.loadFileBytes("drafts/doc_1.pdf")).thenReturn(new byte[]{1, 2, 3});
+        BusinessException failure = new BusinessException(code);
+        when(pdfSigner.signBytes(any(), any(), any(), any(), any(), any())).thenThrow(failure);
+
+        BusinessException actual = assertThrows(BusinessException.class,
+                () -> documentApprovalService.submitForApproval(1L,
+                        SubmitApprovalRequest.builder().approverUserId(200L).build(), 100L));
+
+        assertSame(failure, actual);
+        assertEquals(DocumentStatus.DRAFT, document.getStatus());
+        assertEquals("drafts/doc_1.pdf", document.getPrimaryFilePath());
+        verify(documentRepository, never()).save(any());
+        verify(documentApprovalRequestRepository, never()).save(any());
+        verify(documentProcessLogRepository, never()).save(any());
+        verify(fileStorageService, never()).storeFile(any(), any(), any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
 
     @Test
     @DisplayName("Gửi văn bản để duyệt thành công (UC11 - Luồng 2.1)")
