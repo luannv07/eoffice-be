@@ -90,8 +90,8 @@ public class PdfSignerTest {
         Path signed1 = tempDir.resolve("doc_signed_1.pdf");
         Path signed2 = tempDir.resolve("doc_signed_2.pdf");
 
-        Path testKeystores = tempDir.resolve("keystores");
-        PdfSigner signer = new PdfSigner(testKeystores.toString(), "changeit");
+        PkiTestFixture pki = PkiTestFixture.create(tempDir);
+        PdfSigner signer = pki.signer();
         signer.ensureUserCertificate("1001", "Nguyen Van A");
         signer.ensureUserCertificate("1002", "Tran Thi B");
 
@@ -140,7 +140,7 @@ public class PdfSignerTest {
 
         // 3. Kiểm tra chống ký trùng lặp: người 1001 không được ký lại trên cùng tài liệu
         Path signedDuplicate = tempDir.resolve("doc_dup.pdf");
-        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> {
+        DuplicateSignatureException ex = assertThrows(DuplicateSignatureException.class, () -> {
             signer.sign(signed2, signedDuplicate, "1001", "Cố tình ký lại");
         });
         assertTrue(ex.getMessage().contains("User đã ký: 1001"));
@@ -149,8 +149,8 @@ public class PdfSignerTest {
     @Test
     void testSignBytesOverload() throws Exception {
         byte[] originalBytes = createSamplePdfBytes();
-        Path testKeystores = tempDir.resolve("keystores_bytes");
-        PdfSigner signer = new PdfSigner(testKeystores.toString(), "changeit");
+        PkiTestFixture pki = PkiTestFixture.create(tempDir);
+        PdfSigner signer = pki.signer();
 
         PdfSigner.SignResult result = signer.signBytes(originalBytes, "1001", "Nguyen Van A", "Ký nháy byte array");
         assertNotNull(result);
@@ -168,8 +168,8 @@ public class PdfSignerTest {
     @Test
     void testSignAndCertifyBytes_sequentialApprovalAndCertification_shouldPass7Criteria() throws Exception {
         byte[] originalBytes = createSamplePdfBytes();
-        Path testKeystores = tempDir.resolve("keystores_certify");
-        PdfSigner signer = new PdfSigner(testKeystores.toString(), "changeit");
+        PkiTestFixture pki = PkiTestFixture.create(tempDir);
+        PdfSigner signer = pki.signer();
 
         // 1. Chuyên viên 1001 ký nháy
         PdfSigner.SignResult approvalResult = signer.signBytes(
@@ -198,7 +198,7 @@ public class PdfSignerTest {
         assertEquals("sig_publish_1002", certifyResult.fieldName());
 
         // 3. Kiểm tra bằng PdfSignatureVerifier (7 tiêu chí)
-        PdfSignatureVerifier verifier = new PdfSignatureVerifier();
+        PdfSignatureVerifier verifier = pki.verifier();
         vn.edu.epu.eoffice_be.dto.response.DocumentSignatureVerifyResponse verifyResponse =
                 verifier.verify(certifyResult.signedPdfBytes());
 
@@ -224,8 +224,8 @@ public class PdfSignerTest {
     @Test
     void testSignVisibleBytes_LeaderApprove_WithoutDocMdpLock() throws Exception {
         byte[] rawPdf = createSamplePdfBytes();
-        Path testKeystores = tempDir.resolve("keystores");
-        PdfSigner signer = new PdfSigner(testKeystores.toString(), "changeit");
+        PkiTestFixture pki = PkiTestFixture.create(tempDir);
+        PdfSigner signer = pki.signer();
 
         // 1. Hiệu trưởng ký số hiển thị với ảnh con dấu tại tọa độ mặc định (trang cuối)
         PdfSigner.SignResult leaderResult = signer.signVisibleBytes(
@@ -253,7 +253,7 @@ public class PdfSignerTest {
         assertNotNull(clerkResult.signedPdfBytes());
 
         // 3. Kiểm định bằng PdfSignatureVerifier: cả 2 chữ ký đều hợp lệ
-        PdfSignatureVerifier verifier = new PdfSignatureVerifier();
+        PdfSignatureVerifier verifier = pki.verifier();
         var verifyResponse = verifier.verify(clerkResult.signedPdfBytes());
 
         assertNotNull(verifyResponse);

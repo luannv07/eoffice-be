@@ -34,6 +34,7 @@ import vn.edu.epu.eoffice_be.dto.response.DocumentSignatureVerifyResponse;
 import vn.edu.epu.eoffice_be.dto.response.SignatureItemResponse;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
@@ -603,7 +604,20 @@ public class PdfSignatureVerifier {
                 return Collections.emptySet();
             }
             ObjectMapper mapper = (this.objectMapper != null) ? this.objectMapper : new ObjectMapper();
-            List<String> list = mapper.readValue(path.toFile(), new TypeReference<List<String>>() {});
+            byte[] bytes = PkiFileSupport.withJvmLock(path, () -> {
+                try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ);
+                     FileLock ignored = channel.lock(0L, Long.MAX_VALUE, true)) {
+                    ByteArrayOutputStream output = new ByteArrayOutputStream();
+                    ByteBuffer buffer = ByteBuffer.allocate(8192);
+                    while (channel.read(buffer) != -1) {
+                        buffer.flip();
+                        output.write(buffer.array(), 0, buffer.remaining());
+                        buffer.clear();
+                    }
+                    return output.toByteArray();
+                }
+            });
+            List<String> list = mapper.readValue(bytes, new TypeReference<List<String>>() {});
             if (list == null) return Collections.emptySet();
 
             Set<String> set = new HashSet<>();
@@ -649,54 +663,58 @@ public class PdfSignatureVerifier {
 
                 ObjectMapper mapper = (this.objectMapper != null) ? this.objectMapper : new ObjectMapper();
 
-                try (FileChannel channel = FileChannel.open(path,
-                        StandardOpenOption.CREATE,
-                        StandardOpenOption.READ,
-                        StandardOpenOption.WRITE);
-                     FileLock lock = channel.lock()) {
+                // Same normalized JVM lock as CA readiness readers, before either file lock.
+                PkiFileSupport.withJvmLock(path, () -> {
+                    try (FileChannel channel = FileChannel.open(path,
+                            StandardOpenOption.CREATE,
+                            StandardOpenOption.READ,
+                            StandardOpenOption.WRITE);
+                         FileLock lock = channel.lock()) {
 
-                    Set<String> set = new LinkedHashSet<>();
-                    if (channel.size() > 0) {
-                        channel.position(0);
-                        ByteBuffer inBuffer = ByteBuffer.allocate((int) channel.size());
-                        int bytesRead;
-                        while (inBuffer.hasRemaining() && (bytesRead = channel.read(inBuffer)) > 0) {
-                            // Tiếp tục đọc cho tới khi đầy buffer hoặc chạm EOF
-                        }
-                        inBuffer.flip();
-                        if (inBuffer.limit() > 0) {
-                            try {
-                                List<String> list = mapper.readValue(inBuffer.array(), 0, inBuffer.limit(), new TypeReference<List<String>>() {});
-                                if (list != null) {
-                                    for (String s : list) {
-                                        if (s != null && !s.isBlank()) {
-                                            set.add(s.trim().toLowerCase());
+                        Set<String> set = new LinkedHashSet<>();
+                        if (channel.size() > 0) {
+                            channel.position(0);
+                            ByteBuffer inBuffer = ByteBuffer.allocate((int) channel.size());
+                            int bytesRead;
+                            while (inBuffer.hasRemaining() && (bytesRead = channel.read(inBuffer)) > 0) {
+                                // Tiếp tục đọc cho tới khi đầy buffer hoặc chạm EOF
+                            }
+                            inBuffer.flip();
+                            if (inBuffer.limit() > 0) {
+                                try {
+                                    List<String> list = mapper.readValue(inBuffer.array(), 0, inBuffer.limit(), new TypeReference<List<String>>() {});
+                                    if (list != null) {
+                                        for (String s : list) {
+                                            if (s != null && !s.isBlank()) {
+                                                set.add(s.trim().toLowerCase());
+                                            }
                                         }
                                     }
+                                } catch (Exception parseEx) {
+                                    log.warn("Không thể parse nội dung hiện tại của '{}': {}", revokedPath, parseEx.getMessage());
                                 }
-                            } catch (Exception parseEx) {
-                                log.warn("Không thể parse nội dung hiện tại của '{}': {}", revokedPath, parseEx.getMessage());
                             }
                         }
-                    }
 
-                    for (String s : serialHexes) {
-                        if (s != null && !s.isBlank()) {
-                            set.add(s.trim().toLowerCase());
+                        for (String s : serialHexes) {
+                            if (s != null && !s.isBlank()) {
+                                set.add(s.trim().toLowerCase());
+                            }
                         }
-                    }
 
-                    byte[] updatedBytes = mapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(set);
-                    channel.truncate(0);
-                    channel.position(0);
-                    ByteBuffer outBuffer = ByteBuffer.wrap(updatedBytes);
-                    while (outBuffer.hasRemaining()) {
-                        channel.write(outBuffer);
-                    }
-                    channel.force(true);
+                        byte[] updatedBytes = mapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(set);
+                        channel.truncate(0);
+                        channel.position(0);
+                        ByteBuffer outBuffer = ByteBuffer.wrap(updatedBytes);
+                        while (outBuffer.hasRemaining()) {
+                            channel.write(outBuffer);
+                        }
+                        channel.force(true);
 
-                    log.info("Đã cập nhật danh sách thu hồi CRL ({}) với các serials: {}", path, serialHexes);
-                }
+                        log.info("Đã cập nhật danh sách thu hồi CRL ({}) với các serials: {}", path, serialHexes);
+                    }
+                    return null;
+                });
             } catch (Exception e) {
                 log.error("Lỗi khi ghi danh sách thu hồi CRL vào '{}': {}", revokedPath, e.getMessage(), e);
                 throw new RuntimeException("Không thể cập nhật danh sách thu hồi CRL: " + e.getMessage(), e);
