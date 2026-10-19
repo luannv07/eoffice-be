@@ -318,10 +318,16 @@ class PositionAssignmentServiceImplTest {
 		request.setEffectiveFrom(Instant.parse("2027-01-01T00:00:00Z"));
 		request.setEffectiveTo(Instant.parse("2026-01-01T00:00:00Z"));
 
+		when(userLoginRepository.findByIdAndDeleteFlgFalse(1L))
+						.thenReturn(Optional.of(user(1L)));
+		when(orgNodeRepository.findByIdAndDeleteFlgFalse(100L))
+						.thenReturn(Optional.of(orgNode(100L)));
+
 		BusinessException ex = assertThrows(BusinessException.class,
 						() -> positionAssignmentService.create(request));
 
 		assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
+		verify(positionAssignmentRepository, never()).save(any(PositionAssignment.class));
 	}
 
 	@Test
