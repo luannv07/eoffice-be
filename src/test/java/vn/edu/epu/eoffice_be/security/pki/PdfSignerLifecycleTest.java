@@ -131,8 +131,16 @@ class PdfSignerLifecycleTest {
         pki.signer().ensureUserCertificate("1001", "A");
         var record = record(pki);
         switch (damage) {
-            case "ciphertext" -> record.getKeystoreEncrypted()[0] ^= 1;
-            case "nonce" -> record.getEncryptionNonce()[0] ^= 1;
+            case "ciphertext" -> {
+                byte[] changed = record.getKeystoreEncrypted();
+                changed[0] ^= 1;
+                record.setKeystoreEncrypted(changed);
+            }
+            case "nonce" -> {
+                byte[] changed = record.getEncryptionNonce();
+                changed[0] ^= 1;
+                record.setEncryptionNonce(changed);
+            }
             case "key-id" -> record.setEncryptionKeyId("unknown");
             case "pem" -> record.setCertificatePem("broken certificate");
             case "serial" -> record.setCertificateSerial("incorrect");

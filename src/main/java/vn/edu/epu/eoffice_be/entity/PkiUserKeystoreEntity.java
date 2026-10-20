@@ -44,6 +44,22 @@ public class PkiUserKeystoreEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    public byte[] getKeystoreEncrypted() {
+        return keystoreEncrypted == null ? null : keystoreEncrypted.clone();
+    }
+
+    public void setKeystoreEncrypted(byte[] keystoreEncrypted) {
+        this.keystoreEncrypted = keystoreEncrypted == null ? null : keystoreEncrypted.clone();
+    }
+
+    public byte[] getEncryptionNonce() {
+        return encryptionNonce == null ? null : encryptionNonce.clone();
+    }
+
+    public void setEncryptionNonce(byte[] encryptionNonce) {
+        this.encryptionNonce = encryptionNonce == null ? null : encryptionNonce.clone();
+    }
+
     @PrePersist
     private void initializeCreatedAt() {
         if (createdAt == null) createdAt = Instant.now();

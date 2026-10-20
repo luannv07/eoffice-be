@@ -129,8 +129,16 @@ class PkiCaServiceTest {
         var pki = PkiTestFixture.create(directory);
         var record = pki.repository().findActive().orElseThrow();
         switch (damage) {
-            case "ciphertext" -> record.getKeystoreEncrypted()[0] ^= 1;
-            case "nonce" -> record.getEncryptionNonce()[0] ^= 1;
+            case "ciphertext" -> {
+                byte[] changed = record.getKeystoreEncrypted();
+                changed[0] ^= 1;
+                record.setKeystoreEncrypted(changed);
+            }
+            case "nonce" -> {
+                byte[] changed = record.getEncryptionNonce();
+                changed[0] ^= 1;
+                record.setEncryptionNonce(changed);
+            }
             case "aes" -> {
                 byte[] wrong = new byte[32]; Arrays.fill(wrong, (byte) 1);
                 pki.encryptionProperties().setKey(Base64.getEncoder().encodeToString(wrong));
