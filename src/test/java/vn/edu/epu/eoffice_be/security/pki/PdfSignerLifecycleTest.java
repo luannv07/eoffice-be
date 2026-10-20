@@ -16,6 +16,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.dao.DataAccessResourceFailureException;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
+import vn.edu.epu.eoffice_be.entity.PkiUserKeystoreEntity;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;
@@ -25,276 +26,222 @@ import java.security.KeyPairGenerator;
 import java.security.cert.Certificate;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.concurrent.Callable;
-import java.util.concurrent.Executors;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class PdfSignerLifecycleTest {
-    @TempDir
-    Path directory;
+    @TempDir Path directory;
 
     @Test
     void missingCaFailsBeforeCreatingUserMaterial() throws Exception {
-        PkiTestFixture pki = PkiTestFixture.withoutCa(directory);
-        byte[] pdf = pdf();
-        BusinessException error = assertThrows(BusinessException.class,
-                () -> pki.signer().signBytes(pdf, "1001", "Nguyen Van A", "Ký"));
-        assertEquals(ErrorCode.PKI_CA_NOT_INITIALIZED, error.getErrorCode());
-        assertFalse(Files.exists(pki.properties().caKeystore()));
+        var pki = PkiTestFixture.withoutCa(directory);
+        assertError(ErrorCode.PKI_CA_NOT_INITIALIZED, () -> pki.signer().signBytes(pdf(), "1001", "A", "Sign"));
+        verify(pki.userRepository(), never()).saveAndFlush(any());
         assertFalse(Files.exists(pki.properties().userKeystores()));
     }
 
     @Test
     void allPathSigningEntryPointsRequireCaBeforeWritingOutput() {
-        PkiTestFixture pki = PkiTestFixture.withoutCa(directory);
-        PdfSigner signer = pki.signer();
-        Path input = directory.resolve("input.pdf");
-        Path output = directory.resolve("output.pdf");
-        var operations = java.util.List.<org.junit.jupiter.api.function.Executable>of(
-                () -> signer.sign(input, output, "1001", "Ký"),
-                () -> signer.signVisible(input, output, "1001", "Ký", null),
-                () -> signer.signAndCertify(input, output, "1001", "Ký", null));
-        for (var operation : operations) {
-            BusinessException error = assertThrows(BusinessException.class, operation);
-            assertEquals(ErrorCode.PKI_CA_NOT_INITIALIZED, error.getErrorCode());
-        }
+        var pki = PkiTestFixture.withoutCa(directory);
+        Path input = directory.resolve("input.pdf"), output = directory.resolve("output.pdf");
+        var signer = pki.signer();
+        assertError(ErrorCode.PKI_CA_NOT_INITIALIZED, () -> signer.sign(input, output, "1001", "Sign"));
+        assertError(ErrorCode.PKI_CA_NOT_INITIALIZED, () -> signer.signVisible(input, output, "1001", "Sign", null));
+        assertError(ErrorCode.PKI_CA_NOT_INITIALIZED, () -> signer.signAndCertify(input, output, "1001", "Sign", null));
         assertFalse(Files.exists(output));
     }
 
     @Test
-    void firstSignCreatesKeysAndNewInstanceReusesTheSameBytes() throws Exception {
-        PkiTestFixture pki = PkiTestFixture.create(directory);
-        byte[] ca = Files.readAllBytes(pki.properties().caKeystore());
-        var first = pki.signer().signBytes(pdf(), "1001", "Nguyen Van A", "Ký lần đầu");
-        Path keystore = userP12(pki, "1001");
-        Path certificate = userCertificate(pki, "1001");
-        byte[] originalP12 = Files.readAllBytes(keystore);
-        byte[] originalCertificate = Files.readAllBytes(certificate);
-        Path staleTemporary = pki.properties().userKeystores().resolve(".user_1001.p12.cleanup.tmp");
-        Files.writeString(staleTemporary, "old temporary material");
-        var second = pki.signer().signBytes(pdf(), "1001", "Tên thay đổi", "Ký tài liệu khác");
+    void firstSignPersistsOneEncryptedKeystoreAndNewInstanceReusesItWithoutFiles() throws Exception {
+        var pki = PkiTestFixture.create(directory);
+        var first = pki.signer().signBytes(pdf(), "1001", "Nguyen Van A", "First");
+        var record = record(pki);
+        byte[] encrypted = record.getKeystoreEncrypted().clone();
+        var second = pki.signer().signBytes(pdf(), "1001", "Changed name", "Second");
         assertEquals(first.serialHex(), second.serialHex());
         assertEquals("Nguyen Van A", second.signerCN());
-        assertArrayEquals(originalP12, Files.readAllBytes(keystore));
-        assertArrayEquals(originalCertificate, Files.readAllBytes(certificate));
-        assertArrayEquals(ca, Files.readAllBytes(pki.properties().caKeystore()));
-        assertEquals("old temporary material", Files.readString(staleTemporary));
+        assertEquals(first.serialHex(), record.getCertificateSerial());
+        assertEquals(1001L, record.getUserId());
+        assertEquals(1L, record.getCaId());
+        assertArrayEquals(encrypted, record.getKeystoreEncrypted());
+        verify(pki.userRepository(), times(1)).saveAndFlush(any());
+        assertEquals(1L, pki.userRepository().count());
+        assertFalse(Files.exists(pki.properties().userKeystores()));
+        assertEquals("VALID", pki.verifier().verify(first.signedPdfBytes()).getOverallStatus());
         assertEquals("VALID", pki.verifier().verify(second.signedPdfBytes()).getOverallStatus());
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {".user_1001.p12.interrupted.tmp", ".user_1001.crt.interrupted.tmp",
-            "user_1001.p12.tmp", "user_1001.crt.tmp"})
-    void interruptedUserMaterialBlocksNewIssuanceWithoutRemovingEvidence(String temporaryName) throws Exception {
-        PkiTestFixture pki = PkiTestFixture.create(directory);
+    @ValueSource(strings = {"user_1001.p12", "user_1001.crt", ".user_1001.p12.interrupted.tmp", "user_1001.crt.tmp"})
+    void legacyUserFilesBlockIssuanceWithoutRemovingEvidence(String filename) throws Exception {
+        var pki = PkiTestFixture.create(directory);
         Files.createDirectories(pki.properties().userKeystores());
-        Path interrupted = pki.properties().userKeystores().resolve(temporaryName);
-        Files.writeString(interrupted, "interrupted key material");
-        assertUserInvalid(() -> pki.signer().ensureUserCertificate("1001", "Nguyen Van A"));
-        assertEquals("interrupted key material", Files.readString(interrupted));
-        assertFalse(Files.exists(userP12(pki, "1001")));
-        assertFalse(Files.exists(userCertificate(pki, "1001")));
+        var evidence = pki.properties().userKeystores().resolve(filename);
+        Files.writeString(evidence, "old key evidence");
+        assertUserInvalid(() -> pki.signer().ensureUserCertificate("1001", "A"));
+        assertEquals("old key evidence", Files.readString(evidence));
+        verify(pki.userRepository(), never()).saveAndFlush(any());
     }
 
     @Test
-    void anotherUsersInterruptedMaterialDoesNotBlockFirstSign() throws Exception {
-        PkiTestFixture pki = PkiTestFixture.create(directory);
+    void anotherUsersLegacyFilesDoNotBlockIssuance() throws Exception {
+        var pki = PkiTestFixture.create(directory);
         Files.createDirectories(pki.properties().userKeystores());
-        Path interrupted = pki.properties().userKeystores().resolve(".user_10010.p12.interrupted.tmp");
-        Files.writeString(interrupted, "another user's material");
-        pki.signer().ensureUserCertificate("1001", "Nguyen Van A");
-        assertTrue(Files.exists(userP12(pki, "1001")));
-        assertTrue(Files.exists(userCertificate(pki, "1001")));
-        assertEquals("another user's material", Files.readString(interrupted));
+        Files.writeString(pki.properties().userKeystores().resolve("user_10010.p12"), "other user");
+        pki.signer().ensureUserCertificate("1001", "A");
+        assertNotNull(record(pki));
     }
 
     @Test
-    void missingUserKeysWithSigningHistoryRequiresRecovery() throws Exception {
-        PkiTestFixture pki = PkiTestFixture.create(directory);
+    void missingKeysWithSigningHistoryRequireRecovery() throws Exception {
+        var pki = PkiTestFixture.create(directory);
         when(pki.history().hasUserSigningHistory("1001")).thenReturn(true);
-        BusinessException error = assertThrows(BusinessException.class,
-                () -> pki.signer().ensureUserCertificate("1001", "Nguyen Van A"));
-        assertEquals(ErrorCode.PKI_USER_KEYSTORE_INVALID, error.getErrorCode());
-        assertFalse(Files.exists(userP12(pki, "1001")));
-        assertFalse(Files.exists(userCertificate(pki, "1001")));
+        assertUserInvalid(() -> pki.signer().ensureUserCertificate("1001", "A"));
+        verify(pki.userRepository(), never()).saveAndFlush(any());
     }
 
     @Test
-    void unavailableSigningHistoryFailsClosedWithoutIssuingKeys() throws Exception {
-        PkiTestFixture pki = PkiTestFixture.create(directory);
-        when(pki.history().hasUserSigningHistory("1001"))
-                .thenThrow(new DataAccessResourceFailureException("history unavailable"));
-        BusinessException error = assertThrows(BusinessException.class,
-                () -> pki.signer().ensureUserCertificate("1001", "Nguyen Van A"));
-        assertEquals(ErrorCode.PKI_STORAGE_ERROR, error.getErrorCode());
-        assertFalse(Files.exists(userP12(pki, "1001")));
-        assertFalse(Files.exists(userCertificate(pki, "1001")));
+    void missingOwnerAndInvalidUserIdsCannotIssueKeys() throws Exception {
+        var pki = PkiTestFixture.create(directory);
+        when(pki.users().lockForPkiIssuance(1001L)).thenReturn(Optional.empty());
+        assertError(ErrorCode.BAD_REQUEST, () -> pki.signer().ensureUserCertificate("1001", "A"));
+        for (String invalid : new String[]{"../1", "0", "-1", "01", "abc", "99999999999999999999999"}) {
+            assertError(ErrorCode.BAD_REQUEST, () -> pki.signer().ensureUserCertificate(invalid, "A"));
+        }
+        verify(pki.userRepository(), never()).saveAndFlush(any());
     }
 
     @Test
-    void orphanCertificateAndCorruptKeystoreAreNeverReplaced() throws Exception {
-        PkiTestFixture pki = PkiTestFixture.create(directory);
-        Files.createDirectories(pki.properties().userKeystores());
-        Path certificate = userCertificate(pki, "1001");
-        Files.writeString(certificate, "original orphan certificate");
-        assertUserInvalid(() -> pki.signer().ensureUserCertificate("1001", "Nguyen Van A"));
-        assertFalse(Files.exists(userP12(pki, "1001")));
-        assertEquals("original orphan certificate", Files.readString(certificate));
+    void unavailableHistoryAndDatabaseFailClosed() throws Exception {
+        var pki = PkiTestFixture.create(directory);
+        when(pki.history().hasUserSigningHistory("1001")).thenThrow(new DataAccessResourceFailureException("unavailable"));
+        assertError(ErrorCode.PKI_STORAGE_ERROR, () -> pki.signer().ensureUserCertificate("1001", "A"));
+        when(pki.userRepository().findByUserIdAndCaId(1001L, 1L)).thenThrow(new DataAccessResourceFailureException("unavailable"));
+        assertError(ErrorCode.PKI_STORAGE_ERROR, () -> pki.userService().require("1001"));
+        verify(pki.userRepository(), never()).saveAndFlush(any());
+    }
 
-        Path p12 = userP12(pki, "1001");
-        Files.writeString(p12, "original corrupt keystore");
-        assertUserInvalid(() -> pki.signer().ensureUserCertificate("1001", "Nguyen Van A"));
-        assertEquals("original corrupt keystore", Files.readString(p12));
-        assertEquals("original orphan certificate", Files.readString(certificate));
+    @ParameterizedTest
+    @ValueSource(strings = {"ciphertext", "nonce", "key-id", "pem", "serial", "owner", "ca", "password"})
+    void corruptUserRecordIsNeverReplaced(String damage) throws Exception {
+        var pki = PkiTestFixture.create(directory);
+        pki.signer().ensureUserCertificate("1001", "A");
+        var record = record(pki);
+        switch (damage) {
+            case "ciphertext" -> record.getKeystoreEncrypted()[0] ^= 1;
+            case "nonce" -> record.getEncryptionNonce()[0] ^= 1;
+            case "key-id" -> record.setEncryptionKeyId("unknown");
+            case "pem" -> record.setCertificatePem("broken certificate");
+            case "serial" -> record.setCertificateSerial("incorrect");
+            case "owner" -> record.setUserId(1002L);
+            case "ca" -> record.setCaId(999L);
+            case "password" -> {
+                var bundle = pki.userService().require("1001");
+                byte[] plaintext = Crypto.encodeP12("different-password".toCharArray(), "user", bundle.privateKey(), bundle.chain());
+                try { replaceEncrypted(pki, record, plaintext); }
+                finally { java.util.Arrays.fill(plaintext, (byte) 0); }
+            }
+        }
+        byte[] original = record.getKeystoreEncrypted().clone();
+        clearInvocations(pki.userRepository());
+        assertUserInvalid(() -> pki.signer().ensureUserCertificate("1001", "A"));
+        assertUserInvalid(() -> pki.userService().require("1001"));
+        verify(pki.userRepository(), never()).saveAndFlush(any());
+        assertArrayEquals(original, record.getKeystoreEncrypted());
     }
 
     @Test
-    void existingUserKeysStillRequireTheConfiguredCa() throws Exception {
-        PkiTestFixture pki = PkiTestFixture.create(directory);
-        pki.signer().ensureUserCertificate("1001", "Nguyen Van A");
-        byte[] original = Files.readAllBytes(userP12(pki, "1001"));
-        Files.delete(pki.properties().caKeystore());
-        byte[] pdf = pdf();
-        BusinessException error = assertThrows(BusinessException.class,
-                () -> pki.signer().signBytes(pdf, "1001", "Nguyen Van A", "Ký"));
-        assertEquals(ErrorCode.PKI_CA_RECOVERY_REQUIRED, error.getErrorCode());
-        assertArrayEquals(original, Files.readAllBytes(userP12(pki, "1001")));
+    void storedKeysStillRequireValidCa() throws Exception {
+        var pki = PkiTestFixture.create(directory);
+        pki.signer().ensureUserCertificate("1001", "A");
+        pki.repository().findActive().orElseThrow().setKeystoreEncrypted(new byte[17]);
+        assertError(ErrorCode.PKI_CA_RECOVERY_REQUIRED, () -> pki.userService().require("1001"));
     }
 
     @Test
-    void uidAndIssuerMismatchAreRejectedWithoutReplacingKeys() throws Exception {
-        PkiTestFixture pki = PkiTestFixture.create(directory.resolve("first"));
-        pki.signer().ensureUserCertificate("1001", "Nguyen Van A");
-        byte[] original = Files.readAllBytes(userP12(pki, "1001"));
-        Files.copy(userP12(pki, "1001"), userP12(pki, "1002"));
-        Files.copy(userCertificate(pki, "1001"), userCertificate(pki, "1002"));
-        assertUserInvalid(() -> pki.signer().ensureUserCertificate("1002", "Tran Thi B"));
-        assertArrayEquals(original, Files.readAllBytes(userP12(pki, "1002")));
-
-        PkiTestFixture other = PkiTestFixture.create(directory.resolve("second"));
-        Files.createDirectories(other.properties().userKeystores());
-        Files.copy(userP12(pki, "1001"), userP12(other, "1001"));
-        Files.copy(userCertificate(pki, "1001"), userCertificate(other, "1001"));
-        assertUserInvalid(() -> other.signer().ensureUserCertificate("1001", "Nguyen Van A"));
-        assertArrayEquals(original, Files.readAllBytes(userP12(other, "1001")));
-    }
-
-    @Test
-    void privateKeyMismatchIsRejectedWithoutReplacingMaterial() throws Exception {
-        PkiTestFixture pki = PkiTestFixture.create(directory);
-        pki.signer().ensureUserCertificate("1001", "Nguyen Van A");
-        char[] password = pki.properties().password();
-        var bundle = Crypto.loadP12(userP12(pki, "1001"), password);
-        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-        generator.initialize(2048);
-        var unrelated = generator.generateKeyPair();
-        Crypto.saveP12(userP12(pki, "1001"), password, "user", unrelated.getPrivate(), bundle.chain());
-        java.util.Arrays.fill(password, '\0');
-        byte[] original = Files.readAllBytes(userP12(pki, "1001"));
-        assertUserInvalid(() -> pki.signer().ensureUserCertificate("1001", "Nguyen Van A"));
-        assertArrayEquals(original, Files.readAllBytes(userP12(pki, "1001")));
-    }
-
-    @Test
-    void mismatchedPublicCertificateIsNotReplaced() throws Exception {
-        PkiTestFixture pki = PkiTestFixture.create(directory);
-        pki.signer().ensureUserCertificate("1001", "Nguyen Van A");
-        byte[] unrelated = Files.readAllBytes(pki.properties().caCertificate());
-        Files.write(userCertificate(pki, "1001"), unrelated);
-        assertUserInvalid(() -> pki.signer().ensureUserCertificate("1001", "Nguyen Van A"));
-        assertArrayEquals(unrelated, Files.readAllBytes(userCertificate(pki, "1001")));
-    }
-
-    @Test
-    void unusableUserDirectoryReturnsTypedStorageError() throws Exception {
-        PkiTestFixture pki = PkiTestFixture.create(directory);
-        Files.writeString(pki.properties().userKeystores(), "not a directory");
-        BusinessException error = assertThrows(BusinessException.class,
-                () -> pki.signer().ensureUserCertificate("1001", "Nguyen Van A"));
-        assertEquals(ErrorCode.PKI_STORAGE_ERROR, error.getErrorCode());
-        assertEquals("not a directory", Files.readString(pki.properties().userKeystores()));
-    }
-
-    @Test
-    void userCertificateCannotOutliveItsIssuer() throws Exception {
+    void userCertificateCannotOutliveCa() throws Exception {
         Instant now = Instant.now();
-        PkiTestFixture pki = PkiTestFixture.create(directory,
-                now.minus(1, ChronoUnit.HOURS), now.plus(7, ChronoUnit.DAYS));
-        pki.signer().ensureUserCertificate("1001", "Nguyen Van A");
-        var ca = pki.caService().requireValidCa().getEndEntityCertificate();
-        var user = Crypto.loadCertPem(userCertificate(pki, "1001"));
-        assertEquals(ca.getNotAfter(), user.getNotAfter());
-        assertFalse(user.getNotBefore().before(ca.getNotBefore()));
+        var pki = PkiTestFixture.create(directory, now.minus(1, ChronoUnit.HOURS), now.plus(7, ChronoUnit.DAYS));
+        pki.signer().ensureUserCertificate("1001", "A");
+        var root = pki.caService().requireValidCa().getEndEntityCertificate();
+        var leaf = pki.userService().require("1001").getEndEntityCertificate();
+        assertEquals(root.getNotAfter(), leaf.getNotAfter());
+        assertFalse(leaf.getNotBefore().before(root.getNotBefore()));
     }
 
     @Test
-    void expiredUserCertificateIsNotAutomaticallyRenewed() throws Exception {
-        PkiTestFixture pki = PkiTestFixture.create(directory);
-        pki.signer().ensureUserCertificate("1001", "Nguyen Van A");
+    void privateKeyMismatchIsRejected() throws Exception {
+        var pki = PkiTestFixture.create(directory);
+        pki.signer().ensureUserCertificate("1001", "A");
+        var bundle = pki.userService().require("1001");
+        var generator = KeyPairGenerator.getInstance("RSA"); generator.initialize(2048);
         char[] password = pki.properties().password();
-        var user = Crypto.loadP12(userP12(pki, "1001"), password);
+        byte[] plaintext = Crypto.encodeP12(password, "user", generator.generateKeyPair().getPrivate(), bundle.chain());
+        try { replaceEncrypted(pki, record(pki), plaintext); }
+        finally { java.util.Arrays.fill(password, '\0'); java.util.Arrays.fill(plaintext, (byte) 0); }
+        assertUserInvalid(() -> pki.userService().require("1001"));
+    }
+
+    @Test
+    void issuerAndUidMismatchAreRejected() throws Exception {
+        var pki = PkiTestFixture.create(directory);
+        pki.signer().ensureUserCertificate("1001", "A");
+        var original = record(pki);
+        var wrongOwner = new PkiUserKeystoreEntity();
+        wrongOwner.setUserId(1002L); wrongOwner.setCaId(1L);
+        wrongOwner.setCertificatePem(original.getCertificatePem()); wrongOwner.setCertificateSerial(original.getCertificateSerial());
+        wrongOwner.setKeystoreEncrypted(original.getKeystoreEncrypted()); wrongOwner.setEncryptionNonce(original.getEncryptionNonce());
+        wrongOwner.setEncryptionKeyId(original.getEncryptionKeyId());
+        when(pki.userRepository().findByUserIdAndCaId(1002L, 1L)).thenReturn(Optional.of(wrongOwner));
+        assertUserInvalid(() -> pki.userService().require("1002"));
+        var other = PkiTestFixture.create(directory.resolve("other"));
+        when(other.userRepository().findByUserIdAndCaId(1001L, 1L)).thenReturn(Optional.of(original));
+        assertUserInvalid(() -> other.userService().require("1001"));
+    }
+
+    @Test
+    void expiredCertificateIsNotAutomaticallyRenewed() throws Exception {
+        var pki = PkiTestFixture.create(directory);
+        pki.signer().ensureUserCertificate("1001", "A");
+        var user = pki.userService().require("1001");
         var ca = pki.caService().requireValidCa();
         var leaf = user.getEndEntityCertificate();
         Instant now = Instant.now();
         var builder = new JcaX509v3CertificateBuilder(
-                X500Name.getInstance(ca.getEndEntityCertificate().getSubjectX500Principal().getEncoded()),
-                BigInteger.TEN, Date.from(now.minus(2, ChronoUnit.DAYS)), Date.from(now.minus(1, ChronoUnit.DAYS)),
+                X500Name.getInstance(ca.getEndEntityCertificate().getSubjectX500Principal().getEncoded()), BigInteger.TEN,
+                Date.from(now.minus(2, ChronoUnit.DAYS)), Date.from(now.minus(1, ChronoUnit.DAYS)),
                 X500Name.getInstance(leaf.getSubjectX500Principal().getEncoded()), leaf.getPublicKey());
         builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(false));
         builder.addExtension(Extension.keyUsage, true, new KeyUsage(KeyUsage.digitalSignature | KeyUsage.nonRepudiation));
-        var signingKey = new JcaContentSignerBuilder("SHA256withRSA").setProvider("BC").build(ca.privateKey());
-        var expired = new JcaX509CertificateConverter().setProvider("BC").getCertificate(builder.build(signingKey));
-        Crypto.saveP12(userP12(pki, "1001"), password, "user", user.privateKey(),
-                new Certificate[]{expired, ca.getEndEntityCertificate()});
-        java.util.Arrays.fill(password, '\0');
-        Crypto.saveCertPem(userCertificate(pki, "1001"), expired);
-        byte[] original = Files.readAllBytes(userP12(pki, "1001"));
-        assertUserInvalid(() -> pki.signer().ensureUserCertificate("1001", "Nguyen Van A"));
-        assertArrayEquals(original, Files.readAllBytes(userP12(pki, "1001")));
+        var expired = new JcaX509CertificateConverter().setProvider("BC").getCertificate(builder.build(
+                new JcaContentSignerBuilder("SHA256withRSA").setProvider("BC").build(ca.privateKey())));
+        char[] password = pki.properties().password();
+        byte[] plaintext = Crypto.encodeP12(password, "user", user.privateKey(), new Certificate[]{expired, ca.getEndEntityCertificate()});
+        try { replaceEncrypted(pki, record(pki), plaintext); }
+        finally { java.util.Arrays.fill(password, '\0'); java.util.Arrays.fill(plaintext, (byte) 0); }
+        record(pki).setCertificatePem(Crypto.encodeCertPem(expired));
+        record(pki).setCertificateSerial(expired.getSerialNumber().toString(16));
+        clearInvocations(pki.userRepository());
+        assertUserInvalid(() -> pki.signer().ensureUserCertificate("1001", "A"));
+        verify(pki.userRepository(), never()).saveAndFlush(any());
     }
 
-    @Test
-    void twoSignerInstancesProvisionOneKeyPair() throws Exception {
-        PkiTestFixture pki = PkiTestFixture.create(directory);
-        try (var executor = Executors.newFixedThreadPool(2)) {
-            var tasks = new ArrayList<Callable<String>>();
-            for (int i = 0; i < 2; i++) {
-                tasks.add(() -> {
-                    pki.signer().ensureUserCertificate("1001", "Nguyen Van A");
-                    return certificateFingerprint(userCertificate(pki, "1001"));
-                });
-            }
-            var results = executor.invokeAll(tasks);
-            assertEquals(results.get(0).get(), results.get(1).get());
-        }
+    private void replaceEncrypted(PkiTestFixture pki, PkiUserKeystoreEntity record, byte[] plaintext) {
+        var encrypted = pki.encryption().encrypt(plaintext);
+        record.setKeystoreEncrypted(encrypted.ciphertext()); record.setEncryptionNonce(encrypted.nonce());
+        record.setEncryptionKeyId(encrypted.keyId());
     }
-
-    private String certificateFingerprint(Path certificate) throws Exception {
-        return vn.edu.epu.eoffice_be.service.PkiCaService.certificateFingerprint(Crypto.loadCertPem(certificate));
+    private PkiUserKeystoreEntity record(PkiTestFixture pki) { return pki.userRepository().findByUserIdAndCaId(1001L, 1L).orElseThrow(); }
+    private void assertUserInvalid(org.junit.jupiter.api.function.Executable action) { assertError(ErrorCode.PKI_USER_KEYSTORE_INVALID, action); }
+    private void assertError(ErrorCode code, org.junit.jupiter.api.function.Executable action) {
+        assertEquals(code, assertThrows(BusinessException.class, action).getErrorCode());
     }
-
-    private void assertUserInvalid(org.junit.jupiter.api.function.Executable operation) {
-        BusinessException error = assertThrows(BusinessException.class, operation);
-        assertEquals(ErrorCode.PKI_USER_KEYSTORE_INVALID, error.getErrorCode());
-    }
-
-    private Path userP12(PkiTestFixture pki, String userId) {
-        return pki.properties().userKeystores().resolve("user_" + userId + ".p12");
-    }
-
-    private Path userCertificate(PkiTestFixture pki, String userId) {
-        return pki.properties().userKeystores().resolve("user_" + userId + ".crt");
-    }
-
     private byte[] pdf() throws Exception {
-        try (PDDocument document = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            document.addPage(new PDPage());
-            document.save(output);
-            return output.toByteArray();
+        try (var document = new PDDocument(); var output = new ByteArrayOutputStream()) {
+            document.addPage(new PDPage()); document.save(output); return output.toByteArray();
         }
     }
 }

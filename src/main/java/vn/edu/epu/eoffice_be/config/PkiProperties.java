@@ -7,7 +7,8 @@ import org.springframework.context.annotation.Configuration;
 
 import java.nio.file.Path;
 
-/** File-backed PKI configuration. Deliberately does not expose secrets through toString. */
+/** Keystore password and legacy file paths retained for migration guards and revocation support.
+ * Deliberately does not expose secrets through toString. */
 @Getter
 @Setter
 @Configuration

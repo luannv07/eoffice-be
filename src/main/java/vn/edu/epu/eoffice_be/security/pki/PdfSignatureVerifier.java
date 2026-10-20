@@ -28,7 +28,6 @@ import org.bouncycastle.cms.jcajce.JcaSimpleSignerInfoVerifierBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.util.Store;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import vn.edu.epu.eoffice_be.dto.response.DocumentSignatureVerifyResponse;
 import vn.edu.epu.eoffice_be.dto.response.SignatureItemResponse;
@@ -64,7 +63,7 @@ import java.util.Set;
  * Kiểm tra 7 tiêu chí bảo mật toàn diện cho từng chữ ký trong tài liệu:
  * 1. INTEGRITY: Tính toán SHA-256 trên đúng ByteRange, so khớp với messageDigest trong CMS signed attributes,
  *    và xác minh chữ ký mật mã CMS bằng khóa công khai của người ký.
- * 2. CHAIN: Kiểm tra chứng thư người ký có được cấp phát và ký hợp lệ bởi Root CA nội bộ (ca.crt),
+ * 2. CHAIN: Kiểm tra chứng thư người ký có được cấp phát và ký hợp lệ bởi Root CA nội bộ trong database,
  *    ngăn chặn chứng thư tự ký hoặc mạo danh.
  * 3. VALIDITY: Kiểm tra thời hạn hiệu lực tại thời điểm ký (signingTime) và tại thời điểm hiện tại.
  * 4. KEYUSAGE: Kiểm tra BasicConstraints CA=false và KeyUsage có digitalSignature + nonRepudiation.
@@ -75,24 +74,19 @@ import java.util.Set;
 @Slf4j
 @Component
 public class PdfSignatureVerifier {
+    private final vn.edu.epu.eoffice_be.service.PkiCaService caService;
 
-    @Value("${eoffice.pki.ca-cert-path:./uploads/keystores/ca/ca.crt}")
-    private String caCertPath = "./uploads/keystores/ca/ca.crt";
-
-    @Value("${eoffice.pki.revoked-path:./uploads/keystores/ca/revoked.json}")
-    private String revokedPath = "./uploads/keystores/ca/revoked.json";
+    private final String revokedPath;
 
     @Autowired(required = false)
     private ObjectMapper objectMapper;
 
-    public PdfSignatureVerifier() {
+    @Autowired
+    public PdfSignatureVerifier(vn.edu.epu.eoffice_be.service.PkiCaService caService,
+                                vn.edu.epu.eoffice_be.config.PkiProperties properties) {
         Crypto.registerBouncyCastle();
-    }
-
-    public PdfSignatureVerifier(String caCertPath, String revokedPath) {
-        Crypto.registerBouncyCastle();
-        this.caCertPath = caCertPath;
-        this.revokedPath = revokedPath;
+        this.caService = caService;
+        this.revokedPath = properties.getRevokedPath();
     }
 
     /**
@@ -120,7 +114,7 @@ public class PdfSignatureVerifier {
                     .build();
         }
 
-        // 1. Nạp chứng thư Root CA nội bộ
+        // 1. Nạp chứng thư Root CA nội bộ từ database
         X509Certificate caCert = loadCaCertificate();
 
         // 2. Nạp danh sách chứng thư bị thu hồi (CRL)
@@ -586,13 +580,9 @@ public class PdfSignatureVerifier {
 
     private X509Certificate loadCaCertificate() {
         try {
-            Path caPath = Paths.get(caCertPath);
-            if (Files.exists(caPath)) {
-                return Crypto.loadCertPem(caPath);
-            }
-            log.warn("Không tìm thấy tệp Root CA tại '{}'", caPath.toAbsolutePath());
+            return caService.activeCertificate().orElse(null);
         } catch (Exception e) {
-            log.error("Lỗi khi nạp chứng thư Root CA từ '{}': {}", caCertPath, e.getMessage());
+            log.warn("Không thể nạp chứng thư Root CA từ database");
         }
         return null;
     }
@@ -663,7 +653,7 @@ public class PdfSignatureVerifier {
 
                 ObjectMapper mapper = (this.objectMapper != null) ? this.objectMapper : new ObjectMapper();
 
-                // Same normalized JVM lock as CA readiness readers, before either file lock.
+                // Serialize revocation readers and writers before acquiring the file lock.
                 PkiFileSupport.withJvmLock(path, () -> {
                     try (FileChannel channel = FileChannel.open(path,
                             StandardOpenOption.CREATE,

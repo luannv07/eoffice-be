@@ -1,8 +1,7 @@
 package vn.edu.epu.eoffice_be.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.BasicConstraints;
 import org.bouncycastle.asn1.x509.Extension;
@@ -13,197 +12,193 @@ import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.config.PkiProperties;
 import vn.edu.epu.eoffice_be.dto.response.PkiCaStatusResponse;
-import vn.edu.epu.eoffice_be.dto.response.PkiCaStatusResponse.State;
+import vn.edu.epu.eoffice_be.dto.response.PkiCaStatusResponse.*;
+import vn.edu.epu.eoffice_be.entity.PkiCaEntity;
+import vn.edu.epu.eoffice_be.repository.PkiCaRepository;
 import vn.edu.epu.eoffice_be.security.pki.Crypto;
-import vn.edu.epu.eoffice_be.security.pki.PkiFileSupport;
 
 import java.io.IOException;
-import java.io.ByteArrayOutputStream;
-import java.math.BigInteger;
-import java.nio.file.FileAlreadyExistsException;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.channels.FileLock;
-import java.nio.file.Files;
-import java.nio.file.LinkOption;
-import java.nio.file.NoSuchFileException;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
-import java.nio.file.attribute.BasicFileAttributes;
-import java.security.GeneralSecurityException;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.MessageDigest;
-import java.security.SecureRandom;
-import java.security.Signature;
+import java.nio.file.*;
+import java.security.*;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateExpiredException;
+import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.HexFormat;
-import java.util.List;
+import java.math.BigInteger;
+import java.util.*;
 
-/** Explicit, file-backed CA lifecycle. Never replaces or silently repairs key material. */
+/** Database-backed CA lifecycle. Never replaces or imports existing material implicitly. */
 @Service
 @RequiredArgsConstructor
+@Slf4j
+@Transactional(readOnly = true)
 public class PkiCaService {
-    private static final ObjectMapper JSON = new ObjectMapper();
     private final PkiProperties properties;
     private final PkiSigningHistory signingHistory;
+    private final PkiCaRepository repository;
+    private final PkiEncryptionService encryption;
 
     public PkiCaStatusResponse status() {
-        try {
-            return PkiFileSupport.withJvmLock(lockPath(), this::inspect);
-        } catch (BusinessException e) {
-            throw e;
-        } catch (IOException | IllegalArgumentException | SecurityException | DataAccessException e) {
+        try { return inspectCa().status(); }
+        catch (DataAccessException | IOException | SecurityException | IllegalArgumentException e) {
             throw new BusinessException(ErrorCode.PKI_STORAGE_ERROR);
         }
     }
 
+    @Transactional
     public PkiCaStatusResponse initialize() {
         try {
-            return PkiFileSupport.withLock(lockPath(), () -> {
-                CaInspection inspection = inspectCa();
-                PkiCaStatusResponse current = inspection.status();
-                if (current.state() == State.READY || current.state() == State.EXPIRED) {
-                    throw new BusinessException(ErrorCode.PKI_CA_ALREADY_EXISTS);
-                }
-                if (!current.canInitialize()) throw new BusinessException(ErrorCode.PKI_CA_RECOVERY_REQUIRED);
-                createCa();
-                PkiCaStatusResponse created = inspect();
-                if (created.state() != State.READY) throw new BusinessException(ErrorCode.PKI_CA_RECOVERY_REQUIRED);
-                return created;
-            });
-        } catch (BusinessException e) {
-            throw e;
-        } catch (FileAlreadyExistsException e) {
-            throw new BusinessException(ErrorCode.PKI_CA_RECOVERY_REQUIRED);
-        } catch (IOException | IllegalArgumentException | SecurityException | DataAccessException e) {
+            Inspection inspection = inspectCa();
+            State state = inspection.status().state();
+            if (state == State.READY || state == State.EXPIRED) throw new BusinessException(ErrorCode.PKI_CA_ALREADY_EXISTS);
+            if (!inspection.status().canInitialize()) throw new BusinessException(ErrorCode.PKI_CA_RECOVERY_REQUIRED);
+            PkiCaEntity created = createCa();
+            // Flush surfaces the PostgreSQL single-ACTIVE constraint in this transaction.
+            repository.saveAndFlush(created);
+            Inspection validated = inspectRecord(created);
+            if (validated.status().state() != State.READY) throw new BusinessException(ErrorCode.PKI_CA_RECOVERY_REQUIRED);
+            return validated.status();
+        } catch (DataIntegrityViolationException e) {
+            // A concurrent initializer cannot overwrite the winning CA; this transaction rolls back.
+            throw new BusinessException(ErrorCode.PKI_CA_ALREADY_EXISTS);
+        } catch (DataAccessException | IOException | SecurityException | IllegalArgumentException | IllegalStateException e) {
             throw new BusinessException(ErrorCode.PKI_STORAGE_ERROR);
         }
     }
 
-    /** Called before every keystore-backed signing operation, even for existing users. */
     public Crypto.P12Bundle requireValidCa() {
         try {
-            return PkiFileSupport.withLock(lockPath(), () -> {
-                CaInspection inspection = inspectCa();
-                PkiCaStatusResponse current = inspection.status();
-                switch (current.state()) {
-                    case NOT_INITIALIZED -> throw new BusinessException(ErrorCode.PKI_CA_NOT_INITIALIZED);
-                    case EXPIRED -> throw new BusinessException(ErrorCode.PKI_CA_EXPIRED);
-                    case RECOVERY_REQUIRED -> throw new BusinessException(ErrorCode.PKI_CA_RECOVERY_REQUIRED);
-                    case READY -> { }
-                }
-                return inspection.bundle();
-            });
-        } catch (BusinessException e) {
-            throw e;
-        } catch (IOException | IllegalArgumentException | SecurityException | DataAccessException e) {
+            Inspection inspection = inspectCa();
+            return switch (inspection.status().state()) {
+                case NOT_INITIALIZED -> throw new BusinessException(ErrorCode.PKI_CA_NOT_INITIALIZED);
+                case EXPIRED -> throw new BusinessException(ErrorCode.PKI_CA_EXPIRED);
+                case RECOVERY_REQUIRED -> throw new BusinessException(ErrorCode.PKI_CA_RECOVERY_REQUIRED);
+                case READY -> inspection.bundle();
+            };
+        } catch (DataAccessException | IOException | SecurityException | IllegalArgumentException e) {
             throw new BusinessException(ErrorCode.PKI_STORAGE_ERROR);
         }
     }
 
-    private Path lockPath() {
-        Path keystore = properties.caKeystore();
-        if (keystore.getFileName() == null) throw new IllegalArgumentException("Đường dẫn keystore CA không hợp lệ");
-        return keystore.resolveSibling(keystore.getFileName() + ".lock");
-    }
-
-    private record CaInspection(PkiCaStatusResponse status, Crypto.P12Bundle bundle) { }
-
-    private PkiCaStatusResponse inspect() throws IOException {
-        return inspectCa().status();
-    }
-
-    private CaInspection inspectCa() throws IOException {
-        validateLayout();
-        boolean hasP12 = present(properties.caKeystore());
-        boolean hasCrt = present(properties.caCertificate());
-        if (!hasP12 && !hasCrt) {
-            if (hasUserArtifacts() || hasCaTemporaryArtifacts() || hasRevocations() || signingHistory.hasAnySigningHistory()) {
-                return recoveryInspection();
-            }
-            return emptyInspection(State.NOT_INITIALIZED);
-        }
-        if (!hasP12 || !hasCrt) return recoveryInspection();
+    /** Public verification does not need AES configuration or the CA private key. */
+    public Optional<X509Certificate> activeCertificate() {
         try {
-            Crypto.P12Bundle bundle = readCa();
-            X509Certificate certificate = bundle.getEndEntityCertificate();
-            if (!present(properties.revocations())) return recoveryInspection();
-            readRevocations();
-            try {
-                certificate.checkValidity();
-                return new CaInspection(metadata(State.READY, certificate), bundle);
-            } catch (CertificateExpiredException e) {
-                return new CaInspection(metadata(State.EXPIRED, certificate), bundle);
-            }
-        } catch (GeneralSecurityException | IllegalArgumentException e) {
-            return recoveryInspection();
-        } catch (RuntimeException e) {
-            if (e instanceof DataAccessException) throw e;
-            return recoveryInspection();
-        }
-    }
-
-    private void validateLayout() throws IOException {
-        for (Path path : List.of(properties.caKeystore(), properties.caCertificate(), properties.userKeystores(), properties.revocations())) {
-            PkiFileSupport.assertNoSymbolicLinks(path);
-        }
-        if (properties.caKeystore().equals(properties.caCertificate())
-                || properties.caKeystore().equals(properties.revocations())
-                || properties.caCertificate().equals(properties.revocations())
-                || properties.userKeystores().equals(properties.caKeystore())
-                || properties.userKeystores().equals(properties.caCertificate())
-                || properties.userKeystores().equals(properties.revocations())) {
+            Optional<PkiCaEntity> record = repository.findActive();
+            if (record.isEmpty()) return Optional.empty();
+            X509Certificate certificate = Crypto.decodeCertPem(record.get().getCertificatePem());
+            validatePublicCertificate(certificate);
+            if (!certificateFingerprint(certificate).equals(record.get().getFingerprintSha256())) throw new IllegalArgumentException();
+            return Optional.of(certificate);
+        } catch (GeneralSecurityException | IllegalArgumentException | DataAccessException e) {
             throw new BusinessException(ErrorCode.PKI_STORAGE_ERROR);
         }
     }
 
-    private Crypto.P12Bundle readCa() throws IOException, GeneralSecurityException {
-        requireReadableRegularFile(properties.caKeystore());
-        requireReadableRegularFile(properties.caCertificate());
+    private record Inspection(PkiCaStatusResponse status, Crypto.P12Bundle bundle) { }
+
+    private Inspection inspectCa() throws IOException {
+        Optional<PkiCaEntity> active = repository.findActive();
+        if (active.isPresent()) return inspectRecord(active.get());
+        if (repository.count() > 0) return recovery(Reason.NO_ACTIVE_CA, true, null);
+        if (repository.countUserKeystores() > 0) return recovery(Reason.CA_RECORD_MISSING_WITH_USER_KEYSTORES, false, null);
+        // Migration guards only. Never fall back to reading private keys from files.
+        if (hasLegacyMaterial()) return recovery(Reason.LEGACY_PKI_REQUIRES_MIGRATION, false, null);
+        if (signingHistory.hasAnySigningHistory()) return recovery(Reason.CA_RECORD_MISSING_WITH_SIGNING_HISTORY, false, true);
+        return new Inspection(new PkiCaStatusResponse(State.NOT_INITIALIZED, true, null, null, null, null), null);
+    }
+
+    private Inspection inspectRecord(PkiCaEntity record) {
+        byte[] plaintext = null;
         char[] password = properties.password();
         try {
-            Crypto.P12Bundle bundle;
             X509Certificate publicCertificate;
+            try { publicCertificate = Crypto.decodeCertPem(record.getCertificatePem()); }
+            catch (IllegalArgumentException e) { return recovery(Reason.CA_CERTIFICATE_UNREADABLE, true, null); }
+            Crypto.P12Bundle bundle;
             try {
-                bundle = Crypto.loadP12(properties.caKeystore(), password);
-                publicCertificate = Crypto.loadCertPem(properties.caCertificate());
-            } catch (RuntimeException e) {
-                throw new GeneralSecurityException("Bộ CA không hợp lệ");
+                plaintext = encryption.decrypt(new PkiEncryptionService.EncryptedKeystore(
+                        record.getKeystoreEncrypted(), record.getEncryptionNonce(), record.getEncryptionKeyId()));
+                bundle = Crypto.decodeP12(plaintext, password);
+            } catch (IllegalArgumentException | IllegalStateException e) {
+                return recovery(Reason.CA_KEYSTORE_UNREADABLE, true, null);
             }
             X509Certificate root = bundle.getEndEntityCertificate();
-            if (!Arrays.equals(root.getEncoded(), publicCertificate.getEncoded())
-                    || !root.getSubjectX500Principal().equals(root.getIssuerX500Principal())
-                    || root.getBasicConstraints() < 0
-                    || root.getKeyUsage() == null || root.getKeyUsage().length <= 6
-                    || !root.getKeyUsage()[5] || !root.getKeyUsage()[6]) {
-                throw new GeneralSecurityException("Bộ CA không khớp");
+            if (bundle.chain().length != 1 || !Arrays.equals(root.getEncoded(), publicCertificate.getEncoded())) {
+                return recovery(Reason.CA_CERTIFICATE_MISMATCH, true, null);
             }
-            root.verify(root.getPublicKey());
-            verifyKeyPair(bundle);
-            return bundle;
+            if (!certificateFingerprint(root).equals(record.getFingerprintSha256())) {
+                return recovery(Reason.CA_FINGERPRINT_MISMATCH, true, null);
+            }
+            try { validatePublicCertificate(root); }
+            catch (GeneralSecurityException e) { return recovery(Reason.CA_CERTIFICATE_INVALID, true, null); }
+            try { verifyKeyPair(bundle); }
+            catch (GeneralSecurityException e) { return recovery(Reason.CA_KEY_CERTIFICATE_MISMATCH, true, null); }
+            try {
+                root.checkValidity();
+                return new Inspection(metadata(State.READY, root), bundle);
+            } catch (CertificateExpiredException e) {
+                return new Inspection(metadata(State.EXPIRED, root), null);
+            } catch (CertificateNotYetValidException e) {
+                return recovery(Reason.CA_NOT_YET_VALID, true, null);
+            }
+        } catch (GeneralSecurityException | IllegalArgumentException e) {
+            return recovery(Reason.CA_VALIDATION_FAILED, true, null);
         } finally {
             Arrays.fill(password, '\0');
+            if (plaintext != null) Arrays.fill(plaintext, (byte) 0);
         }
     }
 
-    private void createCa() throws IOException {
-        Path p12Temp = null;
-        Path crtTemp = null;
-        Path revokedTemp = null;
-        char[] password = properties.password();
+    private boolean hasLegacyMaterial() throws IOException {
+        if (present(properties.caKeystore()) || present(properties.caCertificate()) || present(properties.revocations())) return true;
+        for (Path target : List.of(properties.caKeystore(), properties.caCertificate())) {
+            Path parent = target.getParent();
+            if (parent != null && present(parent)) {
+                if (!Files.isDirectory(parent, LinkOption.NOFOLLOW_LINKS)) return true;
+                try (var entries = Files.newDirectoryStream(parent)) {
+                    for (Path entry : entries) {
+                        String name = entry.getFileName().toString().toLowerCase(Locale.ROOT);
+                        if (name.endsWith(".p12") || name.endsWith(".crt") || name.endsWith(".tmp")) return true;
+                    }
+                }
+            }
+        }
+        Path users = properties.userKeystores();
+        if (!present(users)) return false;
+        if (!Files.isDirectory(users, LinkOption.NOFOLLOW_LINKS)) return true;
+        try (var entries = Files.newDirectoryStream(users)) {
+            for (Path entry : entries) {
+                String name = entry.getFileName().toString().toLowerCase(Locale.ROOT);
+                if (name.endsWith(".p12") || name.endsWith(".crt") || name.endsWith(".tmp")) return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean present(Path path) throws IOException {
         try {
+            Files.readAttributes(path, java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+            return true;
+        } catch (NoSuchFileException e) { return false; }
+    }
+
+    private PkiCaEntity createCa() {
+        char[] password = properties.password();
+        byte[] plaintext = null;
+        try {
+            if (password.length == 0 || Arrays.equals(password, "changeit".toCharArray())) {
+                throw new IllegalArgumentException("Configure a non-default keystore password");
+            }
+            encryption.validateConfiguration();
             Crypto.registerBouncyCastle();
             KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA", BouncyCastleProvider.PROVIDER_NAME);
             generator.initialize(3072, new SecureRandom());
@@ -225,103 +220,30 @@ public class PkiCaService {
             certificate.checkValidity();
             verifyKeyPair(new Crypto.P12Bundle(keys.getPrivate(), new X509Certificate[]{certificate}));
 
-            p12Temp = PkiFileSupport.createTemp(properties.caKeystore());
-            crtTemp = PkiFileSupport.createTemp(properties.caCertificate());
-            Crypto.saveP12(p12Temp, password, "eoffice-root-ca", keys.getPrivate(), new Certificate[]{certificate});
-            Crypto.saveCertPem(crtTemp, certificate);
-            if (!present(properties.revocations())) {
-                revokedTemp = PkiFileSupport.createTemp(properties.revocations());
-                Files.writeString(revokedTemp, "[]");
-                PkiFileSupport.publishNew(revokedTemp, properties.revocations());
-            }
-            PkiFileSupport.ensurePrivateDirectory(properties.userKeystores());
-            PkiFileSupport.publishNew(crtTemp, properties.caCertificate());
-            // The signing key is published last; readers never consider a partial pair ready.
-            PkiFileSupport.publishNew(p12Temp, properties.caKeystore());
-        } catch (IOException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new BusinessException(ErrorCode.PKI_STORAGE_ERROR, "Không thể khởi tạo bộ CA; vui lòng kiểm tra cấu hình PKI");
+
+            plaintext = Crypto.encodeP12(password, "eoffice-root-ca", keys.getPrivate(), new Certificate[]{certificate});
+            var encrypted = encryption.encrypt(plaintext);
+            var record = new PkiCaEntity();
+            record.setStatus(PkiCaEntity.Status.ACTIVE);
+            record.setCertificatePem(Crypto.encodeCertPem(certificate));
+            record.setFingerprintSha256(certificateFingerprint(certificate));
+            record.setKeystoreEncrypted(encrypted.ciphertext());
+            record.setEncryptionNonce(encrypted.nonce());
+            record.setEncryptionKeyId(encrypted.keyId());
+            return record;
+        } catch (GeneralSecurityException | org.bouncycastle.operator.OperatorCreationException | IOException e) {
+            throw new BusinessException(ErrorCode.PKI_STORAGE_ERROR);
         } finally {
             Arrays.fill(password, '\0');
-            deleteTemporary(p12Temp);
-            deleteTemporary(crtTemp);
-            deleteTemporary(revokedTemp);
+            if (plaintext != null) Arrays.fill(plaintext, (byte) 0);
         }
     }
 
-    private boolean hasUserArtifacts() throws IOException {
-        Path users = properties.userKeystores();
-        if (!present(users)) return false;
-        if (!Files.isDirectory(users, LinkOption.NOFOLLOW_LINKS)) return true;
-        try (var entries = Files.newDirectoryStream(users)) {
-            for (Path entry : entries) {
-                String name = entry.getFileName().toString().toLowerCase(java.util.Locale.ROOT);
-                if (name.endsWith(".p12") || name.endsWith(".crt") || name.endsWith(".tmp")) return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean hasCaTemporaryArtifacts() throws IOException {
-        for (Path target : List.of(properties.caKeystore(), properties.caCertificate())) {
-            if (present(target.resolveSibling(target.getFileName() + ".tmp"))) return true;
-            Path parent = target.getParent();
-            if (!present(parent)) continue;
-            try (var entries = Files.newDirectoryStream(parent, "." + target.getFileName() + ".*.tmp")) {
-                if (entries.iterator().hasNext()) return true;
-            }
-        }
-        if (present(properties.caKeystore().resolveSibling("ca.key.tmp"))) return true;
-        return false;
-    }
-
-    private boolean hasRevocations() throws IOException {
-        if (!present(properties.revocations())) return false;
-        try { return !readRevocations().isEmpty(); }
-        catch (IllegalArgumentException e) { return true; }
-    }
-
-    private List<String> readRevocations() throws IOException {
-        byte[] bytes = PkiFileSupport.withJvmLock(properties.revocations(), () -> {
-            try (FileChannel channel = FileChannel.open(properties.revocations(), StandardOpenOption.READ);
-                 FileLock ignored = channel.lock(0L, Long.MAX_VALUE, true)) {
-                requireReadableRegularFile(properties.revocations());
-                ByteArrayOutputStream output = new ByteArrayOutputStream();
-                ByteBuffer buffer = ByteBuffer.allocate(8192);
-                while (channel.read(buffer) != -1) {
-                    buffer.flip();
-                    output.write(buffer.array(), 0, buffer.remaining());
-                    buffer.clear();
-                }
-                return output.toByteArray();
-            }
-        });
-        try {
-            List<String> serials = JSON.readValue(bytes, new TypeReference<List<String>>() { });
-            if (serials == null || serials.stream().anyMatch(value -> value == null || !value.matches("[0-9a-fA-F]+"))) {
-                throw new IllegalArgumentException("Danh sách thu hồi không hợp lệ");
-            }
-            return serials;
-        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
-            throw new IllegalArgumentException("Danh sách thu hồi không hợp lệ");
-        }
-    }
-
-    private static boolean present(Path path) throws IOException {
-        try {
-            Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-            return true;
-        } catch (NoSuchFileException e) { return false; }
-    }
-
-    private static void requireReadableRegularFile(Path path) throws IOException, IllegalArgumentException {
-        BasicFileAttributes attributes = Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-        if (!attributes.isRegularFile() || attributes.isSymbolicLink() || attributes.size() == 0) {
-            throw new IllegalArgumentException("Tệp PKI không hợp lệ");
-        }
-        // Probe actual read access separately from cryptographic parsing errors.
-        try (var input = Files.newInputStream(path)) { input.read(); }
+    private static void validatePublicCertificate(X509Certificate root) throws GeneralSecurityException {
+        boolean[] usage = root.getKeyUsage();
+        if (!root.getSubjectX500Principal().equals(root.getIssuerX500Principal()) || root.getBasicConstraints() < 0
+                || usage == null || usage.length <= 6 || !usage[5] || !usage[6]) throw new GeneralSecurityException();
+        root.verify(root.getPublicKey());
     }
 
     public static void verifyKeyPair(Crypto.P12Bundle bundle) throws GeneralSecurityException {
@@ -333,43 +255,21 @@ public class PkiCaService {
         byte[] signed = signature.sign();
         signature.initVerify(bundle.getEndEntityCertificate().getPublicKey());
         signature.update(challenge);
-        if (!signature.verify(signed)) throw new GeneralSecurityException("Khóa và chứng thư không khớp");
+        if (!signature.verify(signed)) throw new GeneralSecurityException("Key and certificate do not match");
     }
 
     public static String certificateFingerprint(X509Certificate certificate) throws GeneralSecurityException {
         return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(certificate.getEncoded()));
     }
 
-    private static PkiCaStatusResponse empty(State state) {
-        return new PkiCaStatusResponse(state, state == State.NOT_INITIALIZED, null, null, null, null);
-    }
-
-    private static CaInspection emptyInspection(State state) {
-        return new CaInspection(empty(state), null);
-    }
-
-    private CaInspection recoveryInspection() throws IOException {
-        Path certificatePath = properties.caCertificate();
-        if (present(certificatePath)) {
-            try {
-                requireReadableRegularFile(certificatePath);
-                return new CaInspection(metadata(State.RECOVERY_REQUIRED, Crypto.loadCertPem(certificatePath)), null);
-            } catch (GeneralSecurityException | RuntimeException e) {
-                // Metadata is optional and never changes the recovery-required state.
-            }
-        }
-        return emptyInspection(State.RECOVERY_REQUIRED);
+    private static Inspection recovery(Reason reason, boolean recordExists, Boolean hasHistory) {
+        log.warn("PKI CA recovery required: reason={}, caRecordExists={}", reason, recordExists);
+        return new Inspection(new PkiCaStatusResponse(State.RECOVERY_REQUIRED, false, null, null, null, null,
+                new Diagnostics(reason, recordExists, hasHistory)), null);
     }
 
     private static PkiCaStatusResponse metadata(State state, X509Certificate certificate) throws GeneralSecurityException {
         return new PkiCaStatusResponse(state, false, certificate.getSubjectX500Principal().getName(),
                 certificateFingerprint(certificate), certificate.getNotBefore().toInstant(), certificate.getNotAfter().toInstant());
-    }
-
-    private static void deleteTemporary(Path path) {
-        if (path != null) {
-            try { Files.deleteIfExists(path); }
-            catch (IOException ignored) { /* Leftover material intentionally prevents blind reinitialization. */ }
-        }
     }
 }

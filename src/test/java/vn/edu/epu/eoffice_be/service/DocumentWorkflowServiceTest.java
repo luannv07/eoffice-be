@@ -96,8 +96,6 @@ class DocumentWorkflowServiceTest {
     @Mock
     private FileStorageService fileStorageService;
     @Mock
-    private PdfProcessingService pdfProcessingService;
-    @Mock
     private vn.edu.epu.eoffice_be.security.pki.PdfSigner pdfSigner;
     @Mock
     private DocumentBookService documentBookService;
