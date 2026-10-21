@@ -18,6 +18,8 @@ class OpenApiConfigTest {
 		assertEquals("v1", openAPI.getInfo().getVersion());
 		assertEquals("eOffice DevSecOps Team", openAPI.getInfo().getContact().getName());
 		assertEquals("Internal Use Only", openAPI.getInfo().getLicense().getName());
+		// OpenAPI 3.1 requires info.license.identifier next to info.license.name.
+		assertEquals("LicenseRef-Internal-Use-Only", openAPI.getInfo().getLicense().getIdentifier());
 	}
 
 	@Test

@@ -24,7 +24,11 @@ public class OpenApiConfig {
 										.contact(new Contact()
 														.name("eOffice DevSecOps Team"))
 										.license(new License()
-														.name("Internal Use Only")))
+														// OpenAPI 3.1 (what springdoc emits) requires info.license.identifier
+														// next to info.license.name - without it strict parsers such as the
+														// one used by OWASP ZAP reject the whole definition.
+														.name("Internal Use Only")
+														.identifier("LicenseRef-Internal-Use-Only")))
 						.components(new Components()
 										.addSecuritySchemes(
 														SECURITY_SCHEME_NAME,
