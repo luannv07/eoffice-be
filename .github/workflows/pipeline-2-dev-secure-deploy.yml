@@ -15,7 +15,10 @@ concurrency:
 jobs:
   build-scan-push-deploy:
     name: Build, Scan, Push and Deploy to Heroku
-    runs-on: ubuntu-latest
+    # Pinned on purpose: ubuntu-latest moved to Ubuntu 26.04, whose Docker exports OCI
+    # manifests that the Heroku container registry rejects ("unsupported"). See the
+    # comment on the "4. Build Docker image" step.
+    runs-on: ubuntu-24.04
 
     steps:
       - name: 1. Checkout source
@@ -35,8 +38,17 @@ jobs:
         run: mvn clean package -DskipTests
 
       - name: 4. Build Docker image
+        # The ubuntu-latest runner image migrated to Ubuntu 26.04 (runner-image release
+        # 20261018.168). Its Docker uses the containerd image store, so `docker build`
+        # now exports an OCI manifest plus an attestation manifest. The Heroku container
+        # registry only accepts a plain Docker schema2 manifest and rejects the OCI one
+        # with "error from registry: unsupported" (all layers push fine, only the
+        # manifest upload fails). Forcing provenance/sbom off keeps the image in the
+        # Docker format, and pinning the runner to the image that was working before
+        # (ubuntu-24.04, release 20261012.334) keeps the schema2 output deterministic.
         run: |
           docker build \
+            --provenance=false --sbom=false \
             -t registry.heroku.com/${{ secrets.HEROKU_APP_NAME }}/web:latest \
             -t registry.heroku.com/${{ secrets.HEROKU_APP_NAME }}/web:${{ github.sha }} .
 
