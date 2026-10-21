@@ -136,9 +136,9 @@ jobs:
           # produced nothing, which would otherwise look like a clean scan.
           URLS=0
           if [ -f zap_workspace/reports/scanned_urls.txt ]; then
-            URLS=$(grep -c . zap_workspace/reports/scanned_urls.txt || true)
+            URLS=$(grep -c "http" zap_workspace/reports/scanned_urls.txt || true)
           fi
-          echo "ZAP discovered URLs: ${URLS}"
+          echo "ZAP requested URLs: ${URLS}"
           if [ "${URLS}" -lt 10 ]; then
             echo "::error::Authenticated scan reached only ${URLS} URLs - JWT context or OpenAPI import did not work"
             exit 1

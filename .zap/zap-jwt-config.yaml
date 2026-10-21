@@ -120,14 +120,15 @@ jobs:
       reportDir: "/zap/wrk/reports"
       reportFile: "zap_report.html"
 
-  # Evidence: the list of URLs the scan actually reached. The pipeline gate uses the
+  # Evidence: the list of URLs the scan actually requested. The pipeline gate uses the
   # size of this file to prove the JWT context and the OpenAPI import really worked
   # (a scan that silently authenticated nothing would produce an empty file).
+  # NOTE: source must be 'history' - ZAP only accepts type 'yaml' for the Sites Tree.
   - type: "export"
     parameters:
       context: "EPU-EOffice-API"
       type: "url"
-      source: "sitestree"
+      source: "history"
       fileName: "/zap/wrk/reports/scanned_urls.txt"
 
   # Fail the pipeline (exit code 1) when ZAP finds at least one High risk alert.
