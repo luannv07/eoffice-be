@@ -21,6 +21,28 @@ JWT context, theo `kich-ban-owasp-zap-dast-jwt-epu.docx` (đã hiệu chỉnh ch
 
 > Không dùng tài khoản admin thật hoặc tài khoản đã gắn chữ ký số PKI cho DAST.
 
+### Tài khoản DAST đã cấu hình
+
+| Thuộc tính | Giá trị |
+|---|---|
+| Username | `dast_scan` |
+| Email | `dast.scan@epu.edu.vn` |
+| Role | `USER` |
+| `profileCompleted` | `true` (đã tạo `user_infos` qua `PUT /api/v1/profile/me`) |
+| Tài khoản admin | **không** dùng, không biết credential, không tạo keystore PKI |
+
+Tài khoản được tạo bằng `POST /api/v1/auth/register` rồi hoàn thiện hồ sơ bằng
+`PUT /api/v1/profile/me` — không cần quyền admin.
+
+**Hạn chế cần biết:** tài khoản này **chưa được gán chức danh (position)** nên theo mô hình
+RBAC của dự án (`docs/system_seed.md`, "Đường 1: position") nó chưa có quyền nghiệp vụ.
+Hệ quả trên staging: `GET /api/v1/documents/published` → 403,
+`GET /api/v1/documents/pending` và `/api/v1/documents/statistics` → 500.
+
+→ Muốn phủ được business-flow thật, cần **gán chức danh** (ví dụ `CLERK`) cho `dast_scan`
+trong màn hình Quản trị người dùng, và điều tra nguyên nhân 2 lỗi 500 ở trên
+(khả năng do user chưa có position/org → lỗi null handling, không phải lỗi của DAST).
+
 ## 3. Cách chạy
 
 - Tự động: schedule `0 3 * * *` (10:00 ICT) hoặc sau khi Pipeline 2 deploy thành công.
@@ -51,3 +73,11 @@ JWT context, theo `kich-ban-owasp-zap-dast-jwt-epu.docx` (đã hiệu chỉnh ch
   upload…) trên **staging** với tài khoản DAST riêng → có thể tạo/đổi dữ liệu staging.
 - `/auth/logout` bị loại khỏi context để không thu hồi refresh token của tài khoản scan.
 - Nên pin digest cho image `ghcr.io/zaproxy/zaproxy:stable` khi chuyển sang môi trường thật.
+- **Rate limit login**: `/auth/login` bị giới hạn 10 lần / 300 giây / IP
+  (`rate-limit.endpoint-limit`, `rate-limit.endpoint-window-seconds`). ZAP đăng nhập 1 lần
+  lúc bắt đầu và chỉ đăng nhập lại khi verification fail; nếu `loggedInRegex` không khớp
+  thì ZAP sẽ đăng nhập lại liên tục và chạm giới hạn → scan fail. GitHub-hosted runner dùng IP
+  dùng chung nên cũng có thể đã gần ngưỡng. Nếu gặp `RATE_LIMITED` trong log ZAP, hãy chạy
+  scan bằng self-hosted runner hoặc nới `RATE_LIMIT_ENDPOINT_LIMIT` trên staging.
+- Access token sống 15 phút, active scan tối đa 30 phút → ZAP sẽ phải re-authenticate
+  giữa chừng; cơ chế này dựa trên cookie refresh token HttpOnly mà ZAP tự quản lý.
