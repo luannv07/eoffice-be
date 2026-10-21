@@ -1,0 +1,123 @@
+# OWASP ZAP Automation Framework plan — EPU E-Office authenticated API scan.
+#
+# Upgrades Pipeline 4 from an unauthenticated baseline scan to a JWT-authenticated
+# scan so the protected business endpoints (drafts / submit / approve / sign-and-publish
+# / download) are actually reached by the spider and the active scanner.
+#
+# Verified against the real EPU E-Office backend:
+#   * context path is /api/v1 (application-staging.yml: server.servlet.context-path)
+#   * login endpoint is POST /auth/login -> body {"username","password"},
+#     access token lives at JSON path data.accessToken
+#   * refresh endpoint is POST /auth/refresh and the refresh token is an HttpOnly
+#     cookie (Path=/auth), NOT a body field -> ZAP keeps it in its cookie store and
+#     re-authenticates when verification fails, so no custom refresh script is needed
+#   * OpenAPI definition is exposed at /v3/api-docs and is whitelisted
+#     (SecurityWhitelist.SWAGGER_WHITELIST)
+#
+# The ${...} placeholders are resolved by the Automation Framework from the
+# environment variables passed to the ZAP container (see pipeline-4-dast-scan.yml):
+#   DAST_TARGET_URL, DAST_STAGING_USER, DAST_STAGING_PASS
+
+env:
+  vars:
+    targetUrl: ${DAST_TARGET_URL}
+    username: ${DAST_STAGING_USER}
+    password: ${DAST_STAGING_PASS}
+
+  contexts:
+    - name: "EPU-EOffice-API"
+      urls:
+        - ${targetUrl}
+      includePaths:
+        - "${targetUrl}/.*"
+      # Never attack logout: it revokes the refresh token of the dedicated DAST account.
+      excludePaths:
+        - "${targetUrl}/auth/logout.*"
+
+      authentication:
+        method: "json"
+        parameters:
+          loginRequestUrl: ${targetUrl}/auth/login
+          loginRequestBody: '{"username":"{%username%}","password":"{%password%}"}'
+        verification:
+          method: "response"
+          loggedInRegex: '.*"accessToken".*'
+          loggedOutRegex: '.*"(UNAUTHORIZED|TOKEN_EXPIRED|SESSION_EXPIRED|INVALID_TOKEN)".*'
+
+      # Header Based Session Management (authhelper add-on).
+      # NOTE: parameters is a header:value map, and the JSON token uses the dotted
+      # path without the "$." prefix (AuthUtils stores tokens as "json:<dotted.path>").
+      sessionManagement:
+        method: "headers"
+        parameters:
+          Authorization: "Bearer {%json:data.accessToken%}"
+
+      users:
+        - name: "dast-user"
+          credentials:
+            username: ${username}
+            password: ${password}
+
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    continueOnFailure: false
+    progressToStdout: true
+
+jobs:
+  # Seed the sites tree with every documented endpoint (including POST bodies) so the
+  # active scanner can reach the protected business APIs that a plain spider cannot find.
+  - type: "openapi"
+    parameters:
+      apiUrl: ${targetUrl}/v3/api-docs
+      context: "EPU-EOffice-API"
+      user: "dast-user"
+      targetUrl: ${targetUrl}
+
+  - type: "passiveScan-config"
+    parameters:
+      maxAlertsPerRule: 10
+      scanOnlyInContext: true
+
+  - type: "spider"
+    parameters:
+      context: "EPU-EOffice-API"
+      user: "dast-user"
+      maxDepth: 5
+      maxDuration: 10
+
+  - type: "passiveScan-wait"
+    parameters:
+      maxDuration: 5
+
+  - type: "activeScan"
+    parameters:
+      context: "EPU-EOffice-API"
+      user: "dast-user"
+      # Programmatic name of the built-in API scan policy (see scan-policies/policy-api).
+      policy: "API"
+      maxRuleDurationInMins: 5
+      maxScanDurationInMins: 30
+
+  - type: "report"
+    parameters:
+      template: "traditional-json"
+      reportDir: "/zap/wrk/reports"
+      reportFile: "zap_report.json"
+
+  - type: "report"
+    parameters:
+      template: "traditional-xml"
+      reportDir: "/zap/wrk/reports"
+      reportFile: "zap_report.xml"
+
+  - type: "report"
+    parameters:
+      template: "traditional-html"
+      reportDir: "/zap/wrk/reports"
+      reportFile: "zap_report.html"
+
+  # Fail the pipeline (exit code 1) when ZAP finds at least one High risk alert.
+  - type: "exitStatus"
+    parameters:
+      errorLevel: "High"

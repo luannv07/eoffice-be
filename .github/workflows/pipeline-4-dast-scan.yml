@@ -1,21 +1,25 @@
 # Pipeline 4: Dynamic Application Security Testing (DAST) with OWASP ZAP.
-# Source: DevSecOps_EOffice_Scopus_Q2_Upgrade.docx — Chuong 3 (khung DAST) + Chuong 5 (YAML).
-# Fixes vs. the draft in Table 6 (see commit message / PR description):
+# Source: DevSecOps_EOffice_Scopus_Q2_Upgrade.docx — Chuong 3 (khung DAST) + Chuong 5 (YAML),
+# upgraded from the unauthenticated baseline to an authenticated JWT scan
+# (kich-ban-owasp-zap-dast-jwt-epu.docx).
+#
+# Behaviour:
 #   1. workflow_run.workflows uses the real workflow NAME "Pipeline 2: Dev Secure Deploy"
-#      (matching `name:` in pipeline-2-dev-secure-deploy.yml), not the deploy job label —
-#      otherwise this workflow NEVER triggers.
-#   2. Target is the staging app root from secret STAGING_BASE_URL, NOT http://localhost:8080
-#      (GitHub-hosted runners have no app on localhost; staging lives on Heroku).
+#      (matching `name:` in pipeline-2-dev-secure-deploy.yml), not the deploy job label.
+#   2. Target is the staging app root from secret STAGING_BASE_URL, falling back to
+#      HEALTH_CHECK_URL with the /actuator/health suffix stripped.
 #   3. `if:` covers schedule + workflow_dispatch too (on those events
-#      github.event.workflow_run is null, so the draft condition would skip every run).
-#   4. Added JSON report (-J) for machine-readable evidence, artifact upload (always),
-#      timeout, concurrency, least-privilege permissions.
-# Required secrets (fallback chain): STAGING_BASE_URL preferred (app root, e.g. https://<app>.herokuapp.com, no trailing slash);
-# fallback HEALTH_CHECK_URL (full https://<app>.herokuapp.com/actuator/health) -> strip suffix /actuator/health to derive app root.
-# Fails only when both are empty.
-# Follow-ups from Table 3 not yet in this baseline (need ZAP context + auth script +
-# OpenAPI import): authenticated scan (POST /api/v1/auth/login -> Bearer JWT),
-# ZAP context file with Included/Excluded URLs, SARIF import to code scanning.
+#      github.event.workflow_run is null).
+#   4. When DAST_STAGING_USER / DAST_STAGING_PASS are configured the job runs the
+#      OWASP ZAP Automation Framework plan (.zap/zap-jwt-config.yaml) with a real JWT
+#      context; otherwise it degrades to the previous unauthenticated baseline scan so
+#      scheduled runs never break while the DAST account is being provisioned.
+#
+# Required secrets:
+#   STAGING_BASE_URL   (preferred) staging app root, e.g. https://<host>/api/v1, no trailing slash
+#   HEALTH_CHECK_URL   (fallback)  full https://<host>/api/v1/actuator/health
+#   DAST_STAGING_USER  dedicated staging account, profileCompleted = true (NOT a real admin / PKI account)
+#   DAST_STAGING_PASS  password of that account
 
 name: "Pipeline 4: Dynamic Application Security Testing (DAST)"
 
@@ -38,12 +42,19 @@ jobs:
   zap_dast_scan:
     name: "OWASP ZAP Dynamic Security Scan"
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run' }}
+
+    env:
+      DAST_STAGING_USER: ${{ secrets.DAST_STAGING_USER }}
+      DAST_STAGING_PASS: ${{ secrets.DAST_STAGING_PASS }}
 
     steps:
       - name: Checkout Repository Code
         uses: actions/checkout@v4
+
+      - name: Fix permissions for ZAP container
+        run: chmod 777 .
 
       - name: Verify Staging Environment Health
         env:
@@ -63,10 +74,40 @@ jobs:
           curl --fail --silent --show-error "${APP_ROOT}/actuator/health" > /dev/null
           echo "APP_ROOT=${APP_ROOT}" >> "$GITHUB_ENV"
 
-      - name: Fix permissions for ZAP container
-        run: chmod 777 .
+      - name: Detect DAST Authentication Mode
+        id: dast_mode
+        run: |
+          if [ -n "${DAST_STAGING_USER:-}" ] && [ -n "${DAST_STAGING_PASS:-}" ]; then
+            echo "authenticated=true" >> "$GITHUB_OUTPUT"
+            echo "Authenticated JWT scan enabled (DAST_STAGING_USER / DAST_STAGING_PASS are set)."
+          else
+            echo "authenticated=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::DAST_STAGING_USER / DAST_STAGING_PASS are not configured; falling back to the unauthenticated baseline scan."
+          fi
 
-      - name: Run OWASP ZAP Baseline Scan (DAST)
+      - name: Prepare ZAP Workspace
+        if: steps.dast_mode.outputs.authenticated == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p zap_workspace/reports
+          cp .zap/zap-jwt-config.yaml zap_workspace/zap-jwt-config.yaml
+          chmod -R 777 zap_workspace
+          echo "DAST_TARGET_URL=${APP_ROOT}" >> "$GITHUB_ENV"
+
+      - name: Run OWASP ZAP Authenticated Scan (JWT)
+        if: steps.dast_mode.outputs.authenticated == 'true'
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "$PWD/zap_workspace:/zap/wrk:rw" \
+            -e DAST_TARGET_URL \
+            -e DAST_STAGING_USER \
+            -e DAST_STAGING_PASS \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap.sh -cmd -autorun /zap/wrk/zap-jwt-config.yaml
+
+      - name: Run OWASP ZAP Baseline Scan (unauthenticated fallback)
+        if: steps.dast_mode.outputs.authenticated != 'true'
         uses: zaproxy/action-baseline@66042c8e7e24680119199a017e5b0e8603bf4dae # v0.12.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -80,12 +121,18 @@ jobs:
         if: always()
         run: |
           set -euo pipefail
-          if [ ! -f zap_report.xml ]; then
+          REPORT=""
+          if [ -f zap_workspace/reports/zap_report.xml ]; then
+            REPORT="zap_workspace/reports/zap_report.xml"
+          elif [ -f zap_report.xml ]; then
+            REPORT="zap_report.xml"
+          fi
+          if [ -z "${REPORT}" ]; then
             echo "::error::ZAP report not found"
             exit 1
           fi
-          high=$(grep -c '<riskdesc>High</riskdesc>' zap_report.xml || true)
-          critical=$(grep -c '<riskdesc>Critical</riskdesc>' zap_report.xml || true)
+          high=$(grep -c '<riskdesc>High</riskdesc>' "${REPORT}" || true)
+          critical=$(grep -c '<riskdesc>Critical</riskdesc>' "${REPORT}" || true)
           echo "ZAP HIGH alerts: ${high}"
           echo "ZAP CRITICAL alerts: ${critical}"
           if [ "${high}" -gt 0 ] || [ "${critical}" -gt 0 ]; then
@@ -94,10 +141,46 @@ jobs:
           fi
           echo "[PASS] No HIGH or CRITICAL alerts"
 
-      - name: Upload ZAP reports
+      - name: Summarize DAST Findings
+        if: always()
+        run: |
+          set -euo pipefail
+          REPORT=""
+          if [ -f zap_workspace/reports/zap_report.json ]; then
+            REPORT="zap_workspace/reports/zap_report.json"
+          elif [ -f zap_report.json ]; then
+            REPORT="zap_report.json"
+          fi
+          if [ -z "${REPORT}" ]; then
+            echo "No JSON report found; skipping summary."
+            exit 0
+          fi
+          python3 - "${REPORT}" <<'PY'
+          import json
+          import sys
+          from collections import Counter
+
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              report = json.load(handle)
+
+          counts = Counter()
+          for site in report.get("site", []):
+              for alert in site.get("alerts", []):
+                  counts[str(alert.get("riskdesc", "Unknown")).split(" ")[0]] += 1
+
+          print("DAST alert summary (one entry per alert type):")
+          for risk in ("High", "Medium", "Low", "Informational"):
+              print(f"  {risk}: {counts.get(risk, 0)}")
+          print(f"  Total: {sum(counts.values())}")
+          PY
+
+      - name: Upload ZAP Reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: dast-zap-reports-${{ github.run_id }}
-          path: zap_report.*
+          path: |
+            zap_workspace/reports/
+            zap_report.*
           if-no-files-found: warn
+          retention-days: 30
