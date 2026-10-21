@@ -131,6 +131,18 @@ jobs:
             echo "::error::ZAP report not found"
             exit 1
           fi
+          # Sanity: the scan must have actually reached the protected API surface.
+          # An empty URL list means the JWT context or the OpenAPI import silently
+          # produced nothing, which would otherwise look like a clean scan.
+          URLS=0
+          if [ -f zap_workspace/reports/scanned_urls.txt ]; then
+            URLS=$(grep -c "http" zap_workspace/reports/scanned_urls.txt || true)
+          fi
+          echo "ZAP requested URLs: ${URLS}"
+          if [ "${URLS}" -lt 10 ]; then
+            echo "::error::Authenticated scan reached only ${URLS} URLs - JWT context or OpenAPI import did not work"
+            exit 1
+          fi
           high=$(grep -c '<riskdesc>High</riskdesc>' "${REPORT}" || true)
           critical=$(grep -c '<riskdesc>Critical</riskdesc>' "${REPORT}" || true)
           echo "ZAP HIGH alerts: ${high}"
