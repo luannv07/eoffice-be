@@ -56,14 +56,13 @@ eoffice:
   storage:
     base-path: ${STORAGE_BASE_PATH:./uploads}
   pki:
-    keystore-path: ${PKI_KEYSTORE_PATH:}
-    keystore-password: ${PKI_KEYSTORE_PASSWORD:}
-    key-alias: ${PKI_KEY_ALIAS:}
-    key-password: ${PKI_KEY_PASSWORD:}
-    fallback-keystore-path: ${PKI_FALLBACK_KEYSTORE_PATH:./uploads/keystore/epu-pki.p12}
+    encryption:
+      key: ${PKI_ENCRYPTION_KEY:}
+      key-id: ${PKI_ENCRYPTION_KEY_ID:}
     ca-keystore-path: ${PKI_CA_KEYSTORE_PATH:./uploads/keystores/ca/ca.p12}
     ca-cert-path: ${PKI_CA_CERT_PATH:./uploads/keystores/ca/ca.crt}
     user-keystores-dir: ${PKI_USER_KEYSTORES_DIR:./uploads/keystores/users}
+    revoked-path: ${PKI_REVOKED_PATH:./uploads/keystores/ca/revoked.json}
     default-keystore-password: ${DEMO_KS_PASSWORD:changeit}
   jwt:
     issuer: eoffice-be

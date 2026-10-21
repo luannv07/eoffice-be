@@ -1,0 +1,263 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-10-20-add-pki-storage-tables
+      author: eoffice
+      preConditions:
+        - onFail: HALT
+        - sqlCheck:
+            expectedResult: 1
+            sql: SELECT COUNT(*) FROM information_schema.tables WHERE LOWER(table_schema) = LOWER(CURRENT_SCHEMA) AND LOWER(table_name) = 'user_logins'
+        - sqlCheck:
+            expectedResult: 0
+            sql: SELECT COUNT(*) FROM information_schema.tables WHERE LOWER(table_schema) = LOWER(CURRENT_SCHEMA) AND LOWER(table_name) IN ('pki_ca', 'pki_user_keystores', 'pki_revocations')
+      changes:
+        - createTable:
+            tableName: pki_ca
+            remarks: CA material; keystore ciphertext includes the AES-GCM authentication tag. No plaintext private keys or passwords.
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+                    primaryKeyName: pk_pki_ca
+              - column:
+                  name: status
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: certificate_pem
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: keystore_encrypted
+                  type: BYTEA
+                  constraints:
+                    nullable: false
+              - column:
+                  name: encryption_nonce
+                  type: BYTEA
+                  constraints:
+                    nullable: false
+              - column:
+                  name: encryption_key_id
+                  type: VARCHAR(100)
+                  remarks: Reference to an externally managed encryption key, never the key itself.
+                  constraints:
+                    nullable: false
+              - column:
+                  name: encryption_version
+                  type: INTEGER
+                  defaultValueNumeric: 1
+                  constraints:
+                    nullable: false
+              - column:
+                  name: fingerprint_sha256
+                  type: VARCHAR(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: not_before
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: not_after
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: pki_ca
+            columnNames: fingerprint_sha256
+            constraintName: uq_pki_ca_fingerprint
+        - createTable:
+            tableName: pki_user_keystores
+            remarks: One reusable user keystore per CA; encrypted PKCS12 contains the private key and certificate chain.
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+                    primaryKeyName: pk_pki_user_keystores
+              - column:
+                  name: user_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: ca_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: certificate_pem
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: certificate_serial
+                  type: VARCHAR(128)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: keystore_encrypted
+                  type: BYTEA
+                  constraints:
+                    nullable: false
+              - column:
+                  name: encryption_nonce
+                  type: BYTEA
+                  constraints:
+                    nullable: false
+              - column:
+                  name: encryption_key_id
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: encryption_version
+                  type: INTEGER
+                  defaultValueNumeric: 1
+                  constraints:
+                    nullable: false
+              - column:
+                  name: not_before
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: not_after
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: pki_user_keystores
+            baseColumnNames: user_id
+            referencedTableName: user_logins
+            referencedColumnNames: id
+            constraintName: fk_pki_user_keystores_user
+        - addForeignKeyConstraint:
+            baseTableName: pki_user_keystores
+            baseColumnNames: ca_id
+            referencedTableName: pki_ca
+            referencedColumnNames: id
+            constraintName: fk_pki_user_keystores_ca
+        - addUniqueConstraint:
+            tableName: pki_user_keystores
+            columnNames: user_id, ca_id
+            constraintName: uq_pki_user_keystores_user_ca
+        - addUniqueConstraint:
+            tableName: pki_user_keystores
+            columnNames: ca_id, certificate_serial
+            constraintName: uq_pki_user_keystores_ca_serial
+        - createTable:
+            tableName: pki_revocations
+            remarks: Certificate revocations scoped by issuing CA; an empty table means no recorded revocations.
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+                    primaryKeyName: pk_pki_revocations
+              - column:
+                  name: ca_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: certificate_serial
+                  type: VARCHAR(128)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: revoked_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: reason
+                  type: VARCHAR(512)
+              - column:
+                  name: revoked_by
+                  type: BIGINT
+        - addForeignKeyConstraint:
+            baseTableName: pki_revocations
+            baseColumnNames: ca_id
+            referencedTableName: pki_ca
+            referencedColumnNames: id
+            constraintName: fk_pki_revocations_ca
+        - addForeignKeyConstraint:
+            baseTableName: pki_revocations
+            baseColumnNames: revoked_by
+            referencedTableName: user_logins
+            referencedColumnNames: id
+            constraintName: fk_pki_revocations_user
+        - addUniqueConstraint:
+            tableName: pki_revocations
+            columnNames: ca_id, certificate_serial
+            constraintName: uq_pki_revocations_ca_serial
+        - sql:
+            sql: |
+              ALTER TABLE pki_ca ADD CONSTRAINT ck_pki_ca_status CHECK (status IN ('ACTIVE', 'RETIRED'));
+              ALTER TABLE pki_ca ADD CONSTRAINT ck_pki_ca_dates CHECK (not_after > not_before);
+              ALTER TABLE pki_ca ADD CONSTRAINT ck_pki_ca_nonce CHECK (OCTET_LENGTH(encryption_nonce) = 12);
+              ALTER TABLE pki_ca ADD CONSTRAINT ck_pki_ca_ciphertext CHECK (OCTET_LENGTH(keystore_encrypted) > 16);
+              ALTER TABLE pki_ca ADD CONSTRAINT ck_pki_ca_enc_version CHECK (encryption_version > 0);
+              ALTER TABLE pki_user_keystores ADD CONSTRAINT ck_pki_user_dates CHECK (not_after > not_before);
+              ALTER TABLE pki_user_keystores ADD CONSTRAINT ck_pki_user_nonce CHECK (OCTET_LENGTH(encryption_nonce) = 12);
+              ALTER TABLE pki_user_keystores ADD CONSTRAINT ck_pki_user_ciphertext CHECK (OCTET_LENGTH(keystore_encrypted) > 16);
+              ALTER TABLE pki_user_keystores ADD CONSTRAINT ck_pki_user_enc_version CHECK (encryption_version > 0);
+      rollback:
+        - dropTable:
+            tableName: pki_revocations
+        - dropTable:
+            tableName: pki_user_keystores
+        - dropTable:
+            tableName: pki_ca
+
+  - changeSet:
+      id: 2026-10-20-one-active-pki-ca-pg
+      author: eoffice
+      dbms: postgresql
+      changes:
+        - sql:
+            sql: CREATE UNIQUE INDEX uq_pki_ca_single_active ON pki_ca (status) WHERE status = 'ACTIVE';
+      rollback:
+        - dropIndex:
+            tableName: pki_ca
+            indexName: uq_pki_ca_single_active

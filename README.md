@@ -42,8 +42,8 @@ Hệ thống chuẩn hóa luồng xử lý văn bản khép kín qua các trạn
 ## 2. HẠ TẦNG KÝ SỐ PKI & KIỂM ĐỊNH CHỮ KÝ (VERIFY ENGINE)
 
 ### 2.1. Ký số điện tử PKI X.509 PAdES (Digital Signature)
-* **Root CA nội bộ**: Quản lý chứng thư số Root CA (`uploads/keystores/ca/ca.p12`) với công cụ khởi tạo chuyên dụng, an toàn chống ghi đè (`scripts/init-ca.ps1`).
-* **Cấp phát chứng thư người dùng tự động**: Khi người dùng ký lần đầu, hệ thống tự động sinh cặp khóa RSA 2048-bit và ký cấp chứng thư X.509 gắn liền với chức vụ và đơn vị công tác (`uploads/keystores/users/user_<id>.p12`).
+* **Root CA nội bộ**: Quản lý chứng thư số Root CA bằng API dành cho `SYSTEM_ADMIN`, tạo khóa RSA 3072-bit và chứng thư CA hiệu lực 3650 ngày; từ chối tạo đè CA đang có, kể cả đã hết hạn. Script `scripts/init-ca.ps1` / `scripts/init-ca.sh` vẫn dành cho hỗ trợ local.
+* **Cấp phát chứng thư người dùng tự động**: Khi người dùng ký lần đầu, hệ thống tự động sinh cặp khóa RSA 2048-bit và cấp chứng thư X.509 (`uploads/keystores/users/user_<id>.p12`). Hiệu lực tối đa 3 năm, không vượt quá hạn CA. Đăng ký và hoàn tất profile chưa cấp key. Lần ký sau dùng lại key; key thiếu sau khi đã sử dụng hoặc key hỏng/hết hạn yêu cầu khôi phục, không tự tạo thay thế.
 * **Lưu tăng dần (Incremental Save)**: Đảm bảo văn bản qua nhiều lần ký nháy (Chuyên viên $\rightarrow$ Thẩm định viên $\rightarrow$ Hiệu trưởng) không bị hỏng chữ ký của người ký trước.
 * **Niêm phong DocMDP ($P=1$)**: Khi ban hành, tài liệu được khóa niêm phong chống mọi hành vi chỉnh sửa sau ký.
 
@@ -56,6 +56,39 @@ Hệ thống tích hợp sẵn endpoint kiểm định độc lập `GET /api/v1
 5. **REVOCATION STATUS**: Kiểm tra trạng thái thu hồi chứng thư (CRL/Revocation List).
 6. **BYTERANGE COVERAGE**: Đảm bảo vùng ký bao phủ toàn bộ tệp PDF, phát hiện dữ liệu chèn lén sau chữ ký.
 7. **DOCMDP / MODIFICATION DETECTION**: Phát hiện bất kỳ thay đổi nào làm phá vỡ niêm phong của tài liệu.
+
+### 2.3. API quản trị Root CA
+
+Hai API dưới đây yêu cầu `Authorization: Bearer <SYSTEM_ADMIN_ACCESS_TOKEN>`. Chỉ `SYSTEM_ADMIN` được gọi; hai endpoint này không yêu cầu hoàn tất profile để quản trị viên có thể khởi tạo CA. API không trả private key hoặc mật khẩu.
+
+| API | Kết quả |
+| :--- | :--- |
+| `GET /api/v1/admin/pki/ca/status` | HTTP 200, `BaseResponse.data` gồm `state`, `canInitialize`, `subject`, `fingerprintSha256`, `notBefore`, `notAfter`; trường chứng thư có thể trống nếu chưa đọc được. Không tạo hoặc sửa file. |
+| `POST /api/v1/admin/pki/ca/initialize` | Không gửi body. HTTP 201, trả trạng thái CA vừa tạo. Chỉ khởi tạo khi chưa có CA và không còn dấu vết bộ key/chữ ký cũ. |
+
+`state` nhận một trong bốn giá trị: `NOT_INITIALIZED`, `READY`, `EXPIRED`, `RECOVERY_REQUIRED`. Lỗi truy cập nơi lưu trả HTTP 503. CA chỉ được tạo một lần, không tự khởi tạo khi ứng dụng restart và chưa có API gia hạn hoặc luân chuyển CA.
+
+| Mã lỗi | HTTP | Cách xử lý |
+| :--- | :--- | :--- |
+| `PKI_CA_NOT_INITIALIZED` | 503 | Chưa có CA khi ký: quản trị viên kiểm tra `status` rồi khởi tạo lần đầu. |
+| `PKI_CA_ALREADY_EXISTS` | 409 | CA đã có, kể cả hết hạn: giữ nguyên bộ key, không gọi lại để tạo đè. |
+| `PKI_CA_RECOVERY_REQUIRED` | 409 | CA thiếu/hỏng/không khớp hoặc còn lịch sử ký: khôi phục đúng bộ backup. |
+| `PKI_CA_EXPIRED` | 503 | Ngừng ký và cấp chứng thư; xử lý gia hạn riêng, không xóa CA để khởi tạo lại. |
+| `PKI_STORAGE_ERROR` | 503 | Kiểm tra đường dẫn và quyền truy cập của tiến trình backend. |
+| `PKI_USER_KEYSTORE_INVALID` | 409 | Khôi phục/kiểm tra đúng keystore user; hệ thống không tự thay key cũ. |
+
+Các lỗi PKI giữ nguyên mã khi đi qua luồng gửi duyệt, cấp số và phát hành; lỗi xử lý chữ ký khác dùng `SIGNATURE_PROCESS_ERROR`.
+
+### 2.4. Lưu file, backup và khôi phục cho demo
+
+PKI tiếp tục lưu bằng file, không có bảng/migration lưu CA hoặc chứng thư trong database. Đường dẫn lấy từ `PKI_CA_KEYSTORE_PATH`, `PKI_CA_CERT_PATH`, `PKI_USER_KEYSTORES_DIR`, `PKI_REVOKED_PATH`; mật khẩu keystore lấy từ `DEMO_KS_PASSWORD`. Các thư mục này độc lập với provider lưu tài liệu Telegram.
+
+1. Trước deploy và sau khi cấp thêm chứng thư/thu hồi, tạm ngừng thao tác ký rồi sao lưu **cùng một bộ**: `ca.p12`, `ca.crt`, toàn bộ thư mục keystore user và `revoked.json`. Giữ nguyên cấu trúc đường dẫn; bảo vệ bản sao vì có private key.
+2. Lưu mật khẩu keystore riêng khỏi gói backup. Khôi phục phải dùng đúng mật khẩu ban đầu, không đổi `DEMO_KS_PASSWORD` tùy tiện.
+3. Sau deploy/restart, khôi phục toàn bộ bộ file vào các đường dẫn đã cấu hình trên **instance web thực sự nhận request ký**, kiểm tra quyền đọc/ghi, gọi API `status` và đối chiếu fingerprint CA với bản backup. Chỉ mở lại thao tác ký khi `READY`.
+4. Chỉ gọi `initialize` khi chưa từng có CA và `canInitialize=true`. Nếu cần khôi phục thì giữ nguyên dữ liệu còn lại, không xóa dấu vết key/lịch sử ký để vượt chốt chặn.
+
+**Giới hạn Heroku của bản demo:** filesystem dyno là tạm thời; deploy/restart có thể làm mất file. One-off dyno có filesystem riêng, nên chạy script hoặc chép backup vào one-off dyno không cấp key cho web dyno. Gọi API trên web dyno tạo key tại chính instance đó; nhiều web dyno giữ file riêng cũng không chia sẻ key. Bản demo dùng một web instance và backup/khôi phục thủ công, chưa bổ sung lưu trữ bền vững. Tham khảo [filesystem Heroku](https://devcenter.heroku.com/articles/dynos#ephemeral-filesystem).
 
 ---
 
@@ -103,8 +136,18 @@ COOKIE_SECURE=false
 JWT_ALLOWED_ORIGINS=
 ```
 
-### Bước 4: Khởi tạo Root CA nội bộ (Chỉ cần chạy 1 lần cho máy mới clone code)
-Do thư mục `uploads/keystores/` chứa khóa mật mã được loại trừ khỏi Git theo quy chuẩn an toàn, bạn cần khởi tạo Root CA để phục vụ tính năng ký số:
+### Bước 4: Cấu hình PKI cho môi trường đang chạy
+Thư mục `uploads/keystores/` chứa khóa mật mã và bị loại khỏi Git. Cấu hình các biến sau trong môi trường của backend; đặt mật khẩu riêng trước lần khởi tạo đầu tiên:
+```properties
+PKI_CA_KEYSTORE_PATH=./uploads/keystores/ca/ca.p12
+PKI_CA_CERT_PATH=./uploads/keystores/ca/ca.crt
+PKI_USER_KEYSTORES_DIR=./uploads/keystores/users
+PKI_REVOKED_PATH=./uploads/keystores/ca/revoked.json
+DEMO_KS_PASSWORD=<mat_khau_keystore_rieng>
+```
+Sau khi chạy backend ở bước 6, đăng nhập tài khoản `SYSTEM_ADMIN`, gọi `GET /api/v1/admin/pki/ca/status`, sau đó gọi `POST /api/v1/admin/pki/ca/initialize` không body nếu `canInitialize=true`. Nếu môi trường đã từng ký thì khôi phục đúng bộ file cũ theo mục 2.4.
+
+Local vẫn có thể khởi tạo bằng script hỗ trợ, trước khi backend ký lần đầu:
 ```powershell
 # Trên Windows (PowerShell):
 .\scripts\init-ca.ps1
@@ -114,17 +157,17 @@ chmod +x ./scripts/init-ca.sh
 ./scripts/init-ca.sh
 ```
 > [!NOTE]
-> - Script đã tích hợp **chốt chặn an toàn chống ghi đè 100%**: Nếu file `ca.p12` đã tồn tại hoặc đã có chứng thư user, script sẽ lập tức từ chối và thoát ngay để bảo vệ các chữ ký cũ.
-> - Mật khẩu Keystore được đặt cố định là `changeit` đồng bộ hoàn toàn với backend Java.
+> - Script có chốt chặn chống ghi đè CA/chứng thư đã có; không dùng script để thay thế CA cũ hoặc hết hạn.
+> - Script hỗ trợ hiện dùng mật khẩu local `changeit` và các đường dẫn mặc định; nếu dùng bộ key do script tạo thì cấu hình backend phải khớp. Để dùng đường dẫn/mật khẩu môi trường riêng, khởi tạo bằng API. Không đổi mật khẩu khi dùng lại bộ keystore đã tồn tại.
 
 ### Bước 5: Chạy kiểm thử tự động (Auto Liquibase Migration)
 Chạy lệnh sau để Maven tự động tải thư viện, kích hoạt Liquibase tạo bảng và chạy toàn bộ test case:
 ```powershell
 # Chạy toàn bộ test
-.\mvnw.cmd test
+.\mvnw.cmd test -Dspring.profiles.active=test
 
 # Hoặc chạy kiểm tra nhanh
-.\mvnw.cmd test -Dtest=AuthCoreContextTest
+.\mvnw.cmd test -Dspring.profiles.active=test -Dtest=AuthCoreContextTest
 ```
 
 ### Bước 6: Khởi chạy Backend Application

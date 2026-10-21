@@ -28,12 +28,12 @@ import org.bouncycastle.cms.jcajce.JcaSimpleSignerInfoVerifierBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.util.Store;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import vn.edu.epu.eoffice_be.dto.response.DocumentSignatureVerifyResponse;
 import vn.edu.epu.eoffice_be.dto.response.SignatureItemResponse;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
@@ -63,7 +63,7 @@ import java.util.Set;
  * Kiểm tra 7 tiêu chí bảo mật toàn diện cho từng chữ ký trong tài liệu:
  * 1. INTEGRITY: Tính toán SHA-256 trên đúng ByteRange, so khớp với messageDigest trong CMS signed attributes,
  *    và xác minh chữ ký mật mã CMS bằng khóa công khai của người ký.
- * 2. CHAIN: Kiểm tra chứng thư người ký có được cấp phát và ký hợp lệ bởi Root CA nội bộ (ca.crt),
+ * 2. CHAIN: Kiểm tra chứng thư người ký có được cấp phát và ký hợp lệ bởi Root CA nội bộ trong database,
  *    ngăn chặn chứng thư tự ký hoặc mạo danh.
  * 3. VALIDITY: Kiểm tra thời hạn hiệu lực tại thời điểm ký (signingTime) và tại thời điểm hiện tại.
  * 4. KEYUSAGE: Kiểm tra BasicConstraints CA=false và KeyUsage có digitalSignature + nonRepudiation.
@@ -74,24 +74,19 @@ import java.util.Set;
 @Slf4j
 @Component
 public class PdfSignatureVerifier {
+    private final vn.edu.epu.eoffice_be.service.PkiCaService caService;
 
-    @Value("${eoffice.pki.ca-cert-path:./uploads/keystores/ca/ca.crt}")
-    private String caCertPath = "./uploads/keystores/ca/ca.crt";
-
-    @Value("${eoffice.pki.revoked-path:./uploads/keystores/ca/revoked.json}")
-    private String revokedPath = "./uploads/keystores/ca/revoked.json";
+    private final String revokedPath;
 
     @Autowired(required = false)
     private ObjectMapper objectMapper;
 
-    public PdfSignatureVerifier() {
+    @Autowired
+    public PdfSignatureVerifier(vn.edu.epu.eoffice_be.service.PkiCaService caService,
+                                vn.edu.epu.eoffice_be.config.PkiProperties properties) {
         Crypto.registerBouncyCastle();
-    }
-
-    public PdfSignatureVerifier(String caCertPath, String revokedPath) {
-        Crypto.registerBouncyCastle();
-        this.caCertPath = caCertPath;
-        this.revokedPath = revokedPath;
+        this.caService = caService;
+        this.revokedPath = properties.getRevokedPath();
     }
 
     /**
@@ -119,7 +114,7 @@ public class PdfSignatureVerifier {
                     .build();
         }
 
-        // 1. Nạp chứng thư Root CA nội bộ
+        // 1. Nạp chứng thư Root CA nội bộ từ database
         X509Certificate caCert = loadCaCertificate();
 
         // 2. Nạp danh sách chứng thư bị thu hồi (CRL)
@@ -585,13 +580,9 @@ public class PdfSignatureVerifier {
 
     private X509Certificate loadCaCertificate() {
         try {
-            Path caPath = Paths.get(caCertPath);
-            if (Files.exists(caPath)) {
-                return Crypto.loadCertPem(caPath);
-            }
-            log.warn("Không tìm thấy tệp Root CA tại '{}'", caPath.toAbsolutePath());
+            return caService.activeCertificate().orElse(null);
         } catch (Exception e) {
-            log.error("Lỗi khi nạp chứng thư Root CA từ '{}': {}", caCertPath, e.getMessage());
+            log.warn("Không thể nạp chứng thư Root CA từ database");
         }
         return null;
     }
@@ -603,7 +594,20 @@ public class PdfSignatureVerifier {
                 return Collections.emptySet();
             }
             ObjectMapper mapper = (this.objectMapper != null) ? this.objectMapper : new ObjectMapper();
-            List<String> list = mapper.readValue(path.toFile(), new TypeReference<List<String>>() {});
+            byte[] bytes = PkiFileSupport.withJvmLock(path, () -> {
+                try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ);
+                     FileLock ignored = channel.lock(0L, Long.MAX_VALUE, true)) {
+                    ByteArrayOutputStream output = new ByteArrayOutputStream();
+                    ByteBuffer buffer = ByteBuffer.allocate(8192);
+                    while (channel.read(buffer) != -1) {
+                        buffer.flip();
+                        output.write(buffer.array(), 0, buffer.remaining());
+                        buffer.clear();
+                    }
+                    return output.toByteArray();
+                }
+            });
+            List<String> list = mapper.readValue(bytes, new TypeReference<List<String>>() {});
             if (list == null) return Collections.emptySet();
 
             Set<String> set = new HashSet<>();
@@ -649,54 +653,58 @@ public class PdfSignatureVerifier {
 
                 ObjectMapper mapper = (this.objectMapper != null) ? this.objectMapper : new ObjectMapper();
 
-                try (FileChannel channel = FileChannel.open(path,
-                        StandardOpenOption.CREATE,
-                        StandardOpenOption.READ,
-                        StandardOpenOption.WRITE);
-                     FileLock lock = channel.lock()) {
+                // Serialize revocation readers and writers before acquiring the file lock.
+                PkiFileSupport.withJvmLock(path, () -> {
+                    try (FileChannel channel = FileChannel.open(path,
+                            StandardOpenOption.CREATE,
+                            StandardOpenOption.READ,
+                            StandardOpenOption.WRITE);
+                         FileLock lock = channel.lock()) {
 
-                    Set<String> set = new LinkedHashSet<>();
-                    if (channel.size() > 0) {
-                        channel.position(0);
-                        ByteBuffer inBuffer = ByteBuffer.allocate((int) channel.size());
-                        int bytesRead;
-                        while (inBuffer.hasRemaining() && (bytesRead = channel.read(inBuffer)) > 0) {
-                            // Tiếp tục đọc cho tới khi đầy buffer hoặc chạm EOF
-                        }
-                        inBuffer.flip();
-                        if (inBuffer.limit() > 0) {
-                            try {
-                                List<String> list = mapper.readValue(inBuffer.array(), 0, inBuffer.limit(), new TypeReference<List<String>>() {});
-                                if (list != null) {
-                                    for (String s : list) {
-                                        if (s != null && !s.isBlank()) {
-                                            set.add(s.trim().toLowerCase());
+                        Set<String> set = new LinkedHashSet<>();
+                        if (channel.size() > 0) {
+                            channel.position(0);
+                            ByteBuffer inBuffer = ByteBuffer.allocate((int) channel.size());
+                            int bytesRead;
+                            while (inBuffer.hasRemaining() && (bytesRead = channel.read(inBuffer)) > 0) {
+                                // Tiếp tục đọc cho tới khi đầy buffer hoặc chạm EOF
+                            }
+                            inBuffer.flip();
+                            if (inBuffer.limit() > 0) {
+                                try {
+                                    List<String> list = mapper.readValue(inBuffer.array(), 0, inBuffer.limit(), new TypeReference<List<String>>() {});
+                                    if (list != null) {
+                                        for (String s : list) {
+                                            if (s != null && !s.isBlank()) {
+                                                set.add(s.trim().toLowerCase());
+                                            }
                                         }
                                     }
+                                } catch (Exception parseEx) {
+                                    log.warn("Không thể parse nội dung hiện tại của '{}': {}", revokedPath, parseEx.getMessage());
                                 }
-                            } catch (Exception parseEx) {
-                                log.warn("Không thể parse nội dung hiện tại của '{}': {}", revokedPath, parseEx.getMessage());
                             }
                         }
-                    }
 
-                    for (String s : serialHexes) {
-                        if (s != null && !s.isBlank()) {
-                            set.add(s.trim().toLowerCase());
+                        for (String s : serialHexes) {
+                            if (s != null && !s.isBlank()) {
+                                set.add(s.trim().toLowerCase());
+                            }
                         }
-                    }
 
-                    byte[] updatedBytes = mapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(set);
-                    channel.truncate(0);
-                    channel.position(0);
-                    ByteBuffer outBuffer = ByteBuffer.wrap(updatedBytes);
-                    while (outBuffer.hasRemaining()) {
-                        channel.write(outBuffer);
-                    }
-                    channel.force(true);
+                        byte[] updatedBytes = mapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(set);
+                        channel.truncate(0);
+                        channel.position(0);
+                        ByteBuffer outBuffer = ByteBuffer.wrap(updatedBytes);
+                        while (outBuffer.hasRemaining()) {
+                            channel.write(outBuffer);
+                        }
+                        channel.force(true);
 
-                    log.info("Đã cập nhật danh sách thu hồi CRL ({}) với các serials: {}", path, serialHexes);
-                }
+                        log.info("Đã cập nhật danh sách thu hồi CRL ({}) với các serials: {}", path, serialHexes);
+                    }
+                    return null;
+                });
             } catch (Exception e) {
                 log.error("Lỗi khi ghi danh sách thu hồi CRL vào '{}': {}", revokedPath, e.getMessage(), e);
                 throw new RuntimeException("Không thể cập nhật danh sách thu hồi CRL: " + e.getMessage(), e);

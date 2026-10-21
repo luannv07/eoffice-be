@@ -75,6 +75,12 @@ public final class SecurityWhitelist {
 			return true;
 		}
 
+		// Bootstrap PKI before completing the administrator's profile; role checks still apply.
+		if ((HttpMethod.GET.matches(httpMethod) && path.equals("/admin/pki/ca/status"))
+						|| (HttpMethod.POST.matches(httpMethod) && path.equals("/admin/pki/ca/initialize"))) {
+			return true;
+		}
+
 		// profile and user-info read endpoints
 		if (path.equals("/profile") || path.startsWith("/profile/")
 						|| path.equals("/user-info") || path.startsWith("/user-info/")

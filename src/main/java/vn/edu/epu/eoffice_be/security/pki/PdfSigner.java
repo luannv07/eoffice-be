@@ -20,14 +20,6 @@ import org.bouncycastle.asn1.x500.style.BCStyle;
 import org.bouncycastle.asn1.x500.style.IETFUtils;
 import org.bouncycastle.cert.jcajce.JcaCertStore;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
-import org.bouncycastle.asn1.x500.X500NameBuilder;
-import org.bouncycastle.asn1.x509.BasicConstraints;
-import org.bouncycastle.asn1.x509.Extension;
-import org.bouncycastle.asn1.x509.KeyUsage;
-import org.bouncycastle.cert.X509CertificateHolder;
-import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
-import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
-import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
@@ -38,34 +30,21 @@ import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import vn.edu.epu.eoffice_be.service.PkiUserKeystoreService;
 
-import java.math.BigInteger;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.SecureRandom;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.attribute.PosixFilePermission;
-import java.nio.file.attribute.PosixFilePermissions;
 import java.security.PrivateKey;
-import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * Lớp thực hiện ký số phê duyệt / ký nháy (Approval Signature) trên tài liệu PDF sử dụng Apache PDFBox 3.x
@@ -85,17 +64,7 @@ public class PdfSigner {
     private static final int PREFERRED_SIGNATURE_SIZE = 16384;
     private static final String SIGNATURE_ALGORITHM = "SHA256withRSA";
 
-    @Value("${eoffice.pki.user-keystores-dir:./uploads/keystores/users}")
-    private String userKeystoresDir = "./uploads/keystores/users";
-
-    @Value("${eoffice.pki.ca-keystore-path:./uploads/keystores/ca/ca.p12}")
-    private String caKeystorePath = "./uploads/keystores/ca/ca.p12";
-
-    @Value("${eoffice.pki.ca-cert-path:./uploads/keystores/ca/ca.crt}")
-    private String caCertPath = "./uploads/keystores/ca/ca.crt";
-
-    @Value("${eoffice.pki.default-keystore-password:changeit}")
-    private String defaultKeystorePassword = "changeit";
+    private final PkiUserKeystoreService userKeystores;
 
     @Value("${eoffice.pki.signatures-dir:./uploads/signatures}")
     private String signaturesDir = "./uploads/signatures";
@@ -114,21 +83,14 @@ public class PdfSigner {
             byte[] signedPdfBytes
     ) {}
 
-    public PdfSigner() {
+    @Autowired
+    public PdfSigner(PkiUserKeystoreService userKeystores) {
         Crypto.registerBouncyCastle();
+        this.userKeystores = Objects.requireNonNull(userKeystores);
     }
 
-    public PdfSigner(String userKeystoresDir, String defaultKeystorePassword) {
-        Crypto.registerBouncyCastle();
-        this.userKeystoresDir = userKeystoresDir;
-        this.defaultKeystorePassword = defaultKeystorePassword;
-    }
-
-    /**
-     * Tự động kiểm tra và cấp phát chứng thư số cho User nếu chưa có file .p12.
-     * Tự động trích xuất Chức vụ nếu displayName có định dạng "Họ tên - Chức vụ".
-     */
-    public synchronized void ensureUserCertificate(String userId, String displayName) {
+    /** Ensure a reusable user keystore exists in the database. */
+    public void ensureUserCertificate(String userId, String displayName) {
         String name = displayName;
         String title = null;
         if (displayName != null && displayName.contains(" - ")) {
@@ -139,155 +101,18 @@ public class PdfSigner {
         ensureUserCertificate(userId, name, title, null);
     }
 
-    /**
-     * Tự động kiểm tra và cấp phát chứng thư số cho User nếu chưa có file .p12.
-     * Hỗ trợ nhúng Chức vụ (TITLE) và Phòng ban/Đơn vị (OU) theo chuẩn X.509 v3.
-     */
-    public synchronized void ensureUserCertificate(String userId, String displayName, String title, String orgUnit) {
-        Objects.requireNonNull(userId, "UserId không được null");
-        Path userP12Path = Paths.get(userKeystoresDir).resolve("user_" + userId + ".p12");
-        if (Files.exists(userP12Path)) {
-            return;
-        }
-
-        Path caP12 = Paths.get(caKeystorePath);
-        if (!Files.exists(caP12)) {
-            log.warn("Khong tim thay Root CA tai {}. Khong the tu dong cap phat chung thu cho user {}", caP12, userId);
-            return;
-        }
-
-        try {
-            Path userKeystoresPath = Paths.get(userKeystoresDir);
-            ensureStrictDirectoryPermissions(userKeystoresPath);
-
-            char[] password = (defaultKeystorePassword != null) ? defaultKeystorePassword.toCharArray() : new char[0];
-            Crypto.P12Bundle caBundle = Crypto.loadP12(caP12, password);
-            X509Certificate caCert = caBundle.getEndEntityCertificate();
-            PrivateKey caKey = caBundle.privateKey();
-
-            KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA", BouncyCastleProvider.PROVIDER_NAME);
-            kpg.initialize(2048, new SecureRandom());
-            KeyPair userPair = kpg.generateKeyPair();
-
-            BigInteger serial = new BigInteger(64, new SecureRandom());
-            if (serial.compareTo(BigInteger.ZERO) <= 0) {
-                serial = serial.abs().add(BigInteger.ONE);
-            }
-
-            Instant now = Instant.now();
-            Date notBefore = Date.from(now.minus(5, ChronoUnit.MINUTES));
-            Date notAfter = Date.from(now.plus(365 * 3, ChronoUnit.DAYS));
-
-            String safeName = (displayName != null && !displayName.isBlank()) ? displayName : "Can bo " + userId;
-            X500NameBuilder subBuilder = new X500NameBuilder(BCStyle.INSTANCE);
-            subBuilder.addRDN(BCStyle.C, "VN");
-            subBuilder.addRDN(BCStyle.O, "Truong Dai hoc Dien Luc - EPU");
-            if (orgUnit != null && !orgUnit.isBlank()) {
-                subBuilder.addRDN(BCStyle.OU, orgUnit);
-            }
-            if (title != null && !title.isBlank()) {
-                subBuilder.addRDN(BCStyle.T, title);
-            }
-            subBuilder.addRDN(BCStyle.UID, userId);
-            subBuilder.addRDN(BCStyle.CN, safeName);
-            X500Name subject = subBuilder.build();
-            X500Name issuer = X500Name.getInstance(caCert.getSubjectX500Principal().getEncoded());
-
-            JcaX509v3CertificateBuilder certBuilder = new JcaX509v3CertificateBuilder(
-                    issuer, serial, notBefore, notAfter, subject, userPair.getPublic());
-
-            JcaX509ExtensionUtils extUtils = new JcaX509ExtensionUtils();
-            certBuilder.addExtension(Extension.basicConstraints, true, new BasicConstraints(false));
-            certBuilder.addExtension(Extension.keyUsage, true, new KeyUsage(KeyUsage.digitalSignature | KeyUsage.nonRepudiation));
-            certBuilder.addExtension(Extension.subjectKeyIdentifier, false, extUtils.createSubjectKeyIdentifier(userPair.getPublic()));
-            certBuilder.addExtension(Extension.authorityKeyIdentifier, false, extUtils.createAuthorityKeyIdentifier(caCert));
-
-            ContentSigner contentSigner = new JcaContentSignerBuilder(SIGNATURE_ALGORITHM)
-                    .setProvider(BouncyCastleProvider.PROVIDER_NAME)
-                    .build(caKey);
-            X509CertificateHolder holder = certBuilder.build(contentSigner);
-            X509Certificate userCert = new JcaX509CertificateConverter()
-                    .setProvider(BouncyCastleProvider.PROVIDER_NAME)
-                    .getCertificate(holder);
-
-            Path userCrtPath = Paths.get(userKeystoresDir).resolve("user_" + userId + ".crt");
-            Certificate[] chain = new Certificate[]{userCert, caCert};
-            Crypto.saveP12(userP12Path, password, "user", userPair.getPrivate(), chain);
-            applyStrictFilePermissions(userP12Path);
-            Crypto.saveCertPem(userCrtPath, userCert);
-            applyStrictFilePermissions(userCrtPath);
-            log.info("Tu dong cap phat thanh cong chung thu so PKI cho User [{}] - {}", userId, safeName);
-        } catch (Exception e) {
-            log.error("Loi khi tu dong cap phat chung thu so cho User [{}]: {}", userId, e.getMessage(), e);
-            throw new RuntimeException("Khong the tu dong cap phat chung thu so: " + e.getMessage(), e);
-        }
+    public void ensureUserCertificate(String userId, String displayName, String title, String orgUnit) {
+        userKeystores.ensure(userId, displayName, title, orgUnit);
     }
 
-    /**
-     * Thiết lập phân quyền nghiêm ngặt cho thư mục chứa keystore (chỉ cho phép owner truy cập: rwx------ / 700).
-     */
-    private void ensureStrictDirectoryPermissions(Path dir) throws IOException {
-        if (!Files.exists(dir)) {
-            if (dir.getFileSystem().supportedFileAttributeViews().contains("posix")) {
-                Set<PosixFilePermission> perms = PosixFilePermissions.fromString("rwx------");
-                Files.createDirectories(dir, PosixFilePermissions.asFileAttribute(perms));
-            } else {
-                Files.createDirectories(dir);
-            }
-        }
-        applyOwnerOnlyPermissions(dir, true);
+    private Crypto.P12Bundle requireUserCertificate(String userId) {
+        return userKeystores.require(userId);
     }
-
-    /**
-     * Thiết lập phân quyền nghiêm ngặt cho file keystore/chứng thư (chỉ cho phép owner đọc/ghi: rw------- / 600).
-     */
-    private void applyStrictFilePermissions(Path path) throws IOException {
-        applyOwnerOnlyPermissions(path, false);
-    }
-
-    /**
-     * Gán quyền sở hữu độc quyền (Owner-only access) tương thích đa nền tảng POSIX và non-POSIX.
-     */
-    private void applyOwnerOnlyPermissions(Path path, boolean isDirectory) throws IOException {
-        if (path == null || !Files.exists(path)) {
-            return;
-        }
-        if (path.getFileSystem().supportedFileAttributeViews().contains("posix")) {
-            Set<PosixFilePermission> perms = isDirectory
-                    ? PosixFilePermissions.fromString("rwx------")
-                    : PosixFilePermissions.fromString("rw-------");
-            Files.setPosixFilePermissions(path, perms);
-        } else {
-            try {
-                File file = path.toFile();
-                file.setReadable(false, false);
-                file.setReadable(true, true);
-                file.setWritable(false, false);
-                file.setWritable(true, true);
-                if (isDirectory) {
-                    file.setExecutable(false, false);
-                    file.setExecutable(true, true);
-                } else {
-                    file.setExecutable(false, false);
-                }
-            } catch (SecurityException se) {
-                log.warn("Không thể thiết lập phân quyền bảo mật cho {}: {}", path, se.getMessage());
-            }
-        }
-    }
-
     /**
      * Thực hiện ký số 1 chữ ký vô hình (invisible signature) lên file PDF (theo đường dẫn file).
      */
     public SignResult sign(Path inPdf, Path outPdf, String userId, String reason) {
-        Objects.requireNonNull(userId, "UserId không được null");
-        Path userP12Path = Paths.get(userKeystoresDir).resolve("user_" + userId + ".p12");
-        if (!Files.exists(userP12Path)) {
-            throw new IllegalStateException("Không tìm thấy Keystore của user " + userId + " tại: " + userP12Path.toAbsolutePath());
-        }
-
-        char[] password = (defaultKeystorePassword != null) ? defaultKeystorePassword.toCharArray() : new char[0];
-        Crypto.P12Bundle bundle = Crypto.loadP12(userP12Path, password);
+        Crypto.P12Bundle bundle = requireUserCertificate(userId);
         return signWithCustomKeys(inPdf, outPdf, userId, reason, bundle.privateKey(), bundle.chain());
     }
 
@@ -329,7 +154,7 @@ public class PdfSigner {
                     String fullyQualified = existingField.getFullyQualifiedName();
                     String partial = existingField.getPartialName();
                     if (targetFieldName.equals(fullyQualified) || targetFieldName.equals(partial)) {
-                        throw new IllegalStateException("User đã ký: " + userId + " (Trường chữ ký '" + targetFieldName + "' đã tồn tại trong tài liệu)");
+                        throw new DuplicateSignatureException("User đã ký: " + userId + " (Trường chữ ký '" + targetFieldName + "' đã tồn tại trong tài liệu)");
                     }
                 }
 
@@ -551,14 +376,7 @@ public class PdfSigner {
      * Lưu tăng dần (incremental save), bảo toàn chữ ký cũ, CHƯA áp dụng khóa DocMDP P=1 để cho phép các bước ký tiếp theo.
      */
     public SignResult signVisible(Path inPdf, Path outPdf, String userId, String reason, SignaturePosition pos) {
-        Objects.requireNonNull(userId, "UserId không được null");
-        Path userP12Path = Paths.get(userKeystoresDir).resolve("user_" + userId + ".p12");
-        if (!Files.exists(userP12Path)) {
-            throw new IllegalStateException("Không tìm thấy Keystore của user " + userId + " tại: " + userP12Path.toAbsolutePath());
-        }
-
-        char[] password = (defaultKeystorePassword != null) ? defaultKeystorePassword.toCharArray() : new char[0];
-        Crypto.P12Bundle bundle = Crypto.loadP12(userP12Path, password);
+        Crypto.P12Bundle bundle = requireUserCertificate(userId);
         return signVisibleWithCustomKeys(inPdf, outPdf, userId, reason, bundle.privateKey(), bundle.chain(), pos);
     }
 
@@ -601,7 +419,7 @@ public class PdfSigner {
                     String fullyQualified = existingField.getFullyQualifiedName();
                     String partial = existingField.getPartialName();
                     if (targetFieldName.equals(fullyQualified) || targetFieldName.equals(partial)) {
-                        throw new IllegalStateException("User đã ký phê duyệt: " + userId + " (Trường chữ ký '" + targetFieldName + "' đã tồn tại trong tài liệu)");
+                        throw new DuplicateSignatureException("User đã ký phê duyệt: " + userId + " (Trường chữ ký '" + targetFieldName + "' đã tồn tại trong tài liệu)");
                     }
                 }
 
@@ -744,14 +562,7 @@ public class PdfSigner {
      * và hỗ trợ tọa độ hiển thị con dấu (SignaturePosition).
      */
     public SignResult signAndCertify(Path inPdf, Path outPdf, String userId, String reason, SignaturePosition pos) {
-        Objects.requireNonNull(userId, "UserId không được null");
-        Path userP12Path = Paths.get(userKeystoresDir).resolve("user_" + userId + ".p12");
-        if (!Files.exists(userP12Path)) {
-            throw new IllegalStateException("Không tìm thấy Keystore của user " + userId + " tại: " + userP12Path.toAbsolutePath());
-        }
-
-        char[] password = (defaultKeystorePassword != null) ? defaultKeystorePassword.toCharArray() : new char[0];
-        Crypto.P12Bundle bundle = Crypto.loadP12(userP12Path, password);
+        Crypto.P12Bundle bundle = requireUserCertificate(userId);
         return signAndCertifyWithCustomKeys(inPdf, outPdf, userId, reason, bundle.privateKey(), bundle.chain(), pos);
     }
 
@@ -794,7 +605,7 @@ public class PdfSigner {
                     String fullyQualified = existingField.getFullyQualifiedName();
                     String partial = existingField.getPartialName();
                     if (targetFieldName.equals(fullyQualified) || targetFieldName.equals(partial)) {
-                        throw new IllegalStateException("User đã ký phát hành: " + userId + " (Trường chữ ký '" + targetFieldName + "' đã tồn tại trong tài liệu)");
+                        throw new DuplicateSignatureException("User đã ký phát hành: " + userId + " (Trường chữ ký '" + targetFieldName + "' đã tồn tại trong tài liệu)");
                     }
                 }
 

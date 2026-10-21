@@ -13,13 +13,19 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.*;
+import vn.edu.epu.eoffice_be.common.enums.Role;
 import vn.edu.epu.eoffice_be.security.OrgAwarePrincipal;
 import vn.edu.epu.eoffice_be.service.DocumentQueryService;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 @RestController
@@ -168,36 +174,63 @@ public class DocumentQueryController {
         return ORG_ID_METHOD_CACHE.get(clazz);
     }
 
+    private static final String ROLE_PREFIX = "ROLE_";
+    public static final Long SYSTEM_WIDE_ORG_ID = 0L;
+
     private boolean isAdmin(Authentication authentication) {
+        return hasAnyRole(authentication, Role.ADMIN, Role.SYSTEM_ADMIN);
+    }
+
+    private boolean isPrivilegedStaff(Authentication authentication) {
+        return hasAnyRole(authentication, Role.LEADER, Role.CLERK);
+    }
+
+    /**
+     * Business Rule (UC-16 / Policy Decision):
+     * Xác định người dùng có đặc quyền xem toàn bộ văn bản đã ban hành trên toàn hệ thống hay không.
+     * <p>
+     * Theo quy định nghiệp vụ quản lý văn bản của trường (được phê duyệt bởi Product Owner / Ban Giám hiệu),
+     * bên cạnh Quản trị viên (ADMIN, SYSTEM_ADMIN), các vai trò Lãnh đạo (LEADER) và Văn thư (CLERK)
+     * được cấp quyền tra cứu toàn hệ thống các văn bản đã ban hành (PUBLISHED) để phục vụ công tác điều hành,
+     * chỉ đạo và lưu trữ văn thư toàn trường mà không bị giới hạn theo đơn vị (orgId).
+     * </p>
+     */
+    private boolean canViewAllPublishedDocuments(Authentication authentication) {
+        return hasAnyRole(authentication, Role.ADMIN, Role.SYSTEM_ADMIN, Role.LEADER, Role.CLERK);
+    }
+
+    private Long resolveUserOrgIdSafely(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
+            throw new AuthenticationCredentialsNotFoundException("Người dùng chưa được xác thực");
+        }
+        try {
+            return resolveUserOrgId(authentication);
+        } catch (AccessDeniedException e) {
+            log.warn("Không thể xác định thông tin đơn vị (orgId) từ principal của nhân viên đặc quyền: {}", e.getMessage());
+            throw e;
+        }
+    }
+
+    private boolean hasAnyRole(Authentication authentication, Role... roles) {
+        if (authentication == null || !authentication.isAuthenticated() || authentication.getAuthorities() == null) {
             return false;
         }
-        if (authentication.getAuthorities() != null) {
-            boolean hasAdminAuthority = authentication.getAuthorities().stream()
-                    .map(org.springframework.security.core.GrantedAuthority::getAuthority)
-                    .anyMatch(auth -> "ROLE_ADMIN".equalsIgnoreCase(auth)
-                            || "ROLE_SYSTEM_ADMIN".equalsIgnoreCase(auth)
-                            || "ADMIN".equalsIgnoreCase(auth)
-                            || "SYSTEM_ADMIN".equalsIgnoreCase(auth));
-            if (hasAdminAuthority) {
-                return true;
-            }
-        }
-        Object principal = authentication.getPrincipal();
-        if (principal instanceof vn.edu.epu.eoffice_be.security.JwtUserPrincipal jwtPrincipal) {
-            String role = jwtPrincipal.getRole();
-            return vn.edu.epu.eoffice_be.common.enums.Role.ADMIN.name().equalsIgnoreCase(role)
-                    || vn.edu.epu.eoffice_be.common.enums.Role.SYSTEM_ADMIN.name().equalsIgnoreCase(role);
-        }
-        return false;
+        Set<String> targetRoles = Arrays.stream(roles)
+                .flatMap(r -> Stream.of(r.name(), ROLE_PREFIX + r.name()))
+                .collect(Collectors.toSet());
+
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(auth -> targetRoles.stream().anyMatch(tr -> tr.equalsIgnoreCase(auth)));
     }
 
     // UC16.1: Tra cứu danh sách văn bản ban hành (BE-04: hỗ trợ lọc theo documentBookId)
+    // Business Rule UC-16: ADMIN, SYSTEM_ADMIN, LEADER và CLERK được xem toàn bộ danh sách văn bản ban hành toàn hệ thống.
     @GetMapping("/published")
     public ResponseEntity<Object> getPublishedDocuments(
             @RequestParam(required = false) Long documentBookId,
             Authentication authentication) {
-        if (isAdmin(authentication)) {
+        if (canViewAllPublishedDocuments(authentication)) {
             if (documentBookId != null) {
                 return ResponseEntity.ok(queryService.getAllPublishedDocuments(documentBookId));
             }
@@ -216,6 +249,10 @@ public class DocumentQueryController {
         if (isAdmin(authentication)) {
             return ResponseEntity.ok(queryService.getDocumentDetailsForAdmin(id));
         }
+        if (isPrivilegedStaff(authentication)) {
+            Long orgId = resolveUserOrgIdSafely(authentication);
+            return ResponseEntity.ok(queryService.getDocumentDetailsForStaff(id, orgId));
+        }
         Long orgId = resolveUserOrgId(authentication);
         return ResponseEntity.ok(queryService.getDocumentDetails(id, orgId));
     }
@@ -226,6 +263,9 @@ public class DocumentQueryController {
         byte[] pdfBytes;
         if (isAdmin(authentication)) {
             pdfBytes = queryService.downloadDocumentForAdmin(id);
+        } else if (isPrivilegedStaff(authentication)) {
+            Long orgId = resolveUserOrgIdSafely(authentication);
+            pdfBytes = queryService.downloadDocumentForStaff(id, orgId);
         } else {
             Long orgId = resolveUserOrgId(authentication);
             pdfBytes = queryService.downloadDocument(id, orgId);

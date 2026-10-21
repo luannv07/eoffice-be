@@ -231,4 +231,14 @@ public class Document extends BaseEntity {
     public void setEffectiveDate(LocalDate effectiveDate, ZoneId zoneId) {
         this.effectiveDate = effectiveDate != null ? effectiveDate.atStartOfDay(zoneId != null ? zoneId : getBusinessZone()).toInstant() : null;
     }
+
+    public Long getOrgId() {
+        if (this.issuingOrgNode != null && this.issuingOrgNode.getId() != null) {
+            return this.issuingOrgNode.getId();
+        }
+        if (this.issuingOrg != null && this.issuingOrg.getId() != null) {
+            return this.issuingOrg.getId();
+        }
+        return null;
+    }
 }

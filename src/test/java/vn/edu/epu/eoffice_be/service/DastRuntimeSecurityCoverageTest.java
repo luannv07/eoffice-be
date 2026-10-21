@@ -34,14 +34,13 @@ import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
 import vn.edu.epu.eoffice_be.security.pki.Crypto;
 import vn.edu.epu.eoffice_be.security.pki.PdfSignatureVerifier;
 import vn.edu.epu.eoffice_be.security.pki.PdfSigner;
+import vn.edu.epu.eoffice_be.security.pki.PkiTestFixture;
 import vn.edu.epu.eoffice_be.storage.FileSecurityValidator;
 import vn.edu.epu.eoffice_be.workflow.WorkflowEngine;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
@@ -51,7 +50,6 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -307,12 +305,9 @@ class DastRuntimeSecurityCoverageTest {
     @Test
     @DisplayName("Vector 5 — PDF đã ký bị sửa 1 byte trong vùng ByteRange phải cho kết quả INVALID")
     void cmsVerifier_tamperedByteRange_shouldReturnInvalid() throws Exception {
-        // Điều kiện môi trường: cần Root CA (scripts/init-ca.*) như CI chạy trước mvn verify.
-        // Thiếu CA thì skip thay vì error — cùng precondition với PdfSignerTest/PdfSignatureVerifierTest.
-        assumeTrue(Files.exists(Paths.get("./uploads/keystores/ca/ca.p12")),
-                "Bỏ qua: chưa khởi tạo PKI Root CA (chạy scripts/init-ca.ps1 trước).");
+        PkiTestFixture pki = PkiTestFixture.create(tempDir);
         byte[] basePdf = createSamplePdfBytes();
-        PdfSigner signer = new PdfSigner(tempDir.resolve("keystores_fuzz").toString(), "changeit");
+        PdfSigner signer = pki.signer();
         byte[] signed = signer.signBytes(basePdf, "1001", "Nguyen Van A - Chuyen vien CNTT", "Ký nháy")
                 .signedPdfBytes();
         assertNotNull(signed);
@@ -321,8 +316,7 @@ class DastRuntimeSecurityCoverageTest {
         byte[] tampered = Arrays.copyOf(signed, signed.length);
         tampered[64] ^= (byte) 0xFF;
 
-        PdfSignatureVerifier verifier = new PdfSignatureVerifier(
-                "./uploads/keystores/ca/ca.crt", tempDir.resolve("revoked_fuzz.json").toString());
+        PdfSignatureVerifier verifier = pki.verifier();
         DocumentSignatureVerifyResponse res = verifier.verify(tampered);
 
         assertNotNull(res);
