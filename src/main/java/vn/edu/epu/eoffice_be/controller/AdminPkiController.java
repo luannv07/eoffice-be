@@ -22,7 +22,7 @@ import vn.edu.epu.eoffice_be.service.PkiCaService;
 @RequiredArgsConstructor
 @Auditable
 @PreAuthorize("hasRole('SYSTEM_ADMIN')")
-@Tag(name = "Admin PKI", description = "Kiểm tra và khởi tạo Root CA trên máy chủ")
+@Tag(name = "Admin PKI", description = "Kiểm tra và khởi tạo Root CA mã hóa trong database")
 @ApiResponses({
         @ApiResponse(responseCode = "401", description = "Thiếu hoặc không hợp lệ JWT"),
         @ApiResponse(responseCode = "403", description = "Yêu cầu vai trò SYSTEM_ADMIN"),
@@ -41,7 +41,7 @@ public class AdminPkiController {
     @PostMapping("/initialize")
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Khởi tạo Root CA", description = "Dùng cấu hình máy chủ; không nhận đường dẫn hay mật khẩu từ client. Từ chối nếu CA hoặc dữ liệu PKI trước đó đã tồn tại.")
-    @ApiResponse(responseCode = "409", description = "PKI_CA_ALREADY_EXISTS hoặc PKI_CA_RECOVERY_REQUIRED: giữ nguyên bộ file, không tạo đè")
+    @ApiResponse(responseCode = "409", description = "PKI_CA_ALREADY_EXISTS hoặc PKI_CA_RECOVERY_REQUIRED: giữ nguyên dữ liệu PKI, không tạo đè")
     public BaseResponse<PkiCaStatusResponse> initialize() {
         return BaseResponse.success(pkiCaService.initialize());
     }

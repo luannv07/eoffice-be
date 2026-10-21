@@ -1,8 +1,5 @@
 package vn.edu.epu.eoffice_be.service;
 
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.bouncycastle.asn1.x509.Extension;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -10,388 +7,224 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.dao.DataAccessResourceFailureException;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
-import vn.edu.epu.eoffice_be.dto.response.PkiCaStatusResponse;
 import vn.edu.epu.eoffice_be.dto.response.PkiCaStatusResponse.State;
-import vn.edu.epu.eoffice_be.security.pki.Crypto;
+import vn.edu.epu.eoffice_be.dto.response.PkiCaStatusResponse.Reason;
+import vn.edu.epu.eoffice_be.entity.PkiCaEntity;
 import vn.edu.epu.eoffice_be.security.pki.PkiTestFixture;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.security.KeyStore;
-import java.security.interfaces.RSAPublicKey;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.Base64;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class PkiCaServiceTest {
-
-    @TempDir
-    Path directory;
+    @TempDir Path directory;
 
     @Test
-    void statusOfAnEmptyStoreDoesNotCreateAnyFilesOrDirectories() throws Exception {
-        Path store = directory.resolve("untouched");
-        PkiTestFixture pki = PkiTestFixture.withoutCa(store);
-
-        PkiCaStatusResponse status = pki.caService().status();
-
-        assertEquals(State.NOT_INITIALIZED, status.state());
-        assertTrue(status.canInitialize());
-        assertNull(status.fingerprintSha256());
-        assertFalse(Files.exists(store));
-        try (var entries = Files.list(directory)) {
-            assertEquals(0, entries.count());
-        }
-    }
-
-    @Test
-    void statusOfAReadyStoreReturnsPublicMetadataWithoutWriting() throws Exception {
-        PkiTestFixture pki = PkiTestFixture.create(directory);
-        Map<String, byte[]> before = snapshot(directory);
-        List<Path> entriesBefore = entries(directory);
-
-        PkiCaStatusResponse status = pki.caService().status();
-
-        assertEquals(State.READY, status.state());
-        assertFalse(status.canInitialize());
-        assertNotNull(status.subject());
-        assertTrue(status.fingerprintSha256().matches("[0-9a-f]{64}"));
-        assertNotNull(status.notBefore());
-        assertNotNull(status.notAfter());
-        assertEquals(entriesBefore, entries(directory));
-        assertUnchanged(before, directory);
-    }
-
-    @Test
-    void initializationCreatesTheRequiredCaAndCanSignAndVerifyARealPdf() throws Exception {
-        PkiTestFixture pki = PkiTestFixture.withoutCa(directory);
-        Instant started = Instant.now();
-
-        PkiCaStatusResponse status = pki.caService().initialize();
-
-        assertEquals(State.READY, status.state());
-        assertFalse(status.canInitialize());
-        assertEquals("[]", Files.readString(pki.properties().revocations()));
-        assertTrue(Files.isDirectory(pki.properties().userKeystores()));
-        var ca = pki.caService().requireValidCa();
-        var certificate = ca.getEndEntityCertificate();
-        assertEquals(3072, ((RSAPublicKey) certificate.getPublicKey()).getModulus().bitLength());
-        assertEquals(3, certificate.getVersion());
-        assertEquals(0, certificate.getBasicConstraints());
-        assertTrue(certificate.getKeyUsage()[5]);
-        assertTrue(certificate.getKeyUsage()[6]);
-        assertTrue(certificate.getCriticalExtensionOIDs().contains(Extension.basicConstraints.getId()));
-        assertTrue(certificate.getCriticalExtensionOIDs().contains(Extension.keyUsage.getId()));
-        assertEquals(certificate.getSubjectX500Principal(), certificate.getIssuerX500Principal());
-        assertTrue(certificate.getSubjectX500Principal().getName().contains("CN=E-Office Demo Root CA"));
-        assertFalse(certificate.getNotBefore().toInstant().isAfter(started));
-        assertTrue(certificate.getNotAfter().toInstant().isAfter(started.plus(3649, ChronoUnit.DAYS)));
-        assertTrue(certificate.getNotAfter().toInstant().isBefore(Instant.now().plus(3651, ChronoUnit.DAYS)));
-        certificate.verify(certificate.getPublicKey());
-        assertEquals(PkiCaService.certificateFingerprint(certificate), status.fingerprintSha256());
-
-        char[] password = pki.properties().password();
-        try (var input = Files.newInputStream(pki.properties().caKeystore())) {
-            KeyStore keyStore = KeyStore.getInstance("PKCS12", "BC");
-            keyStore.load(input, password);
-            assertTrue(keyStore.isKeyEntry("eoffice-root-ca"));
-        } finally {
-            Arrays.fill(password, '\0');
-        }
-
-        byte[] originalCa = Files.readAllBytes(pki.properties().caKeystore());
-        var signed = pki.signer().signBytes(pdf(), "1001", "Nguyen Van A", "Ký thử nghiệm");
-        var verification = pki.verifier().verify(signed.signedPdfBytes());
-        assertEquals("VALID", verification.getOverallStatus());
-        assertEquals(1, verification.getTotalSignatures());
-        assertTrue(Files.isRegularFile(pki.properties().userKeystores().resolve("user_1001.p12")));
-        assertArrayEquals(originalCa, Files.readAllBytes(pki.properties().caKeystore()));
-    }
-
-    @Test
-    void aSecondInitializationRejectsAnExistingCaWithoutChangingAnyMaterial() throws Exception {
-        PkiTestFixture pki = PkiTestFixture.withoutCa(directory);
-        pki.caService().initialize();
-        Map<String, byte[]> before = snapshot(directory);
-
-        assertError(ErrorCode.PKI_CA_ALREADY_EXISTS, pki.caService()::initialize);
-
-        assertUnchanged(before, directory);
-    }
-
-    @Test
-    void recoveryStatusStillShowsReadablePublicCertificateMetadata() throws Exception {
-        PkiTestFixture pki = PkiTestFixture.create(directory);
-        String fingerprint = pki.caService().status().fingerprintSha256();
-        Files.delete(pki.properties().caKeystore());
-
-        PkiCaStatusResponse status = pki.caService().status();
-
-        assertEquals(State.RECOVERY_REQUIRED, status.state());
-        assertFalse(status.canInitialize());
-        assertEquals(fingerprint, status.fingerprintSha256());
-        assertNotNull(status.subject());
-        assertNotNull(status.notBefore());
-        assertNotNull(status.notAfter());
-    }
-
-    @Test
-    void conflictingStoragePathsFailBeforePublishingCaFiles() throws Exception {
-        PkiTestFixture pki = PkiTestFixture.withoutCa(directory);
-        pki.properties().setUserKeystoresDir(pki.properties().getRevokedPath());
-
-        assertError(ErrorCode.PKI_STORAGE_ERROR, pki.caService()::initialize);
-
-        assertFalse(Files.exists(pki.properties().caKeystore()));
-        assertFalse(Files.exists(pki.properties().caCertificate()));
-        assertFalse(Files.exists(pki.properties().revocations()));
-    }
-
-    @Test
-    void expiredCaIsReportedAndNeverReinitialized() throws Exception {
-        Instant now = Instant.now();
-        PkiTestFixture pki = PkiTestFixture.create(directory,
-                now.minus(3, ChronoUnit.DAYS), now.minus(2, ChronoUnit.DAYS));
-        Map<String, byte[]> before = snapshot(directory);
-
-        PkiCaStatusResponse status = pki.caService().status();
-        assertEquals(State.EXPIRED, status.state());
-        assertFalse(status.canInitialize());
-        assertNotNull(status.fingerprintSha256());
-        assertError(ErrorCode.PKI_CA_EXPIRED, pki.caService()::requireValidCa);
-        assertError(ErrorCode.PKI_CA_ALREADY_EXISTS, pki.caService()::initialize);
-
-        assertUnchanged(before, directory);
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {
-            "only-p12", "only-crt", "corrupt-p12", "corrupt-crt", "mismatched-crt", "wrong-password",
-            "missing-revocations", "corrupt-revocations", "invalid-revocation-serial", "future-ca"
-    })
-    void incompleteOrInvalidCaRequiresRecoveryWithoutReplacingFiles(String scenario) throws Exception {
-        Path store = directory.resolve("store");
-        PkiTestFixture pki = scenario.equals("future-ca")
-                ? PkiTestFixture.create(store, Instant.now().plus(1, ChronoUnit.DAYS), Instant.now().plus(2, ChronoUnit.DAYS))
-                : PkiTestFixture.create(store);
-        switch (scenario) {
-            case "only-p12" -> Files.delete(pki.properties().caCertificate());
-            case "only-crt" -> Files.delete(pki.properties().caKeystore());
-            case "corrupt-p12" -> Files.writeString(pki.properties().caKeystore(), "original corrupt p12");
-            case "corrupt-crt" -> Files.writeString(pki.properties().caCertificate(), "original corrupt crt");
-            case "mismatched-crt" -> {
-                PkiTestFixture unrelated = PkiTestFixture.create(directory.resolve("unrelated"));
-                Files.copy(unrelated.properties().caCertificate(), pki.properties().caCertificate(), StandardCopyOption.REPLACE_EXISTING);
-            }
-            case "wrong-password" -> pki.properties().setDefaultKeystorePassword("incorrect-test-password");
-            case "missing-revocations" -> Files.delete(pki.properties().revocations());
-            case "corrupt-revocations" -> Files.writeString(pki.properties().revocations(), "not-json");
-            case "invalid-revocation-serial" -> Files.writeString(pki.properties().revocations(), "[\"not-a-hex-serial\"]");
-            default -> { }
-        }
-        Map<String, byte[]> before = snapshot(store);
-
-        assertRecoveryRequired(pki);
-
-        assertUnchanged(before, store);
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {
-            "user_1001.p12", "user_1001.crt", ".user_1001.p12.interrupted.tmp",
-            ".ca.p12.interrupted.tmp", ".ca.crt.interrupted.tmp",
-            "ca.key.tmp", "ca.p12.tmp", "ca.crt.tmp", "revocations", "invalid-revocations"
-    })
-    void orphanedOrTemporaryMaterialBlocksFreshInitialization(String artifact) throws Exception {
-        PkiTestFixture pki = PkiTestFixture.withoutCa(directory);
-        if (artifact.equals("revocations") || artifact.equals("invalid-revocations")) {
-            Files.createDirectories(pki.properties().revocations().getParent());
-            Files.writeString(pki.properties().revocations(), artifact.equals("revocations") ? "[\"ABC123\"]" : "invalid-json");
-        } else {
-            Path target = artifact.contains("user_")
-                    ? pki.properties().userKeystores().resolve(artifact)
-                    : pki.properties().caKeystore().resolveSibling(artifact);
-            Files.createDirectories(target.getParent());
-            Files.writeString(target, "original artifact");
-        }
-        Map<String, byte[]> before = snapshot(directory);
-
-        assertRecoveryRequired(pki);
-
-        assertUnchanged(before, directory);
-        assertFalse(Files.exists(pki.properties().caKeystore()));
-        assertFalse(Files.exists(pki.properties().caCertificate()));
-    }
-
-    @Test
-    void signingHistoryBlocksInitializationEvenWhenAllKeyFilesWereLost() throws Exception {
-        PkiTestFixture pki = PkiTestFixture.withoutCa(directory);
-        when(pki.history().hasAnySigningHistory()).thenReturn(true);
-
-        assertRecoveryRequired(pki);
-
-        assertFalse(Files.exists(pki.properties().caKeystore()));
-        assertFalse(Files.exists(pki.properties().caCertificate()));
-        assertFalse(Files.exists(pki.properties().revocations()));
-    }
-
-    @Test
-    void unavailableHistoryDoesNotPermitBlindCreation() throws Exception {
-        PkiTestFixture pki = PkiTestFixture.withoutCa(directory);
-        when(pki.history().hasAnySigningHistory()).thenThrow(new DataAccessResourceFailureException("test database unavailable"));
-
-        assertError(ErrorCode.PKI_STORAGE_ERROR, pki.caService()::status);
-        assertError(ErrorCode.PKI_STORAGE_ERROR, pki.caService()::initialize);
-
-        assertFalse(Files.exists(pki.properties().caKeystore()));
-        assertFalse(Files.exists(pki.properties().caCertificate()));
-    }
-
-    @Test
-    void anExistingEmptyRevocationFileIsPreservedByteForByte() throws Exception {
-        PkiTestFixture pki = PkiTestFixture.withoutCa(directory);
-        Files.createDirectories(pki.properties().revocations().getParent());
-        String original = "[  ]\n";
-        Files.writeString(pki.properties().revocations(), original);
-
+    void emptyDatabaseAllowsExplicitInitializationOnly() {
+        var pki = PkiTestFixture.withoutCa(directory);
         assertEquals(State.NOT_INITIALIZED, pki.caService().status().state());
-        assertEquals(State.READY, pki.caService().initialize().state());
-
-        assertEquals(original, Files.readString(pki.properties().revocations()));
+        assertTrue(pki.caService().status().canInitialize());
+        assertError(ErrorCode.PKI_CA_NOT_INITIALIZED, pki.caService()::requireValidCa);
+        verify(pki.repository(), never()).saveAndFlush(any());
+        assertFalse(Files.exists(pki.properties().caKeystore()));
     }
 
     @Test
-    void anUnusableStorageParentFailsClearlyWithoutOverwritingIt() throws Exception {
-        Path blocked = directory.resolve("blocked");
-        Files.writeString(blocked, "existing file prevents directory access");
-        PkiTestFixture pki = PkiTestFixture.withoutCa(blocked);
-
-        assertError(ErrorCode.PKI_STORAGE_ERROR, pki.caService()::initialize);
-
-        assertEquals("existing file prevents directory access", Files.readString(blocked));
-        assertEquals(List.of(blocked), entries(directory));
-    }
-
-    @Test
-    void twoServiceInstancesInitializeExactlyOneCa() throws Exception {
-        PkiTestFixture pki = PkiTestFixture.withoutCa(directory);
-        PkiCaService other = new PkiCaService(pki.properties(), pki.history());
-        CountDownLatch start = new CountDownLatch(1);
-        try (var executor = Executors.newFixedThreadPool(2)) {
-            var first = executor.submit(() -> initializeAfter(start, pki.caService()));
-            var second = executor.submit(() -> initializeAfter(start, other));
-            start.countDown();
-
-            List<String> outcomes = List.of(first.get(30, TimeUnit.SECONDS), second.get(30, TimeUnit.SECONDS));
-            assertEquals(1, outcomes.stream().filter("READY"::equals).count());
-            assertEquals(1, outcomes.stream().filter("PKI_CA_ALREADY_EXISTS"::equals).count());
-        }
-        assertEquals(State.READY, pki.caService().status().state());
-        Map<String, byte[]> before = snapshot(directory);
-        assertError(ErrorCode.PKI_CA_ALREADY_EXISTS, other::initialize);
-        assertUnchanged(before, directory);
-    }
-
-    @Test
-    void aNewServiceAndRestoredBackupUseTheSameCaFingerprintAndUserKeys() throws Exception {
-        Path originalRoot = directory.resolve("original");
-        PkiTestFixture original = PkiTestFixture.withoutCa(originalRoot);
-        PkiCaStatusResponse created = original.caService().initialize();
-        original.signer().signBytes(pdf(), "1001", "Nguyen Van A", "Ký trước khi sao lưu");
-        byte[] userKey = Files.readAllBytes(original.properties().userKeystores().resolve("user_1001.p12"));
-
-        PkiCaService restarted = new PkiCaService(original.properties(), original.history());
+    void initializationPersistsEncryptedCaAndFreshServiceReadsSameKeyWithoutFiles() throws Exception {
+        var pki = PkiTestFixture.withoutCa(directory);
+        var created = pki.caService().initialize();
+        assertEquals(State.READY, created.state());
+        assertFalse(created.canInitialize());
+        var record = pki.repository().findActive().orElseThrow();
+        assertEquals(created.fingerprintSha256(), record.getFingerprintSha256());
+        byte[] originalCiphertext = record.getKeystoreEncrypted().clone();
+        var first = pki.caService().requireValidCa();
+        assertEquals(3072, ((java.security.interfaces.RSAPublicKey) first.getEndEntityCertificate().getPublicKey()).getModulus().bitLength());
+        var restarted = new PkiCaService(pki.properties(), pki.history(), pki.repository(),
+                new PkiEncryptionService(pki.encryptionProperties()));
         assertEquals(created.fingerprintSha256(), restarted.status().fingerprintSha256());
-
-        Path restoredRoot = directory.resolve("restored");
-        PkiTestFixture restored = PkiTestFixture.withoutCa(restoredRoot);
-        copyStore(originalRoot, restoredRoot);
-        PkiCaStatusResponse restoredStatus = restored.caService().status();
-        assertEquals(State.READY, restoredStatus.state());
-        assertEquals(created.fingerprintSha256(), restoredStatus.fingerprintSha256());
-        var signed = restored.signer().signBytes(pdf(), "1001", "Nguyen Van A", "Ký sau khi khôi phục");
-        assertEquals("VALID", restored.verifier().verify(signed.signedPdfBytes()).getOverallStatus());
-        assertArrayEquals(userKey, Files.readAllBytes(restored.properties().userKeystores().resolve("user_1001.p12")));
-        assertError(ErrorCode.PKI_CA_ALREADY_EXISTS, restored.caService()::initialize);
+        assertArrayEquals(first.privateKey().getEncoded(), restarted.requireValidCa().privateKey().getEncoded());
+        assertArrayEquals(originalCiphertext, record.getKeystoreEncrypted());
+        assertFalse(Files.exists(pki.properties().caKeystore()));
+        assertFalse(Files.exists(pki.properties().caCertificate()));
+        assertFalse(Files.exists(pki.properties().revocations()));
+        assertFalse(Files.exists(pki.properties().userKeystores()));
+        assertError(ErrorCode.PKI_CA_ALREADY_EXISTS, restarted::initialize);
+        verify(pki.repository(), times(1)).saveAndFlush(any());
     }
 
-    private String initializeAfter(CountDownLatch start, PkiCaService service) throws InterruptedException {
-        assertTrue(start.await(5, TimeUnit.SECONDS));
-        try {
-            return service.initialize().state().name();
-        } catch (BusinessException error) {
-            return error.getErrorCode().getCode();
-        }
+    @Test
+    void missingCaWithSigningHistoryOrUserRecordsBlocksNewCa() {
+        var pki = PkiTestFixture.withoutCa(directory);
+        when(pki.history().hasAnySigningHistory()).thenReturn(true);
+        assertEquals(Reason.CA_RECORD_MISSING_WITH_SIGNING_HISTORY, pki.caService().status().diagnostics().reason());
+        assertError(ErrorCode.PKI_CA_RECOVERY_REQUIRED, pki.caService()::initialize);
+        when(pki.repository().countUserKeystores()).thenReturn(1L);
+        assertEquals(Reason.CA_RECORD_MISSING_WITH_USER_KEYSTORES, pki.caService().status().diagnostics().reason());
+        verify(pki.repository(), never()).saveAndFlush(any());
     }
 
-    private void assertRecoveryRequired(PkiTestFixture pki) {
-        PkiCaStatusResponse status = pki.caService().status();
-        assertEquals(State.RECOVERY_REQUIRED, status.state());
-        assertFalse(status.canInitialize());
-        assertError(ErrorCode.PKI_CA_RECOVERY_REQUIRED, pki.caService()::requireValidCa);
+    @Test
+    void retiredCaCannotBeSilentlyReplaced() throws Exception {
+        var pki = PkiTestFixture.create(directory);
+        pki.repository().findActive().orElseThrow().setStatus(PkiCaEntity.Status.RETIRED);
+        assertEquals(Reason.NO_ACTIVE_CA, pki.caService().status().diagnostics().reason());
         assertError(ErrorCode.PKI_CA_RECOVERY_REQUIRED, pki.caService()::initialize);
     }
 
-    private void assertError(ErrorCode expected, org.junit.jupiter.api.function.Executable action) {
-        BusinessException error = assertThrows(BusinessException.class, action);
-        assertEquals(expected, error.getErrorCode());
+    @Test
+    void legacyKeysBlockInitializationAndArePreserved() throws Exception {
+        var pki = PkiTestFixture.withoutCa(directory);
+        Files.createDirectories(pki.properties().caKeystore().getParent());
+        Files.writeString(pki.properties().caKeystore(), "existing key evidence");
+        assertEquals(Reason.LEGACY_PKI_REQUIRES_MIGRATION, pki.caService().status().diagnostics().reason());
+        assertError(ErrorCode.PKI_CA_RECOVERY_REQUIRED, pki.caService()::initialize);
+        assertEquals("existing key evidence", Files.readString(pki.properties().caKeystore()));
+        verify(pki.repository(), never()).saveAndFlush(any());
     }
 
-    /** Lock files may be created by mutations; all other artifact bytes must remain unchanged. */
-    private Map<String, byte[]> snapshot(Path root) throws IOException {
-        Map<String, byte[]> result = new HashMap<>();
-        if (!Files.exists(root)) return result;
-        try (var paths = Files.walk(root)) {
-            for (Path path : paths.filter(Files::isRegularFile).toList()) {
-                if (!path.getFileName().toString().endsWith(".lock")) {
-                    result.put(root.relativize(path).toString(), Files.readAllBytes(path));
-                }
+    @Test
+    void interruptedCaMaterialAlsoBlocksInitialization() throws Exception {
+        var pki = PkiTestFixture.withoutCa(directory);
+        Files.createDirectories(pki.properties().caKeystore().getParent());
+        Path interrupted = pki.properties().caKeystore().resolveSibling(".ca.p12.interrupted.tmp");
+        Files.writeString(interrupted, "interrupted material");
+        assertEquals(Reason.LEGACY_PKI_REQUIRES_MIGRATION, pki.caService().status().diagnostics().reason());
+        assertError(ErrorCode.PKI_CA_RECOVERY_REQUIRED, pki.caService()::initialize);
+        assertEquals("interrupted material", Files.readString(interrupted));
+    }
+
+    @Test
+    void mismatchedPrivateKeyIsRejectedEvenWhenCertificateAndFingerprintMatch() throws Exception {
+        var pki = PkiTestFixture.create(directory);
+        var original = pki.caService().requireValidCa();
+        var generator = java.security.KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        char[] password = pki.properties().password();
+        byte[] plaintext = vn.edu.epu.eoffice_be.security.pki.Crypto.encodeP12(password, "mismatched",
+                generator.generateKeyPair().getPrivate(), original.chain());
+        try {
+            var encrypted = pki.encryption().encrypt(plaintext);
+            var record = pki.repository().findActive().orElseThrow();
+            record.setKeystoreEncrypted(encrypted.ciphertext());
+            record.setEncryptionNonce(encrypted.nonce());
+            assertEquals(Reason.CA_KEY_CERTIFICATE_MISMATCH, pki.caService().status().diagnostics().reason());
+        } finally {
+            Arrays.fill(password, '\0');
+            Arrays.fill(plaintext, (byte) 0);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ciphertext", "nonce", "aes", "key-id", "password", "pem", "fingerprint", "certificate"})
+    void invalidStoredMaterialRequiresRecoveryAndIsNeverReplaced(String damage) throws Exception {
+        var pki = PkiTestFixture.create(directory);
+        var record = pki.repository().findActive().orElseThrow();
+        switch (damage) {
+            case "ciphertext" -> {
+                byte[] changed = record.getKeystoreEncrypted();
+                changed[0] ^= 1;
+                record.setKeystoreEncrypted(changed);
             }
-        }
-        return result;
-    }
-
-    private void assertUnchanged(Map<String, byte[]> before, Path root) throws IOException {
-        Map<String, byte[]> after = snapshot(root);
-        assertEquals(before.keySet(), after.keySet());
-        before.forEach((path, bytes) -> assertArrayEquals(bytes, after.get(path), "Artifact changed: " + path));
-    }
-
-    private List<Path> entries(Path root) throws IOException {
-        try (var paths = Files.walk(root)) {
-            return paths.filter(path -> !path.equals(root)).sorted().toList();
-        }
-    }
-
-    private void copyStore(Path source, Path target) throws IOException {
-        try (var paths = Files.walk(source)) {
-            for (Path path : paths.toList()) {
-                if (Files.isDirectory(path)) {
-                    Files.createDirectories(target.resolve(source.relativize(path)));
-                } else if (!path.getFileName().toString().endsWith(".lock")) {
-                    Files.copy(path, target.resolve(source.relativize(path)));
-                }
+            case "nonce" -> {
+                byte[] changed = record.getEncryptionNonce();
+                changed[0] ^= 1;
+                record.setEncryptionNonce(changed);
             }
+            case "aes" -> {
+                byte[] wrong = new byte[32]; Arrays.fill(wrong, (byte) 1);
+                pki.encryptionProperties().setKey(Base64.getEncoder().encodeToString(wrong));
+            }
+            case "key-id" -> record.setEncryptionKeyId("unknown-key");
+            case "password" -> pki.properties().setDefaultKeystorePassword("wrong-password");
+            case "pem" -> record.setCertificatePem("invalid certificate");
+            case "fingerprint" -> record.setFingerprintSha256("0".repeat(64));
+            case "certificate" -> record.setCertificatePem(PkiTestFixture.create(directory.resolve("other"))
+                    .repository().findActive().orElseThrow().getCertificatePem());
         }
+        byte[] original = record.getKeystoreEncrypted().clone();
+        clearInvocations(pki.repository());
+        var status = pki.caService().status();
+        assertEquals(State.RECOVERY_REQUIRED, status.state());
+        assertTrue(status.diagnostics().caRecordExists());
+        assertFalse(status.canInitialize());
+        assertError(ErrorCode.PKI_CA_RECOVERY_REQUIRED, pki.caService()::requireValidCa);
+        assertError(ErrorCode.PKI_CA_RECOVERY_REQUIRED, pki.caService()::initialize);
+        verify(pki.repository(), never()).saveAndFlush(any());
+        assertArrayEquals(original, record.getKeystoreEncrypted());
     }
 
-    private byte[] pdf() throws IOException {
-        try (PDDocument pdf = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            pdf.addPage(new PDPage());
-            pdf.save(output);
-            return output.toByteArray();
+    @Test
+    void publicVerificationDoesNotNeedPrivateKeyOrEncryptionConfiguration() throws Exception {
+        var pki = PkiTestFixture.create(directory);
+        var certificate = pki.caService().activeCertificate().orElseThrow();
+        pki.encryptionProperties().setKey(null);
+        pki.repository().findActive().orElseThrow().setKeystoreEncrypted(new byte[17]);
+        assertArrayEquals(certificate.getEncoded(), pki.caService().activeCertificate().orElseThrow().getEncoded());
+        assertError(ErrorCode.PKI_CA_RECOVERY_REQUIRED, pki.caService()::requireValidCa);
+    }
+
+    @Test
+    void expirationAndFutureValidityAreEnforced() throws Exception {
+        Instant now = Instant.now();
+        var expired = PkiTestFixture.create(directory.resolve("expired"), now.minus(2, ChronoUnit.DAYS), now.minus(1, ChronoUnit.DAYS));
+        assertEquals(State.EXPIRED, expired.caService().status().state());
+        assertError(ErrorCode.PKI_CA_EXPIRED, expired.caService()::requireValidCa);
+        assertError(ErrorCode.PKI_CA_ALREADY_EXISTS, expired.caService()::initialize);
+        var future = PkiTestFixture.create(directory.resolve("future"), now.plus(1, ChronoUnit.DAYS), now.plus(2, ChronoUnit.DAYS));
+        assertEquals(Reason.CA_NOT_YET_VALID, future.caService().status().diagnostics().reason());
+    }
+
+    @Test
+    void databaseAndHistoryFailuresFailClosed() {
+        var pki = PkiTestFixture.withoutCa(directory);
+        when(pki.history().hasAnySigningHistory()).thenThrow(new DataAccessResourceFailureException("unavailable"));
+        assertError(ErrorCode.PKI_STORAGE_ERROR, pki.caService()::status);
+        assertError(ErrorCode.PKI_STORAGE_ERROR, pki.caService()::initialize);
+        when(pki.repository().findActive()).thenThrow(new DataAccessResourceFailureException("unavailable"));
+        assertError(ErrorCode.PKI_STORAGE_ERROR, pki.caService()::requireValidCa);
+        verify(pki.repository(), never()).saveAndFlush(any());
+    }
+
+    @Test
+    void missingEncryptionConfigurationOrDefaultPasswordDoesNotPersistCa() {
+        var pki = PkiTestFixture.withoutCa(directory);
+        pki.encryptionProperties().setKey(null);
+        assertError(ErrorCode.PKI_STORAGE_ERROR, pki.caService()::initialize);
+        verify(pki.repository(), never()).saveAndFlush(any());
+        pki.properties().setDefaultKeystorePassword("changeit");
+        assertError(ErrorCode.PKI_STORAGE_ERROR, pki.caService()::initialize);
+    }
+
+    @Test
+    void concurrentInitializationKeepsOnlyWinningCa() throws Exception {
+        var pki = PkiTestFixture.withoutCa(directory);
+        var other = new PkiCaService(pki.properties(), pki.history(), pki.repository(), pki.encryption());
+        var start = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(() -> attempt(start, pki.caService()));
+            var second = executor.submit(() -> attempt(start, other));
+            start.countDown();
+            assertEquals(1, first.get() + second.get());
         }
+        assertEquals(State.READY, pki.caService().status().state());
+    }
+
+    private int attempt(CountDownLatch start, PkiCaService service) throws InterruptedException {
+        start.await();
+        try { service.initialize(); return 1; }
+        catch (BusinessException e) { assertEquals(ErrorCode.PKI_CA_ALREADY_EXISTS, e.getErrorCode()); return 0; }
+    }
+
+    private void assertError(ErrorCode code, org.junit.jupiter.api.function.Executable action) {
+        assertEquals(code, assertThrows(BusinessException.class, action).getErrorCode());
     }
 }

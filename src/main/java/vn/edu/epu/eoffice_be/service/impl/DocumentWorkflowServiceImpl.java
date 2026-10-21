@@ -49,7 +49,6 @@ import vn.edu.epu.eoffice_be.security.pki.PdfSignatureVerifier;
 import vn.edu.epu.eoffice_be.security.pki.SignaturePosition;
 import vn.edu.epu.eoffice_be.service.DocumentWorkflowService;
 import vn.edu.epu.eoffice_be.service.FileStorageService;
-import vn.edu.epu.eoffice_be.service.PdfProcessingService;
 import vn.edu.epu.eoffice_be.workflow.WorkflowEngine;
 
 import java.time.Instant;
@@ -76,7 +75,6 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     private final OrgNodeRepository orgNodeRepository;
     private final WorkflowEngine workflowEngine;
     private final FileStorageService fileStorageService;
-    private final PdfProcessingService pdfProcessingService;
     private final DocumentBookService documentBookService;
     private final DocumentAttachmentRepository documentAttachmentRepository;
     private final vn.edu.epu.eoffice_be.storage.FileStorageService unifiedStorageService;
@@ -94,7 +92,6 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 null, // orgNodeRepository
                 null, // workflowEngine
                 null, // fileStorageService
-                null, // pdfProcessingService
                 null, // documentBookService
                 null, // documentAttachmentRepository
                 null, // unifiedStorageService
