@@ -36,12 +36,31 @@ Tài khoản được tạo bằng `POST /api/v1/auth/register` rồi hoàn thi�
 
 **Hạn chế cần biết:** tài khoản này **chưa được gán chức danh (position)** nên theo mô hình
 RBAC của dự án (`docs/system_seed.md`, "Đường 1: position") nó chưa có quyền nghiệp vụ.
-Hệ quả trên staging: `GET /api/v1/documents/published` → 403,
-`GET /api/v1/documents/pending` và `/api/v1/documents/statistics` → 500.
+Hệ quả trên staging: `GET /api/v1/documents/published` → 403.
 
 → Muốn phủ được business-flow thật, cần **gán chức danh** (ví dụ `CLERK`) cho `dast_scan`
-trong màn hình Quản trị người dùng, và điều tra nguyên nhân 2 lỗi 500 ở trên
-(khả năng do user chưa có position/org → lỗi null handling, không phải lỗi của DAST).
+trong màn hình Quản trị người dùng.
+
+### Phát hiện phụ (không liên quan tới DAST) — nên xử lý riêng
+
+`GET /api/v1/documents/pending` và `GET /api/v1/documents/statistics` trả **500
+`INTERNAL_SERVER_ERROR`**. Đã đọc log Heroku để xác minh — **không phải lỗi nghiệp vụ**:
+
+```
+org.springframework.web.method.annotation.MethodArgumentTypeMismatchException:
+  Method parameter 'id': Failed to convert value of type 'java.lang.String'
+  to required type 'java.lang.Long'; For input string: "pending"
+```
+
+Hai URL đó không tồn tại nên request rơi vào `@GetMapping("/documents/{id}")`
+(`DocumentController:90`). `GlobalExceptionHandler` **không** có
+`@ExceptionHandler(MethodArgumentTypeMismatchException.class)` nên rơi vào handler
+`Exception.class` → 500 thay vì 400/404.
+
+Đề xuất: thêm handler cho `MethodArgumentTypeMismatchException` (trả 400 `BAD_REQUEST`)
+và `NoHandlerFoundException`/`NoResourceFoundException` (trả 404). Đây cũng chính là loại
+lỗi mà ZAP active scan phát hiện được, nên xử lý trước khi chốt số liệu DAST.
+
 
 ## 3. Cách chạy
 
@@ -81,3 +100,7 @@ trong màn hình Quản trị người dùng, và điều tra nguyên nhân 2 l�
   scan bằng self-hosted runner hoặc nới `RATE_LIMIT_ENDPOINT_LIMIT` trên staging.
 - Access token sống 15 phút, active scan tối đa 30 phút → ZAP sẽ phải re-authenticate
   giữa chừng; cơ chế này dựa trên cookie refresh token HttpOnly mà ZAP tự quản lý.
+- **Staging đang thiếu ổn định về memory**: dyno Heroku chạy `-Xmx300m` và log ghi nhận
+  `Error R14 (Memory quota exceeded)` (5 lần trong ~2 phút ngày 21/10). Nếu dyno restart
+  giữa lúc quét, ZAP sẽ ghi nhận 503/timeout → false positive. Cần nâng dung lượng dyno
+  hoặc giảm `-Xmx`/rò rỉ trước khi lấy số liệu DAST chính thức.
