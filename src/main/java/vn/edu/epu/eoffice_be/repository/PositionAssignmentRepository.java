@@ -76,17 +76,46 @@ public interface PositionAssignmentRepository extends JpaRepository<PositionAssi
 
 	boolean existsByUserLoginIdAndDeleteFlgFalse(Long userLoginId);
 
+	/**
+	 * Dùng khi TẠO MỚI (excludeId = null): không loại trừ bản ghi nào.
+	 */
 	@Query("""
 					SELECT COUNT(pa) > 0 FROM PositionAssignment pa
 					WHERE pa.userLogin.id = :userId
 					  AND pa.deleteFlg = false
 					  AND pa.actualDismissalDate IS NULL
-					  AND (pa.id <> :excludeId OR :excludeId IS NULL)
 					  AND (pa.effectiveTo IS NULL OR :from IS NULL OR pa.effectiveTo >= :from)
 					  AND (pa.effectiveFrom IS NULL OR :to IS NULL OR pa.effectiveFrom <= :to)
 					""")
-	boolean existsOverlappingAssignment(@Param("userId") Long userId,
-	                                    @Param("from") Instant from,
-	                                    @Param("to") Instant to,
-	                                    @Param("excludeId") Long excludeId);
+	boolean existsOverlappingAssignmentForNew(@Param("userId") Long userId,
+	                                          @Param("from") Instant from,
+	                                          @Param("to") Instant to);
+
+	/**
+	 * Dùng khi CẬP NHẬT (excludeId != null): loại trừ bản ghi hiện tại khỏi kiểm tra.
+	 */
+	@Query("""
+					SELECT COUNT(pa) > 0 FROM PositionAssignment pa
+					WHERE pa.userLogin.id = :userId
+					  AND pa.deleteFlg = false
+					  AND pa.actualDismissalDate IS NULL
+					  AND pa.id <> :excludeId
+					  AND (pa.effectiveTo IS NULL OR :from IS NULL OR pa.effectiveTo >= :from)
+					  AND (pa.effectiveFrom IS NULL OR :to IS NULL OR pa.effectiveFrom <= :to)
+					""")
+	boolean existsOverlappingAssignmentExcluding(@Param("userId") Long userId,
+	                                              @Param("from") Instant from,
+	                                              @Param("to") Instant to,
+	                                              @Param("excludeId") Long excludeId);
+
+	/**
+	 * Phương thức điều phối: tự động chọn query phù hợp dựa trên excludeId.
+	 * Giữ nguyên chữ ký gốc để Service không cần thay đổi.
+	 */
+	default boolean existsOverlappingAssignment(Long userId, Instant from, Instant to, Long excludeId) {
+		if (excludeId == null) {
+			return existsOverlappingAssignmentForNew(userId, from, to);
+		}
+		return existsOverlappingAssignmentExcluding(userId, from, to, excludeId);
+	}
 }
