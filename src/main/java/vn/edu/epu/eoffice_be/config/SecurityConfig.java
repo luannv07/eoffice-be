@@ -69,6 +69,20 @@ public class SecurityConfig {
 							.csrf(AbstractHttpConfigurer::disable)
 							.cors(Customizer.withDefaults())
 							.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+							.headers(headers -> headers
+											// Security headers (resolve 3 of the 7 ZAP baseline WARN: CSP, HSTS,
+											// Permissions-Policy). HSTS is ignored by browsers over plain HTTP,
+											// so it is safe to keep enabled for local dev; the max-age is the
+											// standard 1 year with includeSubDomains.
+											.httpStrictTransportSecurity(hsts -> hsts
+															.maxAgeInSeconds(31536000)
+															.includeSubDomains(true))
+											.contentSecurityPolicy(csp -> csp.policyDirectives(
+															"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+																			+ "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+																			+ "font-src 'self' data:"))
+											.permissionsPolicy(permissions -> permissions.policy(
+															"camera=(), microphone=(), geolocation=()")))
 							.authorizeHttpRequests(auth -> auth
 											.requestMatchers(SecurityWhitelist.HEALTH_WHITELIST).permitAll()
 											.requestMatchers(SecurityWhitelist.SWAGGER_WHITELIST).permitAll()

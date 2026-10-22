@@ -8,9 +8,10 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
@@ -86,6 +87,13 @@ public class GlobalExceptionHandler {
         log.warn("Missing request parameter: {}", ex.getParameterName());
         return ResponseEntity.status(ErrorCode.BAD_REQUEST.getStatus())
                 .body(BaseResponse.error("Thiếu tham số bắt buộc: " + ex.getParameterName(), ErrorCode.BAD_REQUEST.getCode()));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<BaseResponse<Void>> handleMethodArgumentTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        log.warn("Method argument type mismatch: parameter '{}' with value '{}'", ex.getName(), ex.getValue());
+        return ResponseEntity.status(ErrorCode.BAD_REQUEST.getStatus())
+                .body(BaseResponse.error("Tham số '" + ex.getName() + "' không hợp lệ", ErrorCode.BAD_REQUEST.getCode()));
     }
 
     @ExceptionHandler(FileStorageException.class)
