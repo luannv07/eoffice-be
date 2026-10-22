@@ -98,6 +98,12 @@ jobs:
         if: steps.dast_mode.outputs.authenticated == 'true'
         run: |
           set -euo pipefail
+          # ZAP AF exits 0 on success, 1 on error and 2 on (warning-level) findings.
+          # Exit 2 (warning-only) is expected and is not a scan failure: the
+          # pipeline gate below (report must exist + HIGH/CRITICAL count + URL sanity)
+          # stays the authority. Treating exit 2 as success keeps the step green when
+          # the scan ran correctly but raised only Low/Informational alerts.
+          set +e
           docker run --rm \
             -v "$PWD/zap_workspace:/zap/wrk:rw" \
             -e DAST_TARGET_URL \
@@ -105,6 +111,10 @@ jobs:
             -e DAST_STAGING_PASS \
             ghcr.io/zaproxy/zaproxy:stable \
             zap.sh -cmd -autorun /zap/wrk/zap-jwt-config.yaml
+          rc=$?
+          set -e
+          if [ "$rc" -eq 2 ]; then rc=0; fi
+          exit $rc
 
       - name: Run OWASP ZAP Baseline Scan (unauthenticated fallback)
         if: steps.dast_mode.outputs.authenticated != 'true'
