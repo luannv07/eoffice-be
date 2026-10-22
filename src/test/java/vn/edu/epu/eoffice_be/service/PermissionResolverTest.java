@@ -102,17 +102,25 @@ class PermissionResolverTest {
     }
 
     @Test
-    @DisplayName("hasPermission trả về true ngay lập tức với SYSTEM_ADMIN")
-    void hasPermission_systemAdmin_shouldReturnTrue() {
-        assertTrue(permissionResolver.hasPermission(adminPrincipal, "any:action", 100L));
-        assertTrue(permissionResolver.hasPermission(adminPrincipal, "any:action", null));
+    @DisplayName("hasPermission: SYSTEM_ADMIN chỉ có quyền global hệ thống, bị từ chối với quyền workflow/bất kỳ khác")
+    void hasPermission_systemAdmin_scopeCheck() {
+        // Có quyền global hệ thống
+        assertTrue(permissionResolver.hasPermission(adminPrincipal, RolePermissionCatalog.PERM_SYSTEM_CONFIG_MANAGE, null));
+        assertTrue(permissionResolver.hasPermission(adminPrincipal, RolePermissionCatalog.PERM_DICTIONARY_MANAGE, 100L));
+
+        // Bị từ chối với quyền nghiệp vụ hoặc không thuộc catalog
+        assertFalse(permissionResolver.hasPermission(adminPrincipal, "DOCUMENT_APPROVE", 100L));
+        assertFalse(permissionResolver.hasPermission(adminPrincipal, "any:action", 100L));
+        assertFalse(permissionResolver.hasPermission(adminPrincipal, "any:action", null));
     }
 
     @Test
-    @DisplayName("hasPermission kiểm tra quyền global theo role")
+    @DisplayName("hasPermission kiểm tra quyền global theo role ADMIN")
     void hasPermission_globalRolePermission_shouldReturnTrue() {
         JwtUserPrincipal orgAdminPrincipal = new JwtUserPrincipal(2L, "manager", "ADMIN", true, Collections.emptyList());
         assertTrue(permissionResolver.hasPermission(orgAdminPrincipal, RolePermissionCatalog.PERM_ORG_READ, null));
+        assertTrue(permissionResolver.hasPermission(orgAdminPrincipal, RolePermissionCatalog.PERM_DB_USER_MANAGE, 100L));
+        assertFalse(permissionResolver.hasPermission(orgAdminPrincipal, "DOCUMENT_APPROVE", 100L));
     }
 
     @Test
@@ -139,8 +147,8 @@ class PermissionResolverTest {
         // orgNodeId khác assigned node -> false (khi không có delegation)
         assertFalse(permissionResolver.hasPermission(normalPrincipal, "doc:create", 200L));
 
-        // orgNodeId null -> true
-        assertTrue(permissionResolver.hasPermission(normalPrincipal, "doc:create", null));
+        // orgNodeId null -> false (hành động cần phạm vi đơn vị bị từ chối khi orgNodeId == null)
+        assertFalse(permissionResolver.hasPermission(normalPrincipal, "doc:create", null));
     }
 
     @Test
