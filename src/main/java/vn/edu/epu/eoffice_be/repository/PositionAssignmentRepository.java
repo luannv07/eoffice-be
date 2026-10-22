@@ -77,22 +77,35 @@ public interface PositionAssignmentRepository extends JpaRepository<PositionAssi
 	boolean existsByUserLoginIdAndDeleteFlgFalse(Long userLoginId);
 
 	/**
-	 * Dùng khi TẠO MỚI (excludeId = null): không loại trừ bản ghi nào.
+	 * Tạo mới có thời hạn (to != null, excludeId = null)
 	 */
 	@Query("""
 					SELECT COUNT(pa) > 0 FROM PositionAssignment pa
 					WHERE pa.userLogin.id = :userId
 					  AND pa.deleteFlg = false
 					  AND pa.actualDismissalDate IS NULL
-					  AND (pa.effectiveTo IS NULL OR :from IS NULL OR pa.effectiveTo >= :from)
-					  AND (pa.effectiveFrom IS NULL OR :to IS NULL OR pa.effectiveFrom <= :to)
+					  AND (pa.effectiveTo IS NULL OR pa.effectiveTo >= :from)
+					  AND pa.effectiveFrom <= :to
 					""")
-	boolean existsOverlappingAssignmentForNew(@Param("userId") Long userId,
-	                                          @Param("from") Instant from,
-	                                          @Param("to") Instant to);
+	boolean existsOverlappingWithTo(@Param("userId") Long userId,
+	                                @Param("from") Instant from,
+	                                @Param("to") Instant to);
 
 	/**
-	 * Dùng khi CẬP NHẬT (excludeId != null): loại trừ bản ghi hiện tại khỏi kiểm tra.
+	 * Tạo mới vô thời hạn (to == null, excludeId = null)
+	 */
+	@Query("""
+					SELECT COUNT(pa) > 0 FROM PositionAssignment pa
+					WHERE pa.userLogin.id = :userId
+					  AND pa.deleteFlg = false
+					  AND pa.actualDismissalDate IS NULL
+					  AND (pa.effectiveTo IS NULL OR pa.effectiveTo >= :from)
+					""")
+	boolean existsOverlappingOpenEnded(@Param("userId") Long userId,
+	                                  @Param("from") Instant from);
+
+	/**
+	 * Cập nhật có thời hạn (to != null, excludeId != null)
 	 */
 	@Query("""
 					SELECT COUNT(pa) > 0 FROM PositionAssignment pa
@@ -100,22 +113,47 @@ public interface PositionAssignmentRepository extends JpaRepository<PositionAssi
 					  AND pa.deleteFlg = false
 					  AND pa.actualDismissalDate IS NULL
 					  AND pa.id <> :excludeId
-					  AND (pa.effectiveTo IS NULL OR :from IS NULL OR pa.effectiveTo >= :from)
-					  AND (pa.effectiveFrom IS NULL OR :to IS NULL OR pa.effectiveFrom <= :to)
+					  AND (pa.effectiveTo IS NULL OR pa.effectiveTo >= :from)
+					  AND pa.effectiveFrom <= :to
 					""")
-	boolean existsOverlappingAssignmentExcluding(@Param("userId") Long userId,
-	                                              @Param("from") Instant from,
-	                                              @Param("to") Instant to,
-	                                              @Param("excludeId") Long excludeId);
+	boolean existsOverlappingWithToExcluding(@Param("userId") Long userId,
+	                                         @Param("from") Instant from,
+	                                         @Param("to") Instant to,
+	                                         @Param("excludeId") Long excludeId);
 
 	/**
-	 * Phương thức điều phối: tự động chọn query phù hợp dựa trên excludeId.
-	 * Giữ nguyên chữ ký gốc để Service không cần thay đổi.
+	 * Cập nhật vô thời hạn (to == null, excludeId != null)
+	 */
+	@Query("""
+					SELECT COUNT(pa) > 0 FROM PositionAssignment pa
+					WHERE pa.userLogin.id = :userId
+					  AND pa.deleteFlg = false
+					  AND pa.actualDismissalDate IS NULL
+					  AND pa.id <> :excludeId
+					  AND (pa.effectiveTo IS NULL OR pa.effectiveTo >= :from)
+					""")
+	boolean existsOverlappingOpenEndedExcluding(@Param("userId") Long userId,
+	                                            @Param("from") Instant from,
+	                                            @Param("excludeId") Long excludeId);
+
+	/**
+	 * Phương thức điều phối: tự động chọn query phù hợp dựa trên to và excludeId.
+	 * Hoàn toàn không sử dụng biểu thức ':param IS NULL' trong SQL, tương thích 100% PostgreSQL.
 	 */
 	default boolean existsOverlappingAssignment(Long userId, Instant from, Instant to, Long excludeId) {
+		Instant effectiveFrom = from != null ? from : Instant.now();
 		if (excludeId == null) {
-			return existsOverlappingAssignmentForNew(userId, from, to);
+			if (to == null) {
+				return existsOverlappingOpenEnded(userId, effectiveFrom);
+			} else {
+				return existsOverlappingWithTo(userId, effectiveFrom, to);
+			}
+		} else {
+			if (to == null) {
+				return existsOverlappingOpenEndedExcluding(userId, effectiveFrom, excludeId);
+			} else {
+				return existsOverlappingWithToExcluding(userId, effectiveFrom, to, excludeId);
+			}
 		}
-		return existsOverlappingAssignmentExcluding(userId, from, to, excludeId);
 	}
 }

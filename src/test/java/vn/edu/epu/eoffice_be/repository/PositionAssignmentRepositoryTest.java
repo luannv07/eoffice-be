@@ -44,6 +44,18 @@ class PositionAssignmentRepositoryTest {
 	}
 
 	@Test
+	@DisplayName("existsOverlappingAssignment khi to = null (tạo mới vô thời hạn, excludeId = null)")
+	void testExistsOverlappingAssignment_CreateMode_NullTo() {
+		Instant now = Instant.now();
+		Instant from = now.minus(10, ChronoUnit.DAYS);
+
+		assertDoesNotThrow(() -> {
+			boolean exists = positionAssignmentRepository.existsOverlappingAssignment(999999L, from, null, null);
+			assertFalse(exists);
+		});
+	}
+
+	@Test
 	@DisplayName("existsOverlappingAssignment khi excludeId != null (cập nhật) hoạt động bình thường")
 	void testExistsOverlappingAssignment_UpdateMode_NonNullExcludeId() {
 		Instant now = Instant.now();
@@ -52,6 +64,18 @@ class PositionAssignmentRepositoryTest {
 
 		assertDoesNotThrow(() -> {
 			boolean exists = positionAssignmentRepository.existsOverlappingAssignment(999999L, from, to, 12345L);
+			assertFalse(exists);
+		});
+	}
+
+	@Test
+	@DisplayName("existsOverlappingAssignment khi to = null và excludeId != null (cập nhật vô thời hạn)")
+	void testExistsOverlappingAssignment_UpdateMode_NullTo() {
+		Instant now = Instant.now();
+		Instant from = now.minus(10, ChronoUnit.DAYS);
+
+		assertDoesNotThrow(() -> {
+			boolean exists = positionAssignmentRepository.existsOverlappingAssignment(999999L, from, null, 12345L);
 			assertFalse(exists);
 		});
 	}
