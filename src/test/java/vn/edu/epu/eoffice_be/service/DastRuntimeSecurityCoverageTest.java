@@ -272,13 +272,13 @@ class DastRuntimeSecurityCoverageTest {
     }
 
     @Test
-    @DisplayName("Vector 4 — orgNodeId null thì bỏ qua kiểm tra delegation (không chạm position_degs)")
+    @DisplayName("Vector 4 — orgNodeId null thì trả về false ngay (không chạm DB)")
     void delegation_nullOrgNode_shouldSkipDelegationCheck() {
         JwtUserPrincipal principal = new JwtUserPrincipal(10L, "testuser", "USER", true, Collections.emptyList());
-        when(positionAssignmentRepository.findActiveAssignments(eq(10L), any(Instant.class)))
-                .thenReturn(Collections.emptyList());
 
         assertFalse(permissionResolver.hasPermission(principal, "doc:create", null));
+        verify(positionAssignmentRepository, never())
+                .findActiveAssignments(any(), any());
         verify(positionDegRepository, never())
                 .hasValidDelegation(any(), any(), any(), any());
     }

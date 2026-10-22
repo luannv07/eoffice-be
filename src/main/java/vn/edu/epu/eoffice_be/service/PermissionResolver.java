@@ -43,8 +43,13 @@ public class PermissionResolver {
 			return false;
 		}
 		Role role = resolveRole(principal.role());
-		if (role == Role.SYSTEM_ADMIN) {
-			return true;
+		return hasPermission(principal.userId(), role, permissionCd, orgNodeId);
+	}
+
+	@Transactional(readOnly = true)
+	public boolean hasPermission(Long userId, Role role, String permissionCd, Long orgNodeId) {
+		if (userId == null || permissionCd == null || permissionCd.isBlank()) {
+			return false;
 		}
 
 		// Đường 0: role global, không phụ thuộc orgNodeId
@@ -52,12 +57,14 @@ public class PermissionResolver {
 			return true;
 		}
 
-		// Đường 1: position-based. orgNodeId dùng để lọc theo phạm vi position_assignments
-		// (qua recursive CTE trên org_nodes.parent_id), KHÔNG truyền vào PositionPermission
-		// query (bảng đó giờ global theo position_cd). orgNodeId null => chỉ xét quyền không
-		// phụ thuộc node.
+		// Nếu không xác định được orgNodeId thì không cấp quyền theo đơn vị
+		if (orgNodeId == null) {
+			return false;
+		}
+
+		// Đường 1: position-based theo phạm vi OrgNode (có inheritToChildren đệ quy)
 		List<PositionAssignment> assignments =
-						positionAssignmentRepository.findActiveAssignments(principal.userId(), Instant.now());
+						positionAssignmentRepository.findActiveAssignments(userId, Instant.now());
 		for (PositionAssignment pa : assignments) {
 			if (!isPositionEffectiveWithinScope(pa.getOrgNode(), pa.getPositionCd(), permissionCd, orgNodeId)) {
 				continue;
@@ -65,9 +72,8 @@ public class PermissionResolver {
 			return true;
 		}
 
-		// Đường 2: delegation (uỷ quyền). orgNodeId khớp trực tiếp position_degs.org_node_id.
-		if (orgNodeId != null && positionDegRepository.hasValidDelegation(
-						principal.userId(), orgNodeId, permissionCd, Instant.now())) {
+		// Đường 2: delegation (uỷ quyền)
+		if (positionDegRepository.hasValidDelegation(userId, orgNodeId, permissionCd, Instant.now())) {
 			return true;
 		}
 

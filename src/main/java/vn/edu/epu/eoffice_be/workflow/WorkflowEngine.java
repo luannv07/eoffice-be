@@ -16,6 +16,8 @@ import vn.edu.epu.eoffice_be.entity.UserLogin;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentWorkflowLogRepository;
 
+import vn.edu.epu.eoffice_be.service.PermissionResolver;
+
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
@@ -27,6 +29,7 @@ public class WorkflowEngine {
 
     private final DocumentRepository documentRepository;
     private final DocumentWorkflowLogRepository documentWorkflowLogRepository;
+    private final PermissionResolver permissionResolver;
 
     private static final Map<DocumentStatus, Map<WorkflowAction, DocumentStatus>> TRANSITION_MATRIX =
             new EnumMap<>(DocumentStatus.class);
@@ -111,9 +114,6 @@ public class WorkflowEngine {
         if (document == null) {
             throw new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND);
         }
-        if (actor.getRole() == Role.SYSTEM_ADMIN || actor.getRole() == Role.ADMIN) {
-            return; // Quản trị viên có toàn quyền điều phối
-        }
 
         if (!hasActionPermission(document, actor, action)) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
@@ -123,15 +123,34 @@ public class WorkflowEngine {
     private boolean hasActionPermission(Document document, UserLogin actor, WorkflowAction action) {
         boolean isDrafter = document.getDrafter() != null && Objects.equals(document.getDrafter().getId(), actor.getId());
         boolean isAssignedSigner = document.getSigner() != null && Objects.equals(document.getSigner().getId(), actor.getId());
-        Role role = actor.getRole();
-        boolean isReviewerOrLeader = role == Role.REVIEWER || role == Role.LEADER || isAssignedSigner;
+
+        // 1. Nhóm hành động soạn thảo chỉ căn cứ vào người tạo bản thảo
+        if (action == WorkflowAction.SUBMIT || action == WorkflowAction.WITHDRAW) {
+            return isDrafter;
+        }
+
+        // 2. Tất cả hành động phê duyệt, ký số và thu hồi bắt buộc xác định được đơn vị ban hành hợp lệ
+        Long documentOrgId = document.getOrgId();
+        if (documentOrgId == null) {
+            log.warn("Tu choi hanh dong [{}] do van ban id=[{}] khong xac dinh duoc don vi ban hanh (getOrgId() is null)",
+                    action, document.getId());
+            return false;
+        }
 
         return switch (action) {
-            case SUBMIT, WITHDRAW -> isDrafter;
-            case REVIEW_APPROVE, INITIAL_SIGN, REQUEST_REVISION, REJECT -> isReviewerOrLeader;
-            case LEADER_APPROVE -> role == Role.LEADER || isAssignedSigner;
-            case SIGN_AND_PUBLISH -> role == Role.CLERK || isAssignedSigner;
-            case REVOKE -> isAssignedSigner || role == Role.LEADER;
+            // Ký nháy: Yêu cầu DOCUMENT_SIGN_DRAFT trong phạm vi đơn vị ban hành
+            case INITIAL_SIGN ->
+                permissionResolver.hasPermission(actor.getId(), actor.getRole(), "DOCUMENT_SIGN_DRAFT", documentOrgId);
+
+            // Duyệt thẩm định, Lãnh đạo duyệt, Trả về sửa, Từ chối, Thu hồi: Yêu cầu quyền quyết định duyệt DOCUMENT_APPROVE
+            case REVIEW_APPROVE, LEADER_APPROVE, REQUEST_REVISION, REJECT, REVOKE ->
+                permissionResolver.hasPermission(actor.getId(), actor.getRole(), "DOCUMENT_APPROVE", documentOrgId);
+
+            // Ký số phát hành: Phải là đúng người ký được chỉ định VÀ có quyền DOCUMENT_SIGN_OFFICIAL trong phạm vi đơn vị ban hành
+            case SIGN_AND_PUBLISH ->
+                isAssignedSigner && permissionResolver.hasPermission(actor.getId(), actor.getRole(), "DOCUMENT_SIGN_OFFICIAL", documentOrgId);
+
+            default -> false;
         };
     }
 
