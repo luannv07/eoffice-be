@@ -320,8 +320,15 @@ public class DocumentDraftService {
                 keyword = keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
             }
         }
+        Long creatorUserId = userId;
+        if (userId != null) {
+            UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(userId).orElse(null);
+            if (user != null && (user.getRole() == Role.CLERK || user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN)) {
+                creatorUserId = null;
+            }
+        }
         Page<Document> page = documentRepository.searchDocuments(
-                userId, filter.getStatus(), filter.getOrgNodeId(), keyword, pageable);
+                creatorUserId, filter.getStatus(), filter.getOrgNodeId(), keyword, pageable);
         return page.map(this::mapToDocumentResponse);
     }
 

@@ -894,6 +894,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             case "TP" -> "Trưởng phòng";
             case "PP" -> "Phó Trưởng phòng";
             case "CV" -> "Chuyên viên";
+            case "GV" -> "Giảng viên";
+            case "VT" -> "Cán bộ văn thư";
             default -> positionCd;
         };
     }
@@ -962,7 +964,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN")
                             || a.getAuthority().equals("ADMIN")
                             || a.getAuthority().equals("ROLE_SYSTEM_ADMIN")
-                            || a.getAuthority().equals("SYSTEM_ADMIN"));
+                            || a.getAuthority().equals("SYSTEM_ADMIN")
+                            || a.getAuthority().equals("ROLE_CLERK")
+                            || a.getAuthority().equals("CLERK"));
         if (isAdmin) {
             return;
         }
@@ -1071,6 +1075,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         boolean isPrivileged = currentActor.getRole() == Role.LEADER
                 || currentActor.getRole() == Role.ADMIN
                 || currentActor.getRole() == Role.SYSTEM_ADMIN
+                || currentActor.getRole() == Role.CLERK
                 || currentActor.getRole() == Role.REVIEWER;
         Long filterUserId = isPrivileged ? null : currentActor.getId();
         return documentRepository

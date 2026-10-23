@@ -235,6 +235,64 @@ class PositionAssignmentServiceImplTest {
 	}
 
 	@Test
+	void createShouldPersistNewAssignmentWithGV() {
+		PositionAssignmentCreateRequest request = new PositionAssignmentCreateRequest();
+		request.setUserLoginId(1L);
+		request.setOrgNodeId(100L);
+		request.setPositionCd("GV");
+		request.setEffectiveFrom(Instant.parse("2026-01-01T00:00:00Z"));
+
+		when(userLoginRepository.findByIdAndDeleteFlgFalse(1L))
+						.thenReturn(Optional.of(user(1L)));
+		when(orgNodeRepository.findByIdAndDeleteFlgFalse(100L))
+						.thenReturn(Optional.of(orgNode(100L)));
+		when(positionAssignmentRepository.existsOverlappingAssignment(eq(1L), any(), any(), any()))
+						.thenReturn(false);
+		when(positionAssignmentRepository.save(any(PositionAssignment.class)))
+						.thenAnswer(inv -> {
+							PositionAssignment pa = inv.getArgument(0);
+							pa.setId(52L);
+							return pa;
+						});
+
+		PositionAssignmentResponse result = positionAssignmentService.create(request);
+
+		assertNotNull(result);
+		assertEquals("GV", result.getPositionCd());
+		assertEquals("Giảng viên", result.getPositionName());
+		verify(positionAssignmentRepository).save(any(PositionAssignment.class));
+	}
+
+	@Test
+	void createShouldPersistNewAssignmentWithVT() {
+		PositionAssignmentCreateRequest request = new PositionAssignmentCreateRequest();
+		request.setUserLoginId(1L);
+		request.setOrgNodeId(100L);
+		request.setPositionCd("VT");
+		request.setEffectiveFrom(Instant.parse("2026-01-01T00:00:00Z"));
+
+		when(userLoginRepository.findByIdAndDeleteFlgFalse(1L))
+						.thenReturn(Optional.of(user(1L)));
+		when(orgNodeRepository.findByIdAndDeleteFlgFalse(100L))
+						.thenReturn(Optional.of(orgNode(100L)));
+		when(positionAssignmentRepository.existsOverlappingAssignment(eq(1L), any(), any(), any()))
+						.thenReturn(false);
+		when(positionAssignmentRepository.save(any(PositionAssignment.class)))
+						.thenAnswer(inv -> {
+							PositionAssignment pa = inv.getArgument(0);
+							pa.setId(53L);
+							return pa;
+						});
+
+		PositionAssignmentResponse result = positionAssignmentService.create(request);
+
+		assertNotNull(result);
+		assertEquals("VT", result.getPositionCd());
+		assertEquals("Cán bộ văn thư", result.getPositionName());
+		verify(positionAssignmentRepository).save(any(PositionAssignment.class));
+	}
+
+	@Test
 	void createShouldDefaultEffectiveFromToNowWhenNull() {
 		PositionAssignmentCreateRequest request = new PositionAssignmentCreateRequest();
 		request.setUserLoginId(1L);
