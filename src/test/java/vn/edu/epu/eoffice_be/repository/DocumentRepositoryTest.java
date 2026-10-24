@@ -254,4 +254,71 @@ class DocumentRepositoryTest {
         assertEquals(page0.getContent().get(0).getId(), compatPage0.getContent().get(0).getId());
         assertEquals(page0.getContent().get(1).getId(), compatPage0.getContent().get(1).getId());
     }
+
+    @Test
+    @DisplayName("searchDocuments: Khi tất cả tham số là null (CLERK/ADMIN filter rỗng), query thành công không lỗi")
+    void searchDocuments_withAllNullParameters_shouldSucceedWithoutError() {
+        UserLogin user = getOrCreateUser();
+        OrgNode org = getOrCreateOrg();
+
+        Document doc = Document.builder()
+                .title("Doc for all null test")
+                .documentTypeCd("CONG_VAN")
+                .drafter(user)
+                .creatorUser(user)
+                .issuingOrg(org)
+                .issuingOrgNode(org)
+                .status(DocumentStatus.DRAFT)
+                .deleteFlg(false)
+                .build();
+        documentRepository.save(doc);
+
+        Page<Document> result = documentRepository.searchDocuments(
+                null, null, null, null, PageRequest.of(0, 10));
+
+        assertNotNull(result);
+        assertTrue(result.getContent().stream().anyMatch(d -> d.getId().equals(doc.getId())));
+    }
+
+    @Test
+    @DisplayName("searchDocuments: Lọc chính xác theo creatorUserId, status, orgNodeId và keyword")
+    void searchDocuments_withFilters_shouldFilterCorrectly() {
+        UserLogin user = getOrCreateUser();
+        OrgNode org = getOrCreateOrg();
+
+        Document docMatch = Document.builder()
+                .title("Văn bản thông báo kế hoạch năm 2026")
+                .draftCode("DT-MATCH-001")
+                .summary("Tóm tắt nội dung kế hoạch")
+                .documentTypeCd("CONG_VAN")
+                .drafter(user)
+                .creatorUser(user)
+                .issuingOrg(org)
+                .issuingOrgNode(org)
+                .status(DocumentStatus.DRAFT)
+                .deleteFlg(false)
+                .build();
+        documentRepository.save(docMatch);
+
+        Document docOtherStatus = Document.builder()
+                .title("Văn bản thông báo kế hoạch khác")
+                .draftCode("DT-OTHER-002")
+                .summary("Tóm tắt khác")
+                .documentTypeCd("CONG_VAN")
+                .drafter(user)
+                .creatorUser(user)
+                .issuingOrg(org)
+                .issuingOrgNode(org)
+                .status(DocumentStatus.APPROVED)
+                .deleteFlg(false)
+                .build();
+        documentRepository.save(docOtherStatus);
+
+        Page<Document> result = documentRepository.searchDocuments(
+                user.getId(), DocumentStatus.DRAFT, org.getId(), "kế hoạch", PageRequest.of(0, 10));
+
+        assertNotNull(result);
+        assertTrue(result.getContent().stream().anyMatch(d -> d.getId().equals(docMatch.getId())));
+        assertFalse(result.getContent().stream().anyMatch(d -> d.getId().equals(docOtherStatus.getId())));
+    }
 }

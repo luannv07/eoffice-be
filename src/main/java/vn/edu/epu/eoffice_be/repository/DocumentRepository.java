@@ -1,20 +1,24 @@
 package vn.edu.epu.eoffice_be.repository;
 
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.entity.Document;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface DocumentRepository extends JpaRepository<Document, Long> {
+public interface DocumentRepository extends JpaRepository<Document, Long>, JpaSpecificationExecutor<Document> {
 
     Optional<Document> findByIdAndDeleteFlgFalse(Long id);
 
@@ -29,37 +33,49 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
     Page<Document> findByCreatorUserIdAndDeleteFlgFalse(Long creatorUserId, Pageable pageable);
 
     /**
-     * Tìm kiếm và phân trang tài liệu theo các tiêu chí kết hợp.
+     * Tìm kiếm và phân trang tài liệu theo các tiêu chí kết hợp bằng JPA Specification.
      * <p>
-     * <b>Lưu ý về escape ký tự đặc biệt (Issue 16):</b> Tham số {@code keyword} được ghép vào mẫu LIKE
-     * với {@code ESCAPE '\\'}. Tầng nghiệp vụ (Service layer) bắt buộc phải escape trước các ký tự đại diện
-     * ('%', '_', '\\') thành ('\\%', '\\_', '\\\\') trước khi gọi phương thức này.
+     * Tránh lỗi PostgreSQL 'could not determine data type of parameter' khi tham số là null
+     * bằng cách chỉ bổ sung Predicate khi tham số thực sự có giá trị (non-null / non-blank).
      * </p>
      * <p>
-     * <b>Lưu ý về hiệu năng (Issue 17 / Ticket PERF-DOC-001):</b> Mẫu LIKE tiền tố wildcard '%keyword%' và LOWER()
-     * không tận dụng được standard B-Tree index và có thể gây full table scan trên tập dữ liệu lớn.
-     * Đã lên kế hoạch chuyển đổi sang PostgreSQL Full-Text Search (tsvector + GIN index) hoặc functional index
-     * theo ticket kỹ thuật PERF-DOC-001 khi quy mô dữ liệu mở rộng.
+     * <b>Lưu ý về escape ký tự đặc biệt (Issue 16):</b> Tham số {@code keyword} được escape
+     * trước các ký tự đại diện ('%', '_', '\\') từ tầng Service và so khớp LIKE với ký tự escape '\\'.
      * </p>
      */
-    @Query("""
-        SELECT d FROM Document d
-        WHERE d.deleteFlg = false
-          AND (:creatorUserId IS NULL OR d.creatorUser.id = :creatorUserId)
-          AND (:status IS NULL OR d.status = :status)
-          AND (:orgNodeId IS NULL OR d.issuingOrgNode.id = :orgNodeId)
-          AND (:keyword IS NULL OR :keyword = ''
-                OR LOWER(d.title) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
-                OR LOWER(d.draftCode) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
-                OR LOWER(CAST(d.summary AS string)) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\')
-    """)
-    Page<Document> searchDocuments(
-            @Param("creatorUserId") Long creatorUserId,
-            @Param("status") DocumentStatus status,
-            @Param("orgNodeId") Long orgNodeId,
-            @Param("keyword") String keyword,
+    default Page<Document> searchDocuments(
+            Long creatorUserId,
+            DocumentStatus status,
+            Long orgNodeId,
+            String keyword,
             Pageable pageable
-    );
+    ) {
+        Specification<Document> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.isFalse(root.get("deleteFlg")));
+
+            if (creatorUserId != null) {
+                predicates.add(cb.equal(root.get("creatorUser").get("id"), creatorUserId));
+            }
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+            if (orgNodeId != null) {
+                predicates.add(cb.equal(root.get("issuingOrgNode").get("id"), orgNodeId));
+            }
+            if (keyword != null && !keyword.isBlank()) {
+                String pattern = "%" + keyword.trim().toLowerCase() + "%";
+                Predicate titlePred = cb.like(cb.lower(root.get("title")), pattern, '\\');
+                Predicate draftCodePred = cb.like(cb.lower(root.get("draftCode")), pattern, '\\');
+                Predicate summaryPred = cb.like(cb.lower(root.get("summary")), pattern, '\\');
+                predicates.add(cb.or(titlePred, draftCodePred, summaryPred));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        return findAll(spec, pageable);
+    }
 
     List<Document> findByStatusAndDeleteFlgFalse(DocumentStatus status);
 
