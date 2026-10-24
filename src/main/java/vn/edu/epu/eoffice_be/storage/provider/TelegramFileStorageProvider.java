@@ -48,6 +48,16 @@ public class TelegramFileStorageProvider implements FileStorageProvider {
 
     @Override
     public StoredFile save(StoredFile file) {
+        StoredFile uploaded = saveForDocument(file);
+        long messageId = Long.parseLong(uploaded.getMetadata().get("messageId"));
+        messageIdByFileId.put(uploaded.getId(), messageId);
+        luuMetadata(uploaded.getId(), uploaded.getOriginalFileName(), uploaded.getContentType(),
+                uploaded.getSizeBytes(), String.valueOf(messageId));
+        return uploaded;
+    }
+
+    @Override
+    public StoredFile saveForDocument(StoredFile file) {
         if (file == null || file.getContent() == null || file.getContent().length == 0) {
             throw new FileStorageException("Nội dung tệp không được để trống");
         }
@@ -81,17 +91,51 @@ public class TelegramFileStorageProvider implements FileStorageProvider {
         long messageId = result.path("message_id").asLong();
         long size = result.path("document").path("file_size").asLong(file.getContent().length);
 
-        messageIdByFileId.put(fileId, messageId);
-        luuMetadata(fileId, file.getOriginalFileName(), kieuNoiDung(file.getContentType(), file.getOriginalFileName()),
-                size, String.valueOf(messageId));
+        if (messageId <= 0 || fileId.isBlank()) {
+            if (messageId > 0) {
+                try {
+                    discardUpload(StoredFile.builder().id(fileId)
+                            .metadata(Map.of("messageId", String.valueOf(messageId), "chatId", chatId)).build());
+                } catch (RuntimeException cleanupError) {
+                    log.warn("Cannot discard malformed Telegram upload receipt; exceptionType={}",
+                            cleanupError.getClass().getName());
+                }
+            }
+            throw new FileStorageException("Telegram returned an invalid upload receipt");
+        }
 
         return StoredFile.builder()
                 .id(fileId)
                 .originalFileName(file.getOriginalFileName())
                 .contentType(kieuNoiDung(file.getContentType(), file.getOriginalFileName()))
                 .sizeBytes(size)
-                .metadata(Map.of("messageId", String.valueOf(messageId)))
+                .metadata(Map.of("messageId", String.valueOf(messageId), "chatId", chatId))
                 .build();
+    }
+
+    @Override
+    public void discardUpload(StoredFile receipt) {
+        if (receipt == null || receipt.getMetadata() == null) {
+            throw new FileStorageException("Missing Telegram upload receipt");
+        }
+        String messageId = receipt.getMetadata().get("messageId");
+        String chatId = receipt.getMetadata().get("chatId");
+        try {
+            if (chatId == null || chatId.isBlank() || Long.parseLong(messageId) <= 0) {
+                throw new IllegalArgumentException();
+            }
+        } catch (RuntimeException e) {
+            throw new FileStorageException("Invalid Telegram upload receipt");
+        }
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        body.add("chat_id", chatId);
+        body.add("message_id", messageId);
+        JsonNode response = restTemplate.postForObject(
+                API_BASE + yeuCauToken() + "/deleteMessage", body, JsonNode.class);
+        if (response == null || !response.path("ok").asBoolean(false)) {
+            throw new FileStorageException("Cannot discard Telegram upload");
+        }
+        // Do not touch file_id metadata or the cache: another message may share that file_id.
     }
 
     @Override

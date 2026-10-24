@@ -13,6 +13,19 @@ public interface FileStorageProvider {
 
     StoredFile save(StoredFile file);
 
+    /**
+     * Upload for a document transaction. The returned receipt identifies this
+     * upload for rollback cleanup; the caller owns metadata persistence.
+     */
+    default StoredFile saveForDocument(StoredFile file) {
+        return save(file);
+    }
+
+    /** Discard only the upload identified by the receipt, without deleting DB metadata. */
+    default void discardUpload(StoredFile receipt) {
+        delete(receipt.getId());
+    }
+
     StoredFile get(String fileId);
 
     StoredFile update(String fileId, StoredFile file);

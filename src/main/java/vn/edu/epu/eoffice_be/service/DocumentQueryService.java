@@ -5,7 +5,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -17,10 +16,8 @@ import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.repository.DocumentDistributionRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
+import vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService;
 
-import java.net.MalformedURLException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -36,6 +33,7 @@ public class DocumentQueryService {
 
     DocumentRepository documentRepository;
     DocumentDistributionRepository distributionRepository;
+    DocumentPdfStorageService documentPdfStorageService;
 
     public Object getDocumentDetails(Long id, Long orgId) {
         Document document = documentRepository.findAccessiblePublishedDocument(id, orgId)
@@ -91,14 +89,14 @@ public class DocumentQueryService {
         Document doc = documentRepository.findAccessiblePublishedDocument(documentId, orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền truy cập văn bản với ID: " + documentId));
 
-        return readDocumentFileContent(doc, documentId);
+        return readDocumentFileContent(doc);
     }
 
     public byte[] downloadDocumentForAdmin(Long documentId) {
         Document doc = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .filter(d -> d.getStatus() == DocumentStatus.PUBLISHED || d.getStatus() == DocumentStatus.ISSUED)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền tải văn bản: " + documentId));
-        return readDocumentFileContent(doc, documentId);
+        return readDocumentFileContent(doc);
     }
 
     @PreAuthorize("hasAnyRole('LEADER', 'CLERK', 'ADMIN', 'SYSTEM_ADMIN')")
@@ -110,7 +108,7 @@ public class DocumentQueryService {
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy văn bản với ID: " + documentId));
 
         validateStaffAccess(doc, orgId);
-        return readDocumentFileContent(doc, documentId);
+        return readDocumentFileContent(doc);
     }
 
     public byte[] downloadDocumentForStaff(Long documentId) {
@@ -159,29 +157,8 @@ public class DocumentQueryService {
         }
     }
 
-    private byte[] readDocumentFileContent(Document doc, Long documentId) {
-        String rawPath = doc.getOfficialFilePath();
-        if (rawPath == null || rawPath.isBlank()) {
-            return ("PDF_MOCK_CONTENT_" + documentId).getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        }
-
-        // Chống Path Traversal
-        if (rawPath.contains("..")) {
-            throw new SecurityException("Phát hiện nguy cơ Path Traversal trong đường dẫn tệp!");
-        }
-
-        java.nio.file.Path resolvedPath = java.nio.file.Paths.get(rawPath).normalize();
-        java.io.File file = resolvedPath.toFile();
-
-        if (file.exists() && file.isFile()) {
-            try {
-                return java.nio.file.Files.readAllBytes(resolvedPath);
-            } catch (java.io.IOException e) {
-                throw new RuntimeException("Không thể đọc tệp văn bản", e);
-            }
-        }
-
-        return ("PDF_MOCK_CONTENT_" + documentId).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    private byte[] readDocumentFileContent(Document doc) {
+        return documentPdfStorageService.readPdf(doc.getOfficialFilePath());
     }
 
     // 1. Tra cứu danh sách văn bản theo quyền hạn của phòng ban (hoặc tất cả nếu orgId == null)
@@ -263,24 +240,8 @@ public class DocumentQueryService {
         Document doc = documentRepository.findAccessiblePublishedDocument(documentId, orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Bạn không có quyền tải văn bản này"));
 
-        if (doc.getOfficialFilePath() == null || doc.getOfficialFilePath().isBlank()) {
-            throw new IllegalArgumentException("Không tìm thấy dữ liệu yêu cầu");
-        }
-
-        try {
-            Path filePath = Paths.get(doc.getOfficialFilePath());
-            Resource resource = new UrlResource(filePath.toUri());
-
-            if (!resource.exists() || !resource.isReadable()) {
-                throw new IllegalArgumentException("Thông tin yêu cầu không hợp lệ hoặc không tồn tại");
-            }
-
-            log.info("Thực hiện xử lý truy vấn văn bản");
-            log.info("User: {} | IP: {} | DocumentId: {} | Time: {}", username, clientIp, documentId, LocalDate.now(ZONE_VN));
-
-            return resource;
-        } catch (MalformedURLException ex) {
-            throw new IllegalArgumentException("Đường dẫn tệp không hợp lệ", ex);
-        }
+        Resource resource = documentPdfStorageService.readAsResource(doc.getOfficialFilePath());
+        log.info("User: {} | IP: {} | DocumentId: {} | Time: {}", username, clientIp, documentId, LocalDate.now(ZONE_VN));
+        return resource;
     }
 }

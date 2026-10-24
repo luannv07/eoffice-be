@@ -25,6 +25,7 @@ import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentVersionRepository;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
 import vn.edu.epu.eoffice_be.storage.FileStorageService;
+import vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService;
 import vn.edu.epu.eoffice_be.storage.dto.StoredFileInfo;
 
 import java.util.List;
@@ -42,6 +43,26 @@ public class DocumentAttachmentService {
     private final UserLoginRepository userLoginRepository;
     private final FileStorageService fileStorageService;
     private final DocumentApprovalRequestRepository documentApprovalRequestRepository;
+    private final DocumentPdfStorageService documentPdfStorageService;
+
+    @Transactional(readOnly = true)
+    public Resource downloadPrimaryPdf(Long documentId, Long userId) {
+        return downloadDocumentPdf(documentId, userId, false);
+    }
+
+    @Transactional(readOnly = true)
+    public Resource downloadOfficialPdf(Long documentId, Long userId) {
+        return downloadDocumentPdf(documentId, userId, true);
+    }
+
+    private Resource downloadDocumentPdf(Long documentId, Long userId, boolean official) {
+        Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
+        assertCanAccessAttachment(document, userId);
+        // Each URL selects exactly one version; storage reports missing/invalid references.
+        String reference = official ? document.getOfficialFilePath() : document.getPrimaryFilePath();
+        return documentPdfStorageService.readAsResource(reference);
+    }
 
     /**
      * UC09: Tải tệp DOCX/PDF đính kèm lên hệ thống

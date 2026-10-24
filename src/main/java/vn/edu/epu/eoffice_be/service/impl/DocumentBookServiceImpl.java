@@ -47,7 +47,7 @@ import vn.edu.epu.eoffice_be.repository.UserInfoRepository;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
 import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
 import vn.edu.epu.eoffice_be.security.pki.PdfSigner;
-import vn.edu.epu.eoffice_be.service.FileStorageService;
+import vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -69,7 +69,7 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 	OrgNodeRepository orgNodeRepository;
 	DocumentRepository documentRepository;
 	PdfSigner pdfSigner;
-	FileStorageService fileStorageService;
+	DocumentPdfStorageService documentPdfStorageService;
 	vn.edu.epu.eoffice_be.storage.FileStorageService unifiedStorageService;
 	UserLoginRepository userLoginRepository;
 	UserInfoRepository userInfoRepository;
@@ -333,15 +333,13 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 							signReason
 					);
 					byte[] stampedPdfBytes = signResult.signedPdfBytes();
-					if (fileStorageService != null && stampedPdfBytes != null) {
-						signedPdfPath = fileStorageService.storeFile(
-								stampedPdfBytes,
-								"initial_signed_" + document.getId() + ".pdf",
-								"drafts"
-						);
-						document.setPrimaryFilePath(signedPdfPath);
-						documentRepository.save(document);
-					}
+					signedPdfPath = documentPdfStorageService.storeSignedPdf(
+							stampedPdfBytes,
+							"initial_signed_" + document.getId() + ".pdf",
+							document.getId()
+					);
+					document.setPrimaryFilePath(signedPdfPath);
+					documentRepository.save(document);
 					signatureHash = signResult.outPdfSha256();
 					log.info("Văn thư [id={}] đã ký nháy cấp số cho văn bản id={}, hash={}",
 							signerId, document.getId(), signatureHash);
@@ -428,12 +426,9 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 
 	private byte[] loadDocumentPdfBytesSafely(Document document) {
 		if (document == null) return null;
-		if (document.getPrimaryFilePath() != null && !document.getPrimaryFilePath().isBlank() && fileStorageService != null) {
-			try {
-				byte[] bytes = fileStorageService.loadFileBytes(document.getPrimaryFilePath());
-				if (bytes != null && bytes.length > 0) return bytes;
-			} catch (Exception ignored) {
-			}
+		if (document.getPrimaryFilePath() != null && !document.getPrimaryFilePath().isBlank()) {
+			// Read the latest signed version or stop; do not fall back to the original PDF.
+			return documentPdfStorageService.readPdf(document.getPrimaryFilePath());
 		}
 		if (documentAttachmentRepository != null && unifiedStorageService != null && document.getId() != null) {
 			try {
