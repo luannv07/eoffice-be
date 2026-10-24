@@ -1433,6 +1433,37 @@ class DocumentWorkflowServiceTest {
     }
 
     @Test
+    @DisplayName("getPendingPublishDocuments: Clerk (CLERK role) lấy được toàn bộ văn bản APPROVED mà không bị filterUserId")
+    void getPendingPublishDocuments_withClerkRole_shouldFetchAllApprovedDocuments() {
+        UserLogin clerk = UserLogin.builder().id(1004L).username("vanthu").role(Role.CLERK).build();
+        JwtUserPrincipal principal = new JwtUserPrincipal(1004L, "vanthu", Role.CLERK.name(), true, List.of());
+        Authentication auth = new UsernamePasswordAuthenticationToken(principal, null, List.of());
+        SecurityContextHolder.getContext().setAuthentication(auth);
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1004L)).thenReturn(Optional.of(clerk));
+
+        Pageable pageable = PageRequest.of(0, 10);
+        Document doc = Document.builder()
+                .title("Quyết định ban hành")
+                .status(DocumentStatus.APPROVED)
+                .build();
+        doc.setId(301L);
+        Page<Document> documentPage = new PageImpl<>(List.of(doc), pageable, 1);
+
+        when(documentRepository.searchDocuments(isNull(), eq(DocumentStatus.APPROVED), isNull(), isNull(), eq(pageable)))
+                .thenReturn(documentPage);
+
+        Page<PendingDocumentResponse> result = documentWorkflowService.getPendingPublishDocuments(pageable);
+
+        assertNotNull(result);
+        assertEquals(1, result.getTotalElements());
+        assertEquals(301L, result.getContent().get(0).getId());
+        assertEquals("Quyết định ban hành", result.getContent().get(0).getTitle());
+        assertEquals(DocumentStatus.APPROVED.name(), result.getContent().get(0).getStatus());
+        assertEquals("Lãnh đạo ký phát hành", result.getContent().get(0).getCurrentHolder());
+        verify(documentRepository).searchDocuments(isNull(), eq(DocumentStatus.APPROVED), isNull(), isNull(), eq(pageable));
+    }
+
+    @Test
     @DisplayName("logAction: Ghi log thành công với actor và action hợp lệ")
     void logAction_withValidActorAndAction_shouldSaveWorkflowLog() {
         UserLogin actor = new UserLogin();

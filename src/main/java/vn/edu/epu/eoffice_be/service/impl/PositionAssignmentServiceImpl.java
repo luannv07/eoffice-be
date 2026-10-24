@@ -32,7 +32,7 @@ import java.util.Set;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class PositionAssignmentServiceImpl implements PositionAssignmentService {
 
-	private static final Set<String> VALID_POSITION_CDS = Set.of("HT", "PHT", "TK", "PK", "TP", "PP", "CV");
+	private static final Set<String> VALID_POSITION_CDS = Set.of("HT", "PHT", "TK", "PK", "TP", "PP", "CV", "GV", "VT");
 
 	PositionAssignmentRepository positionAssignmentRepository;
 	UserLoginRepository userLoginRepository;
@@ -222,6 +222,8 @@ public class PositionAssignmentServiceImpl implements PositionAssignmentService 
 			case "TP" -> "Trưởng phòng";
 			case "PP" -> "Phó Trưởng phòng";
 			case "CV" -> "Chuyên viên";
+			case "GV" -> "Giảng viên";
+			case "VT" -> "Cán bộ văn thư";
 			default -> positionCd;
 		};
 	}

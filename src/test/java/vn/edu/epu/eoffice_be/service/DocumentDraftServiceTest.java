@@ -506,6 +506,49 @@ class DocumentDraftServiceTest {
     }
 
     @Test
+    @DisplayName("Tìm kiếm dự thảo với vai trò CLERK thì không lọc theo creatorUserId")
+    void searchDrafts_WithClerkRole_ShouldNotFilterByCreatorUserId() {
+        Long userId = 1004L;
+        UserLogin clerk = UserLogin.builder().id(userId).username("vanthu").role(Role.CLERK).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(clerk));
+
+        vn.edu.epu.eoffice_be.dto.request.DocumentFilterRequest filter =
+                new vn.edu.epu.eoffice_be.dto.request.DocumentFilterRequest();
+        filter.setStatus(DocumentStatus.APPROVED);
+        filter.setPage(0);
+        filter.setSize(10);
+
+        Document doc = Document.builder()
+                .id(1L)
+                .draftCode("DT-2026-00001")
+                .title("Quyết định ban hành")
+                .status(DocumentStatus.APPROVED)
+                .build();
+
+        org.springframework.data.domain.Page<Document> mockPage =
+                new org.springframework.data.domain.PageImpl<>(java.util.List.of(doc));
+
+        when(documentRepository.searchDocuments(
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.eq(DocumentStatus.APPROVED),
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.isNull(),
+                any(org.springframework.data.domain.Pageable.class)
+        )).thenReturn(mockPage);
+
+        var result = documentDraftService.searchDrafts(filter, userId);
+        assertNotNull(result);
+        assertEquals(1, result.getTotalElements());
+        verify(documentRepository).searchDocuments(
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.eq(DocumentStatus.APPROVED),
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.isNull(),
+                any(org.springframework.data.domain.Pageable.class)
+        );
+    }
+
+    @Test
     @DisplayName("Xóa dự thảo thành công bởi người tạo (Creator)")
     void deleteDraft_Success_ByCreator() {
         Long userId = 100L;
