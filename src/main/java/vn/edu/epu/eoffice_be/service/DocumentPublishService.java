@@ -1,7 +1,6 @@
 package vn.edu.epu.eoffice_be.service;
 
 import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,6 +22,7 @@ import java.util.HexFormat;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.Nullable;
@@ -39,17 +39,6 @@ public class DocumentPublishService {
     DocumentBookService documentBookService;
     final DocumentPdfStorageService documentPdfStorageService;
 
-    public DocumentPublishService(DocumentRepository documentRepository,
-                                  DocumentDistributionRepository distributionRepository) {
-        this(documentRepository, distributionRepository, null, null);
-    }
-
-    public DocumentPublishService(DocumentRepository documentRepository,
-                                  DocumentDistributionRepository distributionRepository,
-                                  @Nullable DocumentBookService documentBookService) {
-        this(documentRepository, distributionRepository, documentBookService, null);
-    }
-
     @Autowired
     public DocumentPublishService(DocumentRepository documentRepository,
                                   DocumentDistributionRepository distributionRepository,
@@ -58,7 +47,8 @@ public class DocumentPublishService {
         this.documentRepository = documentRepository;
         this.distributionRepository = distributionRepository;
         this.documentBookService = documentBookService;
-        this.documentPdfStorageService = documentPdfStorageService;
+        this.documentPdfStorageService = Objects.requireNonNull(
+                documentPdfStorageService, "documentPdfStorageService must not be null");
     }
     
     @Transactional

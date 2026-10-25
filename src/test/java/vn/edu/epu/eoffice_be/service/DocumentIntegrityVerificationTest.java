@@ -38,6 +38,15 @@ class DocumentIntegrityVerificationTest {
     private final Authentication authenticated = new UsernamePasswordAuthenticationToken("tester", null, List.of());
 
     @Test
+    void rejectsMissingPdfStorageAtConstruction() {
+        NullPointerException exception = assertThrows(NullPointerException.class,
+                () -> new DocumentPublishService(documents, distributions, null, null));
+
+        assertEquals("documentPdfStorageService must not be null", exception.getMessage());
+        verifyNoInteractions(documents, distributions, storage);
+    }
+
+    @Test
     void verifiesHashOfActualDownloadedContentAndDetectsTampering() {
         prepare();
         when(storage.readPdf("storage://36001")).thenReturn("abc".getBytes(StandardCharsets.UTF_8));
