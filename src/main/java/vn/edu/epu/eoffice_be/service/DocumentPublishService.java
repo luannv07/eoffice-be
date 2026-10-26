@@ -1,7 +1,6 @@
 package vn.edu.epu.eoffice_be.service;
 
 import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -14,15 +13,16 @@ import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.entity.DocumentDistribution;
 import vn.edu.epu.eoffice_be.repository.DocumentDistributionRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
+import vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.Nullable;
@@ -37,20 +37,18 @@ public class DocumentPublishService {
     final DocumentRepository documentRepository;
     final DocumentDistributionRepository distributionRepository;
     DocumentBookService documentBookService;
-
-    public DocumentPublishService(DocumentRepository documentRepository,
-                                  DocumentDistributionRepository distributionRepository) {
-        this.documentRepository = documentRepository;
-        this.distributionRepository = distributionRepository;
-    }
+    final DocumentPdfStorageService documentPdfStorageService;
 
     @Autowired
     public DocumentPublishService(DocumentRepository documentRepository,
                                   DocumentDistributionRepository distributionRepository,
-                                  @Nullable DocumentBookService documentBookService) {
+                                  @Nullable DocumentBookService documentBookService,
+                                  DocumentPdfStorageService documentPdfStorageService) {
         this.documentRepository = documentRepository;
         this.distributionRepository = distributionRepository;
         this.documentBookService = documentBookService;
+        this.documentPdfStorageService = Objects.requireNonNull(
+                documentPdfStorageService, "documentPdfStorageService must not be null");
     }
     
     @Transactional
@@ -187,15 +185,11 @@ public class DocumentPublishService {
             return false;
         }
 
-        try {
-            String currentHash = calculateSha256(doc.getOfficialFilePath());
-            return MessageDigest.isEqual(
-                    doc.getOfficialHash().getBytes(StandardCharsets.UTF_8),
-                    currentHash.getBytes(StandardCharsets.UTF_8)
-            );
-        } catch (Exception e) {
-            return false;
-        }
+        String currentHash = calculateSha256(doc.getOfficialFilePath());
+        return MessageDigest.isEqual(
+                doc.getOfficialHash().getBytes(StandardCharsets.UTF_8),
+                currentHash.getBytes(StandardCharsets.UTF_8)
+        );
     }
 
     void assertCanVerifyIntegrity(Document doc, org.springframework.security.core.Authentication authentication) {
@@ -242,44 +236,12 @@ public class DocumentPublishService {
     }
 
     private String calculateSha256(String filePath) {
-        if (filePath != null && !filePath.isBlank()) {
-            File file = new File(filePath);
-            if (file.exists() && file.isFile()) {
-                try {
-                    MessageDigest digest = MessageDigest.getInstance("SHA-256");
-                    try (InputStream is = new FileInputStream(file)) {
-                        byte[] buffer = new byte[8192];
-                        int read;
-                        while ((read = is.read(buffer)) != -1) {
-                            digest.update(buffer, 0, read);
-                        }
-                        return bytesToHex(digest.digest());
-                    }
-                } catch (Exception e) {
-                    throw new IllegalStateException("Lỗi khi tính toán mã băm SHA-256 cho tệp", e);
-                }
-            }
-        }
-
+        // Storage failures must reach the caller; neither a path nor a placeholder is PDF content.
+        byte[] pdf = documentPdfStorageService.readPdf(filePath);
         try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            String fallbackData = (filePath != null) ? filePath : "DEFAULT_DOCUMENT_PAYLOAD";
-            byte[] hash = digest.digest(fallbackData.getBytes(StandardCharsets.UTF_8));
-            return bytesToHex(hash);
-        } catch (Exception e) {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(pdf));
+        } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("Lỗi khi tạo mã băm SHA-256", e);
         }
-    }
-
-    private String bytesToHex(byte[] bytes) {
-        StringBuilder hexString = new StringBuilder();
-        for (byte b : bytes) {
-            String hex = Integer.toHexString(0xff & b);
-            if (hex.length() == 1) {
-                hexString.append('0');
-            }
-            hexString.append(hex);
-        }
-        return hexString.toString();
     }
 }

@@ -87,6 +87,9 @@ class DocumentBookServiceImplTest {
 	@Mock
 	vn.edu.epu.eoffice_be.repository.DocumentAttachmentRepository documentAttachmentRepository;
 
+	@Mock
+	vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService documentPdfStorageService;
+
 	@InjectMocks
 	DocumentBookServiceImpl documentBookService;
 
@@ -151,7 +154,7 @@ class DocumentBookServiceImplTest {
 				.documentTypeCd("QD").primaryFilePath("drafts/sample.pdf").issuingOrg(orgNode).build();
 		when(documentBookRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(book));
 		when(documentRepository.findById(5001L)).thenReturn(Optional.of(document));
-		when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(new byte[]{1, 2, 3});
+		when(documentPdfStorageService.readPdf("drafts/sample.pdf")).thenReturn(new byte[]{1, 2, 3});
 		BusinessException failure = new BusinessException(code);
 		when(pdfSigner.signBytes(any(byte[].class), eq("3003"), anyString(), anyString())).thenThrow(failure);
 		AssignDocumentNumberRequest request = new AssignDocumentNumberRequest();
@@ -744,14 +747,14 @@ class DocumentBookServiceImplTest {
 		when(userLoginRepository.findByIdAndDeleteFlgFalse(3003L)).thenReturn(Optional.of(clerk));
 		when(documentBookRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(book));
 		when(documentRepository.findById(5001L)).thenReturn(Optional.of(doc));
-		when(fileStorageService.loadFileBytes("uploads/sample.pdf")).thenReturn(new byte[]{1, 2, 3});
+		when(documentPdfStorageService.readPdf("uploads/sample.pdf")).thenReturn(new byte[]{1, 2, 3});
 		PdfSigner.SignResult signResult = new PdfSigner.SignResult(
 				"3003", "Cán bộ Văn thư", "serial123", "hash_clerk_sha256",
 				new java.util.Date(), "sig_clerk", java.nio.file.Path.of("drafts/test.pdf"), new byte[]{4, 5, 6}
 		);
 		when(pdfSigner.signBytes(any(byte[].class), eq("3003"), anyString(), anyString())).thenReturn(signResult);
-		when(fileStorageService.storeFile(any(byte[].class), eq("initial_signed_5001.pdf"), eq("drafts")))
-				.thenReturn("drafts/initial_signed_5001.pdf");
+		when(documentPdfStorageService.storeSignedPdf(any(byte[].class), eq("initial_signed_5001.pdf"), eq(5001L)))
+				.thenReturn("storage://35001");
 
 		AssignDocumentNumberRequest req = new AssignDocumentNumberRequest();
 		req.setBookId(1L);
@@ -763,8 +766,8 @@ class DocumentBookServiceImplTest {
 			assertNotNull(res);
 			assertEquals("1/QĐ-ĐHEPU", res.getDocumentNumber());
 			assertEquals("hash_clerk_sha256", res.getSignatureHash());
-			assertEquals("drafts/initial_signed_5001.pdf", res.getSignedPdfPath());
-			assertEquals("drafts/initial_signed_5001.pdf", doc.getPrimaryFilePath());
+			assertEquals("storage://35001", res.getSignedPdfPath());
+			assertEquals("storage://35001", doc.getPrimaryFilePath());
 			verify(pdfSigner).signBytes(any(byte[].class), eq("3003"), anyString(), contains("Văn thư cấp số văn bản"));
 		} finally {
 			SecurityContextHolder.clearContext();

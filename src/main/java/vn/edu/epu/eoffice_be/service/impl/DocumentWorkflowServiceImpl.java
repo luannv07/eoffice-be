@@ -49,6 +49,7 @@ import vn.edu.epu.eoffice_be.security.pki.PdfSignatureVerifier;
 import vn.edu.epu.eoffice_be.security.pki.SignaturePosition;
 import vn.edu.epu.eoffice_be.service.DocumentWorkflowService;
 import vn.edu.epu.eoffice_be.service.FileStorageService;
+import vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService;
 import vn.edu.epu.eoffice_be.workflow.WorkflowEngine;
 
 import java.time.Instant;
@@ -81,6 +82,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     private final PdfSigner pdfSigner;
     private final PositionAssignmentRepository positionAssignmentRepository;
     private final PdfSignatureVerifier pdfSignatureVerifier;
+    private final DocumentPdfStorageService documentPdfStorageService;
 
     public DocumentWorkflowServiceImpl(DocumentRepository documentRepository,
                                        DocumentWorkflowLogRepository documentWorkflowLogRepository) {
@@ -97,7 +99,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 null, // unifiedStorageService
                 null, // pdfSigner
                 null, // positionAssignmentRepository
-                null  // pdfSignatureVerifier
+                null, // pdfSignatureVerifier
+                null  // documentPdfStorageService
         );
     }
 
@@ -140,10 +143,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
         // Tự động ký nháy lần 2 nếu văn bản đang ở IN_REVIEW (Cán bộ thẩm định duyệt chuyển tiếp)
         String signatureHash = null;
-        String newPdfPath = null;
         if (action == WorkflowAction.REVIEW_APPROVE) {
             byte[] currentPdfBytes = loadDocumentPdfBytesSafely(document);
-            if (currentPdfBytes != null && currentPdfBytes.length > 0 && pdfSigner != null && fileStorageService != null) {
+            if (currentPdfBytes != null && currentPdfBytes.length > 0 && pdfSigner != null) {
                 String signerFullName = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(actor.getId())
                         .map(UserInfo::getFullName)
                         .orElse(actor.getUsername());
@@ -172,19 +174,19 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                     throw ex;
                 }
                 byte[] stampedPdfBytes = signResult.signedPdfBytes();
-                newPdfPath = fileStorageService.storeFile(
+                String newPdfReference = documentPdfStorageService.storeSignedPdf(
                         stampedPdfBytes,
                         "initial_signed_" + document.getId() + ".pdf",
-                        "drafts"
+                        document.getId()
                 );
-                document.setPrimaryFilePath(newPdfPath);
+                document.setPrimaryFilePath(newPdfReference);
                 signatureHash = signResult.outPdfSha256();
                 log.info("Đã tự động ký nháy lần 2 (thẩm định) cho văn bản id={}, người ký={}, hash={}",
                         document.getId(), actor.getUsername(), signatureHash);
             }
         } else if (action == WorkflowAction.LEADER_APPROVE) {
             byte[] currentPdfBytes = loadDocumentPdfBytesSafely(document);
-            if (currentPdfBytes != null && currentPdfBytes.length > 0 && pdfSigner != null && fileStorageService != null) {
+            if (currentPdfBytes != null && currentPdfBytes.length > 0 && pdfSigner != null) {
                 String signerFullName = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(actor.getId())
                         .map(UserInfo::getFullName)
                         .orElse(actor.getUsername());
@@ -218,34 +220,28 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                     throw ex;
                 }
                 byte[] stampedPdfBytes = signResult.signedPdfBytes();
-                newPdfPath = fileStorageService.storeFile(
+                String newPdfReference = documentPdfStorageService.storeSignedPdf(
                         stampedPdfBytes,
                         "leader_signed_" + document.getId() + ".pdf",
-                        "drafts"
+                        document.getId()
                 );
-                document.setPrimaryFilePath(newPdfPath);
+                document.setPrimaryFilePath(newPdfReference);
                 signatureHash = signResult.outPdfSha256();
                 log.info("Đã tự động ký số hiển thị (Hiệu trưởng duyệt) cho văn bản id={}, người ký={}, hash={}",
                         document.getId(), actor.getUsername(), signatureHash);
             }
         }
 
-        try {
-            workflowEngine.executeTransition(
-                    document,
-                    action,
-                    actor,
-                    request.getComment(),
-                    request.getLeadershipInstruction(),
-                    assignedOrg,
-                    signatureHash
-            );
-        } catch (Exception ex) {
-            if (newPdfPath != null && fileStorageService != null) {
-                fileStorageService.deleteFile(newPdfPath);
-            }
-            throw ex;
-        }
+        // Storage registers cleanup for transaction rollback.
+        workflowEngine.executeTransition(
+                document,
+                action,
+                actor,
+                request.getComment(),
+                request.getLeadershipInstruction(),
+                assignedOrg,
+                signatureHash
+        );
 
         return mapToDetailResponse(document);
     }
@@ -365,30 +361,26 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         byte[] stampedPdfBytes = signResult.signedPdfBytes();
 
         // 4. Lưu bản PDF mới vào storage và lấy mã băm SHA-256 từ chữ ký số
-        String newPdfPath = fileStorageService.storeFile(
+        String newPdfReference = documentPdfStorageService.storeSignedPdf(
                 stampedPdfBytes,
                 "initial_signed_" + document.getId() + ".pdf",
-                "drafts"
+                document.getId()
         );
-        document.setPrimaryFilePath(newPdfPath);
+        document.setPrimaryFilePath(newPdfReference);
 
         String signatureHash = signResult.outPdfSha256();
 
         // 5. Điều hướng luồng duyệt và ghi log (chạy trong @Transactional của WorkflowEngine)
-        try {
-            workflowEngine.executeTransition(
-                    document,
-                    WorkflowAction.INITIAL_SIGN,
-                    actor,
-                    request.getComment(),
-                    null,
-                    null,
-                    signatureHash
-            );
-        } catch (Exception ex) {
-            fileStorageService.deleteFile(newPdfPath);
-            throw ex;
-        }
+        // Storage cleans up the uploaded version if this transaction rolls back.
+        workflowEngine.executeTransition(
+                document,
+                WorkflowAction.INITIAL_SIGN,
+                actor,
+                request.getComment(),
+                null,
+                null,
+                signatureHash
+        );
 
         return mapToDetailResponse(document);
     }
@@ -513,32 +505,28 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         }
         byte[] certifiedPdfBytes = signResult.signedPdfBytes();
 
-        // 4.3. Lưu file PDF chính thức vào thư mục riêng biệt "official"
-        String officialPath = fileStorageService.storeFile(
+        // 4.3. Store the final certified PDF and retain its durable storage reference.
+        String officialReference = documentPdfStorageService.storeSignedPdf(
                 certifiedPdfBytes,
                 "official_" + document.getId() + ".pdf",
-                "official"
+                document.getId()
         );
         String officialHash = fileStorageService.computeSha256(certifiedPdfBytes);
 
-        document.setOfficialFilePath(officialPath);
+        document.setOfficialFilePath(officialReference);
         document.setOfficialHash(officialHash);
 
         // 5. Chuyển trạng thái sang PUBLISHED và ghi log (chạy trong @Transactional của WorkflowEngine)
-        try {
-            workflowEngine.executeTransition(
-                    document,
-                    WorkflowAction.SIGN_AND_PUBLISH,
-                    actor,
-                    request.getComment(),
-                    null,
-                    null,
-                    officialHash
-            );
-        } catch (Exception ex) {
-            fileStorageService.deleteFile(officialPath);
-            throw ex;
-        }
+        // Storage discards this upload if the transaction rolls back.
+        workflowEngine.executeTransition(
+                document,
+                WorkflowAction.SIGN_AND_PUBLISH,
+                actor,
+                request.getComment(),
+                null,
+                null,
+                officialHash
+        );
 
         return mapToDetailResponse(document);
     }
@@ -723,16 +711,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     }
 
     private byte[] loadDocumentPdfBytes(Document document) {
-        // 1. Thử nạp qua fileStorageService nếu primaryFilePath đã có (ví dụ: đã qua bước ký nháy)
+        // An existing working version is authoritative: never fall back to an unsigned attachment.
         if (document.getPrimaryFilePath() != null && !document.getPrimaryFilePath().isBlank()) {
-            try {
-                byte[] bytes = fileStorageService.loadFileBytes(document.getPrimaryFilePath());
-                if (bytes != null && bytes.length > 0) {
-                    return bytes;
-                }
-            } catch (Exception e) {
-                log.warn("Không thể nạp file từ primaryFilePath '{}': {}", document.getPrimaryFilePath(), e.getMessage());
-            }
+            return documentPdfStorageService.readPdf(document.getPrimaryFilePath());
         }
 
         // 2. Thử nạp từ tệp đính kèm DocumentAttachment qua unifiedStorageService (Telegram/filesystem)
@@ -1188,7 +1169,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         Document document = findDocumentOrThrow(documentId);
         UserLogin actor = getCurrentActor();
         validateDocumentReadAccess(document, actor);
-        byte[] pdfBytes = loadDocumentPdfBytes(document);
+        byte[] pdfBytes = loadVerificationPdf(document);
 
         if (pdfSignatureVerifier == null) {
             throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "Dịch vụ kiểm định chữ ký số (PdfSignatureVerifier) chưa được khởi tạo.");
@@ -1198,6 +1179,14 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         response.setDocumentId(document.getId());
         response.setDocumentTitle(document.getTitle());
         return response;
+    }
+
+    private byte[] loadVerificationPdf(Document document) {
+        DocumentStatus status = document.getStatus();
+        if (status == DocumentStatus.PUBLISHED || status == DocumentStatus.ISSUED || status == DocumentStatus.REVOKED) {
+            return documentPdfStorageService.readPdf(document.getOfficialFilePath());
+        }
+        return loadDocumentPdfBytes(document);
     }
 
     @Override
@@ -1222,7 +1211,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
         // 3. Tự động đồng bộ số Serial của chữ ký ban hành vào danh sách thu hồi CRL (revoked.json)
         try {
-            byte[] pdfBytes = loadDocumentPdfBytes(document);
+            byte[] pdfBytes = loadVerificationPdf(document);
             if (pdfBytes != null && pdfBytes.length > 0 && pdfSignatureVerifier != null) {
                 DocumentSignatureVerifyResponse verifyResp = pdfSignatureVerifier.verify(pdfBytes);
                 if (verifyResp != null && verifyResp.getSignatures() != null) {

@@ -65,6 +65,9 @@ class DocumentServiceCoverageTest {
     @Mock
     UserLoginRepository userLoginRepository;
 
+    @Mock
+    vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService documentPdfStorageService;
+
     @InjectMocks
     DocumentQueryService documentQueryService;
 
@@ -90,6 +93,7 @@ class DocumentServiceCoverageTest {
         doc.setTitle("Test Doc");
         doc.setStatus(DocumentStatus.PUBLISHED);
         doc.setOfficialFilePath(tempFile.getAbsolutePath());
+        when(documentPdfStorageService.readPdf(tempFile.getAbsolutePath())).thenReturn("Sample PDF content".getBytes(StandardCharsets.UTF_8));
 
         lenient().when(documentRepository.findAccessiblePublishedDocument(anyLong(), anyLong()))
                 .thenReturn(Optional.of(doc));
@@ -197,21 +201,29 @@ class DocumentServiceCoverageTest {
         lenient().when(documentRepository.findAccessiblePublishedDocument(eq(1L), any(), any())).thenReturn(Optional.of(doc));
         lenient().when(documentRepository.findById(eq(1L))).thenReturn(Optional.of(doc));
 
-        assertThrows(IllegalArgumentException.class, () ->
+        when(documentPdfStorageService.readAsResource(doc.getOfficialFilePath())).thenThrow(
+                new BusinessException(vn.edu.epu.eoffice_be.common.enums.ErrorCode.DOCUMENT_PDF_NOT_FOUND));
+        assertThrows(BusinessException.class, () ->
                 documentQueryService.downloadOfficialFile(1L, 10L, "user", "127.0.0.1"));
 
         doc.setOfficialFilePath("   ");
-        assertThrows(IllegalArgumentException.class, () ->
+        when(documentPdfStorageService.readAsResource(doc.getOfficialFilePath())).thenThrow(
+                new BusinessException(vn.edu.epu.eoffice_be.common.enums.ErrorCode.DOCUMENT_PDF_NOT_FOUND));
+        assertThrows(BusinessException.class, () ->
                 documentQueryService.downloadOfficialFile(1L, 10L, "user", "127.0.0.1"));
 
         doc.setOfficialFilePath("non_existing_file.pdf");
-        assertThrows(IllegalArgumentException.class, () ->
+        when(documentPdfStorageService.readAsResource(doc.getOfficialFilePath())).thenThrow(
+                new BusinessException(vn.edu.epu.eoffice_be.common.enums.ErrorCode.DOCUMENT_PDF_NOT_FOUND));
+        assertThrows(BusinessException.class, () ->
                 documentQueryService.downloadOfficialFile(1L, 10L, "user", "127.0.0.1"));
 
         File tempFile = File.createTempFile("test_doc", ".pdf");
         tempFile.deleteOnExit();
         doc.setOfficialFilePath(tempFile.getAbsolutePath());
 
+        when(documentPdfStorageService.readAsResource(tempFile.getAbsolutePath())).thenReturn(
+                new org.springframework.core.io.ByteArrayResource("PDF".getBytes(StandardCharsets.UTF_8)));
         Resource res = documentQueryService.downloadOfficialFile(1L, 10L, "user", "127.0.0.1");
         assertNotNull(res);
         assertTrue(res.exists());
@@ -237,6 +249,7 @@ class DocumentServiceCoverageTest {
         doc.setId(1L);
         doc.setStatus(DocumentStatus.PUBLISHED);
         doc.setOfficialFilePath(tempFile.getAbsolutePath());
+        when(documentPdfStorageService.readPdf(tempFile.getAbsolutePath())).thenReturn(Files.readAllBytes(tempFile.toPath()));
         doc.setOfficialHash(expectedHash);
 
         Authentication auth = new UsernamePasswordAuthenticationToken("tester", null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
@@ -267,6 +280,7 @@ class DocumentServiceCoverageTest {
         PublishRequest req = new PublishRequest();
         req.setIssueDate(LocalDate.now());
 
+        stubOfficialPdf(doc);
         Document result = documentPublishService.publishDocument(1L, req);
         assertNotNull(result);
         assertEquals("01/QĐ-ĐHL", result.getOfficialNumber());
@@ -407,6 +421,7 @@ class DocumentServiceCoverageTest {
         when(documentRepository.findById(10L)).thenReturn(Optional.of(doc));
         when(documentRepository.save(any(Document.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
+        stubOfficialPdf(doc);
         Document published = documentPublishService.publishDocument(10L, null);
         assertNotNull(published);
         assertEquals("10/QĐ-ĐHL", published.getOfficialNumber());
@@ -442,6 +457,7 @@ class DocumentServiceCoverageTest {
         Document docWithRealFile = new Document();
         docWithRealFile.setId(77L);
         docWithRealFile.setOfficialFilePath(realTempFile.getAbsolutePath());
+        when(documentPdfStorageService.readPdf(realTempFile.getAbsolutePath())).thenReturn(Files.readAllBytes(realTempFile.toPath()));
 
         when(documentRepository.findById(77L)).thenReturn(Optional.of(docWithRealFile));
         when(documentRepository.save(any(Document.class))).thenAnswer(i -> i.getArgument(0));
@@ -457,7 +473,9 @@ class DocumentServiceCoverageTest {
         docWithRealFile.setOfficialFilePath("non_existent_folder/non_existent_file.pdf");
         docWithRealFile.setOfficialHash("somehash123");
         Authentication auth = new UsernamePasswordAuthenticationToken("tester", null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
-        assertFalse(documentPublishService.verifyIntegrity(77L, auth));
+        when(documentPdfStorageService.readPdf("non_existent_folder/non_existent_file.pdf")).thenThrow(
+                new BusinessException(vn.edu.epu.eoffice_be.common.enums.ErrorCode.DOCUMENT_PDF_NOT_FOUND));
+        assertThrows(BusinessException.class, () -> documentPublishService.verifyIntegrity(77L, auth));
     }
 
     @Test
@@ -492,6 +510,8 @@ class DocumentServiceCoverageTest {
         when(documentRepository.findByIdAndDeleteFlgFalse(500L)).thenReturn(Optional.of(publishedDoc));
         when(documentRepository.findByIdAndDeleteFlgFalse(501L)).thenReturn(Optional.of(draftDoc));
 
+        publishedDoc.setOfficialFilePath("storage://35001");
+        when(documentPdfStorageService.readPdf("storage://35001")).thenReturn(new byte[]{1, 2, 3});
         byte[] bytes = documentQueryService.downloadDocumentForAdmin(500L);
         assertNotNull(bytes);
 
@@ -535,6 +555,8 @@ class DocumentServiceCoverageTest {
         // 1. Staff can view and download PUBLISHED document with matching orgId
         Object details = documentQueryService.getDocumentDetailsForStaff(510L, 50L);
         assertNotNull(details);
+        publishedDoc.setOfficialFilePath("storage://35001");
+        when(documentPdfStorageService.readPdf("storage://35001")).thenReturn(new byte[]{1, 2, 3});
         byte[] bytes = documentQueryService.downloadDocumentForStaff(510L, 50L);
         assertNotNull(bytes);
 
@@ -667,6 +689,7 @@ class DocumentServiceCoverageTest {
             }
         }
 
+        stubOfficialPdf(doc);
         Document published = documentPublishService.publishDocument(25L, req);
         assertNotNull(published);
     }
@@ -725,7 +748,8 @@ class DocumentServiceCoverageTest {
         docDiffHash.setId(89L);
         docDiffHash.setStatus(DocumentStatus.PUBLISHED);
         docDiffHash.setOfficialHash("DIFFERENT_HASH_VALUE_123456");
-        docDiffHash.setOfficialFilePath("non_existent_file_path.pdf");
+        docDiffHash.setOfficialFilePath("storage://36089");
+        when(documentPdfStorageService.readPdf("storage://36089")).thenReturn(new byte[]{1, 2, 3});
         when(documentRepository.findById(89L)).thenReturn(Optional.of(docDiffHash));
         assertFalse(documentPublishService.verifyIntegrity(89L, auth));
     }
@@ -742,6 +766,7 @@ class DocumentServiceCoverageTest {
         req.setEffectiveDate(null);
         req.setIsPublicToAll(true);
 
+        stubOfficialPdf(doc);
         Document result = documentPublishService.publishDocument(90L, req);
         assertNotNull(result);
         assertNotNull(result.getIssueDate());
@@ -760,6 +785,7 @@ class DocumentServiceCoverageTest {
         Document doc = new Document();
         doc.setId(999L);
         doc.setOfficialFilePath(tempFile.getAbsolutePath());
+        when(documentPdfStorageService.readPdf(tempFile.getAbsolutePath())).thenReturn(Files.readAllBytes(tempFile.toPath()));
 
         when(documentRepository.findById(999L)).thenReturn(Optional.of(doc));
         when(documentRepository.save(any(Document.class))).thenAnswer(i -> i.getArgument(0));
@@ -776,19 +802,20 @@ class DocumentServiceCoverageTest {
     }
 
     @Test
-    void testCalculateSha256_FallbackWhenFileNull() {
+    void testCalculateSha256_MissingFileStopsPublication() {
         Document doc = new Document();
         doc.setId(301L);
         doc.setOfficialFilePath(null);
 
         when(documentRepository.findById(301L)).thenReturn(Optional.of(doc));
-        when(documentRepository.save(any(Document.class))).thenAnswer(i -> i.getArgument(0));
 
         PublishRequest req = new PublishRequest();
         req.setIsPublicToAll(true);
 
-        Document published = documentPublishService.publishDocument(301L, req);
-        assertNotNull(published.getOfficialHash());
+        when(documentPdfStorageService.readPdf(null)).thenThrow(
+                new BusinessException(vn.edu.epu.eoffice_be.common.enums.ErrorCode.DOCUMENT_PDF_NOT_FOUND));
+        assertThrows(BusinessException.class, () -> documentPublishService.publishDocument(301L, req));
+        verify(documentRepository, never()).save(any());
     }
 
     @Test
@@ -844,13 +871,14 @@ class DocumentServiceCoverageTest {
         doc.setOfficialFilePath(tempDir.getAbsolutePath());
 
         when(documentRepository.findById(888L)).thenReturn(Optional.of(doc));
-        when(documentRepository.save(any(Document.class))).thenAnswer(i -> i.getArgument(0));
 
         PublishRequest req = new PublishRequest();
         req.setIsPublicToAll(true);
 
-        Document published = documentPublishService.publishDocument(888L, req);
-        assertNotNull(published.getOfficialHash());
+        when(documentPdfStorageService.readPdf(tempDir.getAbsolutePath())).thenThrow(
+                new BusinessException(vn.edu.epu.eoffice_be.common.enums.ErrorCode.DOCUMENT_PDF_NOT_FOUND));
+        assertThrows(BusinessException.class, () -> documentPublishService.publishDocument(888L, req));
+        verify(documentRepository, never()).save(any());
     }
 
     @Test
@@ -877,6 +905,7 @@ class DocumentServiceCoverageTest {
         req.setIssueDate(LocalDate.now());
         req.setEffectiveDate(LocalDate.now().plusMonths(1));
 
+        stubOfficialPdf(doc);
         Document result = documentPublishService.publishDocument(505L, req);
         assertNotNull(result);
         assertEquals("PUBLISHED", String.valueOf(result.getStatus()));
@@ -891,6 +920,7 @@ class DocumentServiceCoverageTest {
         Document doc = new Document();
         doc.setId(606L);
         doc.setOfficialFilePath(tempFile.getAbsolutePath());
+        when(documentPdfStorageService.readPdf(tempFile.getAbsolutePath())).thenReturn(Files.readAllBytes(tempFile.toPath()));
 
         when(documentRepository.findById(606L)).thenReturn(Optional.of(doc));
         when(documentRepository.save(any(Document.class))).thenAnswer(i -> i.getArgument(0));
@@ -988,6 +1018,7 @@ class DocumentServiceCoverageTest {
         draftDoc.setCreatorUser(creator);
         draftDoc.setOfficialHash(validHash);
         draftDoc.setOfficialFilePath(tempFile.getAbsolutePath());
+        when(documentPdfStorageService.readPdf(tempFile.getAbsolutePath())).thenReturn(Files.readAllBytes(tempFile.toPath()));
 
         when(documentRepository.findById(500L)).thenReturn(Optional.of(draftDoc));
 
@@ -1152,4 +1183,10 @@ class DocumentServiceCoverageTest {
                 new CustomStringPrincipal("non_numeric"), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
         assertThrows(AccessDeniedException.class, () -> documentWorkflowService.verifyUserCanAccessDocument(600L, invalidPrincipalAuth));
     }
+    private void stubOfficialPdf(Document document) {
+        document.setOfficialFilePath("storage://" + document.getId());
+        when(documentPdfStorageService.readPdf(document.getOfficialFilePath()))
+                .thenReturn("Test PDF fixture".getBytes(StandardCharsets.UTF_8));
+    }
+
 }

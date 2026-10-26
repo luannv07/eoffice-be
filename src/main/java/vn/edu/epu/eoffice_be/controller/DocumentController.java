@@ -67,6 +67,43 @@ public class DocumentController {
     private final DocumentVersionService documentVersionService;
     private final DocumentApprovalService documentApprovalService;
 
+    @Operation(summary = "Xem PDF hiện tại của văn bản, gồm các chữ ký đã thực hiện")
+    @ApiResponse(responseCode = "200", description = "Nội dung PDF hiện tại")
+    @ApiResponse(responseCode = "401", description = "Chưa xác thực")
+    @ApiResponse(responseCode = "403", description = "Không có quyền truy cập")
+    @ApiResponse(responseCode = "404", description = "Không tìm thấy văn bản hoặc PDF")
+    @ApiResponse(responseCode = "500", description = "Không thể đọc thông tin PDF")
+    @ApiResponse(responseCode = "503", description = "Nơi lưu PDF tạm thời không truy cập được")
+    @GetMapping("/{id}/files/primary")
+    public ResponseEntity<Resource> viewPrimaryPdf(@PathVariable Long id, Authentication authentication) {
+        Long userId = extractUserId(authentication);
+        Resource pdf = documentAttachmentService.downloadPrimaryPdf(id, userId);
+        return pdfResponse(pdf, "document_" + id + "_primary.pdf");
+    }
+
+    @Operation(summary = "Xem PDF chính thức đã ký phát hành")
+    @ApiResponse(responseCode = "200", description = "Nội dung PDF chính thức")
+    @ApiResponse(responseCode = "401", description = "Chưa xác thực")
+    @ApiResponse(responseCode = "403", description = "Không có quyền truy cập")
+    @ApiResponse(responseCode = "404", description = "Không tìm thấy văn bản hoặc PDF")
+    @ApiResponse(responseCode = "500", description = "Không thể đọc thông tin PDF")
+    @ApiResponse(responseCode = "503", description = "Nơi lưu PDF tạm thời không truy cập được")
+    @GetMapping("/{id}/files/official")
+    public ResponseEntity<Resource> viewOfficialPdf(@PathVariable Long id, Authentication authentication) {
+        Long userId = extractUserId(authentication);
+        Resource pdf = documentAttachmentService.downloadOfficialPdf(id, userId);
+        return pdfResponse(pdf, "document_" + id + "_official.pdf");
+    }
+
+    private ResponseEntity<Resource> pdfResponse(Resource pdf, String filename) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        org.springframework.http.ContentDisposition.inline().filename(filename).build().toString())
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(pdf);
+    }
+
     // =========================================================================
     // UC08: TẠO VÀ QUẢN LÝ DỰ THẢO VĂN BẢN
     // =========================================================================

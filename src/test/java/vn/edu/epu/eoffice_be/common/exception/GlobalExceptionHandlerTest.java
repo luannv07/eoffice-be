@@ -2,6 +2,10 @@ package vn.edu.epu.eoffice_be.common.exception;
 
 import jakarta.validation.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -11,6 +15,8 @@ import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import vn.edu.epu.eoffice_be.storage.DocumentPdfReference;
 import vn.edu.epu.eoffice_be.common.dto.BaseResponse;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 
@@ -23,8 +29,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class GlobalExceptionHandlerTest {
 	private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
 
-	@org.springframework.web.bind.annotation.RequestMapping
+	@org.springframework.web.bind.annotation.RestController
 	private static class ExceptionTestController {
+		@GetMapping("/test/pdf-storage-error")
+		public void throwPdfStorageError(@RequestParam("code") ErrorCode code) {
+			throw new BusinessException(code);
+		}
+
+		@GetMapping("/test/pdf-reference")
+		public long parsePdfReference(@RequestParam(value = "reference", required = false) String reference) {
+			return DocumentPdfReference.parseMetadataId(reference);
+		}
+
 		@GetMapping("/test/illegal-argument")
 		public void throwIllegalArgument() {
 			throw new IllegalArgumentException("sensitive internal server state");
@@ -40,6 +56,41 @@ class GlobalExceptionHandlerTest {
 		assertFalse(response.getBody().isSuccess());
 		assertEquals("NOT_FOUND", response.getBody().getErrorCode());
 		assertEquals("not-found", response.getBody().getMessage());
+	}
+
+	@ParameterizedTest
+	@NullAndEmptySource
+	@ValueSource(strings = {"storage:/1", "storage://-1", "storage://abc",
+			"storage://9223372036854775808", "storage://1?token=do-not-expose"})
+	void invalidPdfReferenceReturnsSpecificCodeAndMessage(String reference) throws Exception {
+		MockMvc mvc = MockMvcBuilders.standaloneSetup(new ExceptionTestController())
+				.setControllerAdvice(handler).build();
+		var request = get("/test/pdf-reference");
+		if (reference != null) request.param("reference", reference);
+
+		mvc.perform(request)
+				.andExpect(status().isInternalServerError())
+				.andExpect(jsonPath("$.success").value(false))
+				.andExpect(jsonPath("$.errorCode").value("DOCUMENT_PDF_REFERENCE_INVALID"))
+				.andExpect(jsonPath("$.message").value(ErrorCode.DOCUMENT_PDF_REFERENCE_INVALID.getMessage()))
+				.andExpect(content().string(not(containsString("do-not-expose"))));
+	}
+
+	@ParameterizedTest
+	@EnumSource(value = ErrorCode.class, names = {
+			"DOCUMENT_PDF_REFERENCE_INVALID", "DOCUMENT_PDF_CONTENT_INVALID",
+			"DOCUMENT_PDF_NOT_FOUND", "DOCUMENT_PDF_STORAGE_UNAVAILABLE", "DOCUMENT_PDF_STORAGE_FAILED"
+	})
+	void pdfStorageErrorsReturnSafeApiContract(ErrorCode code) throws Exception {
+		MockMvc mvc = MockMvcBuilders.standaloneSetup(new ExceptionTestController())
+				.setControllerAdvice(handler).build();
+		mvc.perform(get("/test/pdf-storage-error").param("code", code.name()))
+				.andExpect(status().is(code.getStatus().value()))
+				.andExpect(jsonPath("$.success").value(false))
+				.andExpect(jsonPath("$.errorCode").value(code.getCode()))
+				.andExpect(jsonPath("$.message").value(code.getMessage()))
+				.andExpect(content().string(not(containsString("api.telegram.org"))))
+				.andExpect(content().string(not(containsString("/app/uploads"))));
 	}
 
 	@Test

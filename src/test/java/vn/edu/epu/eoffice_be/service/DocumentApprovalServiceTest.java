@@ -79,6 +79,9 @@ class DocumentApprovalServiceTest {
     @Mock
     private PdfSigner pdfSigner;
 
+    @Mock
+    vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService documentPdfStorageService;
+
     @InjectMocks
     private DocumentApprovalService documentApprovalService;
 
@@ -97,7 +100,7 @@ class DocumentApprovalServiceTest {
         when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
         when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(1L))
                 .thenReturn(true);
-        when(fileStorageService.loadFileBytes("drafts/doc_1.pdf")).thenReturn(new byte[]{1, 2, 3});
+        when(documentPdfStorageService.readPdf("drafts/doc_1.pdf")).thenReturn(new byte[]{1, 2, 3});
         BusinessException failure = new BusinessException(code);
         when(pdfSigner.signBytes(any(), any(), any(), any(), any(), any())).thenThrow(failure);
 
@@ -189,7 +192,7 @@ class DocumentApprovalServiceTest {
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
         when(documentDraftService.mapToDocumentResponse(any())).thenReturn(DocumentResponse.builder().id(docId).status(DocumentStatus.IN_REVIEW).build());
 
-        when(fileStorageService.loadFileBytes("drafts/doc_1.pdf")).thenReturn(rawPdfBytes);
+        when(documentPdfStorageService.readPdf("drafts/doc_1.pdf")).thenReturn(rawPdfBytes);
         PdfSigner.SignResult mockSignResult = new PdfSigner.SignResult(
                 String.valueOf(senderId),
                 "author",
@@ -201,7 +204,7 @@ class DocumentApprovalServiceTest {
                 signedPdfBytes
         );
         when(pdfSigner.signBytes(any(), any(), any(), any(), any(), any())).thenReturn(mockSignResult);
-        when(fileStorageService.storeFile(any(), any(), any())).thenReturn("drafts/initial_signed_1.pdf");
+        when(documentPdfStorageService.storeSignedPdf(any(), any(), any())).thenReturn("storage://35001");
 
         SubmitApprovalRequest request = SubmitApprovalRequest.builder()
                 .approverUserId(approverId)
@@ -212,10 +215,10 @@ class DocumentApprovalServiceTest {
 
         assertNotNull(response);
         assertEquals(DocumentStatus.IN_REVIEW, doc.getStatus());
-        assertEquals("drafts/initial_signed_1.pdf", doc.getPrimaryFilePath());
+        assertEquals("storage://35001", doc.getPrimaryFilePath());
 
         verify(pdfSigner).signBytes(any(), any(), any(), any(), any(), any());
-        verify(fileStorageService).storeFile(any(), any(), any());
+        verify(documentPdfStorageService).storeSignedPdf(any(), any(), org.mockito.ArgumentMatchers.eq(1L));
     }
 
     @Test

@@ -34,7 +34,7 @@ import vn.edu.epu.eoffice_be.repository.PositionPermissionRepository;
 import vn.edu.epu.eoffice_be.repository.UserInfoRepository;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
 import vn.edu.epu.eoffice_be.security.pki.PdfSigner;
-import vn.edu.epu.eoffice_be.service.FileStorageService;
+import vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -59,7 +59,7 @@ public class DocumentApprovalService {
     private final PositionPermissionRepository positionPermissionRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final DocumentDraftService documentDraftService;
-    private final FileStorageService fileStorageService;
+    private final DocumentPdfStorageService documentPdfStorageService;
     private final vn.edu.epu.eoffice_be.storage.FileStorageService unifiedStorageService;
     private final PdfSigner pdfSigner;
 
@@ -231,7 +231,7 @@ public class DocumentApprovalService {
         // Tự động ký nháy lần 1 nếu hồ sơ có tệp PDF (Người soạn thảo ký nháy tự động)
         String signatureHash = null;
         byte[] pdfBytes = loadDocumentPdfBytes(document);
-        if (pdfBytes != null && pdfBytes.length > 0 && pdfSigner != null && fileStorageService != null) {
+        if (pdfBytes != null && pdfBytes.length > 0 && pdfSigner != null) {
             String signerFullName = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(sender.getId())
                     .map(UserInfo::getFullName)
                     .orElse(sender.getUsername());
@@ -254,12 +254,12 @@ public class DocumentApprovalService {
                         signReason
                 );
                 byte[] stampedPdfBytes = signResult.signedPdfBytes();
-                String newPdfPath = fileStorageService.storeFile(
+                String newPdfReference = documentPdfStorageService.storeSignedPdf(
                         stampedPdfBytes,
                         "initial_signed_" + document.getId() + ".pdf",
-                        "drafts"
+                        document.getId()
                 );
-                document.setPrimaryFilePath(newPdfPath);
+                document.setPrimaryFilePath(newPdfReference);
                 signatureHash = signResult.outPdfSha256();
                 log.info("Đã tự động ký nháy lần 1 cho văn bản id={}, người ký={}, hash={}",
                         document.getId(), sender.getUsername(), signatureHash);
@@ -497,16 +497,8 @@ public class DocumentApprovalService {
         }
 
         if (document.getPrimaryFilePath() != null && !document.getPrimaryFilePath().isBlank()) {
-            if (fileStorageService != null) {
-                try {
-                    byte[] bytes = fileStorageService.loadFileBytes(document.getPrimaryFilePath());
-                    if (bytes != null && bytes.length > 0) {
-                        return bytes;
-                    }
-                } catch (Exception e) {
-                    log.warn("Không thể nạp file từ primaryFilePath '{}': {}", document.getPrimaryFilePath(), e.getMessage());
-                }
-            }
+            // Never replace a missing signed version with an unsigned original attachment.
+            return documentPdfStorageService.readPdf(document.getPrimaryFilePath());
         }
 
         if (documentAttachmentRepository != null && document.getId() != null) {

@@ -106,6 +106,9 @@ class DocumentWorkflowServiceTest {
     @Mock
     private vn.edu.epu.eoffice_be.security.pki.PdfSignatureVerifier pdfSignatureVerifier;
 
+    @Mock
+    private vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService documentPdfStorageService;
+
     @InjectMocks
     private DocumentWorkflowServiceImpl documentWorkflowService;
 
@@ -208,8 +211,8 @@ class DocumentWorkflowServiceTest {
                 .thenThrow(new DuplicateSignatureException("User đã ký: 1002"));
         when(pdfSigner.signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(testSignature(new byte[]{4, 5, 6}));
-        when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString()))
-                .thenReturn("official/doc_5001.pdf");
+        when(documentPdfStorageService.storeSignedPdf(any(byte[].class), anyString(), eq(5001L)))
+                .thenReturn("storage://36001");
         when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("official_hash");
 
         documentWorkflowService.signAndPublish(5001L, DocumentPublishRequest.builder().build());
@@ -254,13 +257,211 @@ class DocumentWorkflowServiceTest {
         document.setPrimaryFilePath("drafts/sample.pdf");
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         byte[] rawBytes = new byte[]{1, 2, 3};
-        when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(rawBytes);
+        when(documentPdfStorageService.readPdf("drafts/sample.pdf")).thenReturn(rawBytes);
         return rawBytes;
     }
 
     private PdfSigner.SignResult testSignature(byte[] bytes) {
         return new PdfSigner.SignResult("1002", "leader", "123456", "signed_hash", new java.util.Date(),
                 "sig_user_1002", null, bytes);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = DocumentStatus.class, names = {"DRAFT", "IN_REVIEW", "PENDING_APPROVAL"})
+    void signing_missingStoredVersionStopsWithoutReadingOriginalAttachment(DocumentStatus status) {
+        document.setStatus(status);
+        document.setPrimaryFilePath("storage://35001");
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        BusinessException failure = new BusinessException(ErrorCode.DOCUMENT_PDF_NOT_FOUND);
+        when(documentPdfStorageService.readPdf("storage://35001")).thenThrow(failure);
+
+        assertSame(failure, assertThrows(BusinessException.class, () -> signForStatus(status)));
+
+        assertEquals("storage://35001", document.getPrimaryFilePath());
+        assertEquals(status, document.getStatus());
+        verifyNoInteractions(pdfSigner, documentAttachmentRepository, unifiedStorageService, fileStorageService);
+        verify(documentPdfStorageService, never()).storeSignedPdf(any(), any(), any());
+        verify(workflowEngine, never()).executeTransition(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = DocumentStatus.class, names = {"DRAFT", "IN_REVIEW", "PENDING_APPROVAL"})
+    void signing_uploadFailureKeepsReferenceAndStopsTransition(DocumentStatus status) {
+        document.setStatus(status);
+        document.setPrimaryFilePath("storage://35001");
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        byte[] previous = "%PDF-previous-signature".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] signed = "%PDF-next-signature".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        when(documentPdfStorageService.readPdf("storage://35001")).thenReturn(previous);
+        if (status == DocumentStatus.PENDING_APPROVAL) {
+            when(pdfSigner.signVisibleBytes(eq(previous), anyString(), anyString(), any(), any(), anyString(), any()))
+                    .thenReturn(testSignature(signed));
+        } else {
+            when(pdfSigner.signBytes(eq(previous), anyString(), anyString(), anyString()))
+                    .thenReturn(testSignature(signed));
+        }
+        BusinessException failure = new BusinessException(ErrorCode.DOCUMENT_PDF_STORAGE_UNAVAILABLE);
+        when(documentPdfStorageService.storeSignedPdf(eq(signed), anyString(), eq(5001L))).thenThrow(failure);
+
+        assertSame(failure, assertThrows(BusinessException.class, () -> signForStatus(status)));
+
+        assertEquals("storage://35001", document.getPrimaryFilePath());
+        assertEquals(status, document.getStatus());
+        verify(workflowEngine, never()).executeTransition(any(), any(), any(), any(), any(), any(), any());
+        verifyNoInteractions(fileStorageService);
+    }
+
+    @Test
+    void approve_nextSignerReceivesPreviouslyStoredSignedPdf() {
+        document.setPrimaryFilePath("storage://35001");
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        byte[] previous = new byte[]{1, 2};
+        byte[] reviewed = new byte[]{1, 2, 3};
+        byte[] approved = new byte[]{1, 2, 3, 4};
+        when(documentPdfStorageService.readPdf("storage://35001")).thenReturn(previous);
+        when(pdfSigner.signBytes(eq(previous), anyString(), anyString(), anyString()))
+                .thenReturn(testSignature(reviewed));
+        when(documentPdfStorageService.storeSignedPdf(eq(reviewed), eq("initial_signed_5001.pdf"), eq(5001L)))
+                .thenReturn("storage://35002");
+        documentWorkflowService.approve(5001L, DocumentApproveRequest.builder().build());
+
+        document.setStatus(DocumentStatus.PENDING_APPROVAL);
+        when(documentPdfStorageService.readPdf("storage://35002")).thenReturn(reviewed);
+        when(pdfSigner.signVisibleBytes(eq(reviewed), anyString(), anyString(), any(), any(), anyString(), any()))
+                .thenReturn(testSignature(approved));
+        when(documentPdfStorageService.storeSignedPdf(eq(approved), eq("leader_signed_5001.pdf"), eq(5001L)))
+                .thenReturn("storage://35003");
+        documentWorkflowService.approve(5001L, DocumentApproveRequest.builder().build());
+
+        assertEquals("storage://35003", document.getPrimaryFilePath());
+        verify(pdfSigner).signVisibleBytes(eq(reviewed), anyString(), anyString(), any(), any(), anyString(), any());
+        verifyNoInteractions(fileStorageService, unifiedStorageService, documentAttachmentRepository);
+    }
+
+    private void signForStatus(DocumentStatus status) {
+        if (status == DocumentStatus.DRAFT) {
+            documentWorkflowService.initialSign(5001L, DocumentInitialSignRequest.builder().build());
+        } else if (status == DocumentStatus.APPROVED) {
+            documentWorkflowService.signAndPublish(5001L, DocumentPublishRequest.builder().build());
+        } else {
+            documentWorkflowService.approve(5001L, DocumentApproveRequest.builder().build());
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = DocumentStatus.class, names = {"DRAFT", "IN_REVIEW", "PENDING_APPROVAL", "APPROVED"})
+    void signing_transactionRollbackDiscardsUploadedVersion(DocumentStatus status) {
+        var provider = org.mockito.Mockito.mock(vn.edu.epu.eoffice_be.storage.provider.FileStorageProvider.class);
+        var metadata = org.mockito.Mockito.mock(vn.edu.epu.eoffice_be.repository.StoredFileMetadataRepository.class);
+        when(provider.getName()).thenReturn("telegram");
+        when(provider.saveForDocument(any())).thenReturn(
+                vn.edu.epu.eoffice_be.storage.provider.StoredFile.builder().id("new-file")
+                        .metadata(java.util.Map.of("messageId", "87", "chatId", "test-channel")).build());
+        when(metadata.saveAndFlush(any())).thenAnswer(call -> {
+            vn.edu.epu.eoffice_be.entity.StoredFileMetadata saved = call.getArgument(0);
+            saved.setId(35002L);
+            return saved;
+        });
+        var storage = new vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService(
+                new vn.edu.epu.eoffice_be.storage.provider.FileStorageProviderRegistry(List.of(provider), "telegram"),
+                metadata, fileStorageService, new vn.edu.epu.eoffice_be.config.UploadProperties());
+        org.springframework.test.util.ReflectionTestUtils.setField(documentWorkflowService, "documentPdfStorageService", storage);
+
+        document.setStatus(status);
+        if (status == DocumentStatus.APPROVED) document.setOfficialNumber("1/QD-DHEPU");
+        document.setPrimaryFilePath("drafts/previous.pdf");
+        byte[] previous = "%PDF-previous".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] signed = "%PDF-signed".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(fileStorageService.loadFileBytes("drafts/previous.pdf")).thenReturn(previous);
+        if (status == DocumentStatus.PENDING_APPROVAL) {
+            when(pdfSigner.signVisibleBytes(eq(previous), anyString(), anyString(), any(), any(), anyString(), any()))
+                    .thenReturn(testSignature(signed));
+        } else {
+            when(pdfSigner.signBytes(eq(previous), anyString(), anyString(), anyString())).thenReturn(testSignature(signed));
+        }
+        if (status == DocumentStatus.APPROVED) {
+            when(pdfSigner.signAndCertifyBytes(eq(signed), anyString(), anyString(), any(), any(), anyString(), any()))
+                    .thenReturn(testSignature(signed));
+            when(fileStorageService.computeSha256(eq(signed))).thenReturn("certified-hash");
+        }
+        BusinessException failure = new BusinessException(ErrorCode.INVALID_WORKFLOW_STATE);
+        doThrow(failure).when(workflowEngine).executeTransition(any(), any(), any(), any(), any(), any(), any());
+
+        // Apply the production @Transactional annotations without loading the application or a database.
+        var manager = new org.springframework.transaction.support.AbstractPlatformTransactionManager() {
+            @Override protected Object doGetTransaction() { return new Object(); }
+            @Override protected void doBegin(Object transaction, org.springframework.transaction.TransactionDefinition definition) { }
+            @Override protected void doCommit(org.springframework.transaction.support.DefaultTransactionStatus tx) { }
+            @Override protected void doRollback(org.springframework.transaction.support.DefaultTransactionStatus tx) { }
+        };
+        var factory = new org.springframework.aop.framework.ProxyFactory(documentWorkflowService);
+        factory.addAdvice(new org.springframework.transaction.interceptor.TransactionInterceptor(manager,
+                new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()));
+        DocumentWorkflowService proxy = (DocumentWorkflowService) factory.getProxy();
+        assertSame(failure, assertThrows(BusinessException.class, () -> {
+            if (status == DocumentStatus.DRAFT) proxy.initialSign(5001L, DocumentInitialSignRequest.builder().build());
+            else if (status == DocumentStatus.APPROVED) proxy.signAndPublish(5001L, DocumentPublishRequest.builder().build());
+            else proxy.approve(5001L, DocumentApproveRequest.builder().build());
+        }));
+        verify(provider).discardUpload(org.mockito.ArgumentMatchers.argThat(receipt ->
+                "new-file".equals(receipt.getId()) && "87".equals(receipt.getMetadata().get("messageId"))));
+        verify(provider, never()).delete(anyString());
+        verify(fileStorageService, never()).deleteFile(anyString());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ErrorCode.class, names = {
+            "DOCUMENT_PDF_STORAGE_UNAVAILABLE", "DOCUMENT_PDF_STORAGE_FAILED", "DOCUMENT_PDF_CONTENT_INVALID"
+    })
+    void signAndPublish_storageFailureDoesNotPublishOrReplaceOfficialReference(ErrorCode code) {
+        preparePublishDocument();
+        byte[] preliminarilySigned = new byte[]{1, 2, 3, 4};
+        byte[] certified = new byte[]{1, 2, 3, 4, 5};
+        when(pdfSigner.signBytes(any(), anyString(), anyString(), anyString()))
+                .thenReturn(testSignature(preliminarilySigned));
+        when(pdfSigner.signAndCertifyBytes(eq(preliminarilySigned), anyString(), anyString(), any(), any(), anyString(), any()))
+                .thenReturn(testSignature(certified));
+        BusinessException failure = new BusinessException(code);
+        when(documentPdfStorageService.storeSignedPdf(eq(certified), eq("official_5001.pdf"), eq(5001L)))
+                .thenThrow(failure);
+
+        assertSame(failure, assertThrows(BusinessException.class,
+                () -> documentWorkflowService.signAndPublish(5001L, DocumentPublishRequest.builder().build())));
+
+        assertEquals(DocumentStatus.APPROVED, document.getStatus());
+        assertEquals("drafts/sample.pdf", document.getPrimaryFilePath());
+        assertNull(document.getOfficialFilePath());
+        assertNull(document.getOfficialHash());
+        verify(fileStorageService, never()).computeSha256(any(byte[].class));
+        verify(workflowEngine, never()).executeTransition(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void signAndPublish_uploadAndHashUseFinalCertifiedBytes() {
+        byte[] original = preparePublishDocument();
+        byte[] preliminarilySigned = new byte[]{1, 2, 3, 4};
+        byte[] certified = new byte[]{1, 2, 3, 4, 5};
+        when(pdfSigner.signBytes(eq(original), anyString(), anyString(), anyString()))
+                .thenReturn(testSignature(preliminarilySigned));
+        when(pdfSigner.signAndCertifyBytes(eq(preliminarilySigned), anyString(), anyString(), any(), any(), anyString(), any()))
+                .thenReturn(testSignature(certified));
+        when(documentPdfStorageService.storeSignedPdf(eq(certified), eq("official_5001.pdf"), eq(5001L)))
+                .thenReturn("storage://36001");
+        when(fileStorageService.computeSha256(eq(certified))).thenReturn("final-certified-hash");
+
+        documentWorkflowService.signAndPublish(5001L, DocumentPublishRequest.builder().build());
+
+        assertEquals("storage://36001", document.getOfficialFilePath());
+        assertEquals("final-certified-hash", document.getOfficialHash());
+        var order = org.mockito.Mockito.inOrder(documentPdfStorageService, fileStorageService, workflowEngine);
+        order.verify(documentPdfStorageService).readPdf("drafts/sample.pdf");
+        order.verify(documentPdfStorageService).storeSignedPdf(eq(certified), eq("official_5001.pdf"), eq(5001L));
+        order.verify(fileStorageService).computeSha256(eq(certified));
+        order.verify(workflowEngine).executeTransition(eq(document), eq(WorkflowAction.SIGN_AND_PUBLISH),
+                eq(leader), any(), any(), any(), eq("final-certified-hash"));
+        verify(fileStorageService, never()).storeFile(any(), any(), any());
+        verify(fileStorageService, never()).deleteFile(anyString());
     }
 
     private void assertPublishingDidNotContinue() {
@@ -307,7 +508,7 @@ class DocumentWorkflowServiceTest {
 
         byte[] rawPdfBytes = "%PDF-1.5 test".getBytes();
         byte[] signedPdfBytes = "%PDF-1.5 signed".getBytes();
-        when(fileStorageService.loadFileBytes("drafts/doc_5001.pdf")).thenReturn(rawPdfBytes);
+        when(documentPdfStorageService.readPdf("drafts/doc_5001.pdf")).thenReturn(rawPdfBytes);
 
         PdfSigner.SignResult mockSignResult = new PdfSigner.SignResult(
                 "1002",
@@ -320,7 +521,7 @@ class DocumentWorkflowServiceTest {
                 signedPdfBytes
         );
         when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString())).thenReturn(mockSignResult);
-        when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("drafts/initial_signed_5001.pdf");
+        when(documentPdfStorageService.storeSignedPdf(any(byte[].class), anyString(), eq(5001L))).thenReturn("storage://35001");
 
         DocumentApproveRequest request = DocumentApproveRequest.builder()
                 .comment("Dong y thong qua")
@@ -329,7 +530,7 @@ class DocumentWorkflowServiceTest {
         DocumentDetailResponse response = documentWorkflowService.approve(5001L, request);
 
         assertNotNull(response);
-        assertEquals("drafts/initial_signed_5001.pdf", document.getPrimaryFilePath());
+        assertEquals("storage://35001", document.getPrimaryFilePath());
         verify(pdfSigner).signBytes(any(byte[].class), anyString(), anyString(), anyString());
         verify(workflowEngine).executeTransition(
                 document,
@@ -402,7 +603,7 @@ class DocumentWorkflowServiceTest {
 
         byte[] rawPdfBytes = "%PDF-1.5 test".getBytes();
         byte[] signedPdfBytes = "%PDF-1.5 leader signed".getBytes();
-        when(fileStorageService.loadFileBytes("drafts/doc_5001.pdf")).thenReturn(rawPdfBytes);
+        when(documentPdfStorageService.readPdf("drafts/doc_5001.pdf")).thenReturn(rawPdfBytes);
 
         PdfSigner.SignResult mockSignResult = new PdfSigner.SignResult(
                 "1002",
@@ -416,8 +617,8 @@ class DocumentWorkflowServiceTest {
         );
         when(pdfSigner.signVisibleBytes(any(byte[].class), anyString(), anyString(), any(), any(), anyString(), any()))
                 .thenReturn(mockSignResult);
-        when(fileStorageService.storeFile(any(byte[].class), eq("leader_signed_5001.pdf"), eq("drafts")))
-                .thenReturn("drafts/leader_signed_5001.pdf");
+        when(documentPdfStorageService.storeSignedPdf(any(byte[].class), eq("leader_signed_5001.pdf"), eq(5001L)))
+                .thenReturn("storage://35002");
 
         DocumentApproveRequest request = DocumentApproveRequest.builder()
                 .comment("Hiệu trưởng đồng ý duyệt")
@@ -431,7 +632,7 @@ class DocumentWorkflowServiceTest {
         DocumentDetailResponse response = documentWorkflowService.approve(5001L, request);
 
         assertNotNull(response);
-        assertEquals("drafts/leader_signed_5001.pdf", document.getPrimaryFilePath());
+        assertEquals("storage://35002", document.getPrimaryFilePath());
         verify(pdfSigner).signVisibleBytes(any(byte[].class), eq("1002"), anyString(), any(), any(), contains("Hiệu trưởng đồng ý duyệt"), any());
         verify(workflowEngine).executeTransition(
                 document,
@@ -564,12 +765,12 @@ class DocumentWorkflowServiceTest {
 
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
-        when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
+        when(documentPdfStorageService.readPdf("drafts/sample.pdf")).thenReturn(mockBytes);
         when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString()))
                 .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
                         "1002", "leader", "123456", "mock_sha256_hash", new java.util.Date(), "sig_user_1002", null, mockBytes
                 ));
-        when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("drafts/stamped.pdf");
+        when(documentPdfStorageService.storeSignedPdf(any(byte[].class), anyString(), eq(5001L))).thenReturn("storage://35003");
 
         DocumentInitialSignRequest request = DocumentInitialSignRequest.builder()
                 .comment("Da ra soat the thuc")
@@ -578,7 +779,7 @@ class DocumentWorkflowServiceTest {
         DocumentDetailResponse response = documentWorkflowService.initialSign(5001L, request);
 
         assertNotNull(response);
-        assertEquals("drafts/stamped.pdf", document.getPrimaryFilePath());
+        assertEquals("storage://35003", document.getPrimaryFilePath());
         assertEquals("/documents/5001/files/primary", response.getPrimaryFileUrl());
         assertNull(response.getOfficialFileUrl());
         verify(workflowEngine).executeTransition(
@@ -600,14 +801,14 @@ class DocumentWorkflowServiceTest {
 
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
-        when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
+        when(documentPdfStorageService.readPdf("drafts/sample.pdf")).thenReturn(mockBytes);
         when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString()))
                 .thenReturn(testSignature(mockBytes));
         when(pdfSigner.signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
                         "1002", "leader", "123456", "official_sha256_hash", new java.util.Date(), "sig_publish_1002", null, mockBytes
                 ));
-        when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("official/doc_5001.pdf");
+        when(documentPdfStorageService.storeSignedPdf(any(byte[].class), anyString(), eq(5001L))).thenReturn("storage://36001");
         when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("official_sha256_hash");
         when(documentBookService.assignNumber(any(AssignDocumentNumberRequest.class))).thenReturn(
                 AssignDocumentNumberResponse.builder()
@@ -626,7 +827,7 @@ class DocumentWorkflowServiceTest {
 
         assertNotNull(response);
         assertEquals("125/QD-DHEPU", document.getOfficialNumber());
-        assertEquals("official/doc_5001.pdf", document.getOfficialFilePath());
+        assertEquals("storage://36001", document.getOfficialFilePath());
         assertEquals("official_sha256_hash", document.getOfficialHash());
         assertEquals("/documents/5001/files/primary", response.getPrimaryFileUrl());
         assertEquals("/documents/5001/files/official", response.getOfficialFileUrl());
@@ -659,7 +860,7 @@ class DocumentWorkflowServiceTest {
 
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(3003L)).thenReturn(Optional.of(clerk));
-        when(fileStorageService.loadFileBytes("drafts/leader_signed_5001.pdf")).thenReturn(mockBytes);
+        when(documentPdfStorageService.readPdf("drafts/leader_signed_5001.pdf")).thenReturn(mockBytes);
 
         Authentication auth = org.mockito.Mockito.mock(Authentication.class);
         when(auth.isAuthenticated()).thenReturn(true);
@@ -675,7 +876,7 @@ class DocumentWorkflowServiceTest {
                     .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
                             "3003", "Cán bộ văn thư", "clerk123", "official_sha256_hash", new java.util.Date(), "sig_publish_3003", null, mockBytes
                     ));
-            when(fileStorageService.storeFile(any(byte[].class), eq("official_5001.pdf"), eq("official"))).thenReturn("official/official_5001.pdf");
+            when(documentPdfStorageService.storeSignedPdf(any(byte[].class), eq("official_5001.pdf"), eq(5001L))).thenReturn("storage://36002");
             when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("official_sha256_hash");
 
             DocumentPublishRequest request = DocumentPublishRequest.builder()
@@ -686,7 +887,7 @@ class DocumentWorkflowServiceTest {
 
             assertNotNull(response);
             assertEquals("1/QĐ-ĐHEPU", document.getOfficialNumber());
-            assertEquals("official/official_5001.pdf", document.getOfficialFilePath());
+            assertEquals("storage://36002", document.getOfficialFilePath());
             assertEquals("official_sha256_hash", document.getOfficialHash());
 
             // Không gọi assignNumber nữa vì đã có số hiệu
@@ -710,19 +911,19 @@ class DocumentWorkflowServiceTest {
     }
 
     @Test
-    @DisplayName("initialSign: nếu workflow transition thất bại thì phải xóa file đã lưu trong storage")
-    void initialSign_transitionFails_shouldCleanUpStoredFile() {
+    @DisplayName("initialSign: giữ lỗi chuyển trạng thái, để storage dọn file khi rollback")
+    void initialSign_transitionFails_shouldPropagateForStorageRollback() {
         document.setPrimaryFilePath("drafts/sample.pdf");
         byte[] mockBytes = new byte[]{1, 2, 3};
 
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
-        when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
+        when(documentPdfStorageService.readPdf("drafts/sample.pdf")).thenReturn(mockBytes);
         when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString()))
                 .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
                         "1002", "leader", "123456", "mock_sha256_hash", new java.util.Date(), "sig_user_1002", null, mockBytes
                 ));
-        when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("drafts/stamped_failed.pdf");
+        when(documentPdfStorageService.storeSignedPdf(any(byte[].class), anyString(), eq(5001L))).thenReturn("storage://35004");
 
         doThrow(new BusinessException(ErrorCode.INVALID_WORKFLOW_STATE))
                 .when(workflowEngine).executeTransition(
@@ -737,25 +938,26 @@ class DocumentWorkflowServiceTest {
                 () -> documentWorkflowService.initialSign(5001L, request));
         assertEquals(ErrorCode.INVALID_WORKFLOW_STATE, ex.getErrorCode());
 
-        verify(fileStorageService).deleteFile("drafts/stamped_failed.pdf");
+        verify(documentPdfStorageService).storeSignedPdf(eq(mockBytes), eq("initial_signed_5001.pdf"), eq(5001L));
+        verify(fileStorageService, never()).deleteFile(anyString());
     }
 
     @Test
-    @DisplayName("signAndPublish: nếu workflow transition thất bại thì phải xóa file official đã lưu trong storage")
-    void signAndPublish_transitionFails_shouldCleanUpStoredFile() {
+    @DisplayName("signAndPublish: giữ lỗi chuyển trạng thái để storage dọn bản official khi rollback")
+    void signAndPublish_transitionFails_shouldPropagateForStorageRollback() {
         document.setPrimaryFilePath("drafts/sample.pdf");
         byte[] mockBytes = new byte[]{1, 2, 3};
 
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
-        when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
+        when(documentPdfStorageService.readPdf("drafts/sample.pdf")).thenReturn(mockBytes);
         when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString()))
                 .thenReturn(testSignature(mockBytes));
         when(pdfSigner.signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
                         "1002", "leader", "123456", "official_sha256_hash", new java.util.Date(), "sig_publish_1002", null, mockBytes
                 ));
-        when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("official/doc_failed.pdf");
+        when(documentPdfStorageService.storeSignedPdf(any(byte[].class), anyString(), eq(5001L))).thenReturn("storage://36003");
         when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("official_sha256_hash");
 
         when(documentBookService.assignNumber(any(AssignDocumentNumberRequest.class))).thenReturn(
@@ -780,7 +982,8 @@ class DocumentWorkflowServiceTest {
                 () -> documentWorkflowService.signAndPublish(5001L, request));
         assertEquals(ErrorCode.INVALID_WORKFLOW_STATE, ex.getErrorCode());
 
-        verify(fileStorageService).deleteFile("official/doc_failed.pdf");
+        verify(documentPdfStorageService).storeSignedPdf(eq(mockBytes), eq("official_5001.pdf"), eq(5001L));
+        verify(fileStorageService, never()).deleteFile(anyString());
     }
 
     @Test
@@ -828,7 +1031,7 @@ class DocumentWorkflowServiceTest {
                 .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
                         "1002", "leader", "123456", "mock_sha256_hash", new java.util.Date(), "sig_user_1002", null, mockBytes
                 ));
-        when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("drafts/stamped.pdf");
+        when(documentPdfStorageService.storeSignedPdf(any(byte[].class), anyString(), eq(5001L))).thenReturn("storage://35003");
 
         DocumentInitialSignRequest request = DocumentInitialSignRequest.builder()
                 .comment("Ký nháy từ file đính kèm")
@@ -837,7 +1040,7 @@ class DocumentWorkflowServiceTest {
         DocumentDetailResponse response = documentWorkflowService.initialSign(5001L, request);
 
         assertNotNull(response);
-        assertEquals("drafts/stamped.pdf", document.getPrimaryFilePath());
+        assertEquals("storage://35003", document.getPrimaryFilePath());
         verify(workflowEngine).executeTransition(
                 document,
                 WorkflowAction.INITIAL_SIGN,
@@ -959,7 +1162,7 @@ class DocumentWorkflowServiceTest {
                 .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
                         "1002", "leader", "123456", "mock_sha256_hash", new java.util.Date(), "sig_user_1002", null, mockBytes
                 ));
-        when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("drafts/stamped.pdf");
+        when(documentPdfStorageService.storeSignedPdf(any(byte[].class), anyString(), eq(5001L))).thenReturn("storage://35003");
 
         DocumentInitialSignRequest request = DocumentInitialSignRequest.builder()
                 .comment("Ký nháy tệp PDF khi không có tệp chính")
@@ -968,7 +1171,7 @@ class DocumentWorkflowServiceTest {
         DocumentDetailResponse response = documentWorkflowService.initialSign(5001L, request);
 
         assertNotNull(response);
-        assertEquals("drafts/stamped.pdf", document.getPrimaryFilePath());
+        assertEquals("storage://35003", document.getPrimaryFilePath());
         verify(workflowEngine).executeTransition(
                 document,
                 WorkflowAction.INITIAL_SIGN,
@@ -1595,14 +1798,14 @@ class DocumentWorkflowServiceTest {
         byte[] mockBytes = new byte[]{1, 2, 3};
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
-        when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
+        when(documentPdfStorageService.readPdf("drafts/sample.pdf")).thenReturn(mockBytes);
         when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString()))
                 .thenReturn(testSignature(mockBytes));
         when(pdfSigner.signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
                         "1002", "leader", "123456", "hash", new java.util.Date(), "sig_publish_1002", null, mockBytes
                 ));
-        when(fileStorageService.storeFile(any(), anyString(), anyString())).thenReturn("official/doc_5001.pdf");
+        when(documentPdfStorageService.storeSignedPdf(any(), anyString(), eq(5001L))).thenReturn("storage://36001");
         when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("hash");
 
         Instant now = Instant.now();
@@ -1628,7 +1831,7 @@ class DocumentWorkflowServiceTest {
 
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
-        when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(rawBytes);
+        when(documentPdfStorageService.readPdf("drafts/sample.pdf")).thenReturn(rawBytes);
 
         when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString()))
                 .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
@@ -1639,7 +1842,7 @@ class DocumentWorkflowServiceTest {
                 .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
                         "1002", "leader", "123456", "official_hash", new java.util.Date(), "sig_publish_1002", null, certifiedBytes
                 ));
-        when(fileStorageService.storeFile(any(), anyString(), anyString())).thenReturn("official/doc_5001.pdf");
+        when(documentPdfStorageService.storeSignedPdf(any(), anyString(), eq(5001L))).thenReturn("storage://36001");
         when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("official_hash");
 
         DocumentPublishRequest request = DocumentPublishRequest.builder()
@@ -1654,7 +1857,7 @@ class DocumentWorkflowServiceTest {
         DocumentDetailResponse response = documentWorkflowService.signAndPublish(5001L, request);
 
         assertNotNull(response);
-        assertEquals("official/doc_5001.pdf", document.getOfficialFilePath());
+        assertEquals("storage://36001", document.getOfficialFilePath());
         assertEquals("official_hash", document.getOfficialHash());
 
         verify(pdfSigner).signBytes(eq(rawBytes), eq("1002"), anyString(), anyString());
@@ -1676,14 +1879,14 @@ class DocumentWorkflowServiceTest {
         byte[] mockBytes = new byte[]{1, 2, 3};
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
-        when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
+        when(documentPdfStorageService.readPdf("drafts/sample.pdf")).thenReturn(mockBytes);
         when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString()))
                 .thenReturn(testSignature(mockBytes));
         when(pdfSigner.signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
                         "1002", "leader", "123456", "hash", new java.util.Date(), "sig_publish_1002", null, mockBytes
                 ));
-        when(fileStorageService.storeFile(any(), anyString(), anyString())).thenReturn("official/doc_5001.pdf");
+        when(documentPdfStorageService.storeSignedPdf(any(), anyString(), eq(5001L))).thenReturn("storage://36001");
         when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("hash");
 
         Instant issueDate = Instant.now().plus(1, ChronoUnit.DAYS);
@@ -1725,14 +1928,14 @@ class DocumentWorkflowServiceTest {
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
         byte[] mockBytes = new byte[]{1, 2, 3};
-        when(fileStorageService.loadFileBytes("drafts/sample.pdf")).thenReturn(mockBytes);
+        when(documentPdfStorageService.readPdf("drafts/sample.pdf")).thenReturn(mockBytes);
         when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString()))
                 .thenReturn(testSignature(mockBytes));
         when(pdfSigner.signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
                         "1002", "leader", "123456", "hash_sha256", new java.util.Date(), "sig_publish_1002", null, mockBytes
                 ));
-        when(fileStorageService.storeFile(any(byte[].class), anyString(), anyString())).thenReturn("official/doc_5001.pdf");
+        when(documentPdfStorageService.storeSignedPdf(any(byte[].class), anyString(), eq(5001L))).thenReturn("storage://36001");
         when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("hash_sha256");
 
         DocumentPublishRequest request = DocumentPublishRequest.builder()
@@ -1824,7 +2027,7 @@ class DocumentWorkflowServiceTest {
         Long docId = 5001L;
         document.setPrimaryFilePath("drafts/test_signed.pdf");
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(document));
-        when(fileStorageService.loadFileBytes("drafts/test_signed.pdf")).thenReturn(new byte[]{1, 2, 3});
+        when(documentPdfStorageService.readPdf("drafts/test_signed.pdf")).thenReturn(new byte[]{1, 2, 3});
 
         DocumentSignatureVerifyResponse mockResponse = DocumentSignatureVerifyResponse.builder()
                 .overallStatus("VALID")
@@ -1840,6 +2043,56 @@ class DocumentWorkflowServiceTest {
         assertEquals(docId, result.getDocumentId());
         assertEquals("Du thao Ke hoach 2026", result.getDocumentTitle());
         verify(pdfSignatureVerifier).verify(any(byte[].class));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = DocumentStatus.class, names = {"PUBLISHED", "ISSUED", "REVOKED"})
+    void verificationOfIssuedDocumentReadsOfficialPdfOnly(DocumentStatus status) {
+        document.setStatus(status);
+        document.setPrimaryFilePath("storage://35001");
+        document.setOfficialFilePath("storage://36001");
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        byte[] officialPdf = new byte[]{4, 5, 6};
+        when(documentPdfStorageService.readPdf("storage://36001")).thenReturn(officialPdf);
+        when(pdfSignatureVerifier.verify(eq(officialPdf)))
+                .thenReturn(DocumentSignatureVerifyResponse.builder().totalSignatures(3).overallStatus("VALID").build());
+
+        DocumentSignatureVerifyResponse result = documentWorkflowService.verifyDocumentSignatures(5001L);
+
+        assertEquals(3, result.getTotalSignatures());
+        verify(pdfSignatureVerifier).verify(eq(officialPdf));
+        verify(documentPdfStorageService, never()).readPdf("storage://35001");
+        verifyNoInteractions(documentAttachmentRepository, unifiedStorageService);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = DocumentStatus.class, names = {"PUBLISHED", "ISSUED", "REVOKED"})
+    void missingOfficialPdfDoesNotVerifyWorkingPdfOrOriginalAttachment(DocumentStatus status) {
+        document.setStatus(status);
+        document.setPrimaryFilePath("storage://35001");
+        document.setOfficialFilePath(null);
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        BusinessException failure = new BusinessException(ErrorCode.DOCUMENT_PDF_NOT_FOUND);
+        when(documentPdfStorageService.readPdf(isNull())).thenThrow(failure);
+
+        assertSame(failure, assertThrows(BusinessException.class,
+                () -> documentWorkflowService.verifyDocumentSignatures(5001L)));
+
+        verifyNoInteractions(pdfSignatureVerifier, documentAttachmentRepository, unifiedStorageService);
+        verify(documentPdfStorageService, never()).readPdf("storage://35001");
+    }
+
+    @Test
+    void verificationStorageFailureIsNotReportedAsUnsignedDocument() {
+        document.setStatus(DocumentStatus.PUBLISHED);
+        document.setOfficialFilePath("storage://36001");
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        BusinessException failure = new BusinessException(ErrorCode.DOCUMENT_PDF_STORAGE_UNAVAILABLE);
+        when(documentPdfStorageService.readPdf("storage://36001")).thenThrow(failure);
+
+        assertSame(failure, assertThrows(BusinessException.class,
+                () -> documentWorkflowService.verifyDocumentSignatures(5001L)));
+        verifyNoInteractions(pdfSignatureVerifier);
     }
 
     @Test
@@ -1871,10 +2124,10 @@ class DocumentWorkflowServiceTest {
                 .id(5001L)
                 .title("Van ban da ban hanh")
                 .status(DocumentStatus.PUBLISHED)
-                .primaryFilePath("official/published.pdf")
+                .officialFilePath("official/published.pdf")
                 .build();
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(publishedDoc));
-        when(fileStorageService.loadFileBytes("official/published.pdf")).thenReturn(new byte[]{1, 2, 3});
+        when(documentPdfStorageService.readPdf("official/published.pdf")).thenReturn(new byte[]{1, 2, 3});
 
         DocumentSignatureVerifyResponse mockResponse = DocumentSignatureVerifyResponse.builder()
                 .overallStatus("VALID")
@@ -1894,9 +2147,9 @@ class DocumentWorkflowServiceTest {
     void revokeDocument_success() {
         Long docId = 5001L;
         document.setStatus(DocumentStatus.PUBLISHED);
-        document.setPrimaryFilePath("official/test_signed.pdf");
+        document.setOfficialFilePath("official/test_signed.pdf");
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(document));
-        when(fileStorageService.loadFileBytes("official/test_signed.pdf")).thenReturn(new byte[]{1, 2, 3});
+        when(documentPdfStorageService.readPdf("official/test_signed.pdf")).thenReturn(new byte[]{1, 2, 3});
 
         SignatureItemResponse item = SignatureItemResponse.builder()
                 .serialHex("ABC123456789")
