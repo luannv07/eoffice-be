@@ -25,6 +25,7 @@ import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import org.springframework.core.io.Resource;
 import vn.edu.epu.eoffice_be.repository.DocumentVersionRepository;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
+import vn.edu.epu.eoffice_be.security.ApprovedDocumentReadPolicy;
 import vn.edu.epu.eoffice_be.storage.FileStorageService;
 import vn.edu.epu.eoffice_be.storage.dto.StoredFileInfo;
 
@@ -37,6 +38,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -56,6 +60,8 @@ class DocumentAttachmentServiceTest {
     private FileStorageService fileStorageService;
     @Mock
     private DocumentApprovalRequestRepository documentApprovalRequestRepository;
+    @Mock
+    private ApprovedDocumentReadPolicy approvedDocumentReadPolicy;
 
     @InjectMocks
     private DocumentAttachmentService documentAttachmentService;
@@ -401,5 +407,98 @@ class DocumentAttachmentServiceTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentAttachmentService.getAttachmentMetadata(docId, attId, formerApproverId));
         assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Lấy metadata tệp đính kèm khi văn bản APPROVED: thành công khi chính sách cho phép")
+    void getAttachmentMetadata_Approved_AllowedByPolicy_Success() {
+        Long docId = 1L;
+        Long attId = 10L;
+        Long userId = 200L;
+
+        UserLogin user = UserLogin.builder().id(userId).username("clerk").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).status(DocumentStatus.APPROVED).build();
+        DocumentAttachment att = DocumentAttachment.builder().id(attId).document(doc).originalFileName("approved.docx").build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(user));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId, docId)).thenReturn(Optional.of(att));
+        doNothing().when(approvedDocumentReadPolicy).assertCanRead(doc, user);
+
+        DocumentAttachment result = documentAttachmentService.getAttachmentMetadata(docId, attId, userId);
+        assertNotNull(result);
+        assertEquals("approved.docx", result.getOriginalFileName());
+        verify(approvedDocumentReadPolicy).assertCanRead(doc, user);
+    }
+
+    @Test
+    @DisplayName("Lấy metadata tệp đính kèm khi văn bản APPROVED: bị từ chối khi chính sách ném FORBIDDEN")
+    void getAttachmentMetadata_Approved_ForbiddenByPolicy_ThrowsForbidden() {
+        Long docId = 1L;
+        Long attId = 10L;
+        Long userId = 200L;
+
+        UserLogin user = UserLogin.builder().id(userId).username("unauthorized").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).status(DocumentStatus.APPROVED).build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(user));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        doThrow(new BusinessException(ErrorCode.FORBIDDEN)).when(approvedDocumentReadPolicy).assertCanRead(doc, user);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentAttachmentService.getAttachmentMetadata(docId, attId, userId));
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+        verify(approvedDocumentReadPolicy).assertCanRead(doc, user);
+    }
+
+    @Test
+    @DisplayName("Tải tệp đính kèm khi văn bản APPROVED: thành công khi chính sách cho phép")
+    void downloadAttachment_Approved_AllowedByPolicy_Success() {
+        Long docId = 1L;
+        Long attId = 10L;
+        Long userId = 200L;
+
+        UserLogin user = UserLogin.builder().id(userId).username("clerk").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).status(DocumentStatus.APPROVED).build();
+        DocumentAttachment att = DocumentAttachment.builder()
+                .id(attId)
+                .document(doc)
+                .storagePath("path/to")
+                .storageFileName("approved.pdf")
+                .build();
+
+        Resource mockResource = mock(Resource.class);
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(user));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId, docId)).thenReturn(Optional.of(att));
+        when(fileStorageService.loadAsResource("path/to", "approved.pdf")).thenReturn(mockResource);
+        doNothing().when(approvedDocumentReadPolicy).assertCanRead(doc, user);
+
+        Resource result = documentAttachmentService.downloadAttachment(docId, attId, userId);
+        assertNotNull(result);
+        assertEquals(mockResource, result);
+        verify(approvedDocumentReadPolicy).assertCanRead(doc, user);
+    }
+
+    @Test
+    @DisplayName("Tải tệp đính kèm khi văn bản APPROVED: bị từ chối khi chính sách ném FORBIDDEN và không đọc storage")
+    void downloadAttachment_Approved_ForbiddenByPolicy_ThrowsForbidden() {
+        Long docId = 1L;
+        Long attId = 10L;
+        Long userId = 200L;
+
+        UserLogin user = UserLogin.builder().id(userId).username("unauthorized").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).status(DocumentStatus.APPROVED).build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(user));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        doThrow(new BusinessException(ErrorCode.FORBIDDEN)).when(approvedDocumentReadPolicy).assertCanRead(doc, user);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentAttachmentService.downloadAttachment(docId, attId, userId));
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+        verify(approvedDocumentReadPolicy).assertCanRead(doc, user);
+        verify(fileStorageService, never()).loadAsResource(any(), any());
     }
 }

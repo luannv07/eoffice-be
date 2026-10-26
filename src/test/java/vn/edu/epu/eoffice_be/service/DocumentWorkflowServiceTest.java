@@ -70,6 +70,8 @@ import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
 import vn.edu.epu.eoffice_be.security.pki.PdfSigner;
 import vn.edu.epu.eoffice_be.service.impl.DocumentWorkflowServiceImpl;
 import vn.edu.epu.eoffice_be.workflow.WorkflowEngine;
+import vn.edu.epu.eoffice_be.security.ApprovedDocumentReadPolicy;
+import vn.edu.epu.eoffice_be.dto.WorkflowTimelineResponse;
 
 @ExtendWith(MockitoExtension.class)
 class DocumentWorkflowServiceTest {
@@ -106,6 +108,7 @@ class DocumentWorkflowServiceTest {
     private vn.edu.epu.eoffice_be.repository.DocumentDistributionRepository distributionRepository;
 
     @Mock private DocumentWorkingPdfService workingPdf;
+    @Mock private ApprovedDocumentReadPolicy approvedDocumentReadPolicy;
 
     @InjectMocks
     private DocumentWorkflowServiceImpl documentWorkflowService;
@@ -794,5 +797,97 @@ class DocumentWorkflowServiceTest {
 
         assertThrows(BusinessException.class, () -> documentWorkflowService.revokeDocument(docId, req));
         verify(workflowEngine, never()).executeTransition(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("getDetail: Ném FORBIDDEN khi văn bản APPROVED và chính sách từ chối")
+    void getDetail_whenDocumentApproved_andPolicyThrowsForbidden_shouldThrowForbidden() {
+        UserLogin regularUser = UserLogin.builder().id(9999L).username("stranger").role(Role.USER).build();
+        JwtUserPrincipal principal = new JwtUserPrincipal(9999L, "stranger", Role.USER.name(), true, List.of());
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, List.of()));
+        lenient().when(userLoginRepository.findByIdAndDeleteFlgFalse(9999L)).thenReturn(Optional.of(regularUser));
+
+        Document approvedDoc = Document.builder()
+                .id(5001L)
+                .title("Van ban approved")
+                .status(DocumentStatus.APPROVED)
+                .build();
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(approvedDoc));
+        doThrow(new BusinessException(ErrorCode.FORBIDDEN))
+                .when(approvedDocumentReadPolicy).assertCanRead(approvedDoc, regularUser);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.getDetail(5001L));
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+        verify(approvedDocumentReadPolicy).assertCanRead(approvedDoc, regularUser);
+    }
+
+    @Test
+    @DisplayName("getDetail: Cho phép xem khi văn bản APPROVED và chính sách chấp thuận")
+    void getDetail_whenDocumentApproved_andPolicyAllows_shouldReturnDetail() {
+        UserLogin clerk = UserLogin.builder().id(8888L).username("clerk").role(Role.USER).build();
+        JwtUserPrincipal principal = new JwtUserPrincipal(8888L, "clerk", Role.USER.name(), true, List.of());
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, List.of()));
+        lenient().when(userLoginRepository.findByIdAndDeleteFlgFalse(8888L)).thenReturn(Optional.of(clerk));
+
+        Document approvedDoc = Document.builder()
+                .id(5001L)
+                .title("Van ban approved")
+                .status(DocumentStatus.APPROVED)
+                .build();
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(approvedDoc));
+        org.mockito.Mockito.doNothing().when(approvedDocumentReadPolicy).assertCanRead(approvedDoc, clerk);
+
+        DocumentDetailResponse response = documentWorkflowService.getDetail(5001L);
+        assertNotNull(response);
+        assertEquals(5001L, response.getId());
+        verify(approvedDocumentReadPolicy).assertCanRead(approvedDoc, clerk);
+    }
+
+    @Test
+    @DisplayName("getDocumentTimeline: Ném AccessDeniedException khi văn bản APPROVED và chính sách từ chối")
+    void getDocumentTimeline_whenDocumentApproved_andPolicyRejects_shouldThrowAccessDeniedException() {
+        UserLogin actor = UserLogin.builder().id(9999L).username("stranger").role(Role.USER).build();
+        JwtUserPrincipal principal = new JwtUserPrincipal(9999L, "stranger", Role.USER.name(), true, List.of());
+        Authentication auth = new UsernamePasswordAuthenticationToken(principal, null, List.of());
+
+        Document approvedDoc = Document.builder()
+                .id(5001L)
+                .title("Van ban approved")
+                .status(DocumentStatus.APPROVED)
+                .build();
+        when(documentRepository.findById(5001L)).thenReturn(Optional.of(approvedDoc));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(9999L)).thenReturn(Optional.of(actor));
+        when(approvedDocumentReadPolicy.canRead(approvedDoc, actor)).thenReturn(false);
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> documentWorkflowService.getDocumentTimeline(5001L, auth));
+        verify(approvedDocumentReadPolicy).canRead(approvedDoc, actor);
+    }
+
+    @Test
+    @DisplayName("getDocumentTimeline: Cho phép xem khi văn bản APPROVED và chính sách chấp thuận")
+    void getDocumentTimeline_whenDocumentApproved_andPolicyAllows_shouldReturnTimeline() {
+        UserLogin actor = UserLogin.builder().id(8888L).username("clerk").role(Role.USER).build();
+        JwtUserPrincipal principal = new JwtUserPrincipal(8888L, "clerk", Role.USER.name(), true, List.of());
+        Authentication auth = new UsernamePasswordAuthenticationToken(principal, null, List.of());
+
+        Document approvedDoc = Document.builder()
+                .id(5001L)
+                .title("Van ban approved")
+                .status(DocumentStatus.APPROVED)
+                .build();
+        when(documentRepository.findById(5001L)).thenReturn(Optional.of(approvedDoc));
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(approvedDoc));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(8888L)).thenReturn(Optional.of(actor));
+        when(approvedDocumentReadPolicy.canRead(approvedDoc, actor)).thenReturn(true);
+        when(documentWorkflowLogRepository.findByDocumentIdOrderByCreatedAtAsc(5001L))
+                .thenReturn(java.util.Collections.emptyList());
+
+        List<WorkflowTimelineResponse> response = documentWorkflowService.getDocumentTimeline(5001L, auth);
+        assertNotNull(response);
+        verify(approvedDocumentReadPolicy).canRead(approvedDoc, actor);
     }
 }

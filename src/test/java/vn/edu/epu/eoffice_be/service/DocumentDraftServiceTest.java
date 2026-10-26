@@ -24,6 +24,7 @@ import vn.edu.epu.eoffice_be.entity.DocumentVersion;
 import vn.edu.epu.eoffice_be.entity.OrgNode;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
 import vn.edu.epu.eoffice_be.repository.DictionaryItemRepository;
+import vn.edu.epu.eoffice_be.security.ApprovedDocumentReadPolicy;
 import vn.edu.epu.eoffice_be.repository.DocumentAttachmentRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentProcessLogRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
@@ -45,6 +46,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -66,6 +69,8 @@ class DocumentDraftServiceTest {
     private UserInfoRepository userInfoRepository;
     @Mock
     private DictionaryItemRepository dictionaryItemRepository;
+    @Mock
+    private ApprovedDocumentReadPolicy approvedDocumentReadPolicy;
 
     @InjectMocks
     private DocumentDraftService documentDraftService;
@@ -769,5 +774,88 @@ class DocumentDraftServiceTest {
         verify(documentVersionRepository, never()).saveAll(any());
         verify(documentProcessLogRepository, never()).save(any());
     }
-}
 
+    @Test
+    @DisplayName("Lấy chi tiết dự thảo khi văn bản APPROVED: bị từ chối khi chính sách ném FORBIDDEN")
+    void getDraftDetail_whenApprovedAndPolicyRejects_shouldThrowForbidden() {
+        Long docId = 1L;
+        Long userId = 100L;
+
+        UserLogin actor = UserLogin.builder().id(userId).username("user").build();
+        Document doc = Document.builder()
+                .id(docId)
+                .draftCode("DT-2026-00001")
+                .status(DocumentStatus.APPROVED)
+                .build();
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(actor));
+        doThrow(new BusinessException(ErrorCode.FORBIDDEN)).when(approvedDocumentReadPolicy).assertCanRead(doc, actor);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentDraftService.getDraftDetail(docId, userId));
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+        verify(approvedDocumentReadPolicy).assertCanRead(doc, actor);
+    }
+
+    @Test
+    @DisplayName("Lấy chi tiết dự thảo khi văn bản APPROVED: thành công khi chính sách cho phép")
+    void getDraftDetail_whenApprovedAndPolicyAllows_shouldReturnDetail() {
+        Long docId = 1L;
+        Long userId = 100L;
+
+        UserLogin actor = UserLogin.builder().id(userId).username("clerk").build();
+        Document doc = Document.builder()
+                .id(docId)
+                .draftCode("DT-2026-00001")
+                .status(DocumentStatus.APPROVED)
+                .creatorUser(actor)
+                .currentVersion(1)
+                .build();
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(actor));
+        when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(docId)).thenReturn(Collections.emptyList());
+        when(documentVersionRepository.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(docId)).thenReturn(Collections.emptyList());
+        doNothing().when(approvedDocumentReadPolicy).assertCanRead(doc, actor);
+
+        DocumentDetailResponse detail = documentDraftService.getDraftDetail(docId, userId);
+        assertNotNull(detail);
+        assertEquals("DT-2026-00001", detail.getDocument().getDraftCode());
+        verify(approvedDocumentReadPolicy).assertCanRead(doc, actor);
+    }
+
+    @Test
+    @DisplayName("Lấy chi tiết dự thảo khi văn bản APPROVED: ném UNAUTHORIZED khi userId null")
+    void getDraftDetail_whenApprovedAndUserIdNull_shouldThrowUnauthorized() {
+        Long docId = 1L;
+        Document doc = Document.builder()
+                .id(docId)
+                .status(DocumentStatus.APPROVED)
+                .build();
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentDraftService.getDraftDetail(docId, null));
+        assertEquals(ErrorCode.UNAUTHORIZED, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Lấy chi tiết dự thảo khi văn bản APPROVED: ném UNAUTHORIZED khi không tìm thấy user trong DB")
+    void getDraftDetail_whenApprovedAndUserNotFound_shouldThrowUnauthorized() {
+        Long docId = 1L;
+        Long userId = 9999L;
+        Document doc = Document.builder()
+                .id(docId)
+                .status(DocumentStatus.APPROVED)
+                .build();
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.empty());
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentDraftService.getDraftDetail(docId, userId));
+        assertEquals(ErrorCode.UNAUTHORIZED, ex.getErrorCode());
+    }
+}

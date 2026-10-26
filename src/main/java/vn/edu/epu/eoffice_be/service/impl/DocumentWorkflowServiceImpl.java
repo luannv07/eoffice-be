@@ -52,6 +52,7 @@ import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
 import vn.edu.epu.eoffice_be.security.pki.DuplicateSignatureException;
 import vn.edu.epu.eoffice_be.security.pki.PdfSigner;
 import vn.edu.epu.eoffice_be.security.pki.PdfSignatureVerifier;
+import vn.edu.epu.eoffice_be.security.ApprovedDocumentReadPolicy;
 import vn.edu.epu.eoffice_be.security.pki.SignaturePosition;
 import vn.edu.epu.eoffice_be.service.DocumentWorkflowService;
 import vn.edu.epu.eoffice_be.service.FileStorageService;
@@ -94,6 +95,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     private final DocumentDistributionRepository distributionRepository;
     private final DocumentSignatureGuard signatureGuard;
     private final DocumentWorkingPdfService workingPdf;
+    private final ApprovedDocumentReadPolicy approvedDocumentReadPolicy;
 
     public DocumentWorkflowServiceImpl(DocumentRepository documentRepository,
                                        DocumentWorkflowLogRepository documentWorkflowLogRepository) {
@@ -112,7 +114,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 null,  // documentPdfStorageService
                 null, // distributionRepository
                 null, // signatureGuard
-                null // workingPdf
+                null, // workingPdf
+                null // approvedDocumentReadPolicy
         );
     }
 
@@ -516,6 +519,12 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         if (actor == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
+        if (document.getStatus() == DocumentStatus.APPROVED) {
+            if (approvedDocumentReadPolicy != null) {
+                approvedDocumentReadPolicy.assertCanRead(document, actor);
+            }
+            return;
+        }
         Role role = actor.getRole();
         if (role == Role.ADMIN || role == Role.SYSTEM_ADMIN || role == Role.LEADER || role == Role.REVIEWER) {
             return;
@@ -731,6 +740,26 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             throw new org.springframework.security.access.AccessDeniedException("Yêu cầu xác thực người dùng");
         }
 
+        Document doc = documentRepository.findById(documentId)
+                .orElseThrow(() -> new vn.edu.epu.eoffice_be.common.exception.BusinessException(
+                        vn.edu.epu.eoffice_be.common.enums.ErrorCode.DOCUMENT_NOT_FOUND,
+                        "Không tìm thấy văn bản: " + documentId));
+
+        if (doc.getStatus() == DocumentStatus.APPROVED) {
+            Long userId = extractUserId(authentication);
+            if (userId == null) {
+                throw new org.springframework.security.access.AccessDeniedException("Không xác định được người dùng");
+            }
+            UserLogin actor = userLoginRepository != null ? userLoginRepository.findByIdAndDeleteFlgFalse(userId).orElse(null) : null;
+            if (actor == null) {
+                throw new BusinessException(ErrorCode.UNAUTHORIZED);
+            }
+            if (approvedDocumentReadPolicy != null && !approvedDocumentReadPolicy.canRead(doc, actor)) {
+                throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền xem timeline của tài liệu này");
+            }
+            return;
+        }
+
         boolean isAdmin = authentication.getAuthorities() != null && authentication.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN")
                             || a.getAuthority().equals("ADMIN")
@@ -741,11 +770,6 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         if (isAdmin) {
             return;
         }
-
-        Document doc = documentRepository.findById(documentId)
-                .orElseThrow(() -> new vn.edu.epu.eoffice_be.common.exception.BusinessException(
-                        vn.edu.epu.eoffice_be.common.enums.ErrorCode.DOCUMENT_NOT_FOUND,
-                        "Không tìm thấy văn bản: " + documentId));
 
         if (doc.getStatus() == DocumentStatus.PUBLISHED) {
             return;

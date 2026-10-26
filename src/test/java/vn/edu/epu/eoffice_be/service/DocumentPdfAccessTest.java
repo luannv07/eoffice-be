@@ -24,6 +24,7 @@ import vn.edu.epu.eoffice_be.repository.DocumentApprovalRequestRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import vn.edu.epu.eoffice_be.repository.StoredFileMetadataRepository;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
+import vn.edu.epu.eoffice_be.security.ApprovedDocumentReadPolicy;
 import vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService;
 import vn.edu.epu.eoffice_be.storage.provider.FileStorageProviderRegistry;
 
@@ -44,6 +45,7 @@ class DocumentPdfAccessTest {
     @Mock UserLoginRepository users;
     @Mock DocumentApprovalRequestRepository approvals;
     @Mock DocumentPdfStorageService storage;
+    @Mock ApprovedDocumentReadPolicy approvedDocumentReadPolicy;
     @InjectMocks DocumentAttachmentService service;
 
     @ParameterizedTest
@@ -59,19 +61,41 @@ class DocumentPdfAccessTest {
             case PENDING_APPROVER -> when(approvals.findByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(5001L))
                     .thenReturn(List.of(DocumentApprovalRequest.builder().approverUser(actor)
                             .status(ApprovalRequestStatus.PENDING).build()));
-            case APPROVED -> document.setStatus(DocumentStatus.APPROVED);
+            case APPROVED -> {
+                document.setStatus(DocumentStatus.APPROVED);
+                doNothing().when(approvedDocumentReadPolicy).assertCanRead(document, actor);
+            }
             case PUBLISHED -> document.setStatus(DocumentStatus.PUBLISHED);
         }
         Resource pdf = new ByteArrayResource(new byte[]{1, 2, 3});
         when(storage.readAsResource(reference(kind))).thenReturn(pdf);
 
         assertSame(pdf, download(kind, 100L));
+        if (access == Access.APPROVED) {
+            verify(approvedDocumentReadPolicy).assertCanRead(document, actor);
+        }
         verify(storage).readAsResource(reference(kind));
         verifyNoMoreInteractions(storage);
     }
 
     static Stream<Arguments> allowedAccess() {
         return Arrays.stream(Kind.values()).flatMap(kind -> Arrays.stream(Access.values()).map(access -> Arguments.of(kind, access)));
+    }
+
+    @ParameterizedTest
+    @EnumSource(Kind.class)
+    void approvedDocumentThrowsForbiddenWhenPolicyRejects(Kind kind) {
+        Document document = prepare();
+        document.setStatus(DocumentStatus.APPROVED);
+        UserLogin actor = UserLogin.builder().id(100L).role(Role.USER).build();
+        when(users.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(actor));
+        doThrow(new BusinessException(ErrorCode.FORBIDDEN))
+                .when(approvedDocumentReadPolicy).assertCanRead(document, actor);
+
+        BusinessException error = assertThrows(BusinessException.class, () -> download(kind, 100L));
+        assertEquals(ErrorCode.FORBIDDEN, error.getErrorCode());
+        verify(approvedDocumentReadPolicy).assertCanRead(document, actor);
+        verifyNoInteractions(storage);
     }
 
     @ParameterizedTest

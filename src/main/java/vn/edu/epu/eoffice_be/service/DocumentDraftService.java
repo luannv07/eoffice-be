@@ -38,6 +38,7 @@ import vn.edu.epu.eoffice_be.repository.DocumentVersionRepository;
 import vn.edu.epu.eoffice_be.repository.OrgNodeRepository;
 import vn.edu.epu.eoffice_be.repository.UserInfoRepository;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
+import vn.edu.epu.eoffice_be.security.ApprovedDocumentReadPolicy;
 
 import java.security.SecureRandom;
 import java.time.LocalDate;
@@ -58,6 +59,7 @@ public class DocumentDraftService {
     private final UserLoginRepository userLoginRepository;
     private final UserInfoRepository userInfoRepository;
     private final DictionaryItemRepository dictionaryItemRepository;
+    private final ApprovedDocumentReadPolicy approvedDocumentReadPolicy;
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -255,6 +257,15 @@ public class DocumentDraftService {
     public DocumentDetailResponse getDraftDetail(Long documentId, Long userId) {
         Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
+
+        if (document.getStatus() == DocumentStatus.APPROVED) {
+            if (userId == null) {
+                throw new BusinessException(ErrorCode.UNAUTHORIZED);
+            }
+            UserLogin actor = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+            approvedDocumentReadPolicy.assertCanRead(document, actor);
+        }
 
         List<DocumentAttachment> attachments = documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(documentId);
         List<DocumentVersion> versions = documentVersionRepository.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(documentId);

@@ -24,6 +24,7 @@ import vn.edu.epu.eoffice_be.repository.DocumentProcessLogRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentVersionRepository;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
+import vn.edu.epu.eoffice_be.security.ApprovedDocumentReadPolicy;
 import vn.edu.epu.eoffice_be.storage.FileStorageService;
 import vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService;
 import vn.edu.epu.eoffice_be.storage.dto.StoredFileInfo;
@@ -44,6 +45,7 @@ public class DocumentAttachmentService {
     private final FileStorageService fileStorageService;
     private final DocumentApprovalRequestRepository documentApprovalRequestRepository;
     private final DocumentPdfStorageService documentPdfStorageService;
+    private final ApprovedDocumentReadPolicy approvedDocumentReadPolicy;
 
     @Transactional(readOnly = true)
     public Resource downloadPrimaryPdf(Long documentId, Long userId) {
@@ -190,9 +192,14 @@ public class DocumentAttachmentService {
         UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
 
+        if (document.getStatus() == DocumentStatus.APPROVED) {
+            approvedDocumentReadPolicy.assertCanRead(document, user);
+            return;
+        }
+
         boolean isCreator = document.getCreatorUser() != null && document.getCreatorUser().getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
-        boolean isPublished = document.getStatus() == DocumentStatus.PUBLISHED || document.getStatus() == DocumentStatus.APPROVED;
+        boolean isPublished = document.getStatus() == DocumentStatus.PUBLISHED;
 
         boolean isApprover = documentApprovalRequestRepository
                 .findByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(document.getId()).stream()
