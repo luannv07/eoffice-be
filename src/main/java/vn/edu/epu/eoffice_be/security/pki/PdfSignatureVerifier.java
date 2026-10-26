@@ -1,5 +1,7 @@
 package vn.edu.epu.eoffice_be.security.pki;
 
+import vn.edu.epu.eoffice_be.common.enums.InitialSignStage;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -555,6 +557,7 @@ public class PdfSignatureVerifier {
             String uid = item.getUserId();
             String field = item.getFieldName();
             boolean match = field != null && (
+                    java.util.Arrays.stream(InitialSignStage.values()).anyMatch(stage -> field.equalsIgnoreCase(stage.fieldName(uid))) ||
                     field.equalsIgnoreCase("sig_user_" + uid) ||
                     field.equalsIgnoreCase("sig_approve_" + uid) ||
                     field.equalsIgnoreCase("sig_publish_" + uid) ||

@@ -6,6 +6,7 @@ import vn.edu.epu.eoffice_be.dto.PendingDocumentResponse;
 import vn.edu.epu.eoffice_be.dto.WorkflowTimelineResponse;
 import vn.edu.epu.eoffice_be.dto.request.DocumentApproveRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentInitialSignRequest;
+import vn.edu.epu.eoffice_be.dto.request.DocumentLeaderSignRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentPublishRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRejectRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRevisionRequest;
@@ -26,7 +27,7 @@ import java.util.List;
 public interface DocumentWorkflowService {
 
     /**
-     * UC12: Phê duyệt văn bản, ghi nhận bút phê lãnh đạo và đơn vị chủ trì.
+     * UC12: Chuyển tiếp văn bản đã ký, ghi nhận bút phê và đơn vị chủ trì; không ký PDF.
      */
     DocumentDetailResponse approve(Long documentId, DocumentApproveRequest request);
 
@@ -36,13 +37,16 @@ public interface DocumentWorkflowService {
     DocumentDetailResponse requestRevision(Long documentId, DocumentRevisionRequest request);
 
     /**
-     * UC13: Ký nháy văn bản, nhúng Digital Stamp lên trang cuối PDF và tính SHA-256 hash.
+     * UC13: Ký nháy số theo giai đoạn, lưu hash và lịch sử, giữ nguyên trạng thái.
      */
     DocumentDetailResponse initialSign(Long documentId, DocumentInitialSignRequest request);
 
+    /** Ký hình ảnh của lãnh đạo, không chuyển trạng thái. */
+    DocumentDetailResponse leaderSign(Long documentId, DocumentLeaderSignRequest request);
+
     /**
-     * UC14: Phê duyệt và ký phát hành chính thức bằng chữ ký số PKI X.509 PAdES,
-     * đặt cờ CERTIFIED_NO_CHANGES_ALLOWED và cấp số hiệu văn bản.
+     * UC14: Văn thư ký niêm phong, phát hành và phân phối bằng chữ ký số PKI X.509 PAdES,
+     * đặt cờ CERTIFIED_NO_CHANGES_ALLOWED cho văn bản đã được văn thư cấp số và ký nháy.
      */
     DocumentDetailResponse signAndPublish(Long documentId, DocumentPublishRequest request);
 

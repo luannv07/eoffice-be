@@ -26,6 +26,7 @@ import vn.edu.epu.eoffice_be.common.dto.BaseResponse;
 import vn.edu.epu.eoffice_be.dto.PendingDocumentResponse;
 import vn.edu.epu.eoffice_be.dto.WorkflowTimelineResponse;
 import vn.edu.epu.eoffice_be.dto.request.DocumentApproveRequest;
+import vn.edu.epu.eoffice_be.dto.request.DocumentLeaderSignRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentInitialSignRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentPublishRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRejectRequest;
@@ -63,8 +64,8 @@ public class DocumentWorkflowController {
         return BaseResponse.success(documentWorkflowService.getWorkflowHistory(id, pageable));
     }
 
-    @PreAuthorize("hasAnyRole('LEADER', 'REVIEWER', 'ADMIN', 'SYSTEM_ADMIN')")
-    @Operation(summary = "Duyệt văn bản (UC12)")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Chuyển tiếp văn bản đã ký, không tự ký PDF (UC12)")
     @PostMapping("/{id}/workflow/approve")
     public BaseResponse<DocumentDetailResponse> approve(
             @PathVariable Long id,
@@ -83,8 +84,8 @@ public class DocumentWorkflowController {
         return BaseResponse.success(documentWorkflowService.requestRevision(id, request));
     }
 
-    @PreAuthorize("hasAnyRole('REVIEWER', 'LEADER', 'ADMIN', 'SYSTEM_ADMIN')")
-    @Operation(summary = "Ký nháy văn bản (UC13)")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Ký nháy riêng theo giai đoạn, không chuyển trạng thái (UC13)")
     @PostMapping("/{id}/workflow/initial-sign")
     public BaseResponse<DocumentDetailResponse> initialSign(
             @PathVariable Long id,
@@ -93,8 +94,16 @@ public class DocumentWorkflowController {
         return BaseResponse.success(documentWorkflowService.initialSign(id, request));
     }
 
-    @PreAuthorize("hasAnyRole('LEADER', 'ADMIN', 'SYSTEM_ADMIN')")
-    @Operation(summary = "Phê duyệt và Ký phát hành chính thức (UC14)")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Hiệu trưởng ký hình ảnh riêng, giữ PENDING_APPROVAL")
+    @PostMapping("/{id}/workflow/leader-sign")
+    public BaseResponse<DocumentDetailResponse> leaderSign(
+            @PathVariable Long id, @Valid @RequestBody DocumentLeaderSignRequest request) {
+        return BaseResponse.success(documentWorkflowService.leaderSign(id, request));
+    }
+
+    @PreAuthorize("hasAnyRole('CLERK', 'ADMIN', 'SYSTEM_ADMIN') or hasAuthority('DOCUMENT_ASSIGN_NUMBER')")
+    @Operation(summary = "Văn thư niêm phong và phát hành văn bản đã cấp số, ký nháy (UC14)")
     @PostMapping("/{id}/workflow/sign-and-publish")
     public BaseResponse<DocumentDetailResponse> signAndPublish(
             @PathVariable Long id,

@@ -199,6 +199,7 @@ class WorkflowEngineTest {
     @Test
     @DisplayName("Phân quyền: SYSTEM_ADMIN không có permission nghiệp vụ -> Bị từ chối hành động workflow")
     void validateActorPermission_systemAdminWithoutBusinessPerm_shouldBeDenied() {
+        document.setStatus(DocumentStatus.IN_REVIEW);
         UserLogin sysAdmin = UserLogin.builder().id(8888L).username("sysadmin").role(Role.SYSTEM_ADMIN).build();
         UserLogin admin = UserLogin.builder().id(8889L).username("admin").role(Role.ADMIN).build();
 
@@ -215,19 +216,22 @@ class WorkflowEngineTest {
 
         // ADMIN bị từ chối
         BusinessException exAdmin = assertThrows(BusinessException.class, () ->
-                workflowEngine.validateActorPermission(document, admin, WorkflowAction.LEADER_APPROVE));
+                workflowEngine.validateActorPermission(document, admin, WorkflowAction.REVIEW_APPROVE));
         assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, exAdmin.getErrorCode());
     }
 
     @Test
     @DisplayName("Phân quyền: Người có quyền ở đơn vị cấp trên với inheritToChildren = true -> Được phép trong phạm vi kế thừa hợp lệ")
     void validateActorPermission_inheritedPermission_shouldPass() {
+        document.setStatus(DocumentStatus.IN_REVIEW);
         UserLogin dean = UserLogin.builder().id(2002L).username("hieutruong").role(Role.USER).build();
 
         // Giả lập PermissionResolver trả về true do kế thừa hợp lệ tại đơn vị ban hành của văn bản (2001L)
         when(permissionResolver.hasPermission(dean.getId(), dean.getRole(), "DOCUMENT_APPROVE", 2001L))
                 .thenReturn(true);
 
+        document.setSigner(dean);
+        when(permissionResolver.hasPermission(dean.getId(), dean.getRole(), "DOCUMENT_SIGN_OFFICIAL", 2001L)).thenReturn(true);
         assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, dean, WorkflowAction.LEADER_APPROVE));
         assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, dean, WorkflowAction.REVIEW_APPROVE));
     }
@@ -242,7 +246,7 @@ class WorkflowEngineTest {
                 .thenReturn(false);
 
         BusinessException ex = assertThrows(BusinessException.class, () ->
-                workflowEngine.validateActorPermission(document, otherOrgLeader, WorkflowAction.LEADER_APPROVE));
+                workflowEngine.validateActorPermission(document, otherOrgLeader, WorkflowAction.REVIEW_APPROVE));
         assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, ex.getErrorCode());
     }
 
@@ -252,12 +256,14 @@ class WorkflowEngineTest {
         UserLogin signer = UserLogin.builder().id(4001L).username("assignedSigner").role(Role.USER).build();
         document.setSigner(signer);
 
+        when(permissionResolver.hasPermission(signer.getId(), signer.getRole(), "DOCUMENT_APPROVE", 2001L)).thenReturn(true);
+
         // Là đúng người ký được chỉ định, nhưng không có quyền DOCUMENT_SIGN_OFFICIAL trong phạm vi 2001L
         when(permissionResolver.hasPermission(signer.getId(), signer.getRole(), "DOCUMENT_SIGN_OFFICIAL", 2001L))
                 .thenReturn(false);
 
         BusinessException ex = assertThrows(BusinessException.class, () ->
-                workflowEngine.validateActorPermission(document, signer, WorkflowAction.SIGN_AND_PUBLISH));
+                workflowEngine.validateActorPermission(document, signer, WorkflowAction.LEADER_SIGN));
         assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, ex.getErrorCode());
     }
 
@@ -270,12 +276,14 @@ class WorkflowEngineTest {
         when(permissionResolver.hasPermission(signer.getId(), signer.getRole(), "DOCUMENT_SIGN_OFFICIAL", 2001L))
                 .thenReturn(true);
 
-        assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, signer, WorkflowAction.SIGN_AND_PUBLISH));
+        when(permissionResolver.hasPermission(signer.getId(), signer.getRole(), "DOCUMENT_APPROVE", 2001L)).thenReturn(true);
+        assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, signer, WorkflowAction.LEADER_SIGN));
     }
 
     @Test
     @DisplayName("Phân quyền: Có DOCUMENT_SIGN_DRAFT nhưng không có DOCUMENT_APPROVE -> Được INITIAL_SIGN nhưng bị từ chối REQUEST_REVISION và REJECT")
     void validateActorPermission_hasDraftSignButNotApprove_shouldOnlyPassInitialSign() {
+        document.setStatus(DocumentStatus.IN_REVIEW);
         UserLogin reviewer = UserLogin.builder().id(5001L).username("reviewer").role(Role.USER).build();
 
         when(permissionResolver.hasPermission(reviewer.getId(), reviewer.getRole(), "DOCUMENT_SIGN_DRAFT", 2001L))

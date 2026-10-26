@@ -1,5 +1,7 @@
 package vn.edu.epu.eoffice_be.security.pki;
 
+import vn.edu.epu.eoffice_be.common.enums.InitialSignStage;
+
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.cos.COSArray;
@@ -121,6 +123,18 @@ public class PdfSigner {
      */
     public SignResult signWithCustomKeys(Path inPdf, Path outPdf, String userId, String reason,
                                          PrivateKey privateKey, X509Certificate[] certChain) {
+        return signWithFieldName(inPdf, outPdf, userId, reason, privateKey, certChain, "sig_user_" + userId);
+    }
+
+    public SignResult signInitialWithCustomKeys(Path inPdf, Path outPdf, String userId, String reason,
+                                               PrivateKey privateKey, X509Certificate[] certChain,
+                                               InitialSignStage stage) {
+        Objects.requireNonNull(stage, "Signing stage is required");
+        return signWithFieldName(inPdf, outPdf, userId, reason, privateKey, certChain, stage.fieldName(userId));
+    }
+
+    private SignResult signWithFieldName(Path inPdf, Path outPdf, String userId, String reason,
+                                         PrivateKey privateKey, X509Certificate[] certChain, String targetFieldName) {
         Objects.requireNonNull(inPdf, "Đường dẫn file PDF đầu vào không được null");
         Objects.requireNonNull(outPdf, "Đường dẫn file PDF đầu ra không được null");
         Objects.requireNonNull(userId, "UserId không được null");
@@ -149,7 +163,6 @@ public class PdfSigner {
             String serialHex = userCert.getSerialNumber().toString(16).toLowerCase();
 
             try (PDDocument document = Loader.loadPDF(inPdf.toFile())) {
-                String targetFieldName = "sig_user_" + userId;
                 for (PDSignatureField existingField : document.getSignatureFields()) {
                     String fullyQualified = existingField.getFullyQualifiedName();
                     String partial = existingField.getPartialName();
@@ -276,6 +289,33 @@ public class PdfSigner {
     /**
      * Ký số trực tiếp từ mảng byte[] với PrivateKey và CertChain tùy chỉnh.
      */
+    public SignResult signInitialBytes(byte[] pdf, String userId, String displayName, String title,
+                                       String orgUnit, String reason, InitialSignStage stage) {
+        Objects.requireNonNull(pdf, "PDF is required");
+        Objects.requireNonNull(stage, "Signing stage is required");
+        ensureUserCertificate(userId, displayName, title, orgUnit);
+        Crypto.P12Bundle bundle = requireUserCertificate(userId);
+        try {
+            Path input = Files.createTempFile("initial_in_", ".pdf");
+            try {
+                Path output = Files.createTempFile("initial_out_", ".pdf");
+                try {
+                    Files.write(input, pdf);
+                    return signInitialWithCustomKeys(input, output, userId, reason,
+                            bundle.privateKey(), bundle.chain(), stage);
+                } finally {
+                    Files.deleteIfExists(output);
+                }
+            } finally {
+                Files.deleteIfExists(input);
+            }
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Không thể ký nháy PDF", e);
+        }
+    }
+
     public SignResult signBytesWithCustomKeys(byte[] inPdfBytes, String userId, String reason,
                                               PrivateKey privateKey, X509Certificate[] certChain) {
         Objects.requireNonNull(inPdfBytes, "Dữ liệu PDF đầu vào không được null");

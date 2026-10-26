@@ -1,5 +1,6 @@
 package vn.edu.epu.eoffice_be.dto.request;
 
+import java.util.List;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -11,6 +12,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import vn.edu.epu.eoffice_be.common.enums.DistributionScope;
 
 import java.time.Instant;
 
@@ -19,15 +21,8 @@ import java.time.Instant;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Schema(description = "Yêu cầu phê duyệt và ký phát hành văn bản chính thức (UC14)")
+@Schema(description = "Văn thư ký niêm phong và phát hành văn bản đã cấp số, ký nháy (UC14)")
 public class DocumentPublishRequest {
-
-    @Schema(description = "ID sổ văn bản dùng để cấp số (nếu chưa được cấp số trước đó)", example = "1001")
-    private Long bookId;
-
-    @Size(max = 100, message = "Số hiệu văn bản không được vượt quá 100 ký tự")
-    @Schema(description = "Số hiệu văn bản chính thức (tự động cấp từ sổ văn bản qua Pessimistic Lock hoặc kế thừa)", example = "125/QĐ-ĐHEPU")
-    private String officialNumber;
 
     @Schema(description = "Ngày ký ban hành chính thức (mặc định lấy thời điểm hiện tại)", example = "2026-09-10T08:00:00Z")
     private Instant issueDate;
@@ -38,7 +33,7 @@ public class DocumentPublishRequest {
     
 
     @Size(max = 2000, message = "Lời phê hoặc ý kiến tối đa 2000 ký tự")
-    @Schema(description = "Lời phê hoặc ý kiến của Lãnh đạo ký phát hành", example = "Ký duyệt ban hành và chuyển văn thư đóng dấu lưu trữ")
+    @Schema(description = "Ghi chú của văn thư khi niêm phong và phát hành", example = "Niêm phong, ban hành và phân phối văn bản")
     private String comment;
 
     @Min(value = 1, message = "Số trang đặt chữ ký phải lớn hơn hoặc bằng 1")
@@ -60,6 +55,13 @@ public class DocumentPublishRequest {
     @Positive(message = "Chiều cao khung con dấu phải là số dương")
     @Schema(description = "Chiều cao khung con dấu (PDF points, mặc định 60pt)", example = "60.0")
     private Float signatureHeight;
+
+    @NotNull(message = "Phải chọn phạm vi phát hành")
+    @Schema(description = "Phạm vi phát hành: ALL, MULTIPLE_ORGS, SINGLE_ORG")
+    private DistributionScope distributionScope;
+
+    @Schema(description = "Danh sách ID khoa/phòng nhận văn bản")
+    private List<@NotNull @Positive Long> recipientOrgIds;
 
     @jakarta.validation.constraints.AssertTrue(message = "Ngày có hiệu lực (effectiveDate) không được trước ngày ban hành (issueDate)")
     public boolean isEffectiveDateValid() {

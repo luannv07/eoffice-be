@@ -89,73 +89,31 @@ Sổ văn bản (DocumentBook) trong hệ thống được quản lý 2 cấp: C
   + Thay vì chỉ định cố định, hệ thống tự động lọc danh sách các cán bộ có đủ thẩm quyền phê duyệt dựa theo đơn vị ban hành của văn bản và cơ cấu tổ chức để chuyên viên lựa chọn.
 
 - Bước 4: Gửi duyệt hoặc Thu hồi yêu cầu duyệt
-  + Gửi duyệt (submit-approval): Chuyên viên chọn người duyệt và gửi đi. Hệ thống kiểm tra điều kiện hồ sơ đầy đủ (bắt buộc phải có tệp đính kèm chính hoặc nội dung tóm tắt). Văn bản chuyển sang trạng thái SUBMITTED / PENDING_REVIEW và tự động khóa quyền chỉnh sửa của chuyên viên.
+  + Gửi duyệt (submit-approval): Chuyên viên chọn người duyệt và gửi đi. Hệ thống kiểm tra hồ sơ đầy đủ và chữ ký nháy của người gửi trên PDF hiện tại. Văn bản chuyển sang trạng thái IN_REVIEW và tự động khóa quyền chỉnh sửa của chuyên viên.
   + Thu hồi yêu cầu duyệt (recall-approval): Nếu chuyên viên phát hiện sai sót sau khi gửi nhưng cán bộ duyệt chưa bắt đầu xử lý, chuyên viên được quyền chủ động thu hồi hồ sơ về lại trạng thái DRAFT để sửa đổi tiếp.
 
 ---
 
-## 5. Luồng Thẩm Định và Ký Nháy Điện Tử
+## 5. Ký nháy độc lập và gửi/chuyển văn bản
 
-Phần ký nháy trong hệ thống hoạt động như sau:
+Ký nháy dùng `POST /documents/{id}/workflow/initial-sign`, không chuyển trạng thái.
+Backend xác định giai đoạn theo trạng thái hiện tại: người soạn ở `DRAFT`, `NEEDS_REVISION`, `REJECTED`; thẩm định ở `IN_REVIEW`; hiệu trưởng ở `PENDING_APPROVAL`; văn thư ở `APPROVED` sau cấp số.
 
-- Bước 1: Tiếp nhận và kiểm tra
-  + Cán bộ thẩm định mở xem chi tiết văn bản và đọc tệp PDF đính kèm từ đường dẫn primary_file_path.
-  + Nếu hồ sơ chưa đạt: Chọn Yêu cầu chỉnh sửa (trạng thái NEEDS_REVISION) kèm nhận xét lý do để chuyển trả người soạn thảo sửa lại.
+Người soạn ký nháy rồi gọi `/submit-approval` để chuyển `IN_REVIEW`. Người thẩm định ký nháy rồi gọi `/workflow/approve` để chuyển `PENDING_APPROVAL`. Các thao tác chuyển không tự ký.
 
-- Bước 2: Cơ chế đóng dấu ký nháy điện tử lên tệp PDF
-  + Người thẩm định gửi yêu cầu ký nháy (chỉ cần nhập ghi chú/ý kiến thẩm định).
-  + Hệ thống kiểm tra quyền hạn ký nháy của người dùng và kiểm tra tệp PDF nguồn có tồn tại.
-  + Hệ thống lấy họ tên đầy đủ của người ký từ thông tin hồ sơ người dùng (bảng user_infos), chức danh (Cán bộ thẩm định) và thời gian thực tế ký nháy.
-  + Dịch vụ xử lý PDF (PdfProcessingService dùng thư viện Apache PDFBox) tự động mở tệp PDF, tìm đến trang cuối cùng của tài liệu và vẽ trực tiếp một Dấu ký nháy điện tử vào góc dưới bên phải trang giấy (tọa độ cách mép phải 30pt, cách mép dưới 35pt).
+## 6. Hiệu trưởng ký và phê duyệt
 
-- Bước 3: Hình thức dấu ký nháy (Có lưu chữ ký thiết kế riêng không?)
-  + Trả lời về chữ ký thiết kế riêng: Trong mã nguồn hiện tại, hệ thống KHÔNG lưu trữ hay hỗ trợ tải lên hình ảnh chữ ký tay/chữ ký thiết kế riêng của từng cá nhân.
-  + Thay vào đó, hệ thống sử dụng Khuôn mẫu Dấu ký nháy điện tử chuẩn hóa được lập trình vẽ tự động bằng mã lệnh đồ họa PDFBox:
-    * Khung viền hình chữ nhật kích thước 190x55 pt, nét viền màu xanh dương đậm đặc trưng của trường (mã màu RGB: 16, 76, 151).
-    * Nền bên trong khung được phủ màu xanh dương nhạt (mã màu RGB: 240, 245, 255).
-    * Dòng 1: Tiêu đề in đậm [ DAU KY NHAY DIEN TU - EPU ].
-    * Dòng 2: Họ tên cán bộ ký, tự động điền theo tài khoản đăng nhập (ví dụ: Can bo: Nguyen Van A).
-    * Dòng 3: Chức vụ của cán bộ (Chuc vu: Can bo tham dinh).
-    * Dòng 4: Thời gian ký nháy chính xác đến từng giây (ví dụ: Thoi gian: 23/09/2026 14:15:30).
+Thực hiện ba request riêng: `/workflow/leader-sign` để ký hình ảnh → `/workflow/initial-sign` để ký nháy → `/workflow/approve` để chuyển `APPROVED`.
 
-- Bước 4: Lưu vết và chuyển trạng thái
-  + Tệp PDF sau khi vẽ con dấu được lưu thành một tệp mới trong thư mục ./uploads/drafts/ với tên initial_signed_{documentId}.pdf.
-  + Cột primary_file_path của văn bản được cập nhật trỏ sang tệp PDF mới này.
-  + Hệ thống tính mã băm SHA-256 của tệp PDF đã ký nháy và ghi nhận vào lịch sử luồng duyệt (document_workflow_logs) tại cột signature_hash để chống chối bỏ.
-  + Văn bản chuyển sang trạng thái INITIAL_SIGNED hoặc chuyển tiếp đến Lãnh đạo (LEADER_REVIEW).
+Ký hình ảnh nhận tọa độ từ frontend; thiếu tọa độ dùng trang cuối, X=380, Y=120, rộng=150, cao=80. Thiếu ảnh dùng khung thông tin ký theo cơ chế hiện có. Hai thao tác ký giữ nguyên `PENDING_APPROVAL`.
 
----
+## 7. Văn thư cấp số, ký nháy và phát hành
 
-## 6. Luồng Phê Duyệt Của Lãnh Đạo (Bút Phê Chỉ Đạo)
+Văn thư gọi `/document-books/assign-number`, sau đó `/documents/{id}/workflow/initial-sign`, cuối cùng `/documents/{id}/workflow/sign-and-publish`. Cấp số và ký nháy giữ `APPROVED`; chỉ phát hành chuyển `PUBLISHED`.
 
-- Lãnh đạo xem xét nội dung và tệp PDF đã có dấu ký nháy của cán bộ thẩm định.
-- Ghi ý kiến chỉ đạo (Bút phê lãnh đạo): Lãnh đạo nhập nội dung chỉ đạo điều hành (ví dụ: giao phòng ban nào chủ trì thực hiện, hạn hoàn thành khi nào). Ý kiến này được lưu vết chính thức vào dòng nhật ký luồng duyệt.
-- Lựa chọn hành động:
-  + Phê duyệt (trạng thái APPROVED): Văn bản hoàn thành phê duyệt, chuyển sang hàng đợi của Cán bộ văn thư để cấp số và phát hành.
-  + Yêu cầu chỉnh sửa (trạng thái NEEDS_REVISION): Chuyển trả lại cho chuyên viên kèm theo ý kiến chỉ đạo để sửa lại.
-  + Từ chối phê duyệt (trạng thái REJECTED): Chấm dứt xử lý văn bản.
+Phát hành lấy số/sổ đã cấp từ văn bản, kiểm tra chữ ký trên PDF hiện tại, ký niêm phong, lưu PDF chính thức và phân phối `ALL`/`ORG` trong cùng transaction. Không tự ký nháy và không thay người ký hiệu trưởng bằng văn thư.
 
----
-
-## 7. Luồng Phát Hành và Phân Phối Văn Bản
-
-- Bước 1: Cán bộ văn thư phát hành
-  + Cán bộ văn thư tiếp nhận văn bản đã duyệt và đã cấp số.
-  + Thiết lập ngày ban hành chính thức (issue_date) và ngày có hiệu lực (effective_date).
-  + Chọn phạm vi phát hành: phát hành toàn đơn vị/toàn trường (ALL) hoặc phát hành theo danh sách đơn vị/phòng ban nhận cụ thể (ORG).
-  + Ký phát hành văn bản, chuyển trạng thái sang PUBLISHED.
-
-- Bước 2: Bảo mật chống sửa đổi (DevSecOps)
-  + Tệp PDF ban hành chính thức được lưu đường dẫn vào official_file_path.
-  + Hệ thống tự động tính mã băm SHA-256 trên toàn bộ nội dung tệp PDF chính thức và lưu vào trường official_hash của văn bản.
-  + Ngoài ra, hệ thống hỗ trợ tích hợp chữ ký số PKI thông qua chứng thư số X.509 lưu trong kho khóa epu-pki.p12 để đóng dấu số chứng nhận cho văn bản.
-
-- Bước 3: Phân phối và ghi nhận nhật ký
-  + Hệ thống tạo các bản ghi phân phối (DocumentDistribution) cho các đơn vị nhận.
-  + Các đơn vị nhận được thông báo, có thể tra cứu, đọc văn bản và tải tệp PDF chính thức.
-  + Khi người nhận xem hoặc tải tệp, hệ thống cập nhật trạng thái đã đọc (is_read = true) và thời gian đọc (read_at).
-
----
+Thay PDF chính hoặc khôi phục nội dung không được dùng chữ ký của tệp cũ. Không có trạng thái `INITIAL_SIGNED`; lịch sử ký dùng chuyển trạng thái từ chính nó sang chính nó.
 
 ## 8. Luồng Tra Cứu, Tải Tệp và Kiểm Tra Tính Toàn Vẹn Của Văn Bản
 
@@ -191,9 +149,9 @@ Phần ký nháy trong hệ thống hoạt động như sau:
 ## 10. Tóm Tắt Vòng Đời Trạng Thái Văn Bản
 
 - DRAFT (Bản nháp): Chuyên viên đang soạn thảo, tệp đính kèm được lưu tạm trong uploads/drafts/, được phép sửa đổi thoải mái.
-- SUBMITTED / PENDING_REVIEW (Chờ thẩm định): Đã gửi đi, hồ sơ bị khóa chỉnh sửa, chờ cán bộ thẩm định xem xét.
+- IN_REVIEW (Chờ thẩm định và ký nháy): Đã gửi đi, hồ sơ bị khóa chỉnh sửa, chờ cán bộ thẩm định xem xét.
 - NEEDS_REVISION (Yêu cầu chỉnh sửa): Hồ sơ bị trả về kèm nhận xét, chuyên viên mở lại quyền cập nhật để sửa đổi.
-- INITIAL_SIGNED (Đã ký nháy): Cán bộ thẩm định đã kiểm tra và đóng Dấu ký nháy điện tử chuẩn hóa vào trang cuối của tệp PDF.
+- Ký nháy không tạo trạng thái riêng; giữ nguyên trạng thái và ghi hành động INITIAL_SIGN trong lịch sử.
 - APPROVED (Đã phê duyệt): Lãnh đạo đã duyệt và ghi bút phê chỉ đạo, văn bản chuyển sang văn thư chờ cấp số.
 - PUBLISHED (Đã ban hành chính thức): Văn thư đã cấp số từ sổ văn bản, đóng dấu băm SHA-256 chống chỉnh sửa và phân phối đến các đơn vị nhận.
 - REJECTED (Bị từ chối): Lãnh đạo không đồng ý, văn bản dừng quy trình xử lý.

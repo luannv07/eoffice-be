@@ -34,6 +34,7 @@ public class DocumentVersionService {
     private final DocumentProcessLogRepository documentProcessLogRepository;
     private final UserLoginRepository userLoginRepository;
     private final DocumentDraftService documentDraftService;
+    private final vn.edu.epu.eoffice_be.repository.DocumentAttachmentRepository attachmentRepository;
 
     /**
      * Xác thực quyền truy cập thông tin phiên bản văn bản.
@@ -137,6 +138,11 @@ public class DocumentVersionService {
         document.setTitle(targetVersion.getTitle());
         document.setSummary(targetVersion.getSummary());
         document.setContent(targetVersion.getContent());
+        // Snapshots do not contain a PDF: require a new main file for restored content.
+        document.setPrimaryFilePath(null);
+        var mains = attachmentRepository.findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(documentId);
+        mains.forEach(attachment -> attachment.setMainDocument(false));
+        attachmentRepository.saveAll(mains);
 
         // Sinh phiên bản snapshot mới ghi nhận sự kiện khôi phục
         int newVersionNumber = document.getCurrentVersion() + 1;

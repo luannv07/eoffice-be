@@ -86,46 +86,26 @@ public class DocumentDistribution extends BaseEntity {
 }
 ```
 
-### Bước 2: Service Phát Hành Văn Bản (Theo core thầy: Chống sửa đổi)
-```java
-@Transactional
-public DocumentPublishResponse publishDocument(Long documentId, PublishRequest request) {
-    Document doc = documentRepository.findById(documentId)
-        .orElseThrow(() -> new ResourceNotFoundException("Document not found"));
+### Bước 2: Ký phát hành và phân phối qua workflow
 
-    if (!DocumentStatus.APPROVED.equals(doc.getStatus())) {
-        throw new BusinessException("Văn bản chưa được phê duyệt, không thể phát hành!");
-    }
+Sử dụng `POST /documents/{id}/workflow/sign-and-publish`, được xử lý bởi
+`DocumentWorkflowServiceImpl.signAndPublish()`. Request là `DocumentPublishRequest`:
 
-    // 1. Cấp số văn bản từ sổ đi (Thread-safe với Pessimistic Lock)
-    String docNumber = documentBookService.generateDocumentNumber(request.getDocumentBookId());
-    doc.setOfficialNumber(docNumber);
-    doc.setIssueDate(request.getIssueDate() != null ? request.getIssueDate() : LocalDate.now());
-    doc.setEffectiveDate(request.getEffectiveDate());
-
-    // 2. Tạo bản PDF chính thức có chữ ký số + số hiệu + ngày ban hành
-    //    (Apache PDFBox: nhúng chữ ký số, đóng dấu CERTIFIED_NO_CHANGES_ALLOWED)
-    String officialPdfPath = pdfSigningService.createCertifiedPdf(doc);
-
-    // 3. Tính và lưu SHA-256 hash của file PDF chính thức (Tamper-proofing)
-    String officialHash = fileStorageService.computeFileSha256(officialPdfPath);
-    doc.setOfficialFilePath(officialPdfPath);
-    doc.setOfficialHash(officialHash);
-    doc.setStatus(DocumentStatus.PUBLISHED);
-
-    // 4. Lưu phạm vi phát hành
-    saveDistributions(doc.getId(), request.getRecipientOrgIds(), request.getIsPublicToAll());
-
-    // 5. Ghi Workflow Log
-    workflowLogService.logAction(doc.getId(), "PUBLISH",
-        "Phát hành chính thức số " + docNumber + " - Hash: " + officialHash.substring(0, 8) + "...");
-
-    // 6. Gửi thông báo In-app & Email (UC20)
-    notificationService.notifyPublishedDocument(doc);
-
-    return DocumentPublishResponse.from(documentRepository.save(doc));
+```json
+{
+  "distributionScope": "ALL",
+  "recipientOrgIds": []
 }
 ```
+
+- `ALL`: toàn trường, không kèm đơn vị nhận.
+- `SINGLE_ORG`: đúng một ID đơn vị nhận khác nhau.
+- `MULTIPLE_ORGS`: ít nhất hai ID đơn vị nhận khác nhau.
+
+Văn thư cấp số và ký nháy bằng các thao tác riêng trước khi phát hành. Service phát hành kiểm tra quyền, nơi nhận và các chữ ký trên PDF hiện tại, ký niêm phong rồi lưu bản
+chính thức, hash và chuyển trạng thái từ `APPROVED` sang `PUBLISHED`, service lưu
+các bản ghi phân phối `ALL` hoặc `ORG` trong cùng transaction. API phát hành trực
+tiếp cũ đã được loại bỏ; không dùng nó để bỏ qua workflow.
 
 ### Bước 3: API Verify Tính Toàn Vẹn (`GET /api/v1/documents/{id}/verify-integrity`)
 ```java

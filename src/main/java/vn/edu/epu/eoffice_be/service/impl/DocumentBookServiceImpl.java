@@ -36,25 +36,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import vn.edu.epu.eoffice_be.common.enums.Role;
-import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
-import vn.edu.epu.eoffice_be.entity.DocumentAttachment;
-import vn.edu.epu.eoffice_be.entity.DocumentWorkflowLog;
-import vn.edu.epu.eoffice_be.entity.UserInfo;
-import vn.edu.epu.eoffice_be.repository.DocumentAttachmentRepository;
-import vn.edu.epu.eoffice_be.repository.DocumentWorkflowLogRepository;
-import vn.edu.epu.eoffice_be.repository.UserInfoRepository;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
 import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
-import vn.edu.epu.eoffice_be.security.pki.PdfSigner;
-import vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -68,13 +55,7 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 	DictionaryItemRepository dictionaryItemRepository;
 	OrgNodeRepository orgNodeRepository;
 	DocumentRepository documentRepository;
-	PdfSigner pdfSigner;
-	DocumentPdfStorageService documentPdfStorageService;
-	vn.edu.epu.eoffice_be.storage.FileStorageService unifiedStorageService;
 	UserLoginRepository userLoginRepository;
-	UserInfoRepository userInfoRepository;
-	DocumentWorkflowLogRepository documentWorkflowLogRepository;
-	DocumentAttachmentRepository documentAttachmentRepository;
 
 	@Override
 	@Transactional(readOnly = true)
@@ -304,69 +285,6 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 			}
 		}
 
-		String signatureHash = null;
-		String signedPdfPath = null;
-
-		// 7. Thực hiện ký nháy của Văn thư lên tệp PDF nếu văn bản có file đính kèm
-		if (document != null && pdfSigner != null) {
-			byte[] pdfBytes = loadDocumentPdfBytesSafely(document);
-			if (pdfBytes != null && pdfBytes.length > 0) {
-				String signerFullName = "Cán bộ Văn thư";
-				String signerId = "clerk";
-				if (actor != null) {
-					signerId = String.valueOf(actor.getId());
-					if (userInfoRepository != null) {
-						signerFullName = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(actor.getId())
-								.map(UserInfo::getFullName)
-								.orElse(actor.getUsername());
-					} else {
-						signerFullName = actor.getUsername();
-					}
-				}
-
-				String signReason = "Văn thư cấp số văn bản: " + documentNumber;
-				try {
-					PdfSigner.SignResult signResult = pdfSigner.signBytes(
-							pdfBytes,
-							signerId,
-							signerFullName,
-							signReason
-					);
-					byte[] stampedPdfBytes = signResult.signedPdfBytes();
-					signedPdfPath = documentPdfStorageService.storeSignedPdf(
-							stampedPdfBytes,
-							"initial_signed_" + document.getId() + ".pdf",
-							document.getId()
-					);
-					document.setPrimaryFilePath(signedPdfPath);
-					documentRepository.save(document);
-					signatureHash = signResult.outPdfSha256();
-					log.info("Văn thư [id={}] đã ký nháy cấp số cho văn bản id={}, hash={}",
-							signerId, document.getId(), signatureHash);
-
-					// Ghi nhật ký luồng duyệt
-					if (documentWorkflowLogRepository != null) {
-						DocumentWorkflowLog workflowLog = DocumentWorkflowLog.builder()
-								.document(document)
-								.action(WorkflowAction.INITIAL_SIGN)
-								.actor(actor)
-								.fromStatus(DocumentStatus.APPROVED)
-								.toStatus(DocumentStatus.APPROVED)
-								.comment(signReason)
-								.signatureHash(signatureHash)
-								.deleteFlg(false)
-								.build();
-						documentWorkflowLogRepository.save(workflowLog);
-					}
-				} catch (BusinessException ex) {
-					throw ex;
-				} catch (Exception ex) {
-					log.error("Lỗi khi văn thư ký nháy văn bản id={}: {}", document.getId(), ex.getMessage(), ex);
-					throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR, "Lỗi khi văn thư ký nháy cấp số: " + ex.getMessage());
-				}
-			}
-		}
-
 		return AssignDocumentNumberResponse.builder()
 				.documentNumber(documentNumber)
 				.bookId(book.getId())
@@ -374,8 +292,6 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 				.currentNumber(nextNumber)
 				.effectiveDate(request.getEffectiveDate())
 				.documentId(request.getDocumentId())
-				.signatureHash(signatureHash)
-				.signedPdfPath(signedPdfPath)
 				.build();
 	}
 
@@ -387,19 +303,7 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 		if (actor == null) {
 			throw new BusinessException(ErrorCode.UNAUTHORIZED);
 		}
-		if (actor.getRole() == Role.SYSTEM_ADMIN || actor.getRole() == Role.ADMIN || actor.getRole() == Role.CLERK) {
-			return;
-		}
-		if (auth.getAuthorities() != null) {
-			boolean hasPerm = auth.getAuthorities().stream()
-					.anyMatch(a -> "DOCUMENT_ASSIGN_NUMBER".equals(a.getAuthority())
-							|| "ROLE_CLERK".equals(a.getAuthority())
-							|| "ROLE_ADMIN".equals(a.getAuthority())
-							|| "ROLE_SYSTEM_ADMIN".equals(a.getAuthority()));
-			if (hasPerm) {
-				return;
-			}
-		}
+        if (vn.edu.epu.eoffice_be.security.DocumentClerkAuthorization.isAllowed(actor, auth)) return;
 		throw new BusinessException(ErrorCode.FORBIDDEN, "Chỉ có Cán bộ Văn thư mới có quyền cấp số văn bản");
 	}
 
@@ -422,42 +326,6 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 			return userLoginRepository.findByIdAndDeleteFlgFalse(userId).orElse(null);
 		}
 		return null;
-	}
-
-	private byte[] loadDocumentPdfBytesSafely(Document document) {
-		if (document == null) return null;
-		if (document.getPrimaryFilePath() != null && !document.getPrimaryFilePath().isBlank()) {
-			// Read the latest signed version or stop; do not fall back to the original PDF.
-			return documentPdfStorageService.readPdf(document.getPrimaryFilePath());
-		}
-		if (documentAttachmentRepository != null && unifiedStorageService != null && document.getId() != null) {
-			try {
-				List<DocumentAttachment> atts = documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(document.getId());
-				if (atts != null && !atts.isEmpty()) {
-					DocumentAttachment target = atts.stream()
-							.filter(a -> a != null && Boolean.TRUE.equals(a.isMainDocument()) && isPdfAttachment(a))
-							.findFirst()
-							.orElseGet(() -> atts.stream().filter(this::isPdfAttachment).findFirst().orElse(null));
-					if (target != null) {
-						org.springframework.core.io.Resource res = unifiedStorageService.loadAsResource(target.getStoragePath(), target.getStorageFileName());
-						if (res != null && res.exists() && res.isReadable()) {
-							try (java.io.InputStream is = res.getInputStream()) {
-								byte[] b = is.readAllBytes();
-								if (b.length > 0) return b;
-							}
-						}
-					}
-				}
-			} catch (Exception ignored) {
-			}
-		}
-		return null;
-	}
-
-	private boolean isPdfAttachment(DocumentAttachment att) {
-		if (att == null) return false;
-		return "PDF".equalsIgnoreCase(att.getFileExtension()) ||
-				(att.getOriginalFileName() != null && att.getOriginalFileName().toLowerCase().endsWith(".pdf"));
 	}
 
 	@Override

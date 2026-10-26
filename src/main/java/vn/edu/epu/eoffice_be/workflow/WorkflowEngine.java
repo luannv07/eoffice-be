@@ -7,6 +7,9 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.enums.Role;
+import vn.edu.epu.eoffice_be.common.enums.InitialSignStage;
+import vn.edu.epu.eoffice_be.security.DocumentClerkAuthorization;
+import org.springframework.security.core.context.SecurityContextHolder;
 import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.entity.Document;
@@ -37,6 +40,7 @@ public class WorkflowEngine {
     static {
          // 1. DRAFT (Dự thảo): Gửi duyệt sẽ chuyển sang IN_REVIEW
         Map<WorkflowAction, DocumentStatus> draftTransitions = new EnumMap<>(WorkflowAction.class);
+        draftTransitions.put(WorkflowAction.INITIAL_SIGN, DocumentStatus.DRAFT);
         draftTransitions.put(WorkflowAction.SUBMIT, DocumentStatus.IN_REVIEW);
         TRANSITION_MATRIX.put(DocumentStatus.DRAFT, draftTransitions);
         // 2. IN_REVIEW (Đang thẩm định & ký nháy)
@@ -49,17 +53,21 @@ public class WorkflowEngine {
         TRANSITION_MATRIX.put(DocumentStatus.IN_REVIEW, inReviewTransitions);
         // 3. PENDING_APPROVAL (Chờ lãnh đạo phê duyệt)
         Map<WorkflowAction, DocumentStatus> pendingApprovalTransitions = new EnumMap<>(WorkflowAction.class);
+        pendingApprovalTransitions.put(WorkflowAction.LEADER_SIGN, DocumentStatus.PENDING_APPROVAL);
+        pendingApprovalTransitions.put(WorkflowAction.INITIAL_SIGN, DocumentStatus.PENDING_APPROVAL);
         pendingApprovalTransitions.put(WorkflowAction.LEADER_APPROVE, DocumentStatus.APPROVED); // Lãnh đạo duyệt nội dung
         pendingApprovalTransitions.put(WorkflowAction.REQUEST_REVISION, DocumentStatus.NEEDS_REVISION); // Lãnh đạo yêu cầu sửa
         pendingApprovalTransitions.put(WorkflowAction.REJECT, DocumentStatus.REJECTED); // Lãnh đạo bác bỏ
         TRANSITION_MATRIX.put(DocumentStatus.PENDING_APPROVAL, pendingApprovalTransitions);
         // 4. APPROVED (Đã duyệt: Văn thư cấp số, chờ Ký số PKI phát hành)
         Map<WorkflowAction, DocumentStatus> approvedTransitions = new EnumMap<>(WorkflowAction.class);
+        approvedTransitions.put(WorkflowAction.INITIAL_SIGN, DocumentStatus.APPROVED);
         approvedTransitions.put(WorkflowAction.SIGN_AND_PUBLISH, DocumentStatus.PUBLISHED); // Ký số PKI ban hành
         approvedTransitions.put(WorkflowAction.REQUEST_REVISION, DocumentStatus.NEEDS_REVISION);
         TRANSITION_MATRIX.put(DocumentStatus.APPROVED, approvedTransitions);
         // 5. NEEDS_REVISION (Yêu cầu chỉnh sửa)
         Map<WorkflowAction, DocumentStatus> needsRevisionTransitions = new EnumMap<>(WorkflowAction.class);
+        needsRevisionTransitions.put(WorkflowAction.INITIAL_SIGN, DocumentStatus.NEEDS_REVISION);
         needsRevisionTransitions.put(WorkflowAction.SUBMIT, DocumentStatus.IN_REVIEW); // Sửa xong gửi duyệt lại
         needsRevisionTransitions.put(WorkflowAction.WITHDRAW, DocumentStatus.DRAFT); // Rút về hẳn DRAFT
         TRANSITION_MATRIX.put(DocumentStatus.NEEDS_REVISION, needsRevisionTransitions);
@@ -69,6 +77,7 @@ public class WorkflowEngine {
         TRANSITION_MATRIX.put(DocumentStatus.PUBLISHED, publishedTransitions);
         // 7. REJECTED (Bị từ chối: cho phép nạp file v2 gửi duyệt lại hoặc rút về DRAFT)
         Map<WorkflowAction, DocumentStatus> rejectedTransitions = new EnumMap<>(WorkflowAction.class);
+        rejectedTransitions.put(WorkflowAction.INITIAL_SIGN, DocumentStatus.REJECTED);
         rejectedTransitions.put(WorkflowAction.SUBMIT, DocumentStatus.IN_REVIEW);
         rejectedTransitions.put(WorkflowAction.WITHDRAW, DocumentStatus.DRAFT);
         TRANSITION_MATRIX.put(DocumentStatus.REJECTED, rejectedTransitions);
@@ -129,29 +138,43 @@ public class WorkflowEngine {
             return isDrafter;
         }
 
-        // 2. Tất cả hành động phê duyệt, ký số và thu hồi bắt buộc xác định được đơn vị ban hành hợp lệ
-        Long documentOrgId = document.getOrgId();
-        if (documentOrgId == null) {
-            log.warn("Tu choi hanh dong [{}] do van ban id=[{}] khong xac dinh duoc don vi ban hanh (getOrgId() is null)",
-                    action, document.getId());
-            return false;
+        if (action == WorkflowAction.INITIAL_SIGN) {
+            return switch (InitialSignStage.fromStatus(document.getStatus())) {
+                case DRAFTER -> isDrafter || actor.getRole() == Role.ADMIN || actor.getRole() == Role.SYSTEM_ADMIN;
+                case REVIEWER -> hasScopedPermission(document, actor, "DOCUMENT_SIGN_DRAFT")
+                        || hasScopedPermission(document, actor, "DOCUMENT_APPROVE");
+                case LEADER -> isAssignedSigner && hasLeaderSigningPermission(document, actor);
+                case CLERK -> hasAssignedNumber(document) && isClerk(actor);
+            };
         }
-
         return switch (action) {
-            // Ký nháy: Yêu cầu DOCUMENT_SIGN_DRAFT trong phạm vi đơn vị ban hành
-            case INITIAL_SIGN ->
-                permissionResolver.hasPermission(actor.getId(), actor.getRole(), "DOCUMENT_SIGN_DRAFT", documentOrgId);
-
-            // Duyệt thẩm định, Lãnh đạo duyệt, Trả về sửa, Từ chối, Thu hồi: Yêu cầu quyền quyết định duyệt DOCUMENT_APPROVE
-            case REVIEW_APPROVE, LEADER_APPROVE, REQUEST_REVISION, REJECT, REVOKE ->
-                permissionResolver.hasPermission(actor.getId(), actor.getRole(), "DOCUMENT_APPROVE", documentOrgId);
-
-            // Ký số phát hành: Phải là đúng người ký được chỉ định VÀ có quyền DOCUMENT_SIGN_OFFICIAL trong phạm vi đơn vị ban hành
-            case SIGN_AND_PUBLISH ->
-                isAssignedSigner && permissionResolver.hasPermission(actor.getId(), actor.getRole(), "DOCUMENT_SIGN_OFFICIAL", documentOrgId);
-
+            case LEADER_SIGN -> (document.getSigner() == null || isAssignedSigner)
+                    && hasLeaderSigningPermission(document, actor);
+            case LEADER_APPROVE -> isAssignedSigner && hasLeaderSigningPermission(document, actor);
+            case REVIEW_APPROVE, REQUEST_REVISION, REJECT, REVOKE ->
+                    hasScopedPermission(document, actor, "DOCUMENT_APPROVE");
+            case SIGN_AND_PUBLISH -> document.getSigner() != null && hasAssignedNumber(document) && isClerk(actor);
             default -> false;
         };
+    }
+
+    private boolean hasLeaderSigningPermission(Document document, UserLogin actor) {
+        return hasScopedPermission(document, actor, "DOCUMENT_APPROVE")
+                && hasScopedPermission(document, actor, "DOCUMENT_SIGN_OFFICIAL");
+    }
+
+    private boolean hasScopedPermission(Document document, UserLogin actor, String permission) {
+        return document.getOrgId() != null && permissionResolver.hasPermission(
+                actor.getId(), actor.getRole(), permission, document.getOrgId());
+    }
+
+    private boolean hasAssignedNumber(Document document) {
+        return document.getDocumentBook() != null && document.getOfficialNumber() != null
+                && !document.getOfficialNumber().isBlank();
+    }
+
+    private boolean isClerk(UserLogin actor) {
+        return DocumentClerkAuthorization.isAllowed(actor, SecurityContextHolder.getContext().getAuthentication());
     }
 
     /**

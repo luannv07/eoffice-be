@@ -91,8 +91,12 @@ class DocumentAttachmentServiceTest {
             return att;
         });
 
+        doc.setPrimaryFilePath("storage://previous-signatures");
+
         DocumentAttachmentResponse response = documentAttachmentService.uploadAttachment(docId, file, true, userId);
 
+        org.junit.jupiter.api.Assertions.assertNull(doc.getPrimaryFilePath());
+        verify(documentRepository).save(doc);
         assertNotNull(response);
         assertEquals(10L, response.getId());
         assertEquals("kehoach.docx", response.getOriginalFileName());

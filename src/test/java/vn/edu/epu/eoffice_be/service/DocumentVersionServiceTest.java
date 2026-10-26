@@ -49,6 +49,8 @@ class DocumentVersionServiceTest {
     @Mock
     private DocumentDraftService documentDraftService;
 
+    @Mock private vn.edu.epu.eoffice_be.repository.DocumentAttachmentRepository attachmentRepository;
+
     @InjectMocks
     private DocumentVersionService documentVersionService;
 
@@ -174,8 +176,15 @@ class DocumentVersionServiceTest {
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
         when(documentDraftService.mapToDocumentResponse(any())).thenReturn(DocumentResponse.builder().id(docId).currentVersion(3).build());
 
+        doc.setPrimaryFilePath("storage://previous-signatures");
+        var previousMain = vn.edu.epu.eoffice_be.entity.DocumentAttachment.builder().document(doc).isMainDocument(true).build();
+        when(attachmentRepository.findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(List.of(previousMain));
+
         DocumentResponse response = documentVersionService.restoreVersion(docId, targetVer, userId);
 
+        org.junit.jupiter.api.Assertions.assertNull(doc.getPrimaryFilePath());
+        assertFalse(previousMain.isMainDocument());
+        verify(attachmentRepository).saveAll(List.of(previousMain));
         assertNotNull(response);
         assertEquals(3, doc.getCurrentVersion());
         assertEquals("Bản gốc ver 1", doc.getTitle());

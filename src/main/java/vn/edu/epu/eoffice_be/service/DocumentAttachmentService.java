@@ -96,6 +96,8 @@ public class DocumentAttachmentService {
 
         // Nếu đây là tệp chính, hủy cờ tệp chính của các tệp cũ
         if (isMain) {
+            document.setPrimaryFilePath(null);
+            documentRepository.save(document);
             List<DocumentAttachment> oldMains = documentAttachmentRepository
                     .findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(documentId);
             for (DocumentAttachment oldMain : oldMains) {
@@ -233,6 +235,10 @@ public class DocumentAttachmentService {
 
         attachment.setDeleteFlg(true);
         documentAttachmentRepository.save(attachment);
+        if (attachment.isMainDocument()) {
+            document.setPrimaryFilePath(null);
+            documentRepository.save(document);
+        }
 
         // Ghi nhật ký tiến trình
         DocumentProcessLog logEntry = DocumentProcessLog.builder()

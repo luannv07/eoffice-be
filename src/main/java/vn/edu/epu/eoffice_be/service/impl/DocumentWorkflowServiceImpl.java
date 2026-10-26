@@ -11,6 +11,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import vn.edu.epu.eoffice_be.common.enums.DistributionScope;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.enums.Role;
@@ -18,6 +20,10 @@ import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
 import vn.edu.epu.eoffice_be.dto.request.DocumentApproveRequest;
+import vn.edu.epu.eoffice_be.dto.request.DocumentLeaderSignRequest;
+import vn.edu.epu.eoffice_be.common.enums.InitialSignStage;
+import vn.edu.epu.eoffice_be.service.DocumentSignatureGuard;
+import vn.edu.epu.eoffice_be.service.DocumentWorkingPdfService;
 import vn.edu.epu.eoffice_be.dto.request.DocumentInitialSignRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentPublishRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRejectRequest;
@@ -51,23 +57,27 @@ import vn.edu.epu.eoffice_be.service.DocumentWorkflowService;
 import vn.edu.epu.eoffice_be.service.FileStorageService;
 import vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService;
 import vn.edu.epu.eoffice_be.workflow.WorkflowEngine;
+import vn.edu.epu.eoffice_be.entity.DocumentDistribution;
+import vn.edu.epu.eoffice_be.repository.DocumentDistributionRepository;
 
+import java.util.Set;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
-import vn.edu.epu.eoffice_be.dto.request.AssignDocumentNumberRequest;
-import vn.edu.epu.eoffice_be.dto.response.AssignDocumentNumberResponse;
-import vn.edu.epu.eoffice_be.service.DocumentBookService;
+import java.util.stream.Collectors;
+
 
 @Slf4j
 @Service
 @RequiredArgsConstructor(onConstructor_ = {@Autowired})
 public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
+
+    private static final int MAX_RECIPIENTS = 200;
 
     private final DocumentRepository documentRepository;
     private final DocumentWorkflowLogRepository documentWorkflowLogRepository;
@@ -76,13 +86,14 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     private final OrgNodeRepository orgNodeRepository;
     private final WorkflowEngine workflowEngine;
     private final FileStorageService fileStorageService;
-    private final DocumentBookService documentBookService;
     private final DocumentAttachmentRepository documentAttachmentRepository;
-    private final vn.edu.epu.eoffice_be.storage.FileStorageService unifiedStorageService;
     private final PdfSigner pdfSigner;
     private final PositionAssignmentRepository positionAssignmentRepository;
     private final PdfSignatureVerifier pdfSignatureVerifier;
     private final DocumentPdfStorageService documentPdfStorageService;
+    private final DocumentDistributionRepository distributionRepository;
+    private final DocumentSignatureGuard signatureGuard;
+    private final DocumentWorkingPdfService workingPdf;
 
     public DocumentWorkflowServiceImpl(DocumentRepository documentRepository,
                                        DocumentWorkflowLogRepository documentWorkflowLogRepository) {
@@ -94,13 +105,14 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 null, // orgNodeRepository
                 null, // workflowEngine
                 null, // fileStorageService
-                null, // documentBookService
                 null, // documentAttachmentRepository
-                null, // unifiedStorageService
                 null, // pdfSigner
                 null, // positionAssignmentRepository
                 null, // pdfSignatureVerifier
-                null  // documentPdfStorageService
+                null,  // documentPdfStorageService
+                null, // distributionRepository
+                null, // signatureGuard
+                null // workingPdf
         );
     }
 
@@ -117,136 +129,59 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     );
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public DocumentDetailResponse approve(Long documentId, DocumentApproveRequest request) {
         UserLogin actor = getCurrentActor();
         Document document = findDocumentOrThrow(documentId);
-
-        OrgNode assignedOrg = null;
-        if (request.getAssignedOrgNodeId() != null) {
-            assignedOrg = orgNodeRepository.findByIdAndDeleteFlgFalse(request.getAssignedOrgNodeId())
-                    .orElseThrow(() -> new BusinessException(ErrorCode.ORG_NODE_NOT_FOUND));
-        }
-
-        // Quyết định hành động chuyển tiếp phù hợp với trạng thái hiện tại
         WorkflowAction action;
-        if (document.getStatus() == DocumentStatus.IN_REVIEW) {
-            action = WorkflowAction.REVIEW_APPROVE;
-        } else if (document.getStatus() == DocumentStatus.PENDING_APPROVAL) {
-            action = WorkflowAction.LEADER_APPROVE;
-        } else {
-            throw new BusinessException(ErrorCode.INVALID_WORKFLOW_STATE);
-        }
-
-        // Kiểm tra thẩm quyền người xử lý trước khi thực hiện chuyển đổi
+        if (document.getStatus() == DocumentStatus.IN_REVIEW) action = WorkflowAction.REVIEW_APPROVE;
+        else if (document.getStatus() == DocumentStatus.PENDING_APPROVAL) action = WorkflowAction.LEADER_APPROVE;
+        else throw new BusinessException(ErrorCode.INVALID_WORKFLOW_STATE);
+        workflowEngine.validateTransition(document, action, request.getComment());
         validateActorAuthorization(document, actor, action);
-
-        // Tự động ký nháy lần 2 nếu văn bản đang ở IN_REVIEW (Cán bộ thẩm định duyệt chuyển tiếp)
-        String signatureHash = null;
-        if (action == WorkflowAction.REVIEW_APPROVE) {
-            byte[] currentPdfBytes = loadDocumentPdfBytesSafely(document);
-            if (currentPdfBytes != null && currentPdfBytes.length > 0 && pdfSigner != null) {
-                String signerFullName = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(actor.getId())
-                        .map(UserInfo::getFullName)
-                        .orElse(actor.getUsername());
-                SignerTitleInfo titleInfo = resolveSignerTitleInfo(actor);
-                String signerDisplayName = (titleInfo.title() != null && !titleInfo.title().isBlank())
-                        ? signerFullName + " - " + titleInfo.title()
-                        : signerFullName;
-
-                String signReason = (request.getComment() != null && !request.getComment().isBlank())
-                        ? request.getComment()
-                        : "Ký nháy thẩm định văn bản";
-
-                PdfSigner.SignResult signResult;
-                try {
-                    signResult = pdfSigner.signBytes(
-                            currentPdfBytes,
-                            String.valueOf(actor.getId()),
-                            signerDisplayName,
-                            signReason
-                    );
-                } catch (IllegalStateException ex) {
-                    if (ex.getMessage() != null && ex.getMessage().contains("User đã ký")) {
-                        throw new BusinessException(ErrorCode.BAD_REQUEST,
-                                "Người dùng [ID=" + actor.getId() + "] đã thực hiện ký trên tài liệu này rồi, không được phép ký đè lần 2!");
-                    }
-                    throw ex;
-                }
-                byte[] stampedPdfBytes = signResult.signedPdfBytes();
-                String newPdfReference = documentPdfStorageService.storeSignedPdf(
-                        stampedPdfBytes,
-                        "initial_signed_" + document.getId() + ".pdf",
-                        document.getId()
-                );
-                document.setPrimaryFilePath(newPdfReference);
-                signatureHash = signResult.outPdfSha256();
-                log.info("Đã tự động ký nháy lần 2 (thẩm định) cho văn bản id={}, người ký={}, hash={}",
-                        document.getId(), actor.getUsername(), signatureHash);
-            }
-        } else if (action == WorkflowAction.LEADER_APPROVE) {
-            byte[] currentPdfBytes = loadDocumentPdfBytesSafely(document);
-            if (currentPdfBytes != null && currentPdfBytes.length > 0 && pdfSigner != null) {
-                String signerFullName = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(actor.getId())
-                        .map(UserInfo::getFullName)
-                        .orElse(actor.getUsername());
-                SignerTitleInfo titleInfo = resolveSignerTitleInfo(actor);
-                String signerDisplayName = (titleInfo.title() != null && !titleInfo.title().isBlank())
-                        ? signerFullName + " - " + titleInfo.title()
-                        : signerFullName;
-
-                String signReason = (request.getComment() != null && !request.getComment().isBlank())
-                        ? request.getComment()
-                        : "Hiệu trưởng phê duyệt văn bản";
-
-                SignaturePosition pos = resolveApproveSignaturePosition(request);
-
-                PdfSigner.SignResult signResult;
-                try {
-                    signResult = pdfSigner.signVisibleBytes(
-                            currentPdfBytes,
-                            String.valueOf(actor.getId()),
-                            signerDisplayName,
-                            titleInfo.title(),
-                            titleInfo.orgUnit(),
-                            signReason,
-                            pos
-                    );
-                } catch (IllegalStateException ex) {
-                    if (ex.getMessage() != null && ex.getMessage().contains("User đã ký")) {
-                        throw new BusinessException(ErrorCode.BAD_REQUEST,
-                                "Người dùng [ID=" + actor.getId() + "] đã thực hiện ký trên tài liệu này rồi, không được phép ký đè lần 2!");
-                    }
-                    throw ex;
-                }
-                byte[] stampedPdfBytes = signResult.signedPdfBytes();
-                String newPdfReference = documentPdfStorageService.storeSignedPdf(
-                        stampedPdfBytes,
-                        "leader_signed_" + document.getId() + ".pdf",
-                        document.getId()
-                );
-                document.setPrimaryFilePath(newPdfReference);
-                signatureHash = signResult.outPdfSha256();
-                log.info("Đã tự động ký số hiển thị (Hiệu trưởng duyệt) cho văn bản id={}, người ký={}, hash={}",
-                        document.getId(), actor.getUsername(), signatureHash);
-            }
-        }
-
-        // Storage registers cleanup for transaction rollback.
-        workflowEngine.executeTransition(
-                document,
-                action,
-                actor,
-                request.getComment(),
-                request.getLeadershipInstruction(),
-                assignedOrg,
-                signatureHash
-        );
-
+        byte[] pdf = loadDocumentPdfBytes(document);
+        if (action == WorkflowAction.LEADER_APPROVE) signatureGuard.requireLeader(document, actor, pdf);
+        signatureGuard.requireInitial(document, actor,
+                action == WorkflowAction.REVIEW_APPROVE ? InitialSignStage.REVIEWER : InitialSignStage.LEADER, pdf);
+        OrgNode assignedOrg = request.getAssignedOrgNodeId() == null ? null : orgNodeRepository
+                .findByIdAndDeleteFlgFalse(request.getAssignedOrgNodeId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORG_NODE_NOT_FOUND));
+        workflowEngine.executeTransition(document, action, actor, request.getComment(),
+                request.getLeadershipInstruction(), assignedOrg, null);
         return mapToDetailResponse(document);
     }
 
-    private SignaturePosition resolveApproveSignaturePosition(DocumentApproveRequest request) {
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public DocumentDetailResponse leaderSign(Long documentId, DocumentLeaderSignRequest request) {
+        UserLogin actor = getCurrentActor();
+        Document document = findDocumentOrThrow(documentId);
+        workflowEngine.validateTransition(document, WorkflowAction.LEADER_SIGN, request.getComment());
+        validateActorAuthorization(document, actor, WorkflowAction.LEADER_SIGN);
+        byte[] pdf = loadDocumentPdfBytes(document);
+        String fullName = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(actor.getId())
+                .map(UserInfo::getFullName).orElse(actor.getUsername());
+        SignerTitleInfo title = resolveSignerTitleInfo(actor);
+        PdfSigner.SignResult result;
+        try {
+            result = pdfSigner.signVisibleBytes(pdf, actor.getId().toString(), fullName,
+                    title.title(), title.orgUnit(),
+                    request.getComment() == null || request.getComment().isBlank()
+                            ? "Hiệu trưởng ký phê duyệt văn bản" : request.getComment(),
+                    resolveApproveSignaturePosition(request));
+        } catch (DuplicateSignatureException e) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "Hiệu trưởng đã ký hình ảnh trên PDF này");
+        }
+        String reference = documentPdfStorageService.storeSignedPdf(result.signedPdfBytes(),
+                "leader_signed_" + documentId + ".pdf", documentId);
+        document.setPrimaryFilePath(reference);
+        if (document.getSigner() == null) document.setSigner(actor);
+        workflowEngine.executeTransition(document, WorkflowAction.LEADER_SIGN, actor,
+                request.getComment(), null, null, result.outPdfSha256());
+        return mapToDetailResponse(document);
+    }
+
+    private SignaturePosition resolveApproveSignaturePosition(DocumentLeaderSignRequest request) {
         if (request == null) {
             return new SignaturePosition(9999, 380f, 120f, 150f, 80f);
         }
@@ -262,17 +197,6 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 ? request.getSignatureHeight()
                 : 80f;
         return new SignaturePosition(page, x, y, width, height);
-    }
-
-    private byte[] loadDocumentPdfBytesSafely(Document document) {
-        try {
-            return loadDocumentPdfBytes(document);
-        } catch (BusinessException e) {
-            if (e.getErrorCode() == ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING) {
-                return null;
-            }
-            throw e;
-        }
     }
 
     private SignaturePosition resolveSignaturePosition(DocumentPublishRequest request) {
@@ -322,13 +246,14 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         UserLogin actor = getCurrentActor();
         Document document = findDocumentOrThrow(documentId);
 
-        // Kiểm tra thẩm quyền ký nháy TRƯỚC KHI xử lý file PDF nhằm tránh lãng phí tài nguyên CPU/IO
+        workflowEngine.validateTransition(document, WorkflowAction.INITIAL_SIGN, request.getComment());
         validateActorAuthorization(document, actor, WorkflowAction.INITIAL_SIGN);
+        InitialSignStage stage = InitialSignStage.fromStatus(document.getStatus());
 
         // 1. Kiểm tra file PDF nguồn: nếu chưa có file đính kèm chính thì báo lỗi
-        ensureDocumentPdfExists(document);
 
         byte[] currentPdfBytes = loadDocumentPdfBytes(document);
+        if (stage == InitialSignStage.LEADER) signatureGuard.requireLeader(document, actor, currentPdfBytes);
 
         // 2. Lấy thông tin người ký để cấp chứng thư hoặc ghi nhận danh tính
         String signerFullName = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(actor.getId())
@@ -345,11 +270,14 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 : "Ký nháy văn bản";
         PdfSigner.SignResult signResult;
         try {
-            signResult = pdfSigner.signBytes(
+            signResult = pdfSigner.signInitialBytes(
                     currentPdfBytes,
                     String.valueOf(actor.getId()),
-                    signerDisplayName,
-                    signReason
+                    signerFullName,
+                    titleInfo.title(),
+                    titleInfo.orgUnit(),
+                    signReason,
+                    stage
             );
         } catch (IllegalStateException ex) {
             if (ex.getMessage() != null && ex.getMessage().contains("User đã ký")) {
@@ -399,35 +327,20 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Ngày có hiệu lực (effectiveDate) không được trước ngày ban hành (issueDate)");
         }
 
-        // Nếu văn bản chưa có người ký được gán trước đó, gán actor làm signer tại thời điểm ký phát hành
-        if (document.getSigner() == null) {
-            document.setSigner(actor);
+        workflowEngine.validateTransition(document, WorkflowAction.SIGN_AND_PUBLISH, request.getComment());
+        if (document.getDocumentBook() == null || document.getOfficialNumber() == null
+                || document.getOfficialNumber().isBlank()) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "Văn thư phải cấp số từ sổ văn bản trước khi ký nháy và phát hành");
         }
 
         // Kiểm tra thẩm quyền ký phát hành TRƯỚC KHI xử lý ký số PKI nhằm tránh lãng phí tài nguyên
         validateActorAuthorization(document, actor, WorkflowAction.SIGN_AND_PUBLISH);
 
+        List<Long> recipientOrgIds = validateRecipients(request);
+
         // Kiểm tra file PDF nguồn TRƯỚC KHI cấp số và ký số: nếu chưa có file đính kèm chính thì báo lỗi
-        ensureDocumentPdfExists(document);
 
-        // 2. Cấp số chính thức qua Sổ văn bản (Pessimistic Write Lock) hoặc kế thừa số đã cấp
-        String officialNumber;
-        if (document.getOfficialNumber() != null && !document.getOfficialNumber().isBlank()) {
-            // Tự động kế thừa số hiệu đã được cấp từ sổ văn bản ở bước Cấp số (APPROVED)
-            officialNumber = document.getOfficialNumber();
-        } else if (request.getBookId() != null && documentBookService != null) {
-            AssignDocumentNumberRequest assignReq = new AssignDocumentNumberRequest();
-            assignReq.setBookId(request.getBookId());
-            assignReq.setDocumentId(documentId);
-            assignReq.setEffectiveDate(LocalDate.ofInstant(effectiveDate, ZONE_VN));
-
-            AssignDocumentNumberResponse numberResp = documentBookService.assignNumber(assignReq);
-            officialNumber = numberResp.getDocumentNumber();
-        } else if (request.getOfficialNumber() != null && !request.getOfficialNumber().isBlank()) {
-            officialNumber = request.getOfficialNumber();
-        } else {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "Bắt buộc chọn sổ văn bản để cấp số chính thức hoặc cấp số trước khi ban hành");
-        }
+        String officialNumber = document.getOfficialNumber();
 
         // Kiểm tra null/blank trước khi gọi .trim() để tránh NullPointerException
         if (!org.springframework.util.StringUtils.hasText(officialNumber)) {
@@ -447,6 +360,11 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
         // 3. Đọc file PDF nguồn
         byte[] currentPdfBytes = loadDocumentPdfBytes(document);
+        UserLogin leader = document.getSigner();
+        if (leader == null) throw new BusinessException(ErrorCode.BAD_REQUEST, "Văn bản chưa có người ký phê duyệt");
+        signatureGuard.requireLeader(document, leader, currentPdfBytes);
+        signatureGuard.requireInitial(document, leader, InitialSignStage.LEADER, currentPdfBytes);
+        signatureGuard.requireInitial(document, actor, InitialSignStage.CLERK, currentPdfBytes);
 
         // 4. Ký số điện tử PKI X.509 PAdES và đặt cờ niêm phong CERTIFIED_NO_CHANGES_ALLOWED
         SignerTitleInfo titleInfo = resolveSignerTitleInfo(actor);
@@ -457,31 +375,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 ? signerFullName + " - " + titleInfo.title()
                 : signerFullName;
 
-        // 4.1. Ký nháy của Cán bộ Văn thư trước khi phát hành chính thức
+        // Clerk initials were applied by the explicit initial-sign endpoint.
         byte[] pdfToCertify = currentPdfBytes;
-        try {
-            PdfSigner.SignResult initialSignResult = pdfSigner.signBytes(
-                    currentPdfBytes,
-                    actor.getId().toString(),
-                    signerDisplayName,
-                    "Văn thư ký nháy duyệt ban hành: " + officialNumber
-            );
-            if (initialSignResult == null || initialSignResult.signedPdfBytes() == null
-                    || initialSignResult.signedPdfBytes().length == 0) {
-                throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR,
-                        "Không nhận được tệp PDF đã ký nháy trước khi phát hành");
-            }
-            pdfToCertify = initialSignResult.signedPdfBytes();
-            log.info("Đã ký nháy duyệt ban hành cho văn bản id={}, người ký={}", document.getId(), actor.getUsername());
-        } catch (DuplicateSignatureException ex) {
-            log.info("Người dùng {} đã ký trên tài liệu id={}, tiếp tục ban hành niêm phong", actor.getUsername(), document.getId());
-        } catch (BusinessException ex) {
-            throw ex;
-        } catch (Exception ex) {
-            log.error("Lỗi ký nháy trước khi phát hành văn bản id={}", document.getId(), ex);
-            throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR,
-                    "Không thể thực hiện ký nháy trước khi phát hành");
-        }
 
         // 4.2. Ban hành chính thức kèm khóa niêm phong DocMDP (P=1: CERTIFIED_NO_CHANGES_ALLOWED)
         SignaturePosition pos = resolveSignaturePosition(request);
@@ -527,6 +422,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 null,
                 officialHash
         );
+
+        saveDistributions(document.getId(), request.getDistributionScope(), recipientOrgIds);
 
         return mapToDetailResponse(document);
     }
@@ -667,115 +564,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         return findActorOrThrow(getCurrentActorId());
     }
 
-    private void ensureDocumentPdfExists(Document document) {
-        if (document.getPrimaryFilePath() != null && !document.getPrimaryFilePath().isBlank()) {
-            return;
-        }
-        if (documentAttachmentRepository != null) {
-            List<DocumentAttachment> allAttachments = documentAttachmentRepository
-                    .findByDocumentIdAndDeleteFlgFalse(document.getId());
-
-            if (!allAttachments.isEmpty()) {
-                // 1) Kiểm tra xem có tệp đính kèm chính (isMainDocument == true) hay không
-                Optional<DocumentAttachment> mainAttachmentOpt = allAttachments.stream()
-                        .filter(att -> att != null && Boolean.TRUE.equals(att.isMainDocument()))
-                        .findFirst();
-
-                if (mainAttachmentOpt.isPresent()) {
-                    DocumentAttachment mainAtt = mainAttachmentOpt.get();
-                    if (!isPdfAttachment(mainAtt)) {
-                        throw new BusinessException(ErrorCode.BAD_REQUEST,
-                                "Tệp đính kèm chính của văn bản không phải định dạng PDF. Ký nháy/ký số yêu cầu tệp chính phải là định dạng PDF.");
-                    }
-                    return;
-                }
-
-                // 2) Nếu không có tệp chính được chỉ định, kiểm tra có ít nhất một tệp PDF hợp lệ
-                boolean hasPdfAttachment = allAttachments.stream().anyMatch(this::isPdfAttachment);
-                if (!hasPdfAttachment) {
-                    throw new BusinessException(ErrorCode.BAD_REQUEST,
-                            "Văn bản đã có tệp đính kèm nhưng không phải định dạng PDF. Ký nháy/ký số chỉ hỗ trợ tệp định dạng PDF.");
-                }
-                return;
-            }
-        }
-        throw new BusinessException(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING);
-    }
-
-    private boolean isPdfAttachment(DocumentAttachment att) {
-        if (att == null) {
-            return false;
-        }
-        return "PDF".equalsIgnoreCase(att.getFileExtension()) ||
-                (att.getOriginalFileName() != null && att.getOriginalFileName().toLowerCase().endsWith(".pdf"));
-    }
-
     private byte[] loadDocumentPdfBytes(Document document) {
-        // An existing working version is authoritative: never fall back to an unsigned attachment.
-        if (document.getPrimaryFilePath() != null && !document.getPrimaryFilePath().isBlank()) {
-            return documentPdfStorageService.readPdf(document.getPrimaryFilePath());
-        }
-
-        // 2. Thử nạp từ tệp đính kèm DocumentAttachment qua unifiedStorageService (Telegram/filesystem)
-        if (documentAttachmentRepository != null) {
-            List<DocumentAttachment> allAttachments = documentAttachmentRepository
-                    .findByDocumentIdAndDeleteFlgFalse(document.getId());
-
-            if (!allAttachments.isEmpty()) {
-                // 1) Kiểm tra xem có tệp đính kèm chính (isMainDocument == true) hay không
-                Optional<DocumentAttachment> mainAttachmentOpt = allAttachments.stream()
-                        .filter(att -> att != null && Boolean.TRUE.equals(att.isMainDocument()))
-                        .findFirst();
-
-                DocumentAttachment targetAttachment;
-                if (mainAttachmentOpt.isPresent()) {
-                    DocumentAttachment mainAtt = mainAttachmentOpt.get();
-                    if (!isPdfAttachment(mainAtt)) {
-                        throw new BusinessException(ErrorCode.BAD_REQUEST,
-                                "Tệp đính kèm chính của văn bản không phải định dạng PDF. Ký nháy/ký số yêu cầu tệp chính phải là định dạng PDF.");
-                    }
-                    targetAttachment = mainAtt;
-                } else {
-                    // 2) Nếu không có tệp chính được chỉ định, tìm tệp PDF đầu tiên trong danh sách
-                    targetAttachment = allAttachments.stream()
-                            .filter(this::isPdfAttachment)
-                            .findFirst()
-                            .orElse(null);
-
-                    if (targetAttachment == null) {
-                        throw new BusinessException(ErrorCode.BAD_REQUEST,
-                                "Văn bản đã có tệp đính kèm nhưng không phải định dạng PDF. Ký nháy/ký số chỉ hỗ trợ tệp định dạng PDF.");
-                    }
-                }
-
-                if (unifiedStorageService != null) {
-                    try {
-                        org.springframework.core.io.Resource res = unifiedStorageService.loadAsResource(
-                                targetAttachment.getStoragePath(), targetAttachment.getStorageFileName()
-                        );
-                        if (res != null && res.exists() && res.isReadable()) {
-                            try (java.io.InputStream is = res.getInputStream()) {
-                                byte[] bytes = is.readAllBytes();
-                                if (bytes.length > 0) {
-                                    return bytes;
-                                }
-                            }
-                        } else {
-                            log.error("Tệp đính kèm PDF id={} (storagePath={}, storageFileName={}) không tồn tại hoặc không thể đọc trên hệ thống lưu trữ",
-                                    targetAttachment.getId(), targetAttachment.getStoragePath(), targetAttachment.getStorageFileName());
-                        }
-                    } catch (Exception e) {
-                        log.error("Lỗi khi đọc tệp đính kèm PDF id={}: {}", targetAttachment.getId(), e.getMessage(), e);
-                    }
-                }
-
-                // Trường hợp 2: Có tệp đính kèm PDF hợp lệ nhưng không thể nạp nội dung từ storage
-                throw new BusinessException(ErrorCode.STORAGE_ERROR,
-                        "Không thể tải nội dung tệp PDF đính kèm từ hệ thống lưu trữ. Vui lòng thử lại sau.");
-            }
-        }
-
-        throw new BusinessException(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING);
+        return workingPdf.read(document);
     }
 
     /**
@@ -916,8 +706,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                         .id(log.getId())
                         .documentId(log.getDocument() != null ? log.getDocument().getId() : null)
                         .actorUsername(log.getActor() != null ? log.getActor().getUsername() : null)
-                        .actorRole(log.getActor() != null && log.getActor().getRole() != null 
-                        ? log.getActor().getRole().name() 
+                        .actorRole(log.getActor() != null && log.getActor().getRole() != null
+                        ? log.getActor().getRole().name()
                         : null)
                         .action(log.getAction() != null ? log.getAction().name() : null)
                         .comment(log.getComment())
@@ -935,8 +725,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
     @Override
     public void verifyUserCanAccessDocument(Long documentId, org.springframework.security.core.Authentication authentication) {
-        if (authentication == null 
-                || !authentication.isAuthenticated() 
+        if (authentication == null
+                || !authentication.isAuthenticated()
                 || authentication instanceof org.springframework.security.authentication.AnonymousAuthenticationToken) {
             throw new org.springframework.security.access.AccessDeniedException("Yêu cầu xác thực người dùng");
         }
@@ -1228,4 +1018,115 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
         return mapToDetailResponse(document);
     }
+    private void saveDistributions(Long documentId, DistributionScope scope, List<Long> recipientOrgIds) {
+        if (scope == DistributionScope.ALL) {
+            distributionRepository.save(DocumentDistribution.builder()
+                    .documentId(documentId)
+                    .targetType("ALL")
+                    .targetId(null)
+                    .isRead(false)
+                    .build());
+            return;
+        }
+
+        List<DocumentDistribution> distributions = recipientOrgIds.stream()
+                .map(orgId -> DocumentDistribution.builder()
+                        .documentId(documentId)
+                        .targetType("ORG")
+                        .targetId(orgId)
+                        .isRead(false)
+                        .build())
+                .toList();
+        distributionRepository.saveAll(distributions);
+    }
+
+    private List<Long> validateRecipients(DocumentPublishRequest request) {
+        if (request == null || request.getDistributionScope() == null) {
+            throw new BusinessException(
+                    ErrorCode.BAD_REQUEST,
+                    "Phải chọn phạm vi phát hành"
+            );
+        }
+
+        DistributionScope scope = request.getDistributionScope();
+        List<Long> supplied = request.getRecipientOrgIds();
+        boolean hasSupplied = supplied != null && !supplied.isEmpty();
+
+        // 1. Toàn trường: không kèm danh sách đơn vị.
+        if (scope == DistributionScope.ALL) {
+            if (hasSupplied) {
+                throw new BusinessException(
+                        ErrorCode.BAD_REQUEST,
+                        "Phát hành toàn trường thì không chọn thêm đơn vị nhận"
+                );
+            }
+            return List.of();
+        }
+
+        // 2. Một hoặc nhiều đơn vị: bắt buộc có danh sách.
+        if (!hasSupplied) {
+            throw new BusinessException(
+                    ErrorCode.BAD_REQUEST,
+                    "Phải chọn đơn vị nhận"
+            );
+        }
+
+        if (supplied.size() > MAX_RECIPIENTS) {
+            throw new BusinessException(
+                    ErrorCode.BAD_REQUEST,
+                    "Danh sách nơi nhận không được vượt quá "
+                            + MAX_RECIPIENTS + " phần tử"
+            );
+        }
+
+        if (supplied.stream().anyMatch(id -> id == null || id <= 0)) {
+            throw new BusinessException(
+                    ErrorCode.BAD_REQUEST,
+                    "ID đơn vị nhận không hợp lệ"
+            );
+        }
+
+        // Loại ID trùng trước khi đếm số đơn vị.
+        List<Long> recipientIds =
+                new ArrayList<>(new LinkedHashSet<>(supplied));
+
+        // 3. Chọn một đơn vị: phải có đúng một ID khác nhau.
+        if (scope == DistributionScope.SINGLE_ORG
+                && recipientIds.size() != 1) {
+            throw new BusinessException(
+                    ErrorCode.BAD_REQUEST,
+                    "Phải chọn đúng một đơn vị nhận"
+            );
+        }
+
+        // 4. Chọn nhiều đơn vị: phải có ít nhất hai ID khác nhau.
+        if (scope == DistributionScope.MULTIPLE_ORGS
+                && recipientIds.size() < 2) {
+            throw new BusinessException(
+                    ErrorCode.BAD_REQUEST,
+                    "Phải chọn ít nhất hai đơn vị nhận khác nhau"
+            );
+        }
+
+        // 5. Kiểm tra các đơn vị tồn tại và chưa bị xóa.
+        Set<Long> foundIds = orgNodeRepository
+                .findByIdInAndDeleteFlgFalse(recipientIds)
+                .stream()
+                .map(OrgNode::getId)
+                .collect(Collectors.toSet());
+
+        List<Long> missing = recipientIds.stream()
+                .filter(id -> !foundIds.contains(id))
+                .toList();
+
+        if (!missing.isEmpty()) {
+            throw new BusinessException(
+                    ErrorCode.ORG_NODE_NOT_FOUND,
+                    "Không tìm thấy đơn vị nhận: " + missing
+            );
+        }
+
+        return recipientIds;
+    }
+
 }

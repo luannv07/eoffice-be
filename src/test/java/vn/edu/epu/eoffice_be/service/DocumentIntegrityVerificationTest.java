@@ -14,7 +14,6 @@ import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.entity.Document;
-import vn.edu.epu.eoffice_be.repository.DocumentDistributionRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService;
 
@@ -30,7 +29,6 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class DocumentIntegrityVerificationTest {
     @Mock DocumentRepository documents;
-    @Mock DocumentDistributionRepository distributions;
     @Mock DocumentPdfStorageService storage;
     @InjectMocks DocumentPublishService service;
 
@@ -40,10 +38,21 @@ class DocumentIntegrityVerificationTest {
     @Test
     void rejectsMissingPdfStorageAtConstruction() {
         NullPointerException exception = assertThrows(NullPointerException.class,
-                () -> new DocumentPublishService(documents, distributions, null, null));
+                () -> new DocumentPublishService(documents, null));
 
         assertEquals("documentPdfStorageService must not be null", exception.getMessage());
-        verifyNoInteractions(documents, distributions, storage);
+        verifyNoInteractions(documents, storage);
+    }
+
+    @Test
+    void retiredPublishAuthorityDoesNotGrantAccessToAnotherUsersDraft() {
+        Document draft = Document.builder().id(5001L).status(DocumentStatus.DRAFT).build();
+        when(documents.findById(5001L)).thenReturn(Optional.of(draft));
+        Authentication legacyAuthority = new UsernamePasswordAuthenticationToken("tester", null,
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("DOCUMENT_PUBLISH")));
+
+        assertThrows(AccessDeniedException.class, () -> service.verifyIntegrity(5001L, legacyAuthority));
+        verifyNoInteractions(storage);
     }
 
     @Test

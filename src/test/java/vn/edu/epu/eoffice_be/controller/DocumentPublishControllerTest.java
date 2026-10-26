@@ -15,8 +15,6 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import vn.edu.epu.eoffice_be.common.exception.GlobalExceptionHandler;
-import vn.edu.epu.eoffice_be.dto.PublishRequest;
-import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.service.DocumentPublishService;
 
 import java.util.List;
@@ -51,21 +49,16 @@ class DocumentPublishControllerTest {
     }
 
     @Test
-    void testPublishDocumentEndpoint() throws Exception {
-        Document doc = new Document();
-        doc.setId(1L);
-        doc.setStatus("PUBLISHED");
-
-        when(publishService.publishDocument(eq(1L), any(PublishRequest.class))).thenReturn(doc);
-
+    void removedPublishEndpointHasNoHandler() throws Exception {
         String rawJson = "{\"issueDate\":\"2026-09-12\",\"isPublicToAll\":true}";
 
         mockMvc.perform(post("/documents/1/publish")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(rawJson))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("PUBLISHED"))
-                .andExpect(jsonPath("$.statusDescription").value(vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED.getDescription()));
+                .andExpect(result -> assertTrue(result.getResolvedException()
+                        instanceof org.springframework.web.servlet.NoHandlerFoundException));
+
+        verifyNoInteractions(publishService);
     }
 
     @Test

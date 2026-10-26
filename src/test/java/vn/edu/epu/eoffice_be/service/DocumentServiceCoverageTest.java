@@ -13,7 +13,6 @@ import org.springframework.data.domain.Pageable;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
 import vn.edu.epu.eoffice_be.controller.DocumentWorkflowController;
-import vn.edu.epu.eoffice_be.dto.PublishRequest;
 import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.entity.DocumentDistribution;
@@ -270,28 +269,6 @@ class DocumentServiceCoverageTest {
     }
 
     @Test
-    void testPublishDocument() {
-        Document doc = new Document();
-        doc.setId(1L);
-
-        when(documentRepository.findById(1L)).thenReturn(Optional.of(doc));
-        when(documentRepository.save(any(Document.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        PublishRequest req = new PublishRequest();
-        req.setIssueDate(LocalDate.now());
-
-        stubOfficialPdf(doc);
-        Document result = documentPublishService.publishDocument(1L, req);
-        assertNotNull(result);
-        assertEquals("01/QĐ-ĐHL", result.getOfficialNumber());
-        assertEquals("PUBLISHED", String.valueOf(result.getStatus()));
-        assertNotNull(result.getOfficialHash());
-
-        when(documentRepository.findById(2L)).thenReturn(Optional.empty());
-        assertThrows(BusinessException.class, () -> documentPublishService.publishDocument(2L, req));
-    }
-
-    @Test
     void testDocumentWorkflowService_Coverage() {
         Document doc1 = new Document();
         doc1.setId(1L);
@@ -413,22 +390,6 @@ class DocumentServiceCoverageTest {
     }
 
     @Test
-    void testDocumentPublishService_NullEdgeCases() {
-        Document doc = new Document();
-        doc.setId(10L);
-        doc.setStatus(DocumentStatus.DRAFT);
-
-        when(documentRepository.findById(10L)).thenReturn(Optional.of(doc));
-        when(documentRepository.save(any(Document.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        stubOfficialPdf(doc);
-        Document published = documentPublishService.publishDocument(10L, null);
-        assertNotNull(published);
-        assertEquals("10/QĐ-ĐHL", published.getOfficialNumber());
-        assertEquals("PUBLISHED", String.valueOf(published.getStatus()));
-    }
-
-    @Test
     void testWorkflowPagination_SubListBranches() {
         // Test Controller gọi phương thức phân trang của service và trả về Page
         DocumentWorkflowService mockWf = mock(DocumentWorkflowService.class);
@@ -448,33 +409,17 @@ class DocumentServiceCoverageTest {
     }
 
     @Test
-    void testDocumentPublishService_ExceptionAndEdgeBranches() throws Exception {
-        // Test nhánh tính SHA-256 từ file thật hợp lệ
-        File realTempFile = File.createTempFile("coverage_real_doc", ".pdf");
-        realTempFile.deleteOnExit();
-        Files.write(realTempFile.toPath(), "Content for hashing coverage".getBytes());
-
-        Document docWithRealFile = new Document();
-        docWithRealFile.setId(77L);
-        docWithRealFile.setOfficialFilePath(realTempFile.getAbsolutePath());
-        when(documentPdfStorageService.readPdf(realTempFile.getAbsolutePath())).thenReturn(Files.readAllBytes(realTempFile.toPath()));
-
-        when(documentRepository.findById(77L)).thenReturn(Optional.of(docWithRealFile));
-        when(documentRepository.save(any(Document.class))).thenAnswer(i -> i.getArgument(0));
-
-        PublishRequest req = new PublishRequest();
-        req.setIssueDate(LocalDate.now());
-
-        Document result = documentPublishService.publishDocument(77L, req);
-        assertNotNull(result);
-        assertNotNull(result.getOfficialHash());
-
-        // Test nhánh verifyIntegrity khi file không tồn tại gây exception lúc tính hash
-        docWithRealFile.setOfficialFilePath("non_existent_folder/non_existent_file.pdf");
-        docWithRealFile.setOfficialHash("somehash123");
-        Authentication auth = new UsernamePasswordAuthenticationToken("tester", null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
-        when(documentPdfStorageService.readPdf("non_existent_folder/non_existent_file.pdf")).thenThrow(
+    void testVerifyIntegrity_MissingOfficialFile() {
+        Document document = new Document();
+        document.setId(77L);
+        document.setStatus(DocumentStatus.PUBLISHED);
+        document.setOfficialFilePath("missing.pdf");
+        document.setOfficialHash("somehash123");
+        when(documentRepository.findById(77L)).thenReturn(Optional.of(document));
+        when(documentPdfStorageService.readPdf("missing.pdf")).thenThrow(
                 new BusinessException(vn.edu.epu.eoffice_be.common.enums.ErrorCode.DOCUMENT_PDF_NOT_FOUND));
+        Authentication auth = new UsernamePasswordAuthenticationToken("tester", null,
+                List.of(new SimpleGrantedAuthority("ROLE_USER")));
         assertThrows(BusinessException.class, () -> documentPublishService.verifyIntegrity(77L, auth));
     }
 
@@ -667,34 +612,6 @@ class DocumentServiceCoverageTest {
     }
 
     @Test
-    void testPublishDocument_WithOrgTargetsBranch() {
-        Document doc = new Document();
-        doc.setId(25L);
-        doc.setStatus(DocumentStatus.DRAFT);
-
-        when(documentRepository.findById(25L)).thenReturn(Optional.of(doc));
-        when(documentRepository.save(any(Document.class))).thenAnswer(i -> i.getArgument(0));
-
-        PublishRequest req = new PublishRequest();
-        req.setIsPublicToAll(false);
-        try {
-            var setTargets = req.getClass().getMethod("setTargetIds", List.class);
-            setTargets.invoke(req, List.of(101L, 102L));
-        } catch (ReflectiveOperationException ignored) {
-            try {
-                var setOrg = req.getClass().getMethod("setOrgIds", List.class);
-                setOrg.invoke(req, List.of(101L, 102L));
-            } catch (ReflectiveOperationException ignored2) {
-                // PublishRequest không có danh sách targets
-            }
-        }
-
-        stubOfficialPdf(doc);
-        Document published = documentPublishService.publishDocument(25L, req);
-        assertNotNull(published);
-    }
-
-    @Test
     void testDocumentWorkflowController_GetTimelineEndpoint() {
         DocumentWorkflowService mockWorkflow = mock(DocumentWorkflowService.class);
         DocumentWorkflowController controller = new DocumentWorkflowController(mockWorkflow);
@@ -755,25 +672,6 @@ class DocumentServiceCoverageTest {
     }
 
     @Test
-    void testPublishDocument_NullDatesFallback() {
-        Document doc = new Document();
-        doc.setId(90L);
-        when(documentRepository.findById(90L)).thenReturn(Optional.of(doc));
-        when(documentRepository.save(any(Document.class))).thenAnswer(i -> i.getArgument(0));
-
-        PublishRequest req = new PublishRequest();
-        req.setIssueDate(null);
-        req.setEffectiveDate(null);
-        req.setIsPublicToAll(true);
-
-        stubOfficialPdf(doc);
-        Document result = documentPublishService.publishDocument(90L, req);
-        assertNotNull(result);
-        assertNotNull(result.getIssueDate());
-        assertEquals("PUBLISHED", String.valueOf(result.getStatus()));
-    }
-
-    @Test
     void testCalculateSha256_WithLargeTempFile() throws Exception {
         java.io.File tempFile = java.io.File.createTempFile("large_test_doc", ".pdf");
         tempFile.deleteOnExit();
@@ -788,34 +686,12 @@ class DocumentServiceCoverageTest {
         when(documentPdfStorageService.readPdf(tempFile.getAbsolutePath())).thenReturn(Files.readAllBytes(tempFile.toPath()));
 
         when(documentRepository.findById(999L)).thenReturn(Optional.of(doc));
-        when(documentRepository.save(any(Document.class))).thenAnswer(i -> i.getArgument(0));
 
-        PublishRequest req = new PublishRequest();
-        req.setIsPublicToAll(true);
-
-        Document published = documentPublishService.publishDocument(999L, req);
-        assertNotNull(published.getOfficialHash());
-
-        doc.setOfficialHash(published.getOfficialHash());
+        doc.setStatus(DocumentStatus.PUBLISHED);
+        doc.setOfficialHash(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                .digest(Files.readAllBytes(tempFile.toPath()))));
         Authentication auth = new UsernamePasswordAuthenticationToken("tester", null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
         assertTrue(documentPublishService.verifyIntegrity(999L, auth));
-    }
-
-    @Test
-    void testCalculateSha256_MissingFileStopsPublication() {
-        Document doc = new Document();
-        doc.setId(301L);
-        doc.setOfficialFilePath(null);
-
-        when(documentRepository.findById(301L)).thenReturn(Optional.of(doc));
-
-        PublishRequest req = new PublishRequest();
-        req.setIsPublicToAll(true);
-
-        when(documentPdfStorageService.readPdf(null)).thenThrow(
-                new BusinessException(vn.edu.epu.eoffice_be.common.enums.ErrorCode.DOCUMENT_PDF_NOT_FOUND));
-        assertThrows(BusinessException.class, () -> documentPublishService.publishDocument(301L, req));
-        verify(documentRepository, never()).save(any());
     }
 
     @Test
@@ -864,24 +740,6 @@ class DocumentServiceCoverageTest {
     }
 
     @Test
-    void testCalculateSha256_ExceptionOnRead() {
-        java.io.File tempDir = new java.io.File(System.getProperty("java.io.tmpdir"));
-        Document doc = new Document();
-        doc.setId(888L);
-        doc.setOfficialFilePath(tempDir.getAbsolutePath());
-
-        when(documentRepository.findById(888L)).thenReturn(Optional.of(doc));
-
-        PublishRequest req = new PublishRequest();
-        req.setIsPublicToAll(true);
-
-        when(documentPdfStorageService.readPdf(tempDir.getAbsolutePath())).thenThrow(
-                new BusinessException(vn.edu.epu.eoffice_be.common.enums.ErrorCode.DOCUMENT_PDF_NOT_FOUND));
-        assertThrows(BusinessException.class, () -> documentPublishService.publishDocument(888L, req));
-        verify(documentRepository, never()).save(any());
-    }
-
-    @Test
     void testDocumentWorkflowService_EmptyPendingList() {
         when(documentRepository.findByStatusInAndDeleteFlgFalse(anyList()))
                 .thenReturn(Collections.emptyList());
@@ -889,26 +747,6 @@ class DocumentServiceCoverageTest {
         var pending = documentWorkflowService.getPendingDocuments();
         assertNotNull(pending);
         assertTrue(pending.isEmpty());
-    }
-
-    @Test
-    void testPublishDocument_WithExistingOrgDistributions() {
-        Document doc = new Document();
-        doc.setId(505L);
-        doc.setStatus(DocumentStatus.APPROVED);
-
-        when(documentRepository.findById(505L)).thenReturn(Optional.of(doc));
-        when(documentRepository.save(any(Document.class))).thenAnswer(i -> i.getArgument(0));
-
-        PublishRequest req = new PublishRequest();
-        req.setIsPublicToAll(false);
-        req.setIssueDate(LocalDate.now());
-        req.setEffectiveDate(LocalDate.now().plusMonths(1));
-
-        stubOfficialPdf(doc);
-        Document result = documentPublishService.publishDocument(505L, req);
-        assertNotNull(result);
-        assertEquals("PUBLISHED", String.valueOf(result.getStatus()));
     }
 
     @Test
@@ -923,13 +761,10 @@ class DocumentServiceCoverageTest {
         when(documentPdfStorageService.readPdf(tempFile.getAbsolutePath())).thenReturn(Files.readAllBytes(tempFile.toPath()));
 
         when(documentRepository.findById(606L)).thenReturn(Optional.of(doc));
-        when(documentRepository.save(any(Document.class))).thenAnswer(i -> i.getArgument(0));
 
-        PublishRequest req = new PublishRequest();
-        req.setIsPublicToAll(true);
-        Document published = documentPublishService.publishDocument(606L, req);
-
-        doc.setOfficialHash(published.getOfficialHash());
+        doc.setStatus(DocumentStatus.PUBLISHED);
+        doc.setOfficialHash(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                .digest(Files.readAllBytes(tempFile.toPath()))));
         Authentication auth = new UsernamePasswordAuthenticationToken("tester", null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
         assertTrue(documentPublishService.verifyIntegrity(606L, auth));
 
@@ -1182,11 +1017,6 @@ class DocumentServiceCoverageTest {
         Authentication invalidPrincipalAuth = new UsernamePasswordAuthenticationToken(
                 new CustomStringPrincipal("non_numeric"), null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
         assertThrows(AccessDeniedException.class, () -> documentWorkflowService.verifyUserCanAccessDocument(600L, invalidPrincipalAuth));
-    }
-    private void stubOfficialPdf(Document document) {
-        document.setOfficialFilePath("storage://" + document.getId());
-        when(documentPdfStorageService.readPdf(document.getOfficialFilePath()))
-                .thenReturn("Test PDF fixture".getBytes(StandardCharsets.UTF_8));
     }
 
 }

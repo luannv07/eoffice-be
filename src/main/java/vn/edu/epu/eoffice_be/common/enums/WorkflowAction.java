@@ -8,6 +8,7 @@ public enum WorkflowAction {
     REVIEW_APPROVE("Duyệt chuyển tiếp"),
     REQUEST_REVISION("Yêu cầu chỉnh sửa"),
     INITIAL_SIGN("Ký nháy văn bản"),
+    LEADER_SIGN("Lãnh đạo ký hình ảnh"),
     LEADER_APPROVE("Lãnh đạo phê duyệt"),
     SIGN_AND_PUBLISH("Ký phát hành chính thức"),
     REJECT("Từ chối phê duyệt"),

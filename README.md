@@ -23,7 +23,7 @@ Hệ thống chuẩn hóa luồng xử lý văn bản khép kín qua các trạn
 * `DRAFT` (Dự thảo) $\rightarrow$ `IN_REVIEW` (Đang thẩm định & ký nháy).
 * `IN_REVIEW` $\rightarrow$ `PENDING_APPROVAL` (Thẩm định viên duyệt chuyển tiếp lên Lãnh đạo).
 * `PENDING_APPROVAL` $\rightarrow$ `APPROVED` (Hiệu trưởng phê duyệt thông qua nội dung).
-* `APPROVED` $\rightarrow$ `PUBLISHED` (Hiệu trưởng ký số phát hành chính thức, cấp số từ Sổ văn bản).
+* `APPROVED` $\rightarrow$ `PUBLISHED` (Văn thư đã cấp số và ký nháy, sau đó ký niêm phong và phân phối).
 * **Cơ chế Trả về (`NEEDS_REVISION`) & Từ chối (`REJECTED`)**:
   * Tự động **đóng băng tệp PDF cũ** (`primaryFilePath = null`, hủy cờ `isMainDocument`).
   * Bắt buộc người soạn phải tải lên tệp sửa đổi mới (v2) trước khi gửi duyệt lại (`DOCUMENT_INCOMPLETE_DOSSIER`).
@@ -186,7 +186,7 @@ Sau khi khởi động thành công:
 | :--- | :--- | :--- | :--- |
 | **`systemadmin`** | `SYSTEM_ADMIN` | Quản trị hệ thống | Quản trị toàn quyền, tạo sổ văn bản, điều phối luồng |
 | **`cb.thamdinh`** | `REVIEWER` | Trưởng phòng (`TP`) - EPU | Thẩm định văn bản, ký nháy lần 2, duyệt chuyển tiếp (`approve`), trả về (`request-revision`), từ chối (`reject`) |
-| **`ht.nguyen`** | `LEADER` | Hiệu trưởng (`HT`) - EPU | Lãnh đạo phê duyệt (`approve`), Ký số PKI và phát hành chính thức (`sign-and-publish`) |
+| **`ht.nguyen`** | `LEADER` | Hiệu trưởng (`HT`) - EPU | Ký hình ảnh (`leader-sign`), ký nháy (`initial-sign`), xác nhận chuyển văn thư (`approve`) |
 
 ---
 
@@ -224,56 +224,94 @@ Sau khi khởi động thành công:
   * `file`: Chọn file PDF từ máy tính
   * `isMain`: `true`
 
-### Bước 4: Chuyên viên gửi thẩm định (`DRAFT` $\rightarrow$ `IN_REVIEW`)
-* **POST** `http://localhost:8080/api/v1/documents/{id}/submit-approval`
-* **Body**:
-  ```json
-  {
-    "approverUserId": 11753,
-    "submitNote": "Kính gửi Thẩm định viên xem xét duyệt bản dự thảo"
-  }
-  ```
+### Bước 4: Người soạn ký nháy rồi gửi duyệt
 
-### Bước 5: Cán bộ thẩm định duyệt chuyển tiếp (`IN_REVIEW` $\rightarrow$ `PENDING_APPROVAL`)
-* **POST** `http://localhost:8080/api/v1/documents/{id}/workflow/approve`
-* **Headers**: `Authorization: Bearer <TOKEN_CỦA_CB_THAMDINH>`
-* **Body**:
-  ```json
-  {
-    "comment": "Đã thẩm định xong nội dung, kính chuyển Hiệu trưởng phê duyệt"
-  }
-  ```
+1. Với token người soạn, **POST** `/api/v1/documents/{id}/workflow/initial-sign`, body `{}` hoặc `{"comment":"Đã rà soát dự thảo"}`. Trạng thái vẫn `DRAFT`.
+2. **POST** `/api/v1/documents/{id}/submit-approval`:
 
-### Bước 6: Hiệu trưởng phê duyệt nội dung (`PENDING_APPROVAL` $\rightarrow$ `APPROVED`)
-* **POST** `http://localhost:8080/api/v1/documents/{id}/workflow/approve`
-* **Headers**: `Authorization: Bearer <TOKEN_CỦA_HT_NGUYEN>`
-* **Body**:
-  ```json
-  {
-    "comment": "Hiệu trưởng đồng ý phê duyệt kế hoạch"
-  }
-  ```
+```json
+{
+  "approverUserId": 11753,
+  "submitNote": "Kính gửi cán bộ thẩm định"
+}
+```
 
-### Bước 7: Hiệu trưởng Ký số và Ban hành (`APPROVED` $\rightarrow$ `PUBLISHED`)
-* **POST** `http://localhost:8080/api/v1/documents/{id}/workflow/sign-and-publish`
-* **Headers**: `Authorization: Bearer <TOKEN_CỦA_HT_NGUYEN>`
-* **Body**:
-  ```json
-  {
-    "bookId": 6006,
-    "comment": "Ký duyệt và ban hành văn bản chính thức"
-  }
-  ```
-  *(Sổ Kế hoạch: `bookId = 6006`, Sổ Quyết định: `bookId = 6001`)*.
+Gửi duyệt chỉ chuyển `DRAFT` → `IN_REVIEW`; không tự ký. Cần tệp chính định dạng PDF.
 
-### Bước 8: Kiểm định chữ ký số trên tài liệu vừa ban hành
-* **GET** `http://localhost:8080/api/v1/documents/{id}/signatures/verify`
-* **Headers**: `Authorization: Bearer <TOKEN>`
-* *Trả về chi tiết 7 tiêu chí bảo mật, danh tính người ký, chuỗi CA và đánh giá `overallStatus: VALID`.*
+### Bước 5: Cán bộ thẩm định ký nháy rồi chuyển hiệu trưởng
 
-### Bước 9: Tải tệp PDF chính thức đã ký số
-* **GET** `http://localhost:8080/api/v1/documents/{id}/download`
-* **Headers**: `Authorization: Bearer <TOKEN>`
+Với token cán bộ thẩm định:
+
+1. **POST** `/api/v1/documents/{id}/workflow/initial-sign`, body `{}`. Giữ `IN_REVIEW`.
+2. **POST** `/api/v1/documents/{id}/workflow/approve`, body `{"comment":"Đã thẩm định, kính trình Hiệu trưởng"}`. Chuyển sang `PENDING_APPROVAL` mà không ký PDF thêm.
+
+### Bước 6: Hiệu trưởng ký hình ảnh, ký nháy rồi chuyển văn thư
+
+Với token hiệu trưởng được chỉ định, có quyền phê duyệt và ký chính thức tại đơn vị:
+
+1. **POST** `/api/v1/documents/{id}/workflow/leader-sign`:
+
+```json
+{
+  "comment": "Đồng ý nội dung",
+  "signaturePage": 1,
+  "signatureX": 380,
+  "signatureY": 120,
+  "signatureWidth": 150,
+  "signatureHeight": 80
+}
+```
+
+Các trường vị trí là tùy chọn: mặc định trang cuối, X=380, Y=120, rộng=150, cao=80. Dùng nguồn ảnh cấu hình hiện tại; không có ảnh thì dùng khung thông tin ký.
+
+2. **POST** `/api/v1/documents/{id}/workflow/initial-sign`, body `{}`.
+3. **POST** `/api/v1/documents/{id}/workflow/approve`, body `{"comment":"Chuyển văn thư cấp số và ban hành"}`.
+
+Hai bước ký giữ `PENDING_APPROVAL`. Chỉ bước xác nhận cuối chuyển sang `APPROVED`. Request duyệt không còn nhận vị trí chữ ký.
+
+### Bước 7: Văn thư cấp số, ký nháy rồi phát hành
+
+Với token văn thư (hoặc tài khoản có quyền cấp số theo chính sách hiện tại):
+
+1. **POST** `/api/v1/document-books/assign-number`:
+
+```json
+{
+  "bookId": 6006,
+  "documentId": 2001,
+  "effectiveDate": "2026-10-27"
+}
+```
+
+Thay ID bằng dữ liệu thật; năm hiệu lực phải khớp năm sổ. Cấp số giữ `APPROVED`, không ký PDF.
+
+2. **POST** `/api/v1/documents/{id}/workflow/initial-sign`, body `{}`. Giữ `APPROVED`.
+3. **POST** `/api/v1/documents/{id}/workflow/sign-and-publish`:
+
+```json
+{
+  "distributionScope": "ALL",
+  "recipientOrgIds": [],
+  "comment": "Văn thư niêm phong và phát hành"
+}
+```
+
+Phát hành không nhận `bookId`/`officialNumber`, không tự cấp số và không tự ký nháy. Nó kiểm tra chữ ký hiệu trưởng, ký nháy văn thư trên PDF hiện tại, ký niêm phong cuối rồi chuyển `PUBLISHED` và lưu nơi nhận trong cùng transaction. `document.signer` vẫn là hiệu trưởng.
+
+Có thể dùng `SINGLE_ORG` với đúng một ID hoặc `MULTIPLE_ORGS` với ít nhất hai ID đơn vị khác nhau. Người nhận tra cứu bằng **GET** `/api/v1/documents/published`.
+
+### Bước 8: Kiểm định chữ ký và tải PDF chính thức
+
+- **GET** `/api/v1/documents/{id}/signatures/verify`: kiểm định chữ ký số.
+- **GET** `/api/v1/documents/{id}/verify-integrity`: đối chiếu SHA-256 bản chính thức.
+- **GET** `/api/v1/documents/{id}/download`: tải PDF chính thức theo quyền truy cập.
+
+### Quy tắc phiên bản và chữ ký cũ
+
+- Mọi thao tác chuyển tiếp yêu cầu đúng người đã ký đúng giai đoạn trên bản PDF đang xử lý. Có log cũ hoặc đường dẫn PDF chưa đủ chứng minh đã ký.
+- Tải lên tệp chính mới hoặc xóa tệp chính sẽ bỏ tham chiếu PDF đã ký cũ. Khôi phục snapshot nội dung yêu cầu tải lên PDF chính tương ứng rồi ký lại.
+- Chữ ký cũ chỉ được tính khi kiểm định mật mã và đối chiếu được lịch sử, giai đoạn, hash của phiên bản đã ký. Hồ sơ cũ thiếu chữ ký cần thiết phải được trả sửa và đi lại luồng; không tự tạo chữ ký bù.
+- Frontend cần các nút ký và chuyển riêng; không dùng hành vi tự ký trước đây.
 
 ---
 

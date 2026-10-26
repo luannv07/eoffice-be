@@ -1,5 +1,7 @@
 package vn.edu.epu.eoffice_be.controller;
 
+import vn.edu.epu.eoffice_be.common.enums.DistributionScope;
+
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -52,6 +54,7 @@ import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
 import vn.edu.epu.eoffice_be.common.exception.GlobalExceptionHandler;
 import vn.edu.epu.eoffice_be.dto.request.DocumentApproveRequest;
+import vn.edu.epu.eoffice_be.dto.request.DocumentLeaderSignRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentInitialSignRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentPublishRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRejectRequest;
@@ -65,6 +68,28 @@ import vn.edu.epu.eoffice_be.service.DocumentWorkflowService;
 
 @ExtendWith(MockitoExtension.class)
 class DocumentWorkflowControllerTest {
+
+    @Test
+    void leaderSignIsASeparateEndpoint() throws Exception {
+        when(documentWorkflowService.leaderSign(eq(100L), any(DocumentLeaderSignRequest.class)))
+                .thenReturn(mockDocumentDetailResponse(DocumentStatus.PENDING_APPROVAL));
+        mockMvc.perform(post("/documents/100/workflow/leader-sign")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"signaturePage\":2,\"signatureX\":40,\"signatureY\":60}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("PENDING_APPROVAL"));
+        verify(documentWorkflowService).leaderSign(eq(100L), any(DocumentLeaderSignRequest.class));
+        verify(documentWorkflowService, never()).approve(anyLong(), any());
+    }
+
+    @Test
+    void leaderSignRejectsInvalidPosition() throws Exception {
+        mockMvc.perform(post("/documents/100/workflow/leader-sign")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"signaturePage\":0}"))
+                .andExpect(status().isBadRequest());
+        verify(documentWorkflowService, never()).leaderSign(anyLong(), any());
+    }
 
     private MockMvc mockMvc;
 
@@ -301,9 +326,7 @@ class DocumentWorkflowControllerTest {
     @Test
     @DisplayName("UC14: Ký số phát hành - Trả về 200 OK và trạng thái PUBLISHED")
     void signAndPublish_shouldReturn200() throws Exception {
-        DocumentPublishRequest request = DocumentPublishRequest.builder()
-                .bookId(1001L)
-                .officialNumber("123/QĐ-ĐHEPU")
+        DocumentPublishRequest request = DocumentPublishRequest.builder().distributionScope(DistributionScope.ALL)
                 .comment("Ký ban hành")
                 .build();
 
@@ -325,8 +348,7 @@ class DocumentWorkflowControllerTest {
     @Test
     @DisplayName("UC14: Ký số phát hành thất bại khi chưa có số và thiếu sổ văn bản - Trả về 400 BAD_REQUEST")
     void signAndPublish_whenBookIdNullAndServiceThrowsBadRequest_shouldReturn400() throws Exception {
-        DocumentPublishRequest request = DocumentPublishRequest.builder()
-                .bookId(null)
+        DocumentPublishRequest request = DocumentPublishRequest.builder().distributionScope(DistributionScope.ALL)
                 .comment("Ký ban hành")
                 .build();
 
@@ -347,9 +369,7 @@ class DocumentWorkflowControllerTest {
     @DisplayName("UC14: Ký số phát hành thất bại khi comment vượt quá 2000 ký tự - Trả về 400 BAD_REQUEST")
     void signAndPublish_whenCommentExceedsMaxLength_shouldReturn400() throws Exception {
         String longComment = "a".repeat(2001);
-        DocumentPublishRequest request = DocumentPublishRequest.builder()
-                .bookId(1001L)
-                .officialNumber("123/QĐ-ĐHEPU")
+        DocumentPublishRequest request = DocumentPublishRequest.builder().distributionScope(DistributionScope.ALL)
                 .comment(longComment)
                 .build();
 

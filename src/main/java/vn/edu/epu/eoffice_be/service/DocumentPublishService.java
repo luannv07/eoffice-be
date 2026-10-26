@@ -2,16 +2,9 @@ package vn.edu.epu.eoffice_be.service;
 
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
-import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
-import vn.edu.epu.eoffice_be.common.exception.BusinessException;
-import vn.edu.epu.eoffice_be.dto.PublishRequest;
 import vn.edu.epu.eoffice_be.entity.Document;
-import vn.edu.epu.eoffice_be.entity.DocumentDistribution;
-import vn.edu.epu.eoffice_be.repository.DocumentDistributionRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService;
 
@@ -19,151 +12,28 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
-import java.time.LocalDate;
-import java.util.Collections;
-import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.lang.Nullable;
-import vn.edu.epu.eoffice_be.dto.request.AssignDocumentNumberRequest;
-import vn.edu.epu.eoffice_be.dto.response.AssignDocumentNumberResponse;
 
-@Slf4j
 @Service
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class DocumentPublishService {
 
     final DocumentRepository documentRepository;
-    final DocumentDistributionRepository distributionRepository;
-    DocumentBookService documentBookService;
     final DocumentPdfStorageService documentPdfStorageService;
 
     @Autowired
     public DocumentPublishService(DocumentRepository documentRepository,
-                                  DocumentDistributionRepository distributionRepository,
-                                  @Nullable DocumentBookService documentBookService,
                                   DocumentPdfStorageService documentPdfStorageService) {
         this.documentRepository = documentRepository;
-        this.distributionRepository = distributionRepository;
-        this.documentBookService = documentBookService;
         this.documentPdfStorageService = Objects.requireNonNull(
                 documentPdfStorageService, "documentPdfStorageService must not be null");
     }
-    
-    @Transactional
-    public Document publishDocument(Long documentId, PublishRequest request) {
-        Document doc = documentRepository.findById(documentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND,"Không tìm thấy văn bản có id"+ documentId));
-        
-        if(Boolean.TRUE.equals(doc.isDeleteFlg())){
-            throw new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND, "Văn bản đã bị xoá");
-        }
-        Set<DocumentStatus> validStatuses = Set.of(
-            DocumentStatus.APPROVED, 
-            DocumentStatus.DRAFT
-        );
-        if (doc.getStatus() != null && !validStatuses.contains(doc.getStatus())) {
-            throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATUS, 
-                    "Chỉ có thể ban hành văn bản đã được phê duyệt");
-        }
-        String computedHash = calculateSha256(doc.getOfficialFilePath());
-        applyDocumentMetadata(doc, request,computedHash);
-
-        Document savedDoc = documentRepository.save(doc);
-        distributeDocument(savedDoc.getId(), request);
-
-        log.info("Ban hành văn bản thành công: id={}, số hiệu={}", 
-            savedDoc.getId(), savedDoc.getOfficialNumber());
-
-        return savedDoc;
-    }
-
-    private void applyDocumentMetadata(Document doc, PublishRequest request, String computedHash) {
-        if (request != null && request.getDocumentBookId() != null && documentBookService != null) {
-            AssignDocumentNumberRequest assignReq = new AssignDocumentNumberRequest();
-            assignReq.setBookId(request.getDocumentBookId());
-            assignReq.setDocumentId(doc.getId());
-            assignReq.setEffectiveDate(request.getEffectiveDate() != null ? request.getEffectiveDate() : LocalDate.now(Document.getBusinessZone()));
-            AssignDocumentNumberResponse numberResp = documentBookService.assignNumber(assignReq);
-            doc.setOfficialNumber(numberResp.getDocumentNumber());
-        } else if (doc.getOfficialNumber() == null || doc.getOfficialNumber().isBlank()) {
-            doc.setOfficialNumber(String.format("%02d/QĐ-ĐHL", doc.getId()));
-        }
-
-        // Kiểm tra chống trùng số văn bản đã có trên hệ thống
-        if (doc.getOfficialNumber() != null && documentRepository.existsByOfficialNumberAndIdNotAndDeleteFlgFalse(doc.getOfficialNumber().trim(), doc.getId())) {
-            throw new BusinessException(ErrorCode.DOCUMENT_NUMBER_ALREADY_EXISTS,
-                    "Số hiệu văn bản '" + doc.getOfficialNumber().trim() + "' đã tồn tại trên một văn bản khác trong hệ thống!");
-        }
-        doc.setStatus(DocumentStatus.PUBLISHED);
-        doc.setOfficialHash(computedHash);
-
-        if (request != null && request.getIssueDate() != null) {
-            doc.setIssueDate(request.getIssueDate());
-        } else {
-            doc.setIssueDate(LocalDate.now(Document.getBusinessZone()));
-        }
-
-        if (request != null && request.getEffectiveDate() != null) {
-            doc.setEffectiveDate(request.getEffectiveDate());
-        }
-    }
-
-    private void distributeDocument(Long documentId, PublishRequest request) {
-        if (request == null) {
-            return;
-        }
-
-        if (Boolean.TRUE.equals(request.getIsPublicToAll())) {
-            distributionRepository.save(DocumentDistribution.builder()
-                    .documentId(documentId)
-                    .targetType("ALL")
-                    .isRead(false)
-                    .build());
-            return;
-        }
-
-        List<Long> targets = extractTargetIds(request);
-        for (Long orgId : targets) {
-            distributionRepository.save(DocumentDistribution.builder()
-                    .documentId(documentId)
-                    .targetId(orgId)
-                    .targetType("ORG")
-                    .isRead(false)
-                    .build());
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private List<Long> extractTargetIds(PublishRequest request) {
-        try {
-            var method = request.getClass().getMethod("getTargetIds");
-            Object result = method.invoke(request);
-            if (result instanceof List<?>) {
-                return (List<Long>) result;
-            }
-        } catch (ReflectiveOperationException ignored) {
-            // Fallback sang getOrgIds nếu DTO sử dụng tên cũ
-        }
-
-        try {
-            var method = request.getClass().getMethod("getOrgIds");
-            Object result = method.invoke(request);
-            if (result instanceof List<?>) {
-                return (List<Long>) result;
-            }
-        } catch (ReflectiveOperationException ignored) {
-            // Trường hợp DTO không khai báo trường targets
-        }
-
-        return Collections.emptyList();
-    }
 
     /**
-     * Backward-compatible overload for internal callers and legacy invocations.
+     * Checks integrity using the current authenticated user.
      * Explicitly resolves the current authentication from SecurityContextHolder
-     * and delegates to {@link #verifyIntegrity(Long, Authentication)}.
+     * and delegates to {@link #verifyIntegrity(Long, org.springframework.security.core.Authentication)}.
      *
      * @param documentId the ID of the document to verify
      * @return true if document matches official SHA-256 hash, false otherwise
@@ -194,8 +64,8 @@ public class DocumentPublishService {
 
     void assertCanVerifyIntegrity(Document doc, org.springframework.security.core.Authentication authentication) {
         // Enforce user authentication first before inspecting document status
-        if (authentication == null 
-                || !authentication.isAuthenticated() 
+        if (authentication == null
+                || !authentication.isAuthenticated()
                 || authentication instanceof org.springframework.security.authentication.AnonymousAuthenticationToken) {
             throw new org.springframework.security.access.AccessDeniedException("Yêu cầu xác thực người dùng");
         }
@@ -209,8 +79,7 @@ public class DocumentPublishService {
                             || a.getAuthority().equals("ADMIN")
                             || a.getAuthority().equals("ROLE_SYSTEM_ADMIN")
                             || a.getAuthority().equals("SYSTEM_ADMIN")
-                            || a.getAuthority().equals("DOCUMENT_VERIFY")
-                            || a.getAuthority().equals("DOCUMENT_PUBLISH"));
+                            || a.getAuthority().equals("DOCUMENT_VERIFY"));
         if (hasAdminOrPrivilege) {
             return;
         }

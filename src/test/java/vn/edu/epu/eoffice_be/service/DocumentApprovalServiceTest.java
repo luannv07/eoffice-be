@@ -3,8 +3,6 @@ package vn.edu.epu.eoffice_be.service;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -82,41 +80,11 @@ class DocumentApprovalServiceTest {
     @Mock
     vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService documentPdfStorageService;
 
+    @Mock private DocumentSignatureGuard signatureGuard;
+    @Mock private DocumentWorkingPdfService workingPdf;
+
     @InjectMocks
     private DocumentApprovalService documentApprovalService;
-
-    @ParameterizedTest
-    @EnumSource(value = ErrorCode.class, names = {
-            "PKI_CA_NOT_INITIALIZED", "PKI_CA_EXPIRED", "PKI_CA_RECOVERY_REQUIRED",
-            "PKI_STORAGE_ERROR", "PKI_USER_KEYSTORE_INVALID"
-    })
-    void submitForApproval_keepsPkiErrorAndDoesNotSubmitDocument(ErrorCode code) {
-        UserLogin sender = UserLogin.builder().id(100L).username("author").role(Role.USER).build();
-        UserLogin approver = UserLogin.builder().id(200L).username("dean").role(Role.ADMIN).build();
-        Document document = Document.builder().id(1L).title("Title").summary("Summary")
-                .creatorUser(sender).status(DocumentStatus.DRAFT).primaryFilePath("drafts/doc_1.pdf").build();
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(sender));
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(200L)).thenReturn(Optional.of(approver));
-        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
-        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(1L))
-                .thenReturn(true);
-        when(documentPdfStorageService.readPdf("drafts/doc_1.pdf")).thenReturn(new byte[]{1, 2, 3});
-        BusinessException failure = new BusinessException(code);
-        when(pdfSigner.signBytes(any(), any(), any(), any(), any(), any())).thenThrow(failure);
-
-        BusinessException actual = assertThrows(BusinessException.class,
-                () -> documentApprovalService.submitForApproval(1L,
-                        SubmitApprovalRequest.builder().approverUserId(200L).build(), 100L));
-
-        assertSame(failure, actual);
-        assertEquals(DocumentStatus.DRAFT, document.getStatus());
-        assertEquals("drafts/doc_1.pdf", document.getPrimaryFilePath());
-        verify(documentRepository, never()).save(any());
-        verify(documentApprovalRequestRepository, never()).save(any());
-        verify(documentProcessLogRepository, never()).save(any());
-        verify(fileStorageService, never()).storeFile(any(), any(), any());
-        verify(eventPublisher, never()).publishEvent(any());
-    }
 
     @Test
     @DisplayName("Gửi văn bản để duyệt thành công (UC11 - Luồng 2.1)")
@@ -159,66 +127,6 @@ class DocumentApprovalServiceTest {
         verify(documentApprovalRequestRepository).save(any(DocumentApprovalRequest.class));
         verify(documentProcessLogRepository).save(any(DocumentProcessLog.class));
         verify(eventPublisher).publishEvent(any(DocumentSubmittedEvent.class));
-    }
-
-    @Test
-    @DisplayName("Gửi duyệt tự động ký nháy khi hồ sơ có tệp PDF (Task 1)")
-    void submitForApproval_WithPdfAttachment_AutoInitialSignsSuccessfully() {
-        Long docId = 1L;
-        Long senderId = 100L;
-        Long approverId = 200L;
-
-        UserLogin sender = UserLogin.builder().id(senderId).username("author").role(Role.USER).build();
-        UserLogin approver = UserLogin.builder().id(approverId).username("dean").role(Role.ADMIN).build();
-
-        Document doc = Document.builder()
-                .id(docId)
-                .draftCode("DT-2026-00001")
-                .title("Kế hoạch công tác năm 2026")
-                .summary("Chi tiết kế hoạch")
-                .content("Nội dung kế hoạch")
-                .creatorUser(sender)
-                .status(DocumentStatus.DRAFT)
-                .primaryFilePath("drafts/doc_1.pdf")
-                .build();
-
-        byte[] rawPdfBytes = "%PDF-1.5 test".getBytes();
-        byte[] signedPdfBytes = "%PDF-1.5 signed".getBytes();
-
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(sender));
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(true);
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.of(approver));
-        when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(documentDraftService.mapToDocumentResponse(any())).thenReturn(DocumentResponse.builder().id(docId).status(DocumentStatus.IN_REVIEW).build());
-
-        when(documentPdfStorageService.readPdf("drafts/doc_1.pdf")).thenReturn(rawPdfBytes);
-        PdfSigner.SignResult mockSignResult = new PdfSigner.SignResult(
-                String.valueOf(senderId),
-                "author",
-                "123456",
-                "sha256hash123",
-                new java.util.Date(),
-                "sig_user_" + senderId,
-                null,
-                signedPdfBytes
-        );
-        when(pdfSigner.signBytes(any(), any(), any(), any(), any(), any())).thenReturn(mockSignResult);
-        when(documentPdfStorageService.storeSignedPdf(any(), any(), any())).thenReturn("storage://35001");
-
-        SubmitApprovalRequest request = SubmitApprovalRequest.builder()
-                .approverUserId(approverId)
-                .submitNote("Gửi thầy duyệt")
-                .build();
-
-        DocumentResponse response = documentApprovalService.submitForApproval(docId, request, senderId);
-
-        assertNotNull(response);
-        assertEquals(DocumentStatus.IN_REVIEW, doc.getStatus());
-        assertEquals("storage://35001", doc.getPrimaryFilePath());
-
-        verify(pdfSigner).signBytes(any(), any(), any(), any(), any(), any());
-        verify(documentPdfStorageService).storeSignedPdf(any(), any(), org.mockito.ArgumentMatchers.eq(1L));
     }
 
     @Test
