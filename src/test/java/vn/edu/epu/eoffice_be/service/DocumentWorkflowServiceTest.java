@@ -22,6 +22,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.Instant;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,12 +44,15 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
+import vn.edu.epu.eoffice_be.common.enums.DistributionScope;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.enums.Role;
 import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.dto.PendingDocumentResponse;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRejectRequest;
+import vn.edu.epu.eoffice_be.dto.request.DocumentInitialSignRequest;
+import vn.edu.epu.eoffice_be.dto.request.DocumentPublishRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRevisionRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRevokeRequest;
 import vn.edu.epu.eoffice_be.service.DocumentBookService;
@@ -57,6 +61,7 @@ import vn.edu.epu.eoffice_be.dto.response.DocumentSignatureVerifyResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentWorkflowLogResponse;
 import vn.edu.epu.eoffice_be.dto.response.SignatureItemResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
+import vn.edu.epu.eoffice_be.entity.DocumentBook;
 import vn.edu.epu.eoffice_be.entity.DocumentAttachment;
 import vn.edu.epu.eoffice_be.entity.DocumentWorkflowLog;
 import vn.edu.epu.eoffice_be.entity.OrgNode;
@@ -150,6 +155,71 @@ class DocumentWorkflowServiceTest {
         byte[] rawBytes = new byte[]{1, 2, 3};
         when(documentPdfStorageService.readPdf("drafts/sample.pdf")).thenReturn(rawBytes);
         return rawBytes;
+    }
+
+    @Test
+    @DisplayName("initialSign: từ chối người không có quyền trước khi xử lý PDF")
+    void initialSign_unauthorizedActor_shouldThrowUnauthorizedAndSkipPdfProcessing() {
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        BusinessException denied = new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
+        doThrow(denied).when(workflowEngine).validateActorPermission(document, leader, WorkflowAction.INITIAL_SIGN);
+        DocumentInitialSignRequest request = DocumentInitialSignRequest.builder()
+                .comment("Khong co tham quyen ky nhay").build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.initialSign(5001L, request));
+
+        assertSame(denied, ex);
+        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, ex.getErrorCode());
+        verify(workflowEngine).validateActorPermission(document, leader, WorkflowAction.INITIAL_SIGN);
+        verifyNoInteractions(workingPdf, documentPdfStorageService, pdfSigner, fileStorageService,
+                unifiedStorageService, documentAttachmentRepository, distributionRepository, documentWorkflowLogRepository);
+        verify(documentRepository, never()).save(any());
+        verify(workflowEngine, never()).executeTransition(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("signAndPublish: từ chối người không có quyền trước khi ký phát hành")
+    void signAndPublish_unauthorizedActor_shouldThrowUnauthorizedAndSkipSigning() {
+        document.setStatus(DocumentStatus.APPROVED);
+        document.setDocumentBook(DocumentBook.builder().id(10L).build());
+        document.setOfficialNumber("999/QD-TEST");
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        BusinessException denied = new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
+        doThrow(denied).when(workflowEngine).validateActorPermission(document, leader, WorkflowAction.SIGN_AND_PUBLISH);
+        DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .distributionScope(DistributionScope.ALL).comment("Khong co tham quyen ban hanh").build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.signAndPublish(5001L, request));
+
+        assertSame(denied, ex);
+        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, ex.getErrorCode());
+        verify(workflowEngine).validateActorPermission(document, leader, WorkflowAction.SIGN_AND_PUBLISH);
+        verifyNoInteractions(workingPdf, documentPdfStorageService, pdfSigner, fileStorageService,
+                unifiedStorageService, documentAttachmentRepository, distributionRepository, documentWorkflowLogRepository);
+        verify(documentRepository, never()).save(any());
+        verify(workflowEngine, never()).executeTransition(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("signAndPublish: từ chối ngày hiệu lực trước ngày ban hành trước khi xử lý workflow")
+    void signAndPublish_whenEffectiveDateBeforeIssueDate_shouldThrowValidationError() {
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        Instant issueDate = Instant.parse("2026-10-27T00:00:00Z");
+        DocumentPublishRequest request = DocumentPublishRequest.builder()
+                .distributionScope(DistributionScope.ALL).issueDate(issueDate)
+                .effectiveDate(issueDate.minusSeconds(1)).build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.signAndPublish(5001L, request));
+
+        assertEquals(ErrorCode.VALIDATION_ERROR, ex.getErrorCode());
+        assertTrue(ex.getMessage().contains("effectiveDate"));
+        verifyNoInteractions(workflowEngine, workingPdf, documentPdfStorageService, pdfSigner,
+                fileStorageService, unifiedStorageService, documentAttachmentRepository, distributionRepository,
+                documentWorkflowLogRepository);
+        verify(documentRepository, never()).save(any());
     }
 
     @Test
