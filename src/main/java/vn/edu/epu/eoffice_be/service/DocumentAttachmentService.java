@@ -76,7 +76,7 @@ public class DocumentAttachmentService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
         // Kiểm tra quyền: chỉ người tạo hoặc admin mới được upload tệp
-        UserLogin creator = document.getCreatorUser() != null ? document.getCreatorUser() : document.getDrafter();
+        UserLogin creator = document.getDrafter();
         boolean isCreator = creator != null && creator.getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
         if (!isCreator && !isAdmin) {
@@ -188,7 +188,7 @@ public class DocumentAttachmentService {
         UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
 
-        boolean isCreator = document.getCreatorUser() != null && document.getCreatorUser().getId().equals(userId);
+        boolean isCreator = document.getDrafter() != null && document.getDrafter().getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
         boolean isPublished = document.getStatus() == DocumentStatus.PUBLISHED || document.getStatus() == DocumentStatus.APPROVED;
 
@@ -213,7 +213,7 @@ public class DocumentAttachmentService {
         Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
-        UserLogin creator = document.getCreatorUser() != null ? document.getCreatorUser() : document.getDrafter();
+        UserLogin creator = document.getDrafter();
         boolean isCreator = creator != null && creator.getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
         if (!isCreator && !isAdmin) {

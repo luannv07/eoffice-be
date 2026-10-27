@@ -26,6 +26,7 @@ import java.time.LocalDate;
 public class DocumentPublishController {
 
     DocumentPublishService publishService;
+    vn.edu.epu.eoffice_be.repository.UserInfoRepository userInfoRepository;
 
     // UC15: Phát hành văn bản
     @Deprecated(since = "2026")
@@ -42,6 +43,10 @@ public class DocumentPublishController {
         Document doc = publishService.publishDocument(id, request);
         DocumentResponse response = DocumentResponse.builder()
                 .id(doc.getId())
+                .drafterId(doc.getDrafter() != null ? doc.getDrafter().getId() : null)
+                .drafterUsername(doc.getDrafter() != null ? doc.getDrafter().getUsername() : null)
+                .drafterFullName(doc.getDrafter() != null ? userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(doc.getDrafter().getId())
+                        .map(vn.edu.epu.eoffice_be.entity.UserInfo::getFullName).orElse(doc.getDrafter().getUsername()) : null)
                 .title(doc.getTitle())
                 .officialNumber(doc.getOfficialNumber())
                 .status(doc.getStatus())

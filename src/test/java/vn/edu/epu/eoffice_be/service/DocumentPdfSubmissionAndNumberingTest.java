@@ -180,7 +180,7 @@ class DocumentPdfSubmissionAndNumberingTest {
         UserLogin actor = UserLogin.builder().id(100L).username("tester").role(Role.CLERK).build();
         when(users.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(actor));
         Document document = Document.builder().id(5001L).title("Test").summary("Summary")
-                .creatorUser(actor).primaryFilePath("storage://35001")
+                .drafter(actor).primaryFilePath("storage://35001")
                 .status(step == Step.SUBMIT ? DocumentStatus.DRAFT : DocumentStatus.APPROVED).build();
         if (step == Step.SUBMIT) {
             when(documents.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));

@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-10-27-unify-document-drafter
+      author: codex
+      runInTransaction: true
+      comments: "Keep drafter_id; preflight unknown authors before deleting only unused drafts. Restore backup to reverse."
+      changes:
+        - customChange:
+            class: vn.edu.epu.eoffice_be.migration.UnifyDocumentDrafter

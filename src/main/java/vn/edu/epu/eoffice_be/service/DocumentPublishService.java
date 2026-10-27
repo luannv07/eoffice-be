@@ -76,6 +76,8 @@ public class DocumentPublishService {
         log.info("Ban hành văn bản thành công: id={}, số hiệu={}", 
             savedDoc.getId(), savedDoc.getOfficialNumber());
 
+        // The response is mapped after this service transaction closes (OSIV is disabled).
+        org.hibernate.Hibernate.initialize(savedDoc.getDrafter());
         return savedDoc;
     }
 
@@ -216,7 +218,7 @@ public class DocumentPublishService {
         }
 
         Long userId = extractUserId(authentication);
-        Long creatorId = doc.getCreatorUser() != null ? doc.getCreatorUser().getId() : null;
+        Long creatorId = doc.getDrafter() != null ? doc.getDrafter().getId() : null;
         if (userId != null && userId.equals(creatorId)) {
             return;
         }

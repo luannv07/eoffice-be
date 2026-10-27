@@ -34,7 +34,9 @@ public class DocumentQueryService {
     DocumentRepository documentRepository;
     DocumentDistributionRepository distributionRepository;
     DocumentPdfStorageService documentPdfStorageService;
+    vn.edu.epu.eoffice_be.repository.UserInfoRepository userInfoRepository;
 
+    @Transactional(readOnly = true)
     public Object getDocumentDetails(Long id, Long orgId) {
         Document document = documentRepository.findAccessiblePublishedDocument(id, orgId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền truy cập văn bản với ID: " + id));
@@ -45,9 +47,13 @@ public class DocumentQueryService {
         details.put("status", document.getStatus());
         details.put("orgId", orgId);
         details.put("updatedAt", document.getUpdatedDate());
+        details.put("drafterId", document.getDrafter() != null ? document.getDrafter().getId() : null);
+        details.put("drafterUsername", document.getDrafter() != null ? document.getDrafter().getUsername() : null);
+        details.put("drafterFullName", drafterFullName(document));
         return details;
     }
 
+    @Transactional(readOnly = true)
     public Object getDocumentDetailsForAdmin(Long id) {
         Document document = documentRepository.findByIdAndDeleteFlgFalse(id)
                 .filter(d -> d.getStatus() == DocumentStatus.PUBLISHED || d.getStatus() == DocumentStatus.ISSUED)
@@ -59,10 +65,14 @@ public class DocumentQueryService {
         details.put("status", document.getStatus());
         details.put("orgId", null);
         details.put("updatedAt", document.getUpdatedDate());
+        details.put("drafterId", document.getDrafter() != null ? document.getDrafter().getId() : null);
+        details.put("drafterUsername", document.getDrafter() != null ? document.getDrafter().getUsername() : null);
+        details.put("drafterFullName", drafterFullName(document));
         return details;
     }
 
     @PreAuthorize("hasAnyRole('LEADER', 'CLERK', 'ADMIN', 'SYSTEM_ADMIN')")
+    @Transactional(readOnly = true)
     public Object getDocumentDetailsForStaff(Long id, Long orgId) {
         if (id == null) {
             throw new IllegalArgumentException("ID văn bản không được để trống");
@@ -78,9 +88,13 @@ public class DocumentQueryService {
         details.put("status", document.getStatus());
         details.put("orgId", orgId);
         details.put("updatedAt", document.getUpdatedDate());
+        details.put("drafterId", document.getDrafter() != null ? document.getDrafter().getId() : null);
+        details.put("drafterUsername", document.getDrafter() != null ? document.getDrafter().getUsername() : null);
+        details.put("drafterFullName", drafterFullName(document));
         return details;
     }
 
+    @Transactional(readOnly = true)
     public Object getDocumentDetailsForStaff(Long id) {
         return getDocumentDetailsForStaff(id, null);
     }
@@ -162,10 +176,12 @@ public class DocumentQueryService {
     }
 
     // 1. Tra cứu danh sách văn bản theo quyền hạn của phòng ban (hoặc tất cả nếu orgId == null)
+    @Transactional(readOnly = true)
     public List<DocumentResponse> getPublishedDocuments(Long orgId) {
         return getPublishedDocuments(orgId, null);
     }
 
+    @Transactional(readOnly = true)
     public List<DocumentResponse> getPublishedDocuments(Long orgId, Long documentBookId) {
         if (orgId == null) {
             return getAllPublishedDocuments(documentBookId);
@@ -178,10 +194,12 @@ public class DocumentQueryService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<DocumentResponse> getAllPublishedDocuments() {
         return getAllPublishedDocuments(null);
     }
 
+    @Transactional(readOnly = true)
     public List<DocumentResponse> getAllPublishedDocuments(Long documentBookId) {
         List<Document> docs = (documentBookId != null)
                 ? documentRepository.findByStatusOrderByIssueDateDescIdDesc(
@@ -194,9 +212,18 @@ public class DocumentQueryService {
                 .toList();
     }
 
+    private String drafterFullName(Document document) {
+        if (document.getDrafter() == null) return null;
+        return userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(document.getDrafter().getId())
+                .map(vn.edu.epu.eoffice_be.entity.UserInfo::getFullName).orElse(document.getDrafter().getUsername());
+    }
+
     private DocumentResponse mapToDocumentResponse(Document doc) {
         return DocumentResponse.builder()
                 .id(doc.getId())
+                .drafterId(doc.getDrafter() != null ? doc.getDrafter().getId() : null)
+                .drafterUsername(doc.getDrafter() != null ? doc.getDrafter().getUsername() : null)
+                .drafterFullName(drafterFullName(doc))
                 .title(doc.getTitle())
                 .officialNumber(doc.getOfficialNumber())
                 .documentBookId(doc.getDocumentBook() != null ? doc.getDocumentBook().getId() : null)
@@ -225,6 +252,9 @@ public class DocumentQueryService {
 
         return DocumentResponse.builder()
                 .id(doc.getId())
+                .drafterId(doc.getDrafter() != null ? doc.getDrafter().getId() : null)
+                .drafterUsername(doc.getDrafter() != null ? doc.getDrafter().getUsername() : null)
+                .drafterFullName(drafterFullName(doc))
                 .title(doc.getTitle())
                 .officialNumber(doc.getOfficialNumber())
                 .status(doc.getStatus())

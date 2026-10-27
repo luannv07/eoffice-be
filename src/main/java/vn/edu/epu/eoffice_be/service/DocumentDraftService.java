@@ -82,7 +82,6 @@ public class DocumentDraftService {
                 .documentTypeCd(request.getDocumentTypeCd())
                 .issuingOrgNode(issuingOrg)
                 .issuingOrg(issuingOrg)
-                .creatorUser(creator)
                 .drafter(creator)
                 .status(DocumentStatus.DRAFT)
                 .currentVersion(1)
@@ -133,7 +132,7 @@ public class DocumentDraftService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
         // Kiểm tra quyền: người tạo hoặc quản trị viên
-        boolean isCreator = document.getCreatorUser().getId().equals(userId);
+        boolean isCreator = document.getDrafter().getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
         if (!isCreator && !isAdmin) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền chỉnh sửa dự thảo này");
@@ -207,7 +206,7 @@ public class DocumentDraftService {
         Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
-        UserLogin creator = document.getCreatorUser() != null ? document.getCreatorUser() : document.getDrafter();
+        UserLogin creator = document.getDrafter();
         boolean isCreator = creator != null && creator.getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
         if (!isCreator && !isAdmin) {
@@ -267,7 +266,7 @@ public class DocumentDraftService {
                 .map(this::mapToVersionResponse)
                 .toList();
 
-        UserLogin creator = document.getCreatorUser() != null ? document.getCreatorUser() : document.getDrafter();
+        UserLogin creator = document.getDrafter();
         OrgNode org = document.getIssuingOrgNode() != null ? document.getIssuingOrgNode() : document.getIssuingOrg();
         DocumentStatus status = document.getStatus() != null ? document.getStatus() : DocumentStatus.DRAFT;
 
@@ -279,6 +278,7 @@ public class DocumentDraftService {
                 .issuingOrgName(org != null ? org.getNameVn() : null)
                 .drafterId(creator != null ? creator.getId() : null)
                 .drafterUsername(creator != null ? creator.getUsername() : null)
+                .drafterFullName(creator != null ? resolveFullName(creator.getId(), creator.getUsername()) : null)
                 .signerId(document.getSigner() != null ? document.getSigner().getId() : null)
                 .signerUsername(document.getSigner() != null ? document.getSigner().getUsername() : null)
                 .urgencyLevelCd(document.getUrgencyLevelCd())
@@ -320,15 +320,15 @@ public class DocumentDraftService {
                 keyword = keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
             }
         }
-        Long creatorUserId = userId;
+        Long drafterId = userId;
         if (userId != null) {
             UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(userId).orElse(null);
             if (user != null && (user.getRole() == Role.CLERK || user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN)) {
-                creatorUserId = null;
+                drafterId = null;
             }
         }
         Page<Document> page = documentRepository.searchDocuments(
-                creatorUserId, filter.getStatus(), filter.getOrgNodeId(), keyword, pageable);
+                drafterId, filter.getStatus(), filter.getOrgNodeId(), keyword, pageable);
         return page.map(this::mapToDocumentResponse);
     }
 
@@ -344,12 +344,12 @@ public class DocumentDraftService {
 
     public DocumentResponse mapToDocumentResponse(Document doc) {
         String typeName = resolveDocumentTypeName(doc.getDocumentTypeCd());
-        UserLogin creator = doc.getCreatorUser() != null ? doc.getCreatorUser() : doc.getDrafter();
+        UserLogin creator = doc.getDrafter();
         Long creatorId = creator != null ? creator.getId() : null;
-        String creatorUsername = creator != null ? creator.getUsername() : null;
-        String creatorFullName = (creatorId != null && creatorUsername != null)
-                ? resolveFullName(creatorId, creatorUsername)
-                : creatorUsername;
+        String drafterUsername = creator != null ? creator.getUsername() : null;
+        String drafterFullName = (creatorId != null && drafterUsername != null)
+                ? resolveFullName(creatorId, drafterUsername)
+                : drafterUsername;
 
         OrgNode org = doc.getIssuingOrgNode() != null ? doc.getIssuingOrgNode() : doc.getIssuingOrg();
         Long orgId = org != null ? org.getId() : null;
@@ -367,9 +367,9 @@ public class DocumentDraftService {
                 .documentTypeName(typeName)
                 .issuingOrgNodeId(orgId)
                 .issuingOrgNodeName(orgName)
-                .creatorUserId(creatorId)
-                .creatorUsername(creatorUsername)
-                .creatorFullName(creatorFullName)
+                .drafterId(creatorId)
+                .drafterUsername(drafterUsername)
+                .drafterFullName(drafterFullName)
                 .status(status)
                 .statusDescription(status.getDescription())
                 .currentVersion(doc.getCurrentVersion())

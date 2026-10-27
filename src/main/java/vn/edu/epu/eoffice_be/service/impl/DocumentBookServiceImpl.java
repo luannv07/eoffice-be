@@ -505,9 +505,9 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 		Long orgId = org != null ? org.getId() : null;
 		String orgName = org != null ? org.getNameVn() : null;
 
-		UserLogin creator = doc.getCreatorUser() != null ? doc.getCreatorUser() : doc.getDrafter();
+		UserLogin creator = doc.getDrafter();
 		Long creatorId = creator != null ? creator.getId() : null;
-		String creatorUsername = creator != null ? creator.getUsername() : null;
+		String drafterUsername = creator != null ? creator.getUsername() : null;
 
 		DocumentStatus status = doc.getStatus() != null ? doc.getStatus() : DocumentStatus.DRAFT;
 
@@ -524,8 +524,10 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 				.documentTypeName(typeName)
 				.issuingOrgNodeId(orgId)
 				.issuingOrgNodeName(orgName)
-				.creatorUserId(creatorId)
-				.creatorUsername(creatorUsername)
+				.drafterId(creatorId)
+				.drafterUsername(drafterUsername)
+				.drafterFullName(creator != null ? userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(creator.getId())
+						.map(UserInfo::getFullName).orElse(creator.getUsername()) : null)
 				.status(status)
 				.statusDescription(status.getDescription())
 				.currentVersion(doc.getCurrentVersion())

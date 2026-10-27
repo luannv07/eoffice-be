@@ -800,6 +800,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 .issuingOrgName(doc.getIssuingOrg() != null ? doc.getIssuingOrg().getNameVn() : null)
                 .drafterId(doc.getDrafter() != null ? doc.getDrafter().getId() : null)
                 .drafterUsername(doc.getDrafter() != null ? doc.getDrafter().getUsername() : null)
+                .drafterFullName(doc.getDrafter() != null ? userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(doc.getDrafter().getId())
+                        .map(UserInfo::getFullName).orElse(doc.getDrafter().getUsername()) : null)
                 .signerId(doc.getSigner() != null ? doc.getSigner().getId() : null)
                 .signerUsername(doc.getSigner() != null ? doc.getSigner().getUsername() : null)
                 .urgencyLevelCd(doc.getUrgencyLevelCd())
@@ -962,7 +964,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         }
 
         Long userId = extractUserId(authentication);
-        Long creatorId = doc.getCreatorUser() != null ? doc.getCreatorUser().getId() : null;
+        Long creatorId = doc.getDrafter() != null ? doc.getDrafter().getId() : null;
         if (userId != null && userId.equals(creatorId)) {
             return;
         }

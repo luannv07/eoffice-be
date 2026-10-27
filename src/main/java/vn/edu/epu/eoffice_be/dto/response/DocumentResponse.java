@@ -29,9 +29,9 @@ public class DocumentResponse {
     String documentTypeName;
     Long issuingOrgNodeId;
     String issuingOrgNodeName;
-    Long creatorUserId;
-    String creatorUsername;
-    String creatorFullName;
+    Long drafterId;
+    String drafterUsername;
+    String drafterFullName;
     DocumentStatus status;
     String statusDescription;
     int currentVersion;

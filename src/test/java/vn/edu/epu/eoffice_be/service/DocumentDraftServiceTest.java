@@ -148,7 +148,7 @@ class DocumentDraftServiceTest {
                 .title("Tiêu đề cũ")
                 .summary("Trích yếu cũ")
                 .content("Nội dung cũ")
-                .creatorUser(creator)
+                .drafter(creator)
                 .issuingOrgNode(orgNode)
                 .status(DocumentStatus.DRAFT)
                 .currentVersion(1)
@@ -194,7 +194,7 @@ class DocumentDraftServiceTest {
                 .content("Nội dung")
                 .securityLevel(DocumentSecurityLevel.SECRET)
                 .urgencyLevel(DocumentUrgencyLevel.TOP_URGENT)
-                .creatorUser(creator)
+                .drafter(creator)
                 .issuingOrgNode(orgNode)
                 .status(DocumentStatus.DRAFT)
                 .currentVersion(1)
@@ -234,7 +234,7 @@ class DocumentDraftServiceTest {
 
         Document doc = Document.builder()
                 .id(docId)
-                .creatorUser(creator)
+                .drafter(creator)
                 .status(DocumentStatus.DRAFT)
                 .build();
 
@@ -262,7 +262,7 @@ class DocumentDraftServiceTest {
         UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
         Document doc = Document.builder()
                 .id(docId)
-                .creatorUser(creator)
+                .drafter(creator)
                 .status(DocumentStatus.IN_REVIEW)
                 .build();
 
@@ -293,7 +293,7 @@ class DocumentDraftServiceTest {
                 .draftCode("DT-2026-00001")
                 .title("Quyết định mẫu")
                 .summary("Trích yếu mẫu")
-                .creatorUser(creator)
+                .drafter(creator)
                 .status(DocumentStatus.DRAFT)
                 .currentVersion(1)
                 .build();
@@ -309,8 +309,8 @@ class DocumentDraftServiceTest {
     }
 
     @Test
-    @DisplayName("Lấy chi tiết dự thảo thành công khi creatorUser null (fallback sang drafter)")
-    void getDraftDetail_WhenCreatorUserIsNull_FallbackToDrafter_Success() {
+    @DisplayName("Lấy chi tiết dự thảo từ người soạn duy nhất drafter")
+    void getDraftDetail_UsesDrafter_Success() {
         Long docId = 2L;
         Long userId = 2001L;
 
@@ -321,7 +321,6 @@ class DocumentDraftServiceTest {
                 .title("Quyết định ban hành")
                 .summary("Trích yếu")
                 .drafter(drafter)
-                .creatorUser(null)
                 .status(DocumentStatus.IN_REVIEW	)
                 .currentVersion(1)
                 .build();
@@ -334,8 +333,8 @@ class DocumentDraftServiceTest {
 
         assertNotNull(detail);
         assertEquals("DT-2026-00002", detail.getDocument().getDraftCode());
-        assertEquals(userId, detail.getDocument().getCreatorUserId());
-        assertEquals("drafterUser", detail.getDocument().getCreatorUsername());
+        assertEquals(userId, detail.getDocument().getDrafterId());
+        assertEquals("drafterUser", detail.getDocument().getDrafterUsername());
     }
 
     @Test
@@ -352,7 +351,7 @@ class DocumentDraftServiceTest {
                 .title("Tiêu đề cũ")
                 .summary("Trích yếu cũ")
                 .content("Nội dung cũ")
-                .creatorUser(creator)
+                .drafter(creator)
                 .status(DocumentStatus.DRAFT)
                 .currentVersion(1)
                 .build();
@@ -390,7 +389,7 @@ class DocumentDraftServiceTest {
         OrgNode orgNode = OrgNode.builder().id(orgNodeId).nameVn("Khoa CNTT").build();
         Document doc = Document.builder()
                 .id(docId)
-                .creatorUser(creator)
+                .drafter(creator)
                 .status(DocumentStatus.DRAFT)
                 .currentVersion(1)
                 .build();
@@ -428,7 +427,7 @@ class DocumentDraftServiceTest {
                 .id(1L)
                 .draftCode("DT-2026-00001")
                 .title("Tài liệu test%_\\")
-                .creatorUser(UserLogin.builder().id(userId).username("author").build())
+                .drafter(UserLogin.builder().id(userId).username("author").build())
                 .status(DocumentStatus.DRAFT)
                 .build();
 
@@ -506,8 +505,8 @@ class DocumentDraftServiceTest {
     }
 
     @Test
-    @DisplayName("Tìm kiếm dự thảo với vai trò CLERK thì không lọc theo creatorUserId")
-    void searchDrafts_WithClerkRole_ShouldNotFilterByCreatorUserId() {
+    @DisplayName("Tìm kiếm dự thảo với vai trò CLERK thì không lọc theo drafterId")
+    void searchDrafts_WithClerkRole_ShouldNotFilterByDrafterId() {
         Long userId = 1004L;
         UserLogin clerk = UserLogin.builder().id(userId).username("vanthu").role(Role.CLERK).build();
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(clerk));
@@ -559,7 +558,7 @@ class DocumentDraftServiceTest {
                 .id(docId)
                 .draftCode("DT-2026-00001")
                 .title("Dự thảo kế hoạch")
-                .creatorUser(creator)
+                .drafter(creator)
                 .status(DocumentStatus.DRAFT)
                 .deleteFlg(false)
                 .build();
@@ -608,7 +607,7 @@ class DocumentDraftServiceTest {
                 .id(docId)
                 .draftCode("DT-2026-00001")
                 .title("Dự thảo kế hoạch")
-                .creatorUser(creator)
+                .drafter(creator)
                 .status(DocumentStatus.DRAFT)
                 .deleteFlg(false)
                 .build();
@@ -657,7 +656,7 @@ class DocumentDraftServiceTest {
                 .id(docId)
                 .draftCode("DT-2026-00001")
                 .title("Dự thảo kế hoạch")
-                .creatorUser(creator)
+                .drafter(creator)
                 .status(DocumentStatus.DRAFT)
                 .deleteFlg(false)
                 .build();
@@ -726,7 +725,7 @@ class DocumentDraftServiceTest {
         Document doc = Document.builder()
                 .id(docId)
                 .draftCode("DT-2026-00001")
-                .creatorUser(creator)
+                .drafter(creator)
                 .status(DocumentStatus.DRAFT)
                 .build();
 
@@ -753,7 +752,7 @@ class DocumentDraftServiceTest {
         Document doc = Document.builder()
                 .id(docId)
                 .draftCode("DT-2026-00001")
-                .creatorUser(creator)
+                .drafter(creator)
                 .status(DocumentStatus.IN_REVIEW)
                 .build();
 

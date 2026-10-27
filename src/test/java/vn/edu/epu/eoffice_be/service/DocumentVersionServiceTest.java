@@ -58,7 +58,7 @@ class DocumentVersionServiceTest {
         Long docId = 1L;
         Long userId = 100L;
         UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).build();
+        Document doc = Document.builder().id(docId).drafter(creator).build();
 
         DocumentVersion v1 = DocumentVersion.builder().id(1L).document(doc).versionNumber(1).title("V1").summary("S1").createdByUser(creator).build();
         DocumentVersion v2 = DocumentVersion.builder().id(2L).document(doc).versionNumber(2).title("V2").summary("S2").createdByUser(creator).build();
@@ -83,7 +83,7 @@ class DocumentVersionServiceTest {
         Long otherUserId = 200L;
         UserLogin owner = UserLogin.builder().id(ownerId).username("author").role(Role.USER).build();
         UserLogin other = UserLogin.builder().id(otherUserId).username("other").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(owner).build();
+        Document doc = Document.builder().id(docId).drafter(owner).build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(otherUserId)).thenReturn(Optional.of(other));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
@@ -122,7 +122,7 @@ class DocumentVersionServiceTest {
         Long docId = 1L;
         Long userId = 100L;
         UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).build();
+        Document doc = Document.builder().id(docId).drafter(creator).build();
 
         DocumentVersion v1 = DocumentVersion.builder().document(doc).versionNumber(1).title("Quyết định cũ").summary("Tóm tắt 1").content("ND").build();
         DocumentVersion v2 = DocumentVersion.builder().document(doc).versionNumber(2).title("Quyết định mới").summary("Tóm tắt 2").content("ND").build();
@@ -154,7 +154,7 @@ class DocumentVersionServiceTest {
                 .title("Bản hiện tại ver 2")
                 .summary("Trích yếu ver 2")
                 .content("Nội dung ver 2")
-                .creatorUser(creator)
+                .drafter(creator)
                 .status(DocumentStatus.DRAFT)
                 .currentVersion(2)
                 .build();
@@ -192,7 +192,7 @@ class DocumentVersionServiceTest {
         int targetVer = 99;
 
         UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).currentVersion(2).build();
+        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.DRAFT).currentVersion(2).build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
@@ -210,7 +210,7 @@ class DocumentVersionServiceTest {
         Long userId = 200L;
         UserLogin otherUser = UserLogin.builder().id(userId).username("other").role(Role.USER).build();
         UserLogin creator = UserLogin.builder().id(100L).username("creator").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
+        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.DRAFT).build();
 
         DocumentVersion v1 = DocumentVersion.builder().id(1L).document(doc).versionNumber(1).title("V1").build();
         lenient().when(documentVersionRepository.findByDocumentIdAndVersionNumberAndDeleteFlgFalse(docId, 1))
@@ -230,7 +230,7 @@ class DocumentVersionServiceTest {
         Long docId = 1L;
         Long userId = 100L;
         UserLogin creator = UserLogin.builder().id(userId).username("creator").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.IN_REVIEW).build();
+        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.IN_REVIEW).build();
 
         DocumentVersion v1 = DocumentVersion.builder().id(1L).document(doc).versionNumber(1).title("V1").build();
         lenient().when(documentVersionRepository.findByDocumentIdAndVersionNumberAndDeleteFlgFalse(docId, 1))
@@ -251,7 +251,7 @@ class DocumentVersionServiceTest {
         Long adminId = 999L;
         UserLogin admin = UserLogin.builder().id(adminId).username("admin").role(Role.ADMIN).build();
         UserLogin creator = UserLogin.builder().id(100L).username("creator").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).currentVersion(2).build();
+        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.DRAFT).currentVersion(2).build();
 
         DocumentVersion v1 = DocumentVersion.builder().id(1L).document(doc).versionNumber(1).title("T1").summary("S1").content("C1").build();
 
@@ -302,7 +302,7 @@ class DocumentVersionServiceTest {
         Long ownerId = 100L;
         Long otherId = 200L;
         UserLogin other = UserLogin.builder().id(otherId).role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(UserLogin.builder().id(ownerId).build()).build();
+        Document doc = Document.builder().id(docId).drafter(UserLogin.builder().id(ownerId).build()).build();
 
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(otherId)).thenReturn(Optional.of(other));
@@ -318,7 +318,7 @@ class DocumentVersionServiceTest {
         Long docId = 1L;
         Long userId = 100L;
         UserLogin creator = UserLogin.builder().id(userId).username("creator").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).build();
+        Document doc = Document.builder().id(docId).drafter(creator).build();
 
         DocumentVersion v1 = DocumentVersion.builder()
                 .document(doc)
@@ -361,7 +361,7 @@ class DocumentVersionServiceTest {
     void assertCanViewDocumentVersions_Admin_Success() {
         Long adminId = 999L;
         UserLogin admin = UserLogin.builder().id(adminId).role(Role.ADMIN).build();
-        Document doc = Document.builder().id(1L).creatorUser(UserLogin.builder().id(100L).build()).build();
+        Document doc = Document.builder().id(1L).drafter(UserLogin.builder().id(100L).build()).build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(adminId)).thenReturn(Optional.of(admin));
 
@@ -383,7 +383,7 @@ class DocumentVersionServiceTest {
     @DisplayName("assertCanViewDocumentVersions thất bại khi không tìm thấy người dùng (UNAUTHORIZED)")
     void assertCanViewDocumentVersions_UserNotFound_ThrowsUnauthorized() {
         Long userId = 999L;
-        Document doc = Document.builder().id(1L).creatorUser(UserLogin.builder().id(100L).build()).build();
+        Document doc = Document.builder().id(1L).drafter(UserLogin.builder().id(100L).build()).build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.empty());
 

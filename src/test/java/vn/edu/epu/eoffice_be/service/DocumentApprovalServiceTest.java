@@ -94,7 +94,7 @@ class DocumentApprovalServiceTest {
         UserLogin sender = UserLogin.builder().id(100L).username("author").role(Role.USER).build();
         UserLogin approver = UserLogin.builder().id(200L).username("dean").role(Role.ADMIN).build();
         Document document = Document.builder().id(1L).title("Title").summary("Summary")
-                .creatorUser(sender).status(DocumentStatus.DRAFT).primaryFilePath("drafts/doc_1.pdf").build();
+                .drafter(sender).status(DocumentStatus.DRAFT).primaryFilePath("drafts/doc_1.pdf").build();
         when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(sender));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(200L)).thenReturn(Optional.of(approver));
         when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
@@ -134,7 +134,7 @@ class DocumentApprovalServiceTest {
                 .title("Kế hoạch công tác năm 2026")
                 .summary("Chi tiết kế hoạch")
                 .content("Nội dung kế hoạch")
-                .creatorUser(sender)
+                .drafter(sender)
                 .status(DocumentStatus.DRAFT)
                 .build();
 
@@ -177,7 +177,7 @@ class DocumentApprovalServiceTest {
                 .title("Kế hoạch công tác năm 2026")
                 .summary("Chi tiết kế hoạch")
                 .content("Nội dung kế hoạch")
-                .creatorUser(sender)
+                .drafter(sender)
                 .status(DocumentStatus.DRAFT)
                 .primaryFilePath("drafts/doc_1.pdf")
                 .build();
@@ -236,7 +236,7 @@ class DocumentApprovalServiceTest {
                 .title("Tiêu đề")
                 .summary("Trích yếu")
                 .content("Nội dung")
-                .creatorUser(sender)
+                .drafter(sender)
                 .status(DocumentStatus.DRAFT)
                 .build();
 
@@ -271,7 +271,7 @@ class DocumentApprovalServiceTest {
                 .title("Tiêu đề")
                 .summary("Trích yếu")
                 .content("") // Không có nội dung
-                .creatorUser(sender)
+                .drafter(sender)
                 .status(DocumentStatus.DRAFT)
                 .build();
 
@@ -297,7 +297,7 @@ class DocumentApprovalServiceTest {
         Document doc = Document.builder()
                 .id(docId)
                 .draftCode("DT-2026-00001")
-                .creatorUser(user)
+                .drafter(user)
                 .status(DocumentStatus.IN_REVIEW)
                 .build();
 
@@ -334,7 +334,7 @@ class DocumentApprovalServiceTest {
         UserLogin user = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
         Document doc = Document.builder()
                 .id(docId)
-                .creatorUser(user)
+                .drafter(user)
                 .status(DocumentStatus.IN_REVIEW)
                 .build();
 
@@ -518,7 +518,7 @@ class DocumentApprovalServiceTest {
         Long senderId = 200L;
         UserLogin sender = UserLogin.builder().id(senderId).role(Role.USER).build();
         UserLogin creator = UserLogin.builder().id(100L).role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
+        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.DRAFT).build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(sender));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
@@ -535,7 +535,7 @@ class DocumentApprovalServiceTest {
         Long docId = 1L;
         Long senderId = 100L;
         UserLogin creator = UserLogin.builder().id(senderId).role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.IN_REVIEW).build();
+        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.IN_REVIEW).build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(creator));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
@@ -553,7 +553,7 @@ class DocumentApprovalServiceTest {
         Long senderId = 100L;
         Long approverId = 999L;
         UserLogin creator = UserLogin.builder().id(senderId).role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).title("Tiêu đề").summary("Trích yếu").content("ND").build();
+        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.DRAFT).title("Tiêu đề").summary("Trích yếu").content("ND").build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(creator));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
@@ -573,7 +573,7 @@ class DocumentApprovalServiceTest {
         Long userId = 200L;
         UserLogin user = UserLogin.builder().id(userId).role(Role.USER).build();
         UserLogin creator = UserLogin.builder().id(100L).role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.IN_REVIEW).build();
+        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.IN_REVIEW).build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(user));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
@@ -590,7 +590,7 @@ class DocumentApprovalServiceTest {
         Long docId = 1L;
         Long userId = 100L;
         UserLogin creator = UserLogin.builder().id(userId).role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
+        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.DRAFT).build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
@@ -673,7 +673,7 @@ class DocumentApprovalServiceTest {
                 .title("Kế hoạch bị từ chối sửa lại")
                 .summary("Trích yếu")
                 .content("Nội dung")
-                .creatorUser(sender)
+                .drafter(sender)
                 .status(DocumentStatus.REJECTED)
                 .build();
 
@@ -711,7 +711,7 @@ class DocumentApprovalServiceTest {
                 .id(docId)
                 .title("Kế hoạch")
                 .summary("Trích yếu")
-                .creatorUser(sender)
+                .drafter(sender)
                 .status(DocumentStatus.NEEDS_REVISION)
                 .currentVersion(1)
                 .build();
@@ -746,7 +746,7 @@ class DocumentApprovalServiceTest {
                 .id(docId)
                 .title("Kế hoạch v2")
                 .summary("Trích yếu v2")
-                .creatorUser(sender)
+                .drafter(sender)
                 .status(DocumentStatus.NEEDS_REVISION)
                 .currentVersion(1)
                 .build();
@@ -819,7 +819,7 @@ class DocumentApprovalServiceTest {
                 .title("Kế hoạch CNTT")
                 .summary("Trích yếu")
                 .content("Nội dung")
-                .creatorUser(sender)
+                .drafter(sender)
                 .issuingOrgNode(facultyIt)
                 .status(DocumentStatus.DRAFT)
                 .build();
@@ -862,7 +862,7 @@ class DocumentApprovalServiceTest {
                 .title("Dự thảo kiểm tra chu trình")
                 .summary("Trích yếu")
                 .content("Nội dung")
-                .creatorUser(sender)
+                .drafter(sender)
                 .issuingOrgNode(nodeA)
                 .status(DocumentStatus.DRAFT)
                 .build();

@@ -167,10 +167,9 @@ public class DocumentApprovalService {
         Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
-        // Kiểm tra quyền: người tạo hoặc quản trị viên
-        boolean isCreator = document.getCreatorUser().getId().equals(userId);
-        boolean isAdmin = sender.getRole() == Role.ADMIN || sender.getRole() == Role.SYSTEM_ADMIN;
-        if (!isCreator && !isAdmin) {
+        // Người soạn tự ký và gửi; role quản trị không cho phép gửi thay.
+        if (document.getDrafter() == null || document.getDrafter().getId() == null
+                || !document.getDrafter().getId().equals(sender.getId())) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền gửi duyệt văn bản này");
         }
 
@@ -335,7 +334,7 @@ public class DocumentApprovalService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
         // Kiểm tra quyền: người tạo hoặc quản trị viên
-        boolean isCreator = document.getCreatorUser().getId().equals(userId);
+        boolean isCreator = document.getDrafter().getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
         if (!isCreator && !isAdmin) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền thu hồi yêu cầu duyệt của văn bản này");

@@ -34,7 +34,7 @@ class DocumentPdfVerificationErrorTest {
         BusinessException failure = new BusinessException(code);
         if (path.equals("verify-integrity")) when(publishing.verifyIntegrity(eq(5001L), any())).thenThrow(failure);
         else when(workflow.verifyDocumentSignatures(5001L)).thenThrow(failure);
-        var mvc = MockMvcBuilders.standaloneSetup(new DocumentPublishController(publishing), new DocumentWorkflowController(workflow))
+        var mvc = MockMvcBuilders.standaloneSetup(new DocumentPublishController(publishing, org.mockito.Mockito.mock(vn.edu.epu.eoffice_be.repository.UserInfoRepository.class)), new DocumentWorkflowController(workflow))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
         var auth = new UsernamePasswordAuthenticationToken("tester", null, List.of());
 

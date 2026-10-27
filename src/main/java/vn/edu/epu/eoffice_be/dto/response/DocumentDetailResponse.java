@@ -40,6 +40,9 @@ public class DocumentDetailResponse {
     @Schema(description = "Tên người soạn thảo")
     private String drafterUsername;
 
+    @Schema(description = "Họ tên đầy đủ người soạn thảo")
+    private String drafterFullName;
+
     @Schema(description = "ID người ký phát hành")
     private Long signerId;
 

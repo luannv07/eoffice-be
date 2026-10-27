@@ -1015,7 +1015,7 @@ class DocumentServiceCoverageTest {
         Document draftDoc = new Document();
         draftDoc.setId(500L);
         draftDoc.setStatus(DocumentStatus.DRAFT);
-        draftDoc.setCreatorUser(creator);
+        draftDoc.setDrafter(creator);
         draftDoc.setOfficialHash(validHash);
         draftDoc.setOfficialFilePath(tempFile.getAbsolutePath());
         when(documentPdfStorageService.readPdf(tempFile.getAbsolutePath())).thenReturn(Files.readAllBytes(tempFile.toPath()));
@@ -1025,7 +1025,7 @@ class DocumentServiceCoverageTest {
         Document publishedDoc = new Document();
         publishedDoc.setId(501L);
         publishedDoc.setStatus(DocumentStatus.PUBLISHED);
-        publishedDoc.setCreatorUser(creator);
+        publishedDoc.setDrafter(creator);
         publishedDoc.setOfficialHash(validHash);
         publishedDoc.setOfficialFilePath(tempFile.getAbsolutePath());
 
@@ -1105,7 +1105,7 @@ class DocumentServiceCoverageTest {
         Document hashMismatchDoc = new Document();
         hashMismatchDoc.setId(502L);
         hashMismatchDoc.setStatus(DocumentStatus.DRAFT);
-        hashMismatchDoc.setCreatorUser(creator);
+        hashMismatchDoc.setDrafter(creator);
         hashMismatchDoc.setOfficialHash("incorrect_hash_value");
         hashMismatchDoc.setOfficialFilePath(tempFile.getAbsolutePath());
         when(documentRepository.findById(502L)).thenReturn(Optional.of(hashMismatchDoc));
@@ -1120,7 +1120,7 @@ class DocumentServiceCoverageTest {
         Document pendingDoc = new Document();
         pendingDoc.setId(600L);
         pendingDoc.setStatus(DocumentStatus.IN_REVIEW);
-        pendingDoc.setCreatorUser(creator);
+        pendingDoc.setDrafter(creator);
 
         when(documentRepository.findById(600L)).thenReturn(Optional.of(pendingDoc));
 
@@ -1150,7 +1150,7 @@ class DocumentServiceCoverageTest {
         Document publishedDoc = new Document();
         publishedDoc.setId(601L);
         publishedDoc.setStatus(DocumentStatus.PUBLISHED);
-        publishedDoc.setCreatorUser(creator);
+        publishedDoc.setDrafter(creator);
         when(documentRepository.findById(601L)).thenReturn(Optional.of(publishedDoc));
 
         assertDoesNotThrow(() -> documentWorkflowService.verifyUserCanAccessDocument(601L, docViewAuth));

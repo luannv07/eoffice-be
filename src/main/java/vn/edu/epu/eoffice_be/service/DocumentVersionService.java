@@ -47,7 +47,7 @@ public class DocumentVersionService {
         UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
 
-        boolean isCreator = document.getCreatorUser() != null && document.getCreatorUser().getId().equals(userId);
+        boolean isCreator = document.getDrafter() != null && document.getDrafter().getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
         if (!isCreator && !isAdmin) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền truy cập hoặc thao tác trên phiên bản của văn bản này");

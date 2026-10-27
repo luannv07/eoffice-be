@@ -53,7 +53,7 @@ class DocumentPdfAccessTest {
         UserLogin actor = UserLogin.builder().id(100L).role(Role.USER).build();
         when(users.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(actor));
         switch (access) {
-            case CREATOR -> document.setCreatorUser(actor);
+            case CREATOR -> document.setDrafter(actor);
             case ADMIN -> actor.setRole(Role.ADMIN);
             case SYSTEM_ADMIN -> actor.setRole(Role.SYSTEM_ADMIN);
             case PENDING_APPROVER -> when(approvals.findByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(5001L))
@@ -105,7 +105,7 @@ class DocumentPdfAccessTest {
     @EnumSource(Kind.class)
     void missingRequestedVersionDoesNotServeTheOtherVersion(Kind kind) {
         Document document = prepare();
-        document.setCreatorUser(UserLogin.builder().id(100L).build());
+        document.setDrafter(UserLogin.builder().id(100L).build());
         when(users.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(UserLogin.builder().id(100L).role(Role.USER).build()));
         if (kind == Kind.PRIMARY) document.setPrimaryFilePath(null);
         else document.setOfficialFilePath(null);
@@ -125,7 +125,7 @@ class DocumentPdfAccessTest {
     @EnumSource(Kind.class)
     void providerFailureIsPreserved(Kind kind) {
         Document document = prepare();
-        document.setCreatorUser(UserLogin.builder().id(100L).build());
+        document.setDrafter(UserLogin.builder().id(100L).build());
         when(users.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(UserLogin.builder().id(100L).role(Role.USER).build()));
         BusinessException failure = new BusinessException(ErrorCode.DOCUMENT_PDF_STORAGE_UNAVAILABLE);
         when(storage.readAsResource(reference(kind))).thenThrow(failure);
@@ -135,7 +135,7 @@ class DocumentPdfAccessTest {
     }
 
     private Document prepare() {
-        Document document = Document.builder().id(5001L).creatorUser(UserLogin.builder().id(200L).build())
+        Document document = Document.builder().id(5001L).drafter(UserLogin.builder().id(200L).build())
                 .status(DocumentStatus.IN_REVIEW).primaryFilePath("storage://35001").officialFilePath("storage://36001").build();
         when(documents.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         return document;

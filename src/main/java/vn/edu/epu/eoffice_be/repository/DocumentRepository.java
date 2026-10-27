@@ -30,7 +30,7 @@ public interface DocumentRepository extends JpaRepository<Document, Long>, JpaSp
 
     boolean existsByOfficialNumberAndDeleteFlgFalse(String officialNumber);
 
-    Page<Document> findByCreatorUserIdAndDeleteFlgFalse(Long creatorUserId, Pageable pageable);
+    Page<Document> findByDrafterIdAndDeleteFlgFalse(Long drafterId, Pageable pageable);
 
     /**
      * Tìm kiếm và phân trang tài liệu theo các tiêu chí kết hợp bằng JPA Specification.
@@ -44,7 +44,7 @@ public interface DocumentRepository extends JpaRepository<Document, Long>, JpaSp
      * </p>
      */
     default Page<Document> searchDocuments(
-            Long creatorUserId,
+            Long drafterId,
             DocumentStatus status,
             Long orgNodeId,
             String keyword,
@@ -54,8 +54,8 @@ public interface DocumentRepository extends JpaRepository<Document, Long>, JpaSp
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.isFalse(root.get("deleteFlg")));
 
-            if (creatorUserId != null) {
-                predicates.add(cb.equal(root.get("creatorUser").get("id"), creatorUserId));
+            if (drafterId != null) {
+                predicates.add(cb.equal(root.get("drafter").get("id"), drafterId));
             }
             if (status != null) {
                 predicates.add(cb.equal(root.get("status"), status));
