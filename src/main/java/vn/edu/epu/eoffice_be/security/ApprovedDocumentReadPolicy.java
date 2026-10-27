@@ -42,7 +42,10 @@ public class ApprovedDocumentReadPolicy {
 
         // 1. Người tạo văn bản: lấy creatorUser, nếu thiếu thì lấy drafter
         UserLogin creator = document.getCreatorUser() != null ? document.getCreatorUser() : document.getDrafter();
-        if (creator != null && Objects.equals(creator.getId(), actor.getId())) {
+        if (creator != null
+                && creator.getId() != null
+                && actor.getId() != null
+                && Objects.equals(creator.getId(), actor.getId())) {
             return true;
         }
 

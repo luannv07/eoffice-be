@@ -95,6 +95,50 @@ class ApprovedDocumentReadPolicyTest {
     @DisplayName("2. Kiểm tra quyền người tạo văn bản (creatorUser và fallback drafter)")
     class CreatorAccess {
 
+        @ParameterizedTest
+        @ValueSource(booleans = {false, true})
+        @DisplayName("ID null không cấp quyền người tạo qua creatorUser hoặc drafter")
+        void canRead_nullCreatorAndActorIds_deniesAccess(boolean useDrafter) {
+            creator.setId(null);
+            otherUser.setId(null);
+            if (useDrafter) {
+                document.setCreatorUser(null);
+                document.setDrafter(creator);
+            }
+
+            assertFalse(policy.canRead(document, otherUser));
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> policy.assertCanRead(document, otherUser));
+            assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+            verifyNoInteractions(permissionResolver);
+        }
+
+        @Test
+        @DisplayName("Creator ID null không cấp quyền người tạo cho actor có ID hợp lệ")
+        void canRead_nullCreatorIdWithoutBusinessPermission_deniesAccess() {
+            creator.setId(null);
+
+            assertFalse(policy.canRead(document, otherUser));
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> policy.assertCanRead(document, otherUser));
+            assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"DOCUMENT_APPROVE", "DOCUMENT_SIGN_OFFICIAL", "DOCUMENT_DISTRIBUTE"})
+        @DisplayName("Creator ID null không chặn actor có quyền nghiệp vụ hợp lệ")
+        void canRead_nullCreatorIdWithBusinessPermission_allowsAccess(String permission) {
+            creator.setId(null);
+            when(permissionResolver.hasPermission(eq(otherUser.getId()), eq(otherUser.getRole()),
+                    anyString(), eq(issuingOrg.getId())))
+                    .thenAnswer(invocation -> permission.equals(invocation.getArgument(2)));
+
+            assertTrue(policy.canRead(document, otherUser));
+            assertDoesNotThrow(() -> policy.assertCanRead(document, otherUser));
+            verify(permissionResolver, atLeastOnce()).hasPermission(
+                    otherUser.getId(), otherUser.getRole(), permission, issuingOrg.getId());
+        }
+
         @Test
         @DisplayName("Người tạo qua creatorUser được phép đọc")
         void canRead_creatorUser_success() {
