@@ -1,7 +1,5 @@
 package vn.edu.epu.eoffice_be.service;
 
-import lombok.AccessLevel;
-import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,6 +9,8 @@ import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.dto.PublishRequest;
 import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.entity.DocumentDistribution;
+import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
+import vn.edu.epu.eoffice_be.repository.UserInfoRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentDistributionRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService;
@@ -31,26 +31,52 @@ import vn.edu.epu.eoffice_be.dto.response.AssignDocumentNumberResponse;
 
 @Slf4j
 @Service
-@FieldDefaults(level = AccessLevel.PRIVATE)
 public class DocumentPublishService {
 
-    final DocumentRepository documentRepository;
-    final DocumentDistributionRepository distributionRepository;
-    DocumentBookService documentBookService;
-    final DocumentPdfStorageService documentPdfStorageService;
+    private final DocumentRepository documentRepository;
+    private final DocumentDistributionRepository distributionRepository;
+    private final DocumentBookService documentBookService;
+    private final DocumentPdfStorageService documentPdfStorageService;
+    private final UserInfoRepository userInfoRepository;
 
     @Autowired
     public DocumentPublishService(DocumentRepository documentRepository,
                                   DocumentDistributionRepository distributionRepository,
                                   @Nullable DocumentBookService documentBookService,
-                                  DocumentPdfStorageService documentPdfStorageService) {
+                                  DocumentPdfStorageService documentPdfStorageService,
+                                  UserInfoRepository userInfoRepository) {
         this.documentRepository = documentRepository;
         this.distributionRepository = distributionRepository;
         this.documentBookService = documentBookService;
         this.documentPdfStorageService = Objects.requireNonNull(
                 documentPdfStorageService, "documentPdfStorageService must not be null");
+        this.userInfoRepository = Objects.requireNonNull(userInfoRepository, "userInfoRepository must not be null");
     }
     
+    /** Publish and resolve the response while the service transaction is still open. */
+    @Transactional
+    public DocumentResponse publishDocumentResponse(Long documentId, PublishRequest request) {
+        return toPublishResponse(publishDocument(documentId, request));
+    }
+
+    private DocumentResponse toPublishResponse(Document doc) {
+        return DocumentResponse.builder()
+                .id(doc.getId())
+                .drafterId(doc.getDrafter() != null ? doc.getDrafter().getId() : null)
+                .drafterUsername(doc.getDrafter() != null ? doc.getDrafter().getUsername() : null)
+                .drafterFullName(doc.getDrafter() != null ? userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(doc.getDrafter().getId())
+                        .map(vn.edu.epu.eoffice_be.entity.UserInfo::getFullName).orElse(doc.getDrafter().getUsername()) : null)
+                .title(doc.getTitle())
+                .officialNumber(doc.getOfficialNumber())
+                .status(doc.getStatus())
+                .statusDescription(doc.getStatus() != null ? doc.getStatus().getDescription() : null)
+                .issueDate(doc.getIssueDate() != null ? LocalDate.ofInstant(doc.getIssueDate(), Document.getBusinessZone()) : null)
+                .effectiveDate(doc.getEffectiveDate() != null ? LocalDate.ofInstant(doc.getEffectiveDate(), Document.getBusinessZone()) : null)
+                .officialFilePath(doc.getOfficialFilePath())
+                .officialHash(doc.getOfficialHash())
+                .build();
+    }
+
     @Transactional
     public Document publishDocument(Long documentId, PublishRequest request) {
         Document doc = documentRepository.findById(documentId)
@@ -76,7 +102,7 @@ public class DocumentPublishService {
         log.info("Ban hành văn bản thành công: id={}, số hiệu={}", 
             savedDoc.getId(), savedDoc.getOfficialNumber());
 
-        // The response is mapped after this service transaction closes (OSIV is disabled).
+        // Preserve initialized author data for legacy callers that still receive an entity.
         org.hibernate.Hibernate.initialize(savedDoc.getDrafter());
         return savedDoc;
     }

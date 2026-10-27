@@ -47,6 +47,34 @@ class DocumentDrafterIntegrationTest {
     @MockBean DocumentPdfStorageService pdfStorage;
 
     @Test
+    void publishResponseResolvesAuthorInsideServiceTransactionWithOsivDisabled() {
+        TransactionTemplate tx = new TransactionTemplate(transactions);
+        Long id = tx.execute(status -> {
+            var user = users.findAll().getFirst();
+            var org = orgs.findAll().getFirst();
+            return documents.saveAndFlush(Document.builder().drafter(user).issuingOrg(org).issuingOrgNode(org)
+                    .draftCode("DT-" + UUID.randomUUID()).title("Publish response integration test")
+                    .summary("Test summary").documentTypeCd("CONG_VAN").status(DocumentStatus.APPROVED)
+                    .officialFilePath("test-response.pdf").build()).getId();
+        });
+        try {
+            when(pdfStorage.readPdf("test-response.pdf")).thenReturn(new byte[]{1, 2, 3});
+            DocumentResponse response = publishing.publishDocumentResponse(id, null);
+            assertEquals(id, response.getId());
+            assertEquals(DocumentStatus.PUBLISHED, response.getStatus());
+            assertNotNull(response.getDrafterId());
+            assertNotNull(response.getDrafterUsername());
+            assertNotNull(response.getDrafterFullName());
+            Map<?, ?> detail = (Map<?, ?>) query.getDocumentDetailsForAdmin(id);
+            assertEquals(detail.get("drafterId"), response.getDrafterId());
+            assertEquals(detail.get("drafterUsername"), response.getDrafterUsername());
+            assertEquals(detail.get("drafterFullName"), response.getDrafterFullName());
+        } finally {
+            tx.executeWithoutResult(status -> documents.deleteById(id));
+        }
+    }
+
+    @Test
     void authorResponsesRemainReadableOutsideRepositoryTransactions() {
         TransactionTemplate tx = new TransactionTemplate(transactions);
         Long id = tx.execute(status -> {

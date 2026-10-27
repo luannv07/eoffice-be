@@ -66,8 +66,12 @@ class DocumentDrafterResponseTest {
         assertContract(query.getDocumentDetail(10L, 20L));
         assertContract(query.getDocumentDetails(10L, 20L));
 
-        DocumentPublishService publishing = mock(DocumentPublishService.class);
-        when(publishing.publishDocument(10L, null)).thenReturn(document);
-        assertContract(new DocumentPublishController(publishing, profiles).publishDocument(10L, null).getBody());
+        DocumentPdfStorageService storage = mock(DocumentPdfStorageService.class);
+        DocumentPublishService publishing = new DocumentPublishService(documents, distributions, null, storage, profiles);
+        when(documents.findById(10L)).thenReturn(Optional.of(document));
+        when(documents.save(document)).thenReturn(document);
+        document.setOfficialFilePath("test.pdf");
+        when(storage.readPdf("test.pdf")).thenReturn(new byte[]{1, 2, 3});
+        assertContract(new DocumentPublishController(publishing).publishDocument(10L, null).getBody());
     }
 }

@@ -68,6 +68,9 @@ class DocumentServiceCoverageTest {
     @Mock
     vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService documentPdfStorageService;
 
+    @Mock
+    private vn.edu.epu.eoffice_be.repository.UserInfoRepository userInfoRepository;
+
     @InjectMocks
     DocumentQueryService documentQueryService;
 

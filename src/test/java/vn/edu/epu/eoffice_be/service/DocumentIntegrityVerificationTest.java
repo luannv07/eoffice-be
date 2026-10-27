@@ -32,6 +32,9 @@ class DocumentIntegrityVerificationTest {
     @Mock DocumentRepository documents;
     @Mock DocumentDistributionRepository distributions;
     @Mock DocumentPdfStorageService storage;
+    @Mock
+    private vn.edu.epu.eoffice_be.repository.UserInfoRepository userInfoRepository;
+
     @InjectMocks DocumentPublishService service;
 
     private static final String SHA256_ABC = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
@@ -40,7 +43,7 @@ class DocumentIntegrityVerificationTest {
     @Test
     void rejectsMissingPdfStorageAtConstruction() {
         NullPointerException exception = assertThrows(NullPointerException.class,
-                () -> new DocumentPublishService(documents, distributions, null, null));
+                () -> new DocumentPublishService(documents, distributions, null, null, userInfoRepository));
 
         assertEquals("documentPdfStorageService must not be null", exception.getMessage());
         verifyNoInteractions(documents, distributions, storage);
