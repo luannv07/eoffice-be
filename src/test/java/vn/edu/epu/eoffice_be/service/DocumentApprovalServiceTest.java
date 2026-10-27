@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -37,6 +39,8 @@ import vn.edu.epu.eoffice_be.service.FileStorageService;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Arrays;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -46,6 +50,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -84,6 +89,122 @@ class DocumentApprovalServiceTest {
 
     @InjectMocks
     private DocumentApprovalService documentApprovalService;
+
+    static Stream<Arguments> missingRecallDraftersForNonAdmins() {
+        return Arrays.stream(Role.values()).filter(role -> role != Role.ADMIN && role != Role.SYSTEM_ADMIN)
+                .flatMap(role -> Stream.of(Arguments.of(role, true), Arguments.of(role, false)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("missingRecallDraftersForNonAdmins")
+    void recallApproval_MissingDrafterOrId_RejectsNonAdminsWithoutSideEffects(Role role, boolean missingDrafter) {
+        UserLogin actor = UserLogin.builder().id(100L).role(role).build();
+        Document document = Document.builder().id(1L).status(DocumentStatus.IN_REVIEW)
+                .drafter(missingDrafter ? null : UserLogin.builder().build()).currentVersion(4)
+                .primaryFilePath("storage://10").build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(actor));
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> documentApprovalService.recallApproval(1L, null, 100L));
+
+        assertEquals(ErrorCode.FORBIDDEN, error.getErrorCode());
+        assertEquals(DocumentStatus.IN_REVIEW, document.getStatus());
+        assertEquals(4, document.getCurrentVersion());
+        assertEquals("storage://10", document.getPrimaryFilePath());
+        verify(documentRepository, never()).save(any());
+        verifyNoInteractions(documentApprovalRequestRepository, documentProcessLogRepository,
+                documentDraftService, documentAttachmentRepository, eventPublisher, pdfSigner,
+                documentPdfStorageService, unifiedStorageService);
+    }
+
+    @ParameterizedTest
+    @EnumSource(Role.class)
+    void recallApproval_DrafterCanRecallForEveryRole(Role role) {
+        UserLogin actor = UserLogin.builder().id(100L).role(role).build();
+        assertRecallSucceeds(actor, actor);
+    }
+
+    static Stream<Arguments> adminRecallDrafters() {
+        return Stream.of(Role.ADMIN, Role.SYSTEM_ADMIN).flatMap(role -> Stream.of(
+                Arguments.of(role, "OTHER_USER"), Arguments.of(role, "NULL_DRAFTER"),
+                Arguments.of(role, "NULL_ID")));
+    }
+
+    @ParameterizedTest
+    @MethodSource("adminRecallDrafters")
+    void recallApproval_AdminExceptionRemainsForOtherOrMissingDrafter(Role role, String kind) {
+        UserLogin actor = UserLogin.builder().id(100L).role(role).build();
+        UserLogin drafter = switch (kind) {
+            case "OTHER_USER" -> UserLogin.builder().id(200L).build();
+            case "NULL_DRAFTER" -> null;
+            default -> UserLogin.builder().build();
+        };
+        assertRecallSucceeds(actor, drafter);
+    }
+
+    private void assertRecallSucceeds(UserLogin actor, UserLogin drafter) {
+        Document document = Document.builder().id(1L).drafter(drafter).status(DocumentStatus.IN_REVIEW).build();
+        DocumentApprovalRequest pending = DocumentApprovalRequest.builder().id(50L)
+                .document(document).status(ApprovalRequestStatus.PENDING).build();
+        DocumentResponse expected = DocumentResponse.builder().id(1L).status(DocumentStatus.DRAFT).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(actor));
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
+        when(documentApprovalRequestRepository.findTopByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(1L))
+                .thenReturn(Optional.of(pending));
+        when(documentRepository.save(document)).thenReturn(document);
+        when(documentDraftService.mapToDocumentResponse(document)).thenReturn(expected);
+
+        assertSame(expected, documentApprovalService.recallApproval(1L,
+                RecallApprovalRequest.builder().recallReason("Bổ sung số liệu").build(), 100L));
+
+        assertEquals(DocumentStatus.DRAFT, document.getStatus());
+        assertEquals(ApprovalRequestStatus.RECALLED, pending.getStatus());
+        assertNotNull(pending.getProcessedAt());
+        verify(documentApprovalRequestRepository).save(pending);
+        verify(documentRepository).save(document);
+        verify(documentProcessLogRepository).save(any(DocumentProcessLog.class));
+        verify(documentDraftService).mapToDocumentResponse(document);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = Role.class, names = {"ADMIN", "SYSTEM_ADMIN"})
+    void recallApproval_AdminWithMissingDrafterStillMustHaveValidDocumentStatus(Role role) {
+        UserLogin actor = UserLogin.builder().id(100L).role(role).build();
+        Document document = Document.builder().id(1L).status(DocumentStatus.DRAFT).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(actor));
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> documentApprovalService.recallApproval(1L, null, 100L));
+
+        assertEquals(ErrorCode.DOCUMENT_INVALID_STATUS, error.getErrorCode());
+        verify(documentRepository, never()).save(any());
+        verifyNoInteractions(documentApprovalRequestRepository, documentProcessLogRepository, documentDraftService);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = Role.class, names = {"ADMIN", "SYSTEM_ADMIN"})
+    void recallApproval_AdminWithMissingDrafterCannotRecallProcessedRequest(Role role) {
+        UserLogin actor = UserLogin.builder().id(100L).role(role).build();
+        Document document = Document.builder().id(1L).status(DocumentStatus.IN_REVIEW).build();
+        DocumentApprovalRequest processed = DocumentApprovalRequest.builder().id(50L)
+                .document(document).status(ApprovalRequestStatus.APPROVED).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(actor));
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
+        when(documentApprovalRequestRepository.findTopByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(1L))
+                .thenReturn(Optional.of(processed));
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> documentApprovalService.recallApproval(1L, null, 100L));
+
+        assertEquals(ErrorCode.DOCUMENT_CANNOT_RECALL, error.getErrorCode());
+        assertEquals(DocumentStatus.IN_REVIEW, document.getStatus());
+        assertEquals(ApprovalRequestStatus.APPROVED, processed.getStatus());
+        verify(documentApprovalRequestRepository, never()).save(any());
+        verify(documentRepository, never()).save(any());
+        verifyNoInteractions(documentProcessLogRepository, documentDraftService);
+    }
 
     @ParameterizedTest
     @EnumSource(value = ErrorCode.class, names = {
