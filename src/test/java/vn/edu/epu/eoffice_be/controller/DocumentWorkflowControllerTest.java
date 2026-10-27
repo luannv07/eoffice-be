@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
@@ -25,6 +26,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -87,6 +90,29 @@ class DocumentWorkflowControllerTest {
         mockMvc.perform(post("/documents/100/workflow/leader-sign")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"signaturePage\":0}"))
+                .andExpect(status().isBadRequest());
+        verify(documentWorkflowService, never()).leaderSign(anyLong(), any());
+    }
+
+    @Test
+    void leaderSignAcceptsZeroCoordinates() throws Exception {
+        when(documentWorkflowService.leaderSign(eq(100L), any(DocumentLeaderSignRequest.class)))
+                .thenReturn(mockDocumentDetailResponse(DocumentStatus.PENDING_APPROVAL));
+        mockMvc.perform(post("/documents/100/workflow/leader-sign")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"signatureX\":0.0,\"signatureY\":0.0}"))
+                .andExpect(status().isOk());
+        verify(documentWorkflowService).leaderSign(eq(100L), argThat(request ->
+                Float.valueOf(0.0f).equals(request.getSignatureX())
+                        && Float.valueOf(0.0f).equals(request.getSignatureY())));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"{\"signatureX\":-1.0}", "{\"signatureY\":-1.0}"})
+    void leaderSignRejectsNegativeCoordinates(String payload) throws Exception {
+        mockMvc.perform(post("/documents/100/workflow/leader-sign")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
                 .andExpect(status().isBadRequest());
         verify(documentWorkflowService, never()).leaderSign(anyLong(), any());
     }

@@ -2,6 +2,7 @@ package vn.edu.epu.eoffice_be.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 
@@ -19,11 +20,11 @@ public class DocumentLeaderSignRequest {
     @Schema(description = "Số trang đặt chữ ký / con dấu phê duyệt (1-based, nếu để trống mặc định là trang cuối)", example = "1")
     private Integer signaturePage;
 
-    @Positive(message = "Tọa độ X phải là số dương")
+    @PositiveOrZero(message = "Tọa độ X phải là số không âm")
     @Schema(description = "Tọa độ X góc trái dưới khung chữ ký (PDF points, chuẩn A4 rộng 595pt)", example = "380.0")
     private Float signatureX;
 
-    @Positive(message = "Tọa độ Y phải là số dương")
+    @PositiveOrZero(message = "Tọa độ Y phải là số không âm")
     @Schema(description = "Tọa độ Y góc trái dưới khung chữ ký (PDF points, chuẩn A4 cao 842pt)", example = "120.0")
     private Float signatureY;
 
