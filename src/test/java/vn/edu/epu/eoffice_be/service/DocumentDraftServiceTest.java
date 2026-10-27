@@ -3,6 +3,10 @@ package vn.edu.epu.eoffice_be.service;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -37,14 +41,18 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Arrays;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -69,6 +77,129 @@ class DocumentDraftServiceTest {
 
     @InjectMocks
     private DocumentDraftService documentDraftService;
+
+    private Document prepareUpdate(UserLogin actor, UserLogin drafter, DocumentStatus status) {
+        Document document = Document.builder().id(1L).drafter(drafter).status(status)
+                .title("Old title").summary("Old summary").content("Old content").currentVersion(3)
+                .issuingOrgNode(OrgNode.builder().id(10L).build()).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(actor));
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
+        return document;
+    }
+
+    private DocumentUpdateRequest updateRequest() {
+        return DocumentUpdateRequest.builder().title("New title").summary("New summary").content("New content")
+                .documentTypeCd("CONG_VAN").issuingOrgNodeId(20L).saveNewVersion(true).build();
+    }
+
+    private void assertDraftUnchanged(Document document, DocumentStatus status) {
+        assertEquals("Old title", document.getTitle());
+        assertEquals("Old summary", document.getSummary());
+        assertEquals("Old content", document.getContent());
+        assertEquals(3, document.getCurrentVersion());
+        assertEquals(status, document.getStatus());
+        assertEquals(10L, document.getIssuingOrgNode().getId());
+        verify(documentRepository, never()).save(any());
+        verifyNoInteractions(documentVersionRepository, documentProcessLogRepository,
+                documentAttachmentRepository, dictionaryItemRepository, userInfoRepository);
+    }
+
+    static Stream<Arguments> nonAdminMissingUpdateDrafters() {
+        return Arrays.stream(Role.values()).filter(role -> role != Role.ADMIN && role != Role.SYSTEM_ADMIN)
+                .flatMap(role -> Stream.of(Arguments.of(role, true), Arguments.of(role, false)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("nonAdminMissingUpdateDrafters")
+    void updateDraft_MissingDrafterOrId_RejectsNonAdminsWithoutSideEffects(Role role, boolean missingDrafter) {
+        UserLogin actor = UserLogin.builder().id(100L).role(role).build();
+        Document document = prepareUpdate(actor, missingDrafter ? null : UserLogin.builder().build(), DocumentStatus.DRAFT);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> documentDraftService.updateDraft(1L, updateRequest(), 100L));
+
+        assertEquals(ErrorCode.FORBIDDEN, error.getErrorCode());
+        assertDraftUnchanged(document, DocumentStatus.DRAFT);
+        verifyNoInteractions(orgNodeRepository);
+    }
+
+    static Stream<Arguments> drafterRolesAndEditableStatuses() {
+        return Arrays.stream(Role.values()).flatMap(role -> Stream.of(DocumentStatus.DRAFT,
+                DocumentStatus.REJECTED, DocumentStatus.NEEDS_REVISION).map(status -> Arguments.of(role, status)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("drafterRolesAndEditableStatuses")
+    void updateDraft_DrafterStillAllowedForEveryRoleAndEditableStatus(Role role, DocumentStatus status) {
+        UserLogin actor = UserLogin.builder().id(100L).username("author").role(role).build();
+        assertUpdateSucceeds(actor, actor, status);
+    }
+
+    static Stream<Arguments> adminUpdateDrafters() {
+        return Stream.of(Role.ADMIN, Role.SYSTEM_ADMIN).flatMap(role -> Stream.of(
+                Arguments.of(role, "OTHER_USER"), Arguments.of(role, "NULL_DRAFTER"), Arguments.of(role, "NULL_ID")));
+    }
+
+    @ParameterizedTest
+    @MethodSource("adminUpdateDrafters")
+    void updateDraft_AdminExceptionRemainsForOtherOrMissingDrafter(Role role, String kind) {
+        UserLogin actor = UserLogin.builder().id(100L).username("admin").role(role).build();
+        UserLogin drafter = switch (kind) {
+            case "OTHER_USER" -> UserLogin.builder().id(200L).username("author").build();
+            case "NULL_DRAFTER" -> null;
+            default -> UserLogin.builder().username("legacy-author").build();
+        };
+        assertUpdateSucceeds(actor, drafter, DocumentStatus.DRAFT);
+    }
+
+    private void assertUpdateSucceeds(UserLogin actor, UserLogin drafter, DocumentStatus status) {
+        Document document = prepareUpdate(actor, drafter, status);
+        OrgNode org = OrgNode.builder().id(20L).nameVn("New unit").build();
+        when(orgNodeRepository.findByIdAndDeleteFlgFalse(20L)).thenReturn(Optional.of(org));
+        when(documentRepository.save(document)).thenReturn(document);
+
+        DocumentResponse response = documentDraftService.updateDraft(1L, updateRequest(), 100L);
+
+        assertEquals("New title", response.getTitle());
+        assertEquals("New summary", document.getSummary());
+        assertEquals("New content", document.getContent());
+        assertEquals(4, response.getCurrentVersion());
+        assertEquals(status, response.getStatus());
+        assertSame(drafter, document.getDrafter());
+        assertSame(org, document.getIssuingOrgNode());
+        verify(documentRepository).save(document);
+        verify(documentVersionRepository).save(any(DocumentVersion.class));
+        verify(documentProcessLogRepository).save(any(DocumentProcessLog.class));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = Role.class, names = {"ADMIN", "SYSTEM_ADMIN"})
+    void updateDraft_AdminWithMissingDrafterStillBlockedByDocumentStatus(Role role) {
+        UserLogin actor = UserLogin.builder().id(100L).role(role).build();
+        Document document = prepareUpdate(actor, null, DocumentStatus.IN_REVIEW);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> documentDraftService.updateDraft(1L, updateRequest(), 100L));
+
+        assertEquals(ErrorCode.DOCUMENT_INVALID_STATUS, error.getErrorCode());
+        assertDraftUnchanged(document, DocumentStatus.IN_REVIEW);
+        verifyNoInteractions(orgNodeRepository);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = Role.class, names = {"ADMIN", "SYSTEM_ADMIN"})
+    void updateDraft_AdminWithMissingDrafterStillRequiresValidIssuingOrg(Role role) {
+        UserLogin actor = UserLogin.builder().id(100L).role(role).build();
+        Document document = prepareUpdate(actor, null, DocumentStatus.DRAFT);
+        when(orgNodeRepository.findByIdAndDeleteFlgFalse(20L)).thenReturn(Optional.empty());
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> documentDraftService.updateDraft(1L, updateRequest(), 100L));
+
+        assertEquals(ErrorCode.BAD_REQUEST, error.getErrorCode());
+        assertDraftUnchanged(document, DocumentStatus.DRAFT);
+        verify(orgNodeRepository).findByIdAndDeleteFlgFalse(20L);
+    }
 
     @Test
     @DisplayName("Tạo dự thảo thành công (UC08): sinh mã, gán DRAFT, tạo version 1")
