@@ -258,13 +258,22 @@ public class DocumentDraftService {
         Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        UserLogin actor = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+        UserLogin creator = document.getCreatorUser() != null ? document.getCreatorUser() : document.getDrafter();
+
         if (document.getStatus() == DocumentStatus.APPROVED) {
-            if (userId == null) {
-                throw new BusinessException(ErrorCode.UNAUTHORIZED);
-            }
-            UserLogin actor = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
             approvedDocumentReadPolicy.assertCanRead(document, actor);
+        } else {
+            boolean isCreator = creator != null && creator.getId() != null && actor.getId() != null
+                    && creator.getId().equals(actor.getId());
+            boolean isAdmin = actor.getRole() == Role.ADMIN || actor.getRole() == Role.SYSTEM_ADMIN;
+            if (!isCreator && !isAdmin) {
+                throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền truy cập chi tiết dự thảo này");
+            }
         }
 
         List<DocumentAttachment> attachments = documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(documentId);
@@ -278,7 +287,6 @@ public class DocumentDraftService {
                 .map(this::mapToVersionResponse)
                 .toList();
 
-        UserLogin creator = document.getCreatorUser() != null ? document.getCreatorUser() : document.getDrafter();
         OrgNode org = document.getIssuingOrgNode() != null ? document.getIssuingOrgNode() : document.getIssuingOrg();
         DocumentStatus status = document.getStatus() != null ? document.getStatus() : DocumentStatus.DRAFT;
 

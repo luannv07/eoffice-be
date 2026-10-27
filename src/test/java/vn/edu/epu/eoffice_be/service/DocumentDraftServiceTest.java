@@ -3,6 +3,11 @@ package vn.edu.epu.eoffice_be.service;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.Arguments;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -38,6 +43,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Arrays;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -46,6 +53,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
@@ -304,6 +313,7 @@ class DocumentDraftServiceTest {
                 .build();
 
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
         when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(docId)).thenReturn(Collections.emptyList());
         when(documentVersionRepository.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(docId)).thenReturn(Collections.emptyList());
 
@@ -332,6 +342,7 @@ class DocumentDraftServiceTest {
                 .build();
 
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(docId)).thenReturn(Collections.emptyList());
         when(documentVersionRepository.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(docId)).thenReturn(Collections.emptyList());
 
@@ -796,6 +807,7 @@ class DocumentDraftServiceTest {
                 () -> documentDraftService.getDraftDetail(docId, userId));
         assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
         verify(approvedDocumentReadPolicy).assertCanRead(doc, actor);
+        verifyNoInteractions(documentAttachmentRepository, documentVersionRepository);
     }
 
     @Test
@@ -857,5 +869,112 @@ class DocumentDraftServiceTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentDraftService.getDraftDetail(docId, userId));
         assertEquals(ErrorCode.UNAUTHORIZED, ex.getErrorCode());
+    }
+
+    @ParameterizedTest
+    @EnumSource(DocumentStatus.class)
+    @NullSource
+    void getDraftDetail_allStatuses_requireUserId(DocumentStatus status) {
+        Document doc = Document.builder().id(1L).status(status).build();
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(doc));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentDraftService.getDraftDetail(1L, null));
+
+        assertEquals(ErrorCode.UNAUTHORIZED, ex.getErrorCode());
+        verifyNoInteractions(userLoginRepository, approvedDocumentReadPolicy,
+                documentAttachmentRepository, documentVersionRepository);
+    }
+
+    @ParameterizedTest
+    @EnumSource(DocumentStatus.class)
+    @NullSource
+    void getDraftDetail_allStatuses_requireExistingActor(DocumentStatus status) {
+        Document doc = Document.builder().id(1L).status(status).build();
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(doc));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.empty());
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentDraftService.getDraftDetail(1L, 100L));
+
+        assertEquals(ErrorCode.UNAUTHORIZED, ex.getErrorCode());
+        verifyNoInteractions(approvedDocumentReadPolicy, documentAttachmentRepository, documentVersionRepository);
+    }
+
+    static Stream<Arguments> nonApprovedAccessCases() {
+        return Stream.concat(Arrays.stream(DocumentStatus.values())
+                        .filter(status -> status != DocumentStatus.APPROVED), Stream.of((DocumentStatus) null))
+                .flatMap(status -> Arrays.stream(Role.values())
+                        .flatMap(role -> Stream.of("creator", "drafter", "other")
+                                .map(owner -> Arguments.of(status, role, owner))));
+    }
+
+    @ParameterizedTest
+    @MethodSource("nonApprovedAccessCases")
+    void getDraftDetail_nonApproved_enforcesOwnershipAndDatabaseRole(
+            DocumentStatus status, Role role, String owner) {
+        UserLogin actor = UserLogin.builder().id(100L).username("actor").role(role).build();
+        UserLogin creator = UserLogin.builder().id("other".equals(owner) ? 200L : 100L).build();
+        Document doc = Document.builder().id(1L).status(status)
+                .creatorUser("drafter".equals(owner) ? null : creator)
+                .drafter("drafter".equals(owner) ? creator : null).build();
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(doc));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(actor));
+
+        if (!"other".equals(owner) || role == Role.ADMIN || role == Role.SYSTEM_ADMIN) {
+            DocumentAttachment attachment = DocumentAttachment.builder().id(10L)
+                    .document(doc).originalFileName("draft.pdf").build();
+            DocumentVersion version = DocumentVersion.builder().id(20L)
+                    .document(doc).versionNumber(1).content("Internal content").build();
+            when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(1L))
+                    .thenReturn(List.of(attachment));
+            when(documentVersionRepository.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(1L))
+                    .thenReturn(List.of(version));
+
+            DocumentDetailResponse detail = documentDraftService.getDraftDetail(1L, 100L);
+
+            assertEquals(10L, detail.getAttachments().getFirst().getId());
+            assertEquals("Internal content", detail.getVersions().getFirst().getContent());
+            assertEquals(status == null ? DocumentStatus.DRAFT : status, detail.getStatus());
+            var order = inOrder(userLoginRepository, documentAttachmentRepository, documentVersionRepository);
+            order.verify(userLoginRepository).findByIdAndDeleteFlgFalse(100L);
+            order.verify(documentAttachmentRepository).findByDocumentIdAndDeleteFlgFalse(1L);
+            order.verify(documentVersionRepository).findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(1L);
+        } else {
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> documentDraftService.getDraftDetail(1L, 100L));
+            assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+            verifyNoInteractions(documentAttachmentRepository, documentVersionRepository);
+        }
+        verifyNoInteractions(approvedDocumentReadPolicy);
+    }
+
+    static Stream<Arguments> invalidOwnershipCases() {
+        UserLogin validCreator = UserLogin.builder().id(100L).build();
+        UserLogin nullIdCreator = UserLogin.builder().build();
+        return Stream.of(
+                Arguments.of(null, null, 100L),
+                Arguments.of(nullIdCreator, null, 100L),
+                Arguments.of(null, nullIdCreator, 100L),
+                Arguments.of(nullIdCreator, null, null),
+                Arguments.of(validCreator, null, null),
+                Arguments.of(nullIdCreator, validCreator, 100L),
+                Arguments.of(UserLogin.builder().id(200L).build(), validCreator, 100L));
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidOwnershipCases")
+    void getDraftDetail_invalidOwnership_deniesAccess(UserLogin creator, UserLogin drafter, Long actorId) {
+        Document doc = Document.builder().id(1L).status(DocumentStatus.DRAFT)
+                .creatorUser(creator).drafter(drafter).build();
+        UserLogin actor = UserLogin.builder().id(actorId).role(Role.USER).build();
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(doc));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(actor));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentDraftService.getDraftDetail(1L, 100L));
+
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+        verifyNoInteractions(approvedDocumentReadPolicy, documentAttachmentRepository, documentVersionRepository);
     }
 }
