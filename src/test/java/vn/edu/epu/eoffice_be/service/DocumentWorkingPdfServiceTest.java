@@ -22,6 +22,48 @@ class DocumentWorkingPdfServiceTest {
     @InjectMocks DocumentWorkingPdfService service;
 
     @Test
+    void rejectsNullDocumentBeforeAccessingStorage() {
+        BusinessException failure = assertThrows(BusinessException.class, () -> service.read(null));
+        assertEquals(ErrorCode.BAD_REQUEST, failure.getErrorCode());
+        assertEquals("Văn bản không được để trống", failure.getMessage());
+        verifyNoInteractions(storage, attachments, attachmentStorage);
+    }
+
+    @Test
+    void rejectsNullPrimaryPdfWithoutFallingBackToAttachments() {
+        Document document = Document.builder().id(1L).primaryFilePath("storage://signed").build();
+        when(storage.readPdf("storage://signed")).thenReturn(null);
+
+        BusinessException failure = assertThrows(BusinessException.class, () -> service.read(document));
+
+        assertEquals(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING, failure.getErrorCode());
+        verifyNoInteractions(attachments, attachmentStorage);
+    }
+
+    @Test
+    void rejectsEmptyPrimaryPdfWithoutFallingBackToAttachments() {
+        Document document = Document.builder().id(1L).primaryFilePath("storage://signed").build();
+        when(storage.readPdf("storage://signed")).thenReturn(new byte[0]);
+
+        BusinessException failure = assertThrows(BusinessException.class, () -> service.read(document));
+
+        assertEquals(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING, failure.getErrorCode());
+        verifyNoInteractions(attachments, attachmentStorage);
+    }
+
+    @Test
+    void wrapsUnexpectedPrimaryStorageFailureWithoutFallingBackToAttachments() {
+        Document document = Document.builder().id(1L).primaryFilePath("storage://signed").build();
+        when(storage.readPdf("storage://signed")).thenThrow(new IllegalStateException("Storage unavailable"));
+
+        BusinessException failure = assertThrows(BusinessException.class, () -> service.read(document));
+
+        assertEquals(ErrorCode.STORAGE_ERROR, failure.getErrorCode());
+        assertEquals("Không thể đọc tệp PDF chính", failure.getMessage());
+        verifyNoInteractions(attachments, attachmentStorage);
+    }
+
+    @Test
     void readsLatestSignedReferenceWithoutFallingBackToAttachments() {
         Document document = Document.builder().id(1L).primaryFilePath("storage://signed").build();
         byte[] pdf = {1, 2};

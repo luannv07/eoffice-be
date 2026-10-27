@@ -18,8 +18,21 @@ public class DocumentWorkingPdfService {
     private final vn.edu.epu.eoffice_be.storage.FileStorageService attachmentStorage;
 
     public byte[] read(Document document) {
+        if (document == null) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "Văn bản không được để trống");
+        }
         if (document.getPrimaryFilePath() != null && !document.getPrimaryFilePath().isBlank()) {
-            return pdfStorage.readPdf(document.getPrimaryFilePath());
+            try {
+                byte[] bytes = pdfStorage.readPdf(document.getPrimaryFilePath());
+                if (bytes == null || bytes.length == 0) {
+                    throw new BusinessException(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING);
+                }
+                return bytes;
+            } catch (BusinessException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new BusinessException(ErrorCode.STORAGE_ERROR, "Không thể đọc tệp PDF chính");
+            }
         }
         var mains = attachments.findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(document.getId());
         if (mains.isEmpty()) throw new BusinessException(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING);
