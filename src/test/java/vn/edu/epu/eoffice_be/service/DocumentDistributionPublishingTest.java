@@ -43,14 +43,17 @@ class DocumentDistributionPublishingTest {
     @Mock DocumentSignatureGuard signatureGuard;
     @Mock DocumentWorkingPdfService workingPdf;
     @Mock DocumentDistributionRepository distributions;
+    @Mock PermissionResolver permissions;
     @InjectMocks DocumentWorkflowServiceImpl service;
 
     private Document document;
+    private UserLogin actor;
 
     @BeforeEach
     void setUp() {
-        UserLogin actor = UserLogin.builder().id(1L).username("publisher").role(Role.LEADER).build();
+        actor = UserLogin.builder().id(1L).username("publisher").role(Role.LEADER).build();
         document = Document.builder().id(50L).status(DocumentStatus.APPROVED)
+                .issuingOrgNode(OrgNode.builder().id(30L).build())
                 .documentBook(DocumentBook.builder().id(10L).build()).signer(actor).officialNumber("1/CV-EPU").primaryFilePath("storage://source").build();
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
                 new JwtUserPrincipal(1L, "publisher", "LEADER", true, List.of()), null, List.of()));
@@ -84,7 +87,7 @@ class DocumentDistributionPublishingTest {
         order.verify(distributions).save(argThat(d -> d.getDocumentId().equals(50L)
                 && d.getTargetType().equals("ALL") && d.getTargetId() == null && !d.getIsRead()));
         verify(distributions, never()).saveAll(any());
-        verifyNoInteractions(orgs);
+        verifyNoInteractions(orgs, permissions);
     }
 
     @ParameterizedTest
@@ -92,6 +95,7 @@ class DocumentDistributionPublishingTest {
     void orgSelectionsStoreDistinctRecipients(DistributionScope scope, List<Long> ids, List<Long> expected) {
         when(orgs.findByIdInAndDeleteFlgFalse(expected)).thenReturn(expected.stream()
                 .map(id -> OrgNode.builder().id(id).build()).toList());
+        when(permissions.hasPermission(1L, Role.LEADER, "DOCUMENT_DISTRIBUTE", 30L)).thenReturn(true);
         prepareSigning();
         service.signAndPublish(50L, DocumentPublishRequest.builder().distributionScope(scope).recipientOrgIds(ids).build());
         verify(distributions).saveAll(argThat(rows -> {
@@ -102,6 +106,10 @@ class DocumentDistributionPublishingTest {
                     && d.getTargetType().equals("ORG") && !d.getIsRead());
         }));
         verify(distributions, never()).save(any());
+        var order = inOrder(permissions, workingPdf);
+        order.verify(permissions).hasPermission(1L, Role.LEADER, "DOCUMENT_DISTRIBUTE", 30L);
+        order.verify(workingPdf).read(document);
+        verifyNoMoreInteractions(permissions);
     }
 
     static Stream<Arguments> validOrgSelections() {
@@ -116,7 +124,7 @@ class DocumentDistributionPublishingTest {
         BusinessException error = assertThrows(BusinessException.class, () -> service.signAndPublish(50L,
                 DocumentPublishRequest.builder().distributionScope(scope).recipientOrgIds(ids).build()));
         assertEquals(ErrorCode.BAD_REQUEST, error.getErrorCode());
-        verifyNoInteractions(signer, storage, files, distributions, orgs);
+        verifyNoInteractions(signer, storage, files, distributions, orgs, permissions);
         verify(engine, never()).executeTransition(any(), any(), any(), any(), any(), any(), any());
     }
 
@@ -140,7 +148,7 @@ class DocumentDistributionPublishingTest {
                 DocumentPublishRequest.builder().distributionScope(DistributionScope.SINGLE_ORG)
                         .recipientOrgIds(List.of(10L)).build()));
         assertEquals(ErrorCode.ORG_NODE_NOT_FOUND, error.getErrorCode());
-        verifyNoInteractions(signer, storage, distributions);
+        verifyNoInteractions(signer, storage, distributions, permissions);
     }
 
     @Test
@@ -160,5 +168,82 @@ class DocumentDistributionPublishingTest {
         when(distributions.save(any())).thenThrow(failure);
         assertSame(failure, assertThrows(IllegalStateException.class, () -> service.signAndPublish(50L,
                 DocumentPublishRequest.builder().distributionScope(DistributionScope.ALL).build())));
+    }
+
+    static Stream<Arguments> scopedRoles() {
+        return Stream.of(DistributionScope.SINGLE_ORG, DistributionScope.MULTIPLE_ORGS)
+                .flatMap(scope -> Arrays.stream(Role.values()).map(role -> Arguments.of(scope, role)));
+    }
+
+    private DocumentPublishRequest validScopedRequest(DistributionScope scope) {
+        List<Long> recipients = scope == DistributionScope.SINGLE_ORG ? List.of(10L) : List.of(10L, 20L);
+        when(orgs.findByIdInAndDeleteFlgFalse(recipients)).thenReturn(recipients.stream()
+                .map(id -> OrgNode.builder().id(id).build()).toList());
+        return DocumentPublishRequest.builder().distributionScope(scope).recipientOrgIds(recipients).build();
+    }
+
+    private void assertPublicationStopped() {
+        verifyNoInteractions(workingPdf, signatureGuard, signer, storage, files, distributions);
+        verify(engine, never()).executeTransition(any(), any(), any(), any(), any(), any(), any());
+        verify(documents, never()).save(any());
+        assertEquals(DocumentStatus.APPROVED, document.getStatus());
+    }
+
+    @ParameterizedTest
+    @MethodSource("scopedRoles")
+    void missingIssuingPermissionRejectsEveryRole(DistributionScope scope, Role role) {
+        actor.setRole(role);
+        DocumentPublishRequest request = validScopedRequest(scope);
+
+        BusinessException failure = assertThrows(BusinessException.class,
+                () -> service.signAndPublish(50L, request));
+
+        assertEquals(ErrorCode.FORBIDDEN, failure.getErrorCode());
+        assertEquals("Bạn không có quyền phân phối văn bản của đơn vị ban hành", failure.getMessage());
+        verify(permissions).hasPermission(1L, role, "DOCUMENT_DISTRIBUTE", 30L);
+        verifyNoMoreInteractions(permissions);
+        assertPublicationStopped();
+    }
+
+    @ParameterizedTest
+    @MethodSource("scopedRoles")
+    void issuingPermissionUsesDatabaseRoleAndAllowsOtherRecipientOrgs(DistributionScope scope, Role role) {
+        actor.setRole(role);
+        Role tokenRole = role == Role.USER ? Role.ADMIN : Role.USER;
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                new JwtUserPrincipal(1L, "publisher", tokenRole.name(), true, List.of()), null, List.of()));
+        DocumentPublishRequest request = validScopedRequest(scope);
+        when(permissions.hasPermission(1L, role, "DOCUMENT_DISTRIBUTE", 30L)).thenReturn(true);
+        prepareSigning();
+
+        service.signAndPublish(50L, request);
+
+        verify(permissions).hasPermission(1L, role, "DOCUMENT_DISTRIBUTE", 30L);
+        verifyNoMoreInteractions(permissions);
+        verify(distributions).saveAll(any());
+    }
+
+    static Stream<Arguments> missingAuthorizationContext() {
+        return Stream.of(DistributionScope.SINGLE_ORG, DistributionScope.MULTIPLE_ORGS)
+                .flatMap(scope -> Stream.of(true, false).map(missingActorId -> Arguments.of(scope, missingActorId)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("missingAuthorizationContext")
+    void missingActorIdOrIssuingOrgRejectsBeforeSigning(DistributionScope scope, boolean missingActorId) {
+        if (missingActorId) {
+            actor.setId(null);
+        } else {
+            document.setIssuingOrgNode(null);
+            document.setIssuingOrg(null);
+        }
+        DocumentPublishRequest request = validScopedRequest(scope);
+
+        BusinessException failure = assertThrows(BusinessException.class,
+                () -> service.signAndPublish(50L, request));
+
+        assertEquals(ErrorCode.FORBIDDEN, failure.getErrorCode());
+        verifyNoInteractions(permissions);
+        assertPublicationStopped();
     }
 }

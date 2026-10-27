@@ -24,6 +24,7 @@ import vn.edu.epu.eoffice_be.dto.request.DocumentLeaderSignRequest;
 import vn.edu.epu.eoffice_be.common.enums.InitialSignStage;
 import vn.edu.epu.eoffice_be.service.DocumentSignatureGuard;
 import vn.edu.epu.eoffice_be.service.DocumentWorkingPdfService;
+import vn.edu.epu.eoffice_be.service.PermissionResolver;
 import vn.edu.epu.eoffice_be.dto.request.DocumentInitialSignRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentPublishRequest;
 import vn.edu.epu.eoffice_be.dto.request.DocumentRejectRequest;
@@ -96,6 +97,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     private final DocumentSignatureGuard signatureGuard;
     private final DocumentWorkingPdfService workingPdf;
     private final ApprovedDocumentReadPolicy approvedDocumentReadPolicy;
+    private final PermissionResolver permissionResolver;
 
     public DocumentWorkflowServiceImpl(DocumentRepository documentRepository,
                                        DocumentWorkflowLogRepository documentWorkflowLogRepository) {
@@ -115,7 +117,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 null, // distributionRepository
                 null, // signatureGuard
                 null, // workingPdf
-                null // approvedDocumentReadPolicy
+                null, // approvedDocumentReadPolicy
+                null // permissionResolver
         );
     }
 
@@ -339,7 +342,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         // Kiểm tra thẩm quyền ký phát hành TRƯỚC KHI xử lý ký số PKI nhằm tránh lãng phí tài nguyên
         validateActorAuthorization(document, actor, WorkflowAction.SIGN_AND_PUBLISH);
 
-        List<Long> recipientOrgIds = validateRecipients(request);
+        List<Long> recipientOrgIds = validateRecipients(request, document, actor);
 
         // Kiểm tra file PDF nguồn TRƯỚC KHI cấp số và ký số: nếu chưa có file đính kèm chính thì báo lỗi
 
@@ -1064,7 +1067,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         distributionRepository.saveAll(distributions);
     }
 
-    private List<Long> validateRecipients(DocumentPublishRequest request) {
+    private List<Long> validateRecipients(DocumentPublishRequest request, Document document, UserLogin actor) {
         if (request == null || request.getDistributionScope() == null) {
             throw new BusinessException(
                     ErrorCode.BAD_REQUEST,
@@ -1148,6 +1151,15 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                     ErrorCode.ORG_NODE_NOT_FOUND,
                     "Không tìm thấy đơn vị nhận: " + missing
             );
+        }
+
+        // Quyền gửi được xác định tại đơn vị ban hành, không phải từng nơi nhận.
+        Long issuingOrgId = document.getOrgId();
+        if (actor == null || actor.getId() == null || issuingOrgId == null
+                || !permissionResolver.hasPermission(actor.getId(), actor.getRole(),
+                        "DOCUMENT_DISTRIBUTE", issuingOrgId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN,
+                    "Bạn không có quyền phân phối văn bản của đơn vị ban hành");
         }
 
         return recipientIds;

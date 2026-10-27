@@ -67,6 +67,10 @@ class DocumentDistributionIntegrationTest {
         when(signer.signAndCertifyBytes(any(), anyString(), anyString(), any(), any(), anyString(), any()))
                 .thenReturn(signed);
         when(storage.storeSignedPdf(any(), anyString(), eq(document.getId()))).thenReturn("storage://official");
+        if (scope != DistributionScope.ALL) {
+            when(permissions.hasPermission(actor.getId(), actor.getRole(), "DOCUMENT_DISTRIBUTE", issuingOrg.getId()))
+                    .thenReturn(true);
+        }
 
         workflow.signAndPublish(document.getId(), DocumentPublishRequest.builder()
                 .distributionScope(scope).recipientOrgIds(recipients).build());
