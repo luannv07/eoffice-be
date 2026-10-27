@@ -14,6 +14,8 @@ import vn.edu.epu.eoffice_be.common.enums.DocumentSecurityLevel;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
+import vn.edu.epu.eoffice_be.entity.UserLogin;
+import vn.edu.epu.eoffice_be.repository.UserInfoRepository.DrafterName;
 import vn.edu.epu.eoffice_be.repository.DocumentDistributionRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService;
@@ -22,6 +24,10 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -189,9 +195,7 @@ public class DocumentQueryService {
         List<Document> docs = (documentBookId != null)
                 ? documentRepository.findPublishedDocumentsForUser(orgId, null, documentBookId)
                 : documentRepository.findPublishedDocumentsForUser(orgId);
-        return docs.stream()
-                .<DocumentResponse>map(this::mapToDocumentResponse)
-                .toList();
+        return mapDocumentList(docs);
     }
 
     @Transactional(readOnly = true)
@@ -207,9 +211,17 @@ public class DocumentQueryService {
                         documentBookId)
                 : documentRepository.findByStatusOrderByIssueDateDescIdDesc(
                         vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED);
-        return docs.stream()
-                .<DocumentResponse>map(this::mapToDocumentResponse)
-                .toList();
+        return mapDocumentList(docs);
+    }
+
+    private List<DocumentResponse> mapDocumentList(List<Document> docs) {
+        Set<Long> drafterIds = docs.stream().map(Document::getDrafter)
+                .filter(Objects::nonNull).map(UserLogin::getId).filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, DrafterName> names = drafterIds.isEmpty() ? Map.of()
+                : userInfoRepository.findDrafterNamesByUserIds(drafterIds).stream()
+                        .collect(Collectors.toMap(DrafterName::getUserId, name -> name));
+        return docs.stream().map(doc -> mapToDocumentResponse(doc, names)).toList();
     }
 
     private String drafterFullName(Document document) {
@@ -218,12 +230,17 @@ public class DocumentQueryService {
                 .map(vn.edu.epu.eoffice_be.entity.UserInfo::getFullName).orElse(document.getDrafter().getUsername());
     }
 
-    private DocumentResponse mapToDocumentResponse(Document doc) {
+    private DocumentResponse mapToDocumentResponse(Document doc, Map<Long, DrafterName> names) {
+        UserLogin drafter = doc.getDrafter();
+        Long drafterId = drafter != null ? drafter.getId() : null;
+        DrafterName name = drafterId != null ? names.get(drafterId) : null;
+        String username = name != null ? name.getUsername() : drafter != null ? drafter.getUsername() : null;
+        String fullName = name != null && name.getFullName() != null ? name.getFullName() : username;
         return DocumentResponse.builder()
                 .id(doc.getId())
-                .drafterId(doc.getDrafter() != null ? doc.getDrafter().getId() : null)
-                .drafterUsername(doc.getDrafter() != null ? doc.getDrafter().getUsername() : null)
-                .drafterFullName(drafterFullName(doc))
+                .drafterId(drafterId)
+                .drafterUsername(username)
+                .drafterFullName(fullName)
                 .title(doc.getTitle())
                 .officialNumber(doc.getOfficialNumber())
                 .documentBookId(doc.getDocumentBook() != null ? doc.getDocumentBook().getId() : null)
