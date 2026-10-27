@@ -44,6 +44,7 @@ import vn.edu.epu.eoffice_be.entity.UserInfo;
 import vn.edu.epu.eoffice_be.repository.DocumentAttachmentRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentWorkflowLogRepository;
 import vn.edu.epu.eoffice_be.repository.UserInfoRepository;
+import vn.edu.epu.eoffice_be.repository.UserInfoRepository.DrafterName;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
 import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
 import vn.edu.epu.eoffice_be.security.pki.PdfSigner;
@@ -492,10 +493,18 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 						.collect(Collectors.toMap(DictionaryItem::getItemCd, DictionaryItem::getNameVn,
 								(existing, replacement) -> existing));
 
-		return docs.map(doc -> toDocumentDto(doc, book, typeNameMap));
+		Set<Long> drafterIds = docs.getContent().stream().map(Document::getDrafter)
+				.filter(Objects::nonNull).map(UserLogin::getId).filter(Objects::nonNull)
+				.collect(Collectors.toSet());
+		Map<Long, DrafterName> drafterNames = drafterIds.isEmpty() ? Map.of()
+				: userInfoRepository.findDrafterNamesByUserIds(drafterIds).stream()
+						.collect(Collectors.toMap(DrafterName::getUserId, name -> name));
+
+		return docs.map(doc -> toDocumentDto(doc, book, typeNameMap, drafterNames));
 	}
 
-	private DocumentResponse toDocumentDto(Document doc, DocumentBook book, Map<String, String> typeNameMap) {
+	private DocumentResponse toDocumentDto(Document doc, DocumentBook book, Map<String, String> typeNameMap,
+			Map<Long, DrafterName> drafterNames) {
 		String typeName = doc.getDocumentTypeCd();
 		if (doc.getDocumentTypeCd() != null) {
 			typeName = typeNameMap.getOrDefault(doc.getDocumentTypeCd(), doc.getDocumentTypeCd());
@@ -507,7 +516,9 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 
 		UserLogin creator = doc.getDrafter();
 		Long creatorId = creator != null ? creator.getId() : null;
-		String drafterUsername = creator != null ? creator.getUsername() : null;
+		DrafterName name = creatorId != null ? drafterNames.get(creatorId) : null;
+		String drafterUsername = name != null ? name.getUsername() : creator != null ? creator.getUsername() : null;
+		String drafterFullName = name != null && name.getFullName() != null ? name.getFullName() : drafterUsername;
 
 		DocumentStatus status = doc.getStatus() != null ? doc.getStatus() : DocumentStatus.DRAFT;
 
@@ -526,8 +537,7 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 				.issuingOrgNodeName(orgName)
 				.drafterId(creatorId)
 				.drafterUsername(drafterUsername)
-				.drafterFullName(creator != null ? userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(creator.getId())
-						.map(UserInfo::getFullName).orElse(creator.getUsername()) : null)
+				.drafterFullName(drafterFullName)
 				.status(status)
 				.statusDescription(status.getDescription())
 				.currentVersion(doc.getCurrentVersion())
