@@ -33,3 +33,24 @@ Migration ưu tiên người soạn hiện có, dùng người tạo cũ khi ng�
 ## Phục hồi
 
 Không có rollback tự tái tạo dữ liệu đã xóa hoặc người tạo cũ. Nếu cần quay lại, dừng ứng dụng mới, phục hồi backup database và phiên bản ứng dụng/client trước thay đổi cùng nhau. Không dùng ứng dụng cũ trên schema mới.
+
+## Kiểm kê chỉ đọc ngày 2026-10-28 — issue 6
+
+Đã chạy SELECT qua DBeaver trên kết nối cloud `d26tom0k353j5l`, database `d26tom0k353j5l`, schema `public` lúc khoảng 03:50 (UTC+7). Đây là kết quả của kết nối được kiểm tra, không phải xác nhận trạng thái của các kết nối localhost khác hoặc của database triển khai khác.
+
+| Kiểm tra | Kết quả |
+|---|---|
+| Cột `documents.creator_user_id` | Còn tồn tại |
+| `documents.drafter_id` cho phép null | Có |
+| Changeset `2026-10-27-unify-document-drafter` | Chưa có bản ghi trong `databasechangelog` |
+| Tổng văn bản, gồm xóa mềm | 41 |
+| Giữ người soạn hợp lệ | 19 |
+| Có thể chép tác giả hợp lệ từ cột cũ | 21 |
+| Không xác định được tác giả và đủ điều kiện nháp rác | 0 |
+| Không xác định được tác giả, cần xác minh | 1 — ID `1` |
+
+Phân loại dựa trên cùng điều kiện tiền kiểm trong `UnifyDocumentDrafter`, bao gồm dấu vết ký/gửi/cấp số và các liên kết nghiệp vụ; không chỉ dựa vào trạng thái DRAFT. Tổng 22 văn bản thiếu người soạn hợp lệ gồm 21 bản có nguồn tác giả cũ hợp lệ và bản ID `1` chưa thể xác định tác giả. Chưa đọc đủ chi tiết để kết luận dấu vết cụ thể nào làm ID `1` không đủ điều kiện nháp rác.
+
+**Chưa chạy migration, chưa cập nhật hoặc xóa dữ liệu/cột.** Theo tiền kiểm hiện có, ID `1` sẽ làm migration dừng; cần xác minh tác giả từ bằng chứng nghiệp vụ và thống nhất cách xử lý dữ liệu trước. Không tự gán tác giả, không xóa văn bản này và không DROP cột thủ công. Việc điều khiển DBeaver đã dừng khi người dùng nhấn Escape.
+
+Chưa xác nhận bản sao lưu phục hồi được hoặc việc dừng toàn bộ tiến trình ghi. Sau khi giải quyết điểm chặn và đáp ứng điều kiện triển khai ở trên, phải kiểm kê lại vì dữ liệu có thể đã thay đổi, chạy migration đã có và xác minh cột cũ biến mất, `drafter_id` có NOT NULL/khóa ngoại, không còn tham chiếu tác giả không tồn tại; sau đó kiểm tra ứng dụng. Phần database của issue 6 chưa hoàn tất.

@@ -66,7 +66,7 @@ public class DocumentDraftService {
      */
     @Transactional
     public DocumentResponse createDraft(DocumentCreateRequest request, Long userId) {
-        UserLogin creator = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
+        UserLogin drafter = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED, "Người dùng không tồn tại"));
 
         OrgNode issuingOrg = orgNodeRepository.findByIdAndDeleteFlgFalse(request.getIssuingOrgNodeId())
@@ -82,7 +82,7 @@ public class DocumentDraftService {
                 .documentTypeCd(request.getDocumentTypeCd())
                 .issuingOrgNode(issuingOrg)
                 .issuingOrg(issuingOrg)
-                .drafter(creator)
+                .drafter(drafter)
                 .status(DocumentStatus.DRAFT)
                 .currentVersion(1)
                 .securityLevel(request.getSecurityLevel())
@@ -99,14 +99,14 @@ public class DocumentDraftService {
                 .summary(savedDocument.getSummary())
                 .content(savedDocument.getContent())
                 .changeSummary("Khởi tạo dự thảo")
-                .createdByUser(creator)
+                .createdByUser(drafter)
                 .build();
         documentVersionRepository.save(initialVersion);
 
         // Ghi nhật ký tiến trình
         DocumentProcessLog processLog = DocumentProcessLog.builder()
                 .document(savedDocument)
-                .actorUser(creator)
+                .actorUser(drafter)
                 .action(DocumentProcessAction.CREATE_DRAFT)
                 .fromStatus(null)
                 .toStatus(DocumentStatus.DRAFT.name())
@@ -115,7 +115,7 @@ public class DocumentDraftService {
         documentProcessLogRepository.save(processLog);
 
         log.info("Người dùng {} đã tạo dự thảo thành công: id={}, draftCode={}",
-                creator.getUsername(), savedDocument.getId(), savedDocument.getDraftCode());
+                drafter.getUsername(), savedDocument.getId(), savedDocument.getDraftCode());
 
         return mapToDocumentResponse(savedDocument);
     }
@@ -133,11 +133,11 @@ public class DocumentDraftService {
 
         // Kiểm tra quyền: người tạo hoặc quản trị viên
         UserLogin drafter = document.getDrafter();
-        boolean isCreator = drafter != null
+        boolean isDrafter = drafter != null
                 && drafter.getId() != null
                 && drafter.getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
-        if (!isCreator && !isAdmin) {
+        if (!isDrafter && !isAdmin) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền chỉnh sửa dự thảo này");
         }
 
@@ -209,10 +209,10 @@ public class DocumentDraftService {
         Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
-        UserLogin creator = document.getDrafter();
-        boolean isCreator = creator != null && creator.getId().equals(userId);
+        UserLogin drafter = document.getDrafter();
+        boolean isDrafter = drafter != null && drafter.getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
-        if (!isCreator && !isAdmin) {
+        if (!isDrafter && !isAdmin) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền xóa dự thảo này");
         }
 
@@ -269,7 +269,7 @@ public class DocumentDraftService {
                 .map(this::mapToVersionResponse)
                 .toList();
 
-        UserLogin creator = document.getDrafter();
+        UserLogin drafter = document.getDrafter();
         OrgNode org = document.getIssuingOrgNode() != null ? document.getIssuingOrgNode() : document.getIssuingOrg();
         DocumentStatus status = document.getStatus() != null ? document.getStatus() : DocumentStatus.DRAFT;
 
@@ -279,9 +279,9 @@ public class DocumentDraftService {
                 .documentTypeCd(document.getDocumentTypeCd())
                 .issuingOrgId(org != null ? org.getId() : null)
                 .issuingOrgName(org != null ? org.getNameVn() : null)
-                .drafterId(creator != null ? creator.getId() : null)
-                .drafterUsername(creator != null ? creator.getUsername() : null)
-                .drafterFullName(creator != null ? resolveFullName(creator.getId(), creator.getUsername()) : null)
+                .drafterId(drafter != null ? drafter.getId() : null)
+                .drafterUsername(drafter != null ? drafter.getUsername() : null)
+                .drafterFullName(drafter != null ? resolveFullName(drafter.getId(), drafter.getUsername()) : null)
                 .signerId(document.getSigner() != null ? document.getSigner().getId() : null)
                 .signerUsername(document.getSigner() != null ? document.getSigner().getUsername() : null)
                 .urgencyLevelCd(document.getUrgencyLevelCd())
@@ -347,11 +347,11 @@ public class DocumentDraftService {
 
     public DocumentResponse mapToDocumentResponse(Document doc) {
         String typeName = resolveDocumentTypeName(doc.getDocumentTypeCd());
-        UserLogin creator = doc.getDrafter();
-        Long creatorId = creator != null ? creator.getId() : null;
-        String drafterUsername = creator != null ? creator.getUsername() : null;
-        String drafterFullName = (creatorId != null && drafterUsername != null)
-                ? resolveFullName(creatorId, drafterUsername)
+        UserLogin drafter = doc.getDrafter();
+        Long drafterId = drafter != null ? drafter.getId() : null;
+        String drafterUsername = drafter != null ? drafter.getUsername() : null;
+        String drafterFullName = (drafterId != null && drafterUsername != null)
+                ? resolveFullName(drafterId, drafterUsername)
                 : drafterUsername;
 
         OrgNode org = doc.getIssuingOrgNode() != null ? doc.getIssuingOrgNode() : doc.getIssuingOrg();
@@ -370,7 +370,7 @@ public class DocumentDraftService {
                 .documentTypeName(typeName)
                 .issuingOrgNodeId(orgId)
                 .issuingOrgNodeName(orgName)
-                .drafterId(creatorId)
+                .drafterId(drafterId)
                 .drafterUsername(drafterUsername)
                 .drafterFullName(drafterFullName)
                 .status(status)
@@ -403,7 +403,7 @@ public class DocumentDraftService {
     }
 
     private DocumentVersionResponse mapToVersionResponse(DocumentVersion ver) {
-        UserLogin creator = ver.getCreatedByUser();
+        UserLogin versionAuthor = ver.getCreatedByUser();
         return DocumentVersionResponse.builder()
                 .id(ver.getId())
                 .documentId(ver.getDocument() != null ? ver.getDocument().getId() : null)
@@ -412,8 +412,8 @@ public class DocumentDraftService {
                 .summary(ver.getSummary())
                 .content(ver.getContent())
                 .changeSummary(ver.getChangeSummary())
-                .createdByUserId(creator != null ? creator.getId() : null)
-                .createdByUsername(creator != null ? creator.getUsername() : null)
+                .createdByUserId(versionAuthor != null ? versionAuthor.getId() : null)
+                .createdByUsername(versionAuthor != null ? versionAuthor.getUsername() : null)
                 .createdDate(ver.getCreatedDate())
                 .build();
     }

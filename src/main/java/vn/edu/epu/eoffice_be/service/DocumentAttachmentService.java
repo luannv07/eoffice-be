@@ -76,10 +76,10 @@ public class DocumentAttachmentService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
         // Kiểm tra quyền: chỉ người tạo hoặc admin mới được upload tệp
-        UserLogin creator = document.getDrafter();
-        boolean isCreator = creator != null && creator.getId().equals(userId);
+        UserLogin drafter = document.getDrafter();
+        boolean isDrafter = drafter != null && drafter.getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
-        if (!isCreator && !isAdmin) {
+        if (!isDrafter && !isAdmin) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền tải tệp lên dự thảo này");
         }
 
@@ -188,7 +188,7 @@ public class DocumentAttachmentService {
         UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
 
-        boolean isCreator = document.getDrafter() != null && document.getDrafter().getId().equals(userId);
+        boolean isDrafter = document.getDrafter() != null && document.getDrafter().getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
         boolean isPublished = document.getStatus() == DocumentStatus.PUBLISHED || document.getStatus() == DocumentStatus.APPROVED;
 
@@ -197,7 +197,7 @@ public class DocumentAttachmentService {
                 .filter(req -> req.getStatus() == ApprovalRequestStatus.PENDING)
                 .anyMatch(req -> req.getApproverUser() != null && req.getApproverUser().getId().equals(userId));
 
-        if (!isCreator && !isAdmin && !isPublished && !isApprover) {
+        if (!isDrafter && !isAdmin && !isPublished && !isApprover) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền truy cập tệp đính kèm của văn bản này");
         }
     }
@@ -213,10 +213,10 @@ public class DocumentAttachmentService {
         Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
-        UserLogin creator = document.getDrafter();
-        boolean isCreator = creator != null && creator.getId().equals(userId);
+        UserLogin drafter = document.getDrafter();
+        boolean isDrafter = drafter != null && drafter.getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
-        if (!isCreator && !isAdmin) {
+        if (!isDrafter && !isAdmin) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền xóa tệp đính kèm này");
         }
 

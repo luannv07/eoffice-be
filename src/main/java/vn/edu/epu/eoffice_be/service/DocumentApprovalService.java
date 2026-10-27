@@ -335,11 +335,11 @@ public class DocumentApprovalService {
 
         // Kiểm tra quyền: người tạo hoặc quản trị viên
         UserLogin drafter = document.getDrafter();
-        boolean isCreator = drafter != null
+        boolean isDrafter = drafter != null
                 && drafter.getId() != null
                 && drafter.getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
-        if (!isCreator && !isAdmin) {
+        if (!isDrafter && !isAdmin) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền thu hồi yêu cầu duyệt của văn bản này");
         }
 

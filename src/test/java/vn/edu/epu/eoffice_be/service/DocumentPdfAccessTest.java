@@ -39,7 +39,7 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class DocumentPdfAccessTest {
     enum Kind { PRIMARY, OFFICIAL }
-    enum Access { CREATOR, ADMIN, SYSTEM_ADMIN, PENDING_APPROVER, APPROVED, PUBLISHED }
+    enum Access { DRAFTER, ADMIN, SYSTEM_ADMIN, PENDING_APPROVER, APPROVED, PUBLISHED }
     @Mock DocumentRepository documents;
     @Mock UserLoginRepository users;
     @Mock DocumentApprovalRequestRepository approvals;
@@ -53,7 +53,7 @@ class DocumentPdfAccessTest {
         UserLogin actor = UserLogin.builder().id(100L).role(Role.USER).build();
         when(users.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(actor));
         switch (access) {
-            case CREATOR -> document.setDrafter(actor);
+            case DRAFTER -> document.setDrafter(actor);
             case ADMIN -> actor.setRole(Role.ADMIN);
             case SYSTEM_ADMIN -> actor.setRole(Role.SYSTEM_ADMIN);
             case PENDING_APPROVER -> when(approvals.findByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(5001L))

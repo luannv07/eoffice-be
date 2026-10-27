@@ -638,8 +638,8 @@ class DocumentApprovalServiceTest {
         Long docId = 1L;
         Long senderId = 200L;
         UserLogin sender = UserLogin.builder().id(senderId).role(Role.USER).build();
-        UserLogin creator = UserLogin.builder().id(100L).role(Role.USER).build();
-        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.DRAFT).build();
+        UserLogin drafter = UserLogin.builder().id(100L).role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(sender));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
@@ -655,10 +655,10 @@ class DocumentApprovalServiceTest {
     void submitForApproval_InvalidStatus_ThrowsInvalidStatus() {
         Long docId = 1L;
         Long senderId = 100L;
-        UserLogin creator = UserLogin.builder().id(senderId).role(Role.USER).build();
-        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.IN_REVIEW).build();
+        UserLogin drafter = UserLogin.builder().id(senderId).role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.IN_REVIEW).build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
 
         SubmitApprovalRequest req = SubmitApprovalRequest.builder().approverUserId(300L).build();
@@ -673,10 +673,10 @@ class DocumentApprovalServiceTest {
         Long docId = 1L;
         Long senderId = 100L;
         Long approverId = 999L;
-        UserLogin creator = UserLogin.builder().id(senderId).role(Role.USER).build();
-        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.DRAFT).title("Tiêu đề").summary("Trích yếu").content("ND").build();
+        UserLogin drafter = UserLogin.builder().id(senderId).role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).title("Tiêu đề").summary("Trích yếu").content("ND").build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(true);
         when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.empty());
@@ -693,8 +693,8 @@ class DocumentApprovalServiceTest {
         Long docId = 1L;
         Long userId = 200L;
         UserLogin user = UserLogin.builder().id(userId).role(Role.USER).build();
-        UserLogin creator = UserLogin.builder().id(100L).role(Role.USER).build();
-        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.IN_REVIEW).build();
+        UserLogin drafter = UserLogin.builder().id(100L).role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.IN_REVIEW).build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(user));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
@@ -710,10 +710,10 @@ class DocumentApprovalServiceTest {
     void recallApproval_InvalidStatus_ThrowsInvalidStatus() {
         Long docId = 1L;
         Long userId = 100L;
-        UserLogin creator = UserLogin.builder().id(userId).role(Role.USER).build();
-        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.DRAFT).build();
+        UserLogin drafter = UserLogin.builder().id(userId).role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
 
         RecallApprovalRequest req = RecallApprovalRequest.builder().recallReason("reason").build();

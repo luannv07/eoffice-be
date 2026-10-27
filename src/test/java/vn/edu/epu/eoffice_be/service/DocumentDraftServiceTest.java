@@ -207,10 +207,10 @@ class DocumentDraftServiceTest {
         Long userId = 100L;
         Long orgNodeId = 10L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
         OrgNode orgNode = OrgNode.builder().id(orgNodeId).nameVn("Khoa CNTT").build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(orgNodeRepository.findByIdAndDeleteFlgFalse(orgNodeId)).thenReturn(Optional.of(orgNode));
         when(documentRepository.existsByDraftCodeAndDeleteFlgFalse(any())).thenReturn(false);
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> {
@@ -247,8 +247,8 @@ class DocumentDraftServiceTest {
         Long userId = 100L;
         Long orgNodeId = 999L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("author").build();
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        UserLogin drafter = UserLogin.builder().id(userId).username("author").build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(orgNodeRepository.findByIdAndDeleteFlgFalse(orgNodeId)).thenReturn(Optional.empty());
 
         DocumentCreateRequest request = DocumentCreateRequest.builder()
@@ -270,7 +270,7 @@ class DocumentDraftServiceTest {
         Long docId = 1L;
         Long orgId = 10L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
         OrgNode orgNode = OrgNode.builder().id(orgId).nameVn("Phòng Đào tạo").build();
 
         Document doc = Document.builder()
@@ -279,13 +279,13 @@ class DocumentDraftServiceTest {
                 .title("Tiêu đề cũ")
                 .summary("Trích yếu cũ")
                 .content("Nội dung cũ")
-                .drafter(creator)
+                .drafter(drafter)
                 .issuingOrgNode(orgNode)
                 .status(DocumentStatus.DRAFT)
                 .currentVersion(1)
                 .build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(orgNodeRepository.findByIdAndDeleteFlgFalse(orgId)).thenReturn(Optional.of(orgNode));
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -315,7 +315,7 @@ class DocumentDraftServiceTest {
         Long docId = 1L;
         Long orgId = 10L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
         OrgNode orgNode = OrgNode.builder().id(orgId).nameVn("Phòng Đào tạo").build();
 
         Document doc = Document.builder()
@@ -325,13 +325,13 @@ class DocumentDraftServiceTest {
                 .content("Nội dung")
                 .securityLevel(DocumentSecurityLevel.SECRET)
                 .urgencyLevel(DocumentUrgencyLevel.TOP_URGENT)
-                .drafter(creator)
+                .drafter(drafter)
                 .issuingOrgNode(orgNode)
                 .status(DocumentStatus.DRAFT)
                 .currentVersion(1)
                 .build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(orgNodeRepository.findByIdAndDeleteFlgFalse(orgId)).thenReturn(Optional.of(orgNode));
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -355,17 +355,17 @@ class DocumentDraftServiceTest {
 
     @Test
     @DisplayName("Chỉnh sửa dự thảo bị từ chối khi không phải người tạo (FORBIDDEN)")
-    void updateDraft_Forbidden_WhenNotCreator() {
-        Long creatorId = 100L;
+    void updateDraft_Forbidden_WhenNotDrafter() {
+        Long drafterId = 100L;
         Long otherUserId = 200L;
         Long docId = 1L;
 
-        UserLogin creator = UserLogin.builder().id(creatorId).username("author").build();
+        UserLogin drafter = UserLogin.builder().id(drafterId).username("author").build();
         UserLogin otherUser = UserLogin.builder().id(otherUserId).username("other").role(Role.USER).build();
 
         Document doc = Document.builder()
                 .id(docId)
-                .drafter(creator)
+                .drafter(drafter)
                 .status(DocumentStatus.DRAFT)
                 .build();
 
@@ -390,14 +390,14 @@ class DocumentDraftServiceTest {
         Long userId = 100L;
         Long docId = 1L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
         Document doc = Document.builder()
                 .id(docId)
-                .drafter(creator)
+                .drafter(drafter)
                 .status(DocumentStatus.IN_REVIEW)
                 .build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
 
         DocumentUpdateRequest request = DocumentUpdateRequest.builder()
@@ -418,13 +418,13 @@ class DocumentDraftServiceTest {
         Long docId = 1L;
         Long userId = 100L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("author").build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("author").build();
         Document doc = Document.builder()
                 .id(docId)
                 .draftCode("DT-2026-00001")
                 .title("Quyết định mẫu")
                 .summary("Trích yếu mẫu")
-                .drafter(creator)
+                .drafter(drafter)
                 .status(DocumentStatus.DRAFT)
                 .currentVersion(1)
                 .build();
@@ -475,19 +475,19 @@ class DocumentDraftServiceTest {
         Long docId = 1L;
         Long orgNodeId = 10L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
         OrgNode orgNode = OrgNode.builder().id(orgNodeId).nameVn("Khoa CNTT").build();
         Document doc = Document.builder()
                 .id(docId)
                 .title("Tiêu đề cũ")
                 .summary("Trích yếu cũ")
                 .content("Nội dung cũ")
-                .drafter(creator)
+                .drafter(drafter)
                 .status(DocumentStatus.DRAFT)
                 .currentVersion(1)
                 .build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(orgNodeRepository.findByIdAndDeleteFlgFalse(orgNodeId)).thenReturn(Optional.of(orgNode));
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -516,11 +516,11 @@ class DocumentDraftServiceTest {
         Long orgNodeId = 10L;
 
         UserLogin admin = UserLogin.builder().id(adminId).username("admin").role(Role.ADMIN).build();
-        UserLogin creator = UserLogin.builder().id(100L).username("author").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(100L).username("author").role(Role.USER).build();
         OrgNode orgNode = OrgNode.builder().id(orgNodeId).nameVn("Khoa CNTT").build();
         Document doc = Document.builder()
                 .id(docId)
-                .drafter(creator)
+                .drafter(drafter)
                 .status(DocumentStatus.DRAFT)
                 .currentVersion(1)
                 .build();
@@ -679,17 +679,17 @@ class DocumentDraftServiceTest {
     }
 
     @Test
-    @DisplayName("Xóa dự thảo thành công bởi người tạo (Creator)")
-    void deleteDraft_Success_ByCreator() {
+    @DisplayName("Xóa dự thảo thành công bởi người soạn (Drafter)")
+    void deleteDraft_Success_ByDrafter() {
         Long userId = 100L;
         Long docId = 1L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
         Document doc = Document.builder()
                 .id(docId)
                 .draftCode("DT-2026-00001")
                 .title("Dự thảo kế hoạch")
-                .drafter(creator)
+                .drafter(drafter)
                 .status(DocumentStatus.DRAFT)
                 .deleteFlg(false)
                 .build();
@@ -708,7 +708,7 @@ class DocumentDraftServiceTest {
                 .deleteFlg(false)
                 .build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(docId)).thenReturn(List.of(attachment));
         when(documentVersionRepository.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(docId)).thenReturn(List.of(version));
@@ -728,17 +728,17 @@ class DocumentDraftServiceTest {
     @Test
     @DisplayName("Xóa dự thảo thành công bởi quản trị viên (Admin) có tệp đính kèm và phiên bản")
     void deleteDraft_Success_ByAdmin() {
-        Long creatorId = 100L;
+        Long drafterId = 100L;
         Long adminId = 999L;
         Long docId = 1L;
 
-        UserLogin creator = UserLogin.builder().id(creatorId).username("author").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(drafterId).username("author").role(Role.USER).build();
         UserLogin admin = UserLogin.builder().id(adminId).username("admin").role(Role.ADMIN).build();
         Document doc = Document.builder()
                 .id(docId)
                 .draftCode("DT-2026-00001")
                 .title("Dự thảo kế hoạch")
-                .drafter(creator)
+                .drafter(drafter)
                 .status(DocumentStatus.DRAFT)
                 .deleteFlg(false)
                 .build();
@@ -777,17 +777,17 @@ class DocumentDraftServiceTest {
     @Test
     @DisplayName("Xóa dự thảo thành công bởi quản trị viên (Admin) khi không có tệp đính kèm và phiên bản")
     void deleteDraft_Success_ByAdmin_WithoutAttachmentsAndVersions() {
-        Long creatorId = 100L;
+        Long drafterId = 100L;
         Long adminId = 999L;
         Long docId = 1L;
 
-        UserLogin creator = UserLogin.builder().id(creatorId).username("author").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(drafterId).username("author").role(Role.USER).build();
         UserLogin admin = UserLogin.builder().id(adminId).username("admin").role(Role.ADMIN).build();
         Document doc = Document.builder()
                 .id(docId)
                 .draftCode("DT-2026-00001")
                 .title("Dự thảo kế hoạch")
-                .drafter(creator)
+                .drafter(drafter)
                 .status(DocumentStatus.DRAFT)
                 .deleteFlg(false)
                 .build();
@@ -846,17 +846,17 @@ class DocumentDraftServiceTest {
 
     @Test
     @DisplayName("Xóa dự thảo thất bại khi người thực hiện không phải người tạo và không phải Admin")
-    void deleteDraft_ThrowsForbidden_WhenUserNotCreatorAndNotAdmin() {
-        Long creatorId = 100L;
+    void deleteDraft_ThrowsForbidden_WhenUserNotDrafterAndNotAdmin() {
+        Long drafterId = 100L;
         Long otherUserId = 200L;
         Long docId = 1L;
 
-        UserLogin creator = UserLogin.builder().id(creatorId).username("author").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(drafterId).username("author").role(Role.USER).build();
         UserLogin otherUser = UserLogin.builder().id(otherUserId).username("other").role(Role.USER).build();
         Document doc = Document.builder()
                 .id(docId)
                 .draftCode("DT-2026-00001")
-                .drafter(creator)
+                .drafter(drafter)
                 .status(DocumentStatus.DRAFT)
                 .build();
 
@@ -879,15 +879,15 @@ class DocumentDraftServiceTest {
         Long userId = 100L;
         Long docId = 1L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
         Document doc = Document.builder()
                 .id(docId)
                 .draftCode("DT-2026-00001")
-                .drafter(creator)
+                .drafter(drafter)
                 .status(DocumentStatus.IN_REVIEW)
                 .build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
 
         BusinessException ex = assertThrows(BusinessException.class,

@@ -244,8 +244,8 @@ public class DocumentPublishService {
         }
 
         Long userId = extractUserId(authentication);
-        Long creatorId = doc.getDrafter() != null ? doc.getDrafter().getId() : null;
-        if (userId != null && userId.equals(creatorId)) {
+        Long drafterId = doc.getDrafter() != null ? doc.getDrafter().getId() : null;
+        if (userId != null && userId.equals(drafterId)) {
             return;
         }
 

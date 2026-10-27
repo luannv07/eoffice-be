@@ -1005,8 +1005,8 @@ class DocumentServiceCoverageTest {
 
     @Test
     void testVerifyIntegrity_UnpublishedDocument_SecurityChecks() throws Exception {
-        UserLogin creator = new UserLogin();
-        creator.setId(100L);
+        UserLogin drafter = new UserLogin();
+        drafter.setId(100L);
 
         File tempFile = File.createTempFile("test_verify_doc", ".pdf");
         tempFile.deleteOnExit();
@@ -1018,7 +1018,7 @@ class DocumentServiceCoverageTest {
         Document draftDoc = new Document();
         draftDoc.setId(500L);
         draftDoc.setStatus(DocumentStatus.DRAFT);
-        draftDoc.setDrafter(creator);
+        draftDoc.setDrafter(drafter);
         draftDoc.setOfficialHash(validHash);
         draftDoc.setOfficialFilePath(tempFile.getAbsolutePath());
         when(documentPdfStorageService.readPdf(tempFile.getAbsolutePath())).thenReturn(Files.readAllBytes(tempFile.toPath()));
@@ -1028,7 +1028,7 @@ class DocumentServiceCoverageTest {
         Document publishedDoc = new Document();
         publishedDoc.setId(501L);
         publishedDoc.setStatus(DocumentStatus.PUBLISHED);
-        publishedDoc.setDrafter(creator);
+        publishedDoc.setDrafter(drafter);
         publishedDoc.setOfficialHash(validHash);
         publishedDoc.setOfficialFilePath(tempFile.getAbsolutePath());
 
@@ -1088,13 +1088,13 @@ class DocumentServiceCoverageTest {
                 otherUser, null, List.of(new SimpleGrantedAuthority("DOCUMENT_VERIFY")));
         assertTrue(documentPublishService.verifyIntegrity(500L, verifyAuth));
 
-        JwtUserPrincipal creatorPrincipal = new JwtUserPrincipal(100L, "creator", "USER", true, List.of());
-        Authentication creatorAuth = new UsernamePasswordAuthenticationToken(
-                creatorPrincipal, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
-        assertTrue(documentPublishService.verifyIntegrity(500L, creatorAuth));
+        JwtUserPrincipal drafterPrincipal = new JwtUserPrincipal(100L, "drafter", "USER", true, List.of());
+        Authentication drafterAuth = new UsernamePasswordAuthenticationToken(
+                drafterPrincipal, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        assertTrue(documentPublishService.verifyIntegrity(500L, drafterAuth));
 
         try {
-            org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(creatorAuth);
+            org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(drafterAuth);
             assertTrue(documentPublishService.verifyIntegrity(501L, null));
             assertTrue(documentPublishService.verifyIntegrity(501L));
 
@@ -1108,22 +1108,22 @@ class DocumentServiceCoverageTest {
         Document hashMismatchDoc = new Document();
         hashMismatchDoc.setId(502L);
         hashMismatchDoc.setStatus(DocumentStatus.DRAFT);
-        hashMismatchDoc.setDrafter(creator);
+        hashMismatchDoc.setDrafter(drafter);
         hashMismatchDoc.setOfficialHash("incorrect_hash_value");
         hashMismatchDoc.setOfficialFilePath(tempFile.getAbsolutePath());
         when(documentRepository.findById(502L)).thenReturn(Optional.of(hashMismatchDoc));
-        assertFalse(documentPublishService.verifyIntegrity(502L, creatorAuth));
+        assertFalse(documentPublishService.verifyIntegrity(502L, drafterAuth));
     }
 
     @Test
     void testVerifyUserCanAccessDocument_SecurityChecks() {
-        UserLogin creator = new UserLogin();
-        creator.setId(100L);
+        UserLogin drafter = new UserLogin();
+        drafter.setId(100L);
 
         Document pendingDoc = new Document();
         pendingDoc.setId(600L);
         pendingDoc.setStatus(DocumentStatus.IN_REVIEW);
-        pendingDoc.setDrafter(creator);
+        pendingDoc.setDrafter(drafter);
 
         when(documentRepository.findById(600L)).thenReturn(Optional.of(pendingDoc));
 
@@ -1145,15 +1145,15 @@ class DocumentServiceCoverageTest {
                 otherUser, null, List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
         assertDoesNotThrow(() -> documentWorkflowService.verifyUserCanAccessDocument(600L, adminAuth));
 
-        JwtUserPrincipal creatorPrincipal = new JwtUserPrincipal(100L, "creator", "USER", true, List.of());
-        Authentication creatorAuth = new UsernamePasswordAuthenticationToken(
-                creatorPrincipal, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
-        assertDoesNotThrow(() -> documentWorkflowService.verifyUserCanAccessDocument(600L, creatorAuth));
+        JwtUserPrincipal drafterPrincipal = new JwtUserPrincipal(100L, "drafter", "USER", true, List.of());
+        Authentication drafterAuth = new UsernamePasswordAuthenticationToken(
+                drafterPrincipal, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        assertDoesNotThrow(() -> documentWorkflowService.verifyUserCanAccessDocument(600L, drafterAuth));
 
         Document publishedDoc = new Document();
         publishedDoc.setId(601L);
         publishedDoc.setStatus(DocumentStatus.PUBLISHED);
-        publishedDoc.setDrafter(creator);
+        publishedDoc.setDrafter(drafter);
         when(documentRepository.findById(601L)).thenReturn(Optional.of(publishedDoc));
 
         assertDoesNotThrow(() -> documentWorkflowService.verifyUserCanAccessDocument(601L, docViewAuth));

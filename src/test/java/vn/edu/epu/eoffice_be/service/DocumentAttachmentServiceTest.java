@@ -66,8 +66,8 @@ class DocumentAttachmentServiceTest {
         Long userId = 100L;
         Long docId = 1L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.DRAFT).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
 
         MockMultipartFile file = new MockMultipartFile("file", "kehoach.docx",
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "dummy content".getBytes());
@@ -82,7 +82,7 @@ class DocumentAttachmentServiceTest {
                 .sha256Checksum("hash123")
                 .build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(fileStorageService.storeFile(file, docId)).thenReturn(storedInfo);
         when(documentAttachmentRepository.save(any(DocumentAttachment.class))).thenAnswer(inv -> {
@@ -107,12 +107,12 @@ class DocumentAttachmentServiceTest {
         Long userId = 100L;
         Long docId = 1L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.PUBLISHED).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.PUBLISHED).build();
 
         MockMultipartFile file = new MockMultipartFile("file", "doc.pdf", "application/pdf", "dummy".getBytes());
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
 
         BusinessException ex = assertThrows(BusinessException.class,
@@ -127,8 +127,8 @@ class DocumentAttachmentServiceTest {
         Long docId = 1L;
         Long attId = 10L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.DRAFT).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
         DocumentAttachment att = DocumentAttachment.builder()
                 .id(attId)
                 .document(doc)
@@ -136,7 +136,7 @@ class DocumentAttachmentServiceTest {
                 .deleteFlg(false)
                 .build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId, docId))
                 .thenReturn(Optional.of(att));
@@ -155,10 +155,10 @@ class DocumentAttachmentServiceTest {
         Long attId = 999L;
         Long userId = 100L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("creator").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.DRAFT).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("drafter").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId, docId))
                 .thenReturn(Optional.empty());
@@ -175,8 +175,8 @@ class DocumentAttachmentServiceTest {
         Long attId = 10L;
         Long userId = 100L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("creator").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.DRAFT).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("drafter").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
         DocumentAttachment att = DocumentAttachment.builder()
                 .id(attId)
                 .document(doc)
@@ -186,7 +186,7 @@ class DocumentAttachmentServiceTest {
 
         Resource mockResource = mock(Resource.class);
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId, docId)).thenReturn(Optional.of(att));
         when(fileStorageService.loadAsResource("path/to", "file.pdf")).thenReturn(mockResource);
@@ -202,11 +202,11 @@ class DocumentAttachmentServiceTest {
         Long docId = 1L;
         Long attId = 10L;
         Long crossUserId = 200L;
-        Long creatorId = 100L;
+        Long drafterId = 100L;
 
-        UserLogin creator = UserLogin.builder().id(creatorId).username("creator").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(drafterId).username("drafter").role(Role.USER).build();
         UserLogin crossUser = UserLogin.builder().id(crossUserId).username("crossUser").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.DRAFT).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
 
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(crossUserId)).thenReturn(Optional.of(crossUser));
@@ -223,11 +223,11 @@ class DocumentAttachmentServiceTest {
         Long attId = 10L;
         Long userId = 100L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("creator").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.DRAFT).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("drafter").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
         DocumentAttachment att = DocumentAttachment.builder().id(attId).document(doc).originalFileName("test.docx").build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId, docId)).thenReturn(Optional.of(att));
 
@@ -242,11 +242,11 @@ class DocumentAttachmentServiceTest {
         Long docId = 1L;
         Long attId = 10L;
         Long crossUserId = 200L;
-        Long creatorId = 100L;
+        Long drafterId = 100L;
 
-        UserLogin creator = UserLogin.builder().id(creatorId).username("creator").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(drafterId).username("drafter").role(Role.USER).build();
         UserLogin crossUser = UserLogin.builder().id(crossUserId).username("crossUser").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.DRAFT).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
 
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(crossUserId)).thenReturn(Optional.of(crossUser));
@@ -262,11 +262,11 @@ class DocumentAttachmentServiceTest {
         Long docId = 1L;
         Long attId = 10L;
         Long adminId = 999L;
-        Long creatorId = 100L;
+        Long drafterId = 100L;
 
-        UserLogin creator = UserLogin.builder().id(creatorId).username("creator").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(drafterId).username("drafter").role(Role.USER).build();
         UserLogin admin = UserLogin.builder().id(adminId).username("admin").role(Role.ADMIN).build();
-        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.DRAFT).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
         DocumentAttachment att = DocumentAttachment.builder().id(attId).document(doc).originalFileName("test.docx").build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(adminId)).thenReturn(Optional.of(admin));
@@ -284,11 +284,11 @@ class DocumentAttachmentServiceTest {
         Long docId = 1L;
         Long attId = 10L;
         Long anyUserId = 500L;
-        Long creatorId = 100L;
+        Long drafterId = 100L;
 
-        UserLogin creator = UserLogin.builder().id(creatorId).username("creator").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(drafterId).username("drafter").role(Role.USER).build();
         UserLogin anyUser = UserLogin.builder().id(anyUserId).username("employee").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.PUBLISHED).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.PUBLISHED).build();
         DocumentAttachment att = DocumentAttachment.builder().id(attId).document(doc).originalFileName("decision.pdf").build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(anyUserId)).thenReturn(Optional.of(anyUser));
@@ -307,8 +307,8 @@ class DocumentAttachmentServiceTest {
         Long docId = 1L;
 
         UserLogin otherUser = UserLogin.builder().id(userId).username("other").role(Role.USER).build();
-        UserLogin creator = UserLogin.builder().id(999L).username("creator").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.DRAFT).build();
+        UserLogin drafter = UserLogin.builder().id(999L).username("drafter").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
 
         MockMultipartFile file = new MockMultipartFile("file", "doc.pdf", "application/pdf", "dummy".getBytes());
 
@@ -328,8 +328,8 @@ class DocumentAttachmentServiceTest {
         Long attId = 10L;
 
         UserLogin otherUser = UserLogin.builder().id(userId).username("other").role(Role.USER).build();
-        UserLogin creator = UserLogin.builder().id(999L).username("creator").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.DRAFT).build();
+        UserLogin drafter = UserLogin.builder().id(999L).username("drafter").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(otherUser));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
@@ -345,11 +345,11 @@ class DocumentAttachmentServiceTest {
         Long docId = 1L;
         Long attId = 10L;
         Long approverId = 300L;
-        Long creatorId = 100L;
+        Long drafterId = 100L;
 
-        UserLogin creator = UserLogin.builder().id(creatorId).username("creator").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(drafterId).username("drafter").role(Role.USER).build();
         UserLogin approver = UserLogin.builder().id(approverId).username("approver").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.IN_REVIEW).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.IN_REVIEW).build();
         DocumentAttachment att = DocumentAttachment.builder().id(attId).document(doc).originalFileName("draft.docx").build();
 
         DocumentApprovalRequest pendingReq = DocumentApprovalRequest.builder()
@@ -376,11 +376,11 @@ class DocumentAttachmentServiceTest {
         Long docId = 1L;
         Long attId = 10L;
         Long formerApproverId = 300L;
-        Long creatorId = 100L;
+        Long drafterId = 100L;
 
-        UserLogin creator = UserLogin.builder().id(creatorId).username("creator").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(drafterId).username("drafter").role(Role.USER).build();
         UserLogin formerApprover = UserLogin.builder().id(formerApproverId).username("formerApprover").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).drafter(creator).status(DocumentStatus.IN_REVIEW).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.IN_REVIEW).build();
 
         DocumentApprovalRequest oldReq = DocumentApprovalRequest.builder()
                 .id(50L)
