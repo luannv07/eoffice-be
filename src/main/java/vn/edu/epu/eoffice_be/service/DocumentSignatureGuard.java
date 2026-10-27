@@ -1,6 +1,7 @@
 package vn.edu.epu.eoffice_be.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.interactive.form.PDSignatureField;
@@ -24,6 +25,7 @@ import java.util.Objects;
 /** Requires cryptographic proof on the working PDF, bound to an actual signing operation. */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class DocumentSignatureGuard {
     private final PdfSignatureVerifier verifier;
     private final DocumentWorkflowLogRepository workflowLogs;
@@ -111,6 +113,7 @@ public class DocumentSignatureGuard {
                         .digest(Arrays.copyOf(pdf, (int) end)));
             }
         } catch (Exception e) {
+            log.warn("Không thể đối chiếu phiên bản PDF đã ký, signatureField={}", fieldName, e);
             throw missing("Không thể đối chiếu phiên bản PDF đã ký");
         }
         throw missing("Không tìm thấy chữ ký yêu cầu trên PDF hiện tại");
