@@ -255,9 +255,12 @@ class DocumentWorkflowSigningTest {
 
     @Test
     void invalidEffectiveDateCannotPublish() {
+        preparePublication();
         Instant now = Instant.now();
-        assertThrows(BusinessException.class, () -> service.signAndPublish(50L, DocumentPublishRequest.builder()
+        BusinessException failure = assertThrows(BusinessException.class, () -> service.signAndPublish(50L, DocumentPublishRequest.builder()
                 .distributionScope(DistributionScope.ALL).issueDate(now).effectiveDate(now.minusSeconds(1)).build()));
-        verifyNoInteractions(signer, guard, storage, distributions);
+        assertEquals(ErrorCode.VALIDATION_ERROR, failure.getErrorCode());
+        assertTrue(failure.getMessage().contains("effectiveDate"));
+        verifyNoInteractions(signer, guard, storage, distributions, engine, workingPdf);
     }
 }
