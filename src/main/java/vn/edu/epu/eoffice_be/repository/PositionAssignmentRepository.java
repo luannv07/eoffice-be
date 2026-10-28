@@ -14,6 +14,33 @@ import java.util.List;
 
 public interface PositionAssignmentRepository extends JpaRepository<PositionAssignment, Long> {
 
+    @Query("""
+            SELECT pa FROM PositionAssignment pa
+            JOIN FETCH pa.userLogin u JOIN FETCH pa.orgNode o
+            WHERE pa.deleteFlg = false AND pa.actualDismissalDate IS NULL
+              AND pa.effectiveFrom <= :at AND (pa.effectiveTo IS NULL OR pa.effectiveTo >= :at)
+              AND pa.positionCd IN :codes AND o.deleteFlg = false
+              AND u.deleteFlg = false AND u.userStatusCd = 'ACTIVE'
+            """)
+    List<PositionAssignment> findSubmissionCandidatesAcrossUnits(@Param("codes") Collection<String> codes,
+            @Param("at") Instant at);
+
+    @Query("""
+            SELECT pa FROM PositionAssignment pa
+            JOIN FETCH pa.userLogin u JOIN FETCH pa.orgNode o
+            WHERE pa.deleteFlg = false AND pa.actualDismissalDate IS NULL
+              AND pa.effectiveFrom <= :at AND (pa.effectiveTo IS NULL OR pa.effectiveTo >= :at)
+              AND pa.positionCd IN :codes AND o.deleteFlg = false
+              AND u.deleteFlg = false AND u.userStatusCd = 'ACTIVE' AND o.id = :unit
+            """)
+    List<PositionAssignment> findSubmissionCandidatesInUnit(@Param("codes") Collection<String> codes,
+            @Param("unit") Long unit, @Param("at") Instant at);
+
+    default List<PositionAssignment> findSubmissionCandidates(Collection<String> codes, Long unit, Instant at) {
+        return unit == null ? findSubmissionCandidatesAcrossUnits(codes, at)
+                : findSubmissionCandidatesInUnit(codes, unit, at);
+    }
+
 	List<PositionAssignment> findByUserLoginIdAndDeleteFlgFalse(Long userLoginId);
 
 	List<PositionAssignment> findByOrgNodeIdAndDeleteFlgFalse(Long orgNodeId);

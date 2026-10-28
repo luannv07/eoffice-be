@@ -10,6 +10,11 @@ import vn.edu.epu.eoffice_be.common.enums.DocumentProcessAction;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.enums.Role;
+import vn.edu.epu.eoffice_be.common.enums.SubmissionRoute;
+import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
+import vn.edu.epu.eoffice_be.dto.response.SubmissionOptionsResponse;
+import vn.edu.epu.eoffice_be.event.DocumentQueuedForClerksEvent;
+import vn.edu.epu.eoffice_be.workflow.WorkflowEngine;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.dto.request.RecallApprovalRequest;
 import vn.edu.epu.eoffice_be.dto.request.SubmitApprovalRequest;
@@ -62,15 +67,39 @@ public class DocumentApprovalService {
     private final DocumentPdfStorageService documentPdfStorageService;
     private final vn.edu.epu.eoffice_be.storage.FileStorageService unifiedStorageService;
     private final PdfSigner pdfSigner;
+    private final SubmissionRoutingService submissionRoutingService;
+    private final WorkflowEngine workflowEngine;
 
     /**
      * Lấy danh sách cán bộ có thẩm quyền duyệt văn bản (theo đơn vị hoặc toàn hệ thống)
      */
     @Transactional(readOnly = true)
-    public List<EligibleApproverResponse> getEligibleApprovers(Long documentId, Long userId) {
+    public SubmissionOptionsResponse getSubmissionOptions(Long documentId, Long userId) {
+        UserLogin sender = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
         Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
+        return submissionRoutingService.options(document, sender, Instant.now());
+    }
 
+    @Transactional(readOnly = true)
+    public List<EligibleApproverResponse> getEligibleApprovers(Long documentId, Long userId) {
+        UserLogin sender = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+        Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
+        SubmissionRoutingService.assertOwnership(document, sender);
+        if (document.getStatus() == DocumentStatus.DRAFT) {
+            return submissionRoutingService.options(document, sender, Instant.now()).routes().stream()
+                    .flatMap(route -> route.approvers().stream())
+                    .collect(Collectors.toMap(EligibleApproverResponse::getUserId, value -> value,
+                            (first, other) -> first, java.util.LinkedHashMap::new))
+                    .values().stream().toList();
+        }
+        return legacyEligibleApprovers(document);
+    }
+
+    private List<EligibleApproverResponse> legacyEligibleApprovers(Document document) {
         Set<String> approverPositions = resolveApproverPositions();
         Instant now = Instant.now();
         List<PositionAssignment> assignments = positionAssignmentRepository
@@ -190,6 +219,34 @@ public class DocumentApprovalService {
                     "Hồ sơ chưa đầy đủ: Tiêu đề và trích yếu văn bản không được để trống");
         }
 
+        if (request == null) throw new BusinessException(ErrorCode.BAD_REQUEST, "Thiếu thông tin gửi văn bản");
+        Instant now = Instant.now();
+        SubmissionRoutingService.Decision decision = null;
+        UserLogin approver = null;
+        WorkflowAction submissionAction = WorkflowAction.SUBMIT;
+        if (document.getStatus() == DocumentStatus.DRAFT) {
+            // Keep the existing NOT_FOUND contract before resolving an explicit recipient.
+            if (request.getApproverUserId() != null) {
+                approver = userLoginRepository.findByIdAndDeleteFlgFalse(request.getApproverUserId())
+                        .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Không tìm thấy người duyệt được chỉ định"));
+            }
+            decision = submissionRoutingService.resolve(document, sender, request, now);
+            submissionAction = switch (decision.route()) {
+                case REVIEW -> WorkflowAction.SUBMIT;
+                case LEADER_APPROVAL -> WorkflowAction.SUBMIT_TO_LEADER;
+                case CLERK_QUEUE -> WorkflowAction.SUBMIT_TO_CLERK_QUEUE;
+            };
+            workflowEngine.validateTransition(document, submissionAction, request.getSubmitNote());
+            workflowEngine.validateActorPermission(document, sender, submissionAction);
+            if (decision.approverUserId() != null && approver == null) {
+                approver = userLoginRepository.findByIdAndDeleteFlgFalse(decision.approverUserId())
+                        .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Không tìm thấy người duyệt được chỉ định"));
+            }
+        } else if (request.getApproverUserId() == null) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "Người duyệt không được để trống khi gửi lại");
+        }
+        boolean clerkQueue = decision != null && decision.route() == SubmissionRoute.CLERK_QUEUE;
+
         // 2. Kiểm tra tệp đính kèm và xử lý nâng phiên bản khi gửi duyệt lại (Resubmission)
         boolean isResubmission = document.getStatus() == DocumentStatus.NEEDS_REVISION 
                 || document.getStatus() == DocumentStatus.REJECTED;
@@ -216,20 +273,23 @@ public class DocumentApprovalService {
             }
         }
 
-        // Kiểm tra người nhận duyệt
-        UserLogin approver = userLoginRepository.findByIdAndDeleteFlgFalse(request.getApproverUserId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Không tìm thấy người duyệt được chỉ định"));
-
-        if (!isUserEligibleApprover(approver, document)) {
-            throw new BusinessException(ErrorCode.APPROVER_NOT_ELIGIBLE,
-                    "Người được chọn không có thẩm quyền duyệt văn bản này hoặc không thuộc đơn vị phù hợp");
+        if (decision == null) {
+            // Preserve resubmission policy until its own rework.
+            approver = userLoginRepository.findByIdAndDeleteFlgFalse(request.getApproverUserId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Không tìm thấy người duyệt được chỉ định"));
+            if (!isUserEligibleApprover(approver, document)) {
+                throw new BusinessException(ErrorCode.APPROVER_NOT_ELIGIBLE,
+                        "Người được chọn không có thẩm quyền duyệt văn bản này hoặc không thuộc đơn vị phù hợp");
+            }
         }
-
-        Instant now = Instant.now();
 
         // Tự động ký nháy lần 1 nếu hồ sơ có tệp PDF (Người soạn thảo ký nháy tự động)
         String signatureHash = null;
         byte[] pdfBytes = loadDocumentPdfBytes(document);
+        if (clerkQueue && (pdfBytes == null || pdfBytes.length == 0 || pdfSigner == null)) {
+            throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR,
+                    "Hiệu trưởng phải có PDF và ký xác nhận thành công trước khi chuyển hàng chờ văn thư");
+        }
         if (pdfBytes != null && pdfBytes.length > 0 && pdfSigner != null) {
             String signerFullName = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(sender.getId())
                     .map(UserInfo::getFullName)
@@ -252,12 +312,20 @@ public class DocumentApprovalService {
                         titleInfo.orgUnit(),
                         signReason
                 );
+                if (clerkQueue && (signResult == null || signResult.signedPdfBytes() == null
+                        || signResult.signedPdfBytes().length == 0 || signResult.outPdfSha256() == null
+                        || signResult.outPdfSha256().isBlank())) {
+                    throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR, "Kết quả ký xác nhận không hợp lệ");
+                }
                 byte[] stampedPdfBytes = signResult.signedPdfBytes();
                 String newPdfReference = documentPdfStorageService.storeSignedPdf(
                         stampedPdfBytes,
                         "initial_signed_" + document.getId() + ".pdf",
                         document.getId()
                 );
+                if (clerkQueue && (newPdfReference == null || newPdfReference.isBlank())) {
+                    throw new BusinessException(ErrorCode.DOCUMENT_PDF_STORAGE_FAILED);
+                }
                 document.setPrimaryFilePath(newPdfReference);
                 signatureHash = signResult.outPdfSha256();
                 log.info("Đã tự động ký nháy lần 1 cho văn bản id={}, người ký={}, hash={}",
@@ -274,24 +342,31 @@ public class DocumentApprovalService {
         // Lưu trạng thái nguồn trước khi đổi trạng thái (Issue 18)
         DocumentStatus prevStatus = document.getStatus();
 
-        // Chuyển trạng thái văn bản sang WAITING_APPROVAL
-        document.setStatus(DocumentStatus.IN_REVIEW);
         document.setSubmittedAt(now);
-        Document savedDocument = documentRepository.save(document);
+        Document savedDocument;
+        if (decision != null) {
+            workflowEngine.executeTransition(document, submissionAction, sender,
+                    clerkQueue ? "Hiệu trưởng xác nhận phê duyệt nội dung và chuyển hàng chờ văn thư. "
+                            + (request.getSubmitNote() == null ? "" : request.getSubmitNote()) : request.getSubmitNote(),
+                    null, null, signatureHash);
+            savedDocument = document;
+        } else {
+            document.setStatus(DocumentStatus.IN_REVIEW);
+            savedDocument = documentRepository.save(document);
+        }
 
-        // Tạo bản ghi yêu cầu duyệt
-        DocumentApprovalRequest approvalRequest = DocumentApprovalRequest.builder()
-                .document(savedDocument)
-                .senderUser(sender)
-                .approverUser(approver)
-                .status(ApprovalRequestStatus.PENDING)
-                .submitNote(request.getSubmitNote())
-                .submittedAt(now)
-                .build();
-        documentApprovalRequestRepository.save(approvalRequest);
+        if (!clerkQueue) {
+            DocumentApprovalRequest approvalRequest = DocumentApprovalRequest.builder()
+                    .document(savedDocument).senderUser(sender).approverUser(approver)
+                    .status(ApprovalRequestStatus.PENDING).submitNote(request.getSubmitNote())
+                    .submittedAt(now).build();
+            documentApprovalRequestRepository.save(approvalRequest);
+        }
 
         // Ghi nhật ký tiến trình với fromStatus chính xác từ trạng thái nguồn (Issue 18)
-        String logNote = "Gửi văn bản tới cán bộ duyệt: " + approver.getUsername() +
+        String destination = clerkQueue ? "hàng chờ văn thư; Hiệu trưởng xác nhận phê duyệt nội dung"
+                : "cán bộ duyệt: " + approver.getUsername();
+        String logNote = "Gửi văn bản tới " + destination +
                 (request.getSubmitNote() != null ? ". Ghi chú: " + request.getSubmitNote() : "") +
                 (signatureHash != null ? " [Đã ký nháy tự động, SHA256: " + signatureHash + "]" : "");
 
@@ -300,7 +375,7 @@ public class DocumentApprovalService {
                 .actorUser(sender)
                 .action(DocumentProcessAction.SUBMIT_APPROVAL)
                 .fromStatus(prevStatus != null ? prevStatus.name() : DocumentStatus.DRAFT.name())
-                .toStatus(DocumentStatus.IN_REVIEW.name())
+                .toStatus(savedDocument.getStatus().name())
                 .note(logNote)
                 .build();
         documentProcessLogRepository.save(processLog);
@@ -312,12 +387,15 @@ public class DocumentApprovalService {
         String cleanSubmitNote = request.getSubmitNote() != null
                 ? request.getSubmitNote().replace('\n', '_').replace('\r', '_')
                 : null;
-        eventPublisher.publishEvent(new DocumentSubmittedEvent(
-                this, savedDocument.getId(), sender.getId(), approver.getId(),
-                cleanTitle, cleanSubmitNote));
-
-        log.info("Người dùng id={} đã gửi duyệt văn bản id={} tới người duyệt id={}",
-                sender.getId(), savedDocument.getId(), approver.getId());
+        if (clerkQueue) {
+            eventPublisher.publishEvent(new DocumentQueuedForClerksEvent(
+                    savedDocument.getId(), sender.getId(), cleanTitle, cleanSubmitNote));
+        } else {
+            eventPublisher.publishEvent(new DocumentSubmittedEvent(
+                    this, savedDocument.getId(), sender.getId(), approver.getId(), cleanTitle, cleanSubmitNote));
+        }
+        log.info("Người dùng id={} đã gửi văn bản id={} theo tuyến {}", sender.getId(),
+                savedDocument.getId(), decision == null ? "LEGACY_RESUBMISSION" : decision.route());
 
         return documentDraftService.mapToDocumentResponse(savedDocument);
     }

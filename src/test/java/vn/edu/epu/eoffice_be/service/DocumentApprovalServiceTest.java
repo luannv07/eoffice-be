@@ -56,6 +56,9 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class DocumentApprovalServiceTest {
+    @Mock SubmissionRoutingService submissionRoutingService;
+    @Mock vn.edu.epu.eoffice_be.workflow.WorkflowEngine submissionWorkflowEngine;
+
 
     @Mock
     private DocumentRepository documentRepository;
@@ -89,6 +92,22 @@ class DocumentApprovalServiceTest {
 
     @InjectMocks
     private DocumentApprovalService documentApprovalService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void acceptedRoutingForSignerAndLegacyServiceTests() {
+        // Routing itself is exercised with real policy/engine in dedicated suites.
+        org.mockito.Mockito.lenient().when(submissionRoutingService.resolve(any(), any(), any(), any()))
+                .thenAnswer(inv -> new SubmissionRoutingService.Decision(
+                        vn.edu.epu.eoffice_be.common.enums.SubmissionRoute.REVIEW,
+                        ((SubmitApprovalRequest) inv.getArgument(2)).getApproverUserId()));
+        org.mockito.Mockito.lenient().when(submissionWorkflowEngine.executeTransition(any(), any(), any(), any(), any(), any(), any()))
+                .thenAnswer(inv -> {
+                    Document doc = inv.getArgument(0);
+                    doc.setStatus(DocumentStatus.IN_REVIEW);
+                    documentRepository.save(doc);
+                    return null;
+                });
+    }
 
     static Stream<Arguments> missingRecallDraftersForNonAdmins() {
         return Arrays.stream(Role.values()).filter(role -> role != Role.ADMIN && role != Role.SYSTEM_ADMIN)
@@ -363,9 +382,10 @@ class DocumentApprovalServiceTest {
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(sender));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(true);
         when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.of(approver));
 
+        org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.APPROVER_NOT_ELIGIBLE))
+                .when(submissionRoutingService).resolve(any(), any(), any(), any());
         SubmitApprovalRequest request = SubmitApprovalRequest.builder()
                 .approverUserId(approverId)
                 .build();
@@ -401,6 +421,8 @@ class DocumentApprovalServiceTest {
         when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(false);
         when(documentAttachmentRepository.existsByDocumentIdAndDeleteFlgFalse(docId)).thenReturn(false);
 
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.of(
+                UserLogin.builder().id(approverId).role(Role.REVIEWER).build()));
         SubmitApprovalRequest request = SubmitApprovalRequest.builder().approverUserId(approverId).build();
 
         BusinessException ex = assertThrows(BusinessException.class,
@@ -548,85 +570,66 @@ class DocumentApprovalServiceTest {
     @Test
     @DisplayName("Lấy danh sách người duyệt đủ thẩm quyền (getEligibleApprovers)")
     void getEligibleApprovers_Success() {
-        Long docId = 1L;
-        Long userId = 100L;
-        Document doc = Document.builder().id(docId).build();
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-
-        UserLogin leader = UserLogin.builder().id(200L).username("leader").build();
-        vn.edu.epu.eoffice_be.entity.PositionAssignment pa = vn.edu.epu.eoffice_be.entity.PositionAssignment.builder()
-                .id(1L)
-                .userLogin(leader)
-                .positionCd("HT")
-                .deleteFlg(false)
-                .build();
-        when(positionAssignmentRepository.findActiveAssignmentsByPositionCds(any(), any())).thenReturn(java.util.List.of(pa));
-        when(userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(200L))
-                .thenReturn(Optional.of(vn.edu.epu.eoffice_be.entity.UserInfo.builder().fullName("Nguyễn Văn Hiệu Trưởng").build()));
-
-        var result = documentApprovalService.getEligibleApprovers(docId, userId);
-        org.junit.jupiter.api.Assertions.assertFalse(result.isEmpty());
+        UserLogin sender = UserLogin.builder().id(100L).role(Role.CLERK).build();
+        Document doc = Document.builder().id(1L).drafter(sender).status(DocumentStatus.DRAFT).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(sender));
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(doc));
+        org.springframework.test.util.ReflectionTestUtils.setField(documentApprovalService, "submissionRoutingService",
+                new SubmissionRoutingService(positionAssignmentRepository, userInfoRepository));
+        OrgNode school = OrgNode.builder().id(1L).typeCd("UNIVERSITY").build();
+        UserLogin leader = UserLogin.builder().id(200L).username("leader").role(Role.LEADER).build();
+        PositionAssignment pa = PositionAssignment.builder().id(1L).userLogin(leader).orgNode(school)
+                .positionCd("HT").effectiveFrom(java.time.Instant.now().minusSeconds(60)).build();
+        when(positionAssignmentRepository.findSubmissionCandidates(any(), org.mockito.ArgumentMatchers.isNull(), any()))
+                .thenReturn(List.of(pa));
+        var result = documentApprovalService.getEligibleApprovers(1L, 100L);
+        assertFalse(result.isEmpty());
         assertEquals("leader", result.get(0).getUsername());
         assertEquals("Hiệu trưởng", result.get(0).getPositionName());
     }
 
     @Test
     @DisplayName("Lấy danh sách người duyệt fallback về admin khi không có cán bộ nào")
-    void getEligibleApprovers_FallbackAdmin_Success() {
-        Long docId = 1L;
-        Long userId = 100L;
-        Document doc = Document.builder().id(docId).build();
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-
-        when(positionAssignmentRepository.findActiveAssignmentsByPositionCds(any(), any())).thenReturn(java.util.List.of());
-        UserLogin admin = UserLogin.builder().id(999L).username("admin").role(Role.ADMIN).build();
-        when(userLoginRepository.findByRoleInAndDeleteFlgFalse(any())).thenReturn(java.util.List.of(admin));
-
-        var result = documentApprovalService.getEligibleApprovers(docId, userId);
-        org.junit.jupiter.api.Assertions.assertFalse(result.isEmpty());
-        assertEquals("admin", result.get(0).getUsername());
-        assertEquals("Quản trị viên", result.get(0).getPositionName());
+    void getEligibleApprovers_NoLeadership_DoesNotFallbackToAdmin() {
+        UserLogin sender = UserLogin.builder().id(100L).role(Role.CLERK).build();
+        Document doc = Document.builder().id(1L).drafter(sender).status(DocumentStatus.DRAFT).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(sender));
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(doc));
+        org.springframework.test.util.ReflectionTestUtils.setField(documentApprovalService, "submissionRoutingService",
+                new SubmissionRoutingService(positionAssignmentRepository, userInfoRepository));
+        BusinessException failure = assertThrows(BusinessException.class,
+                () -> documentApprovalService.getEligibleApprovers(1L, 100L));
+        assertEquals(ErrorCode.BAD_REQUEST, failure.getErrorCode());
+        assertTrue(failure.getMessage().contains("Chưa có Hiệu trưởng"));
+        verify(userLoginRepository, never()).findByRoleInAndDeleteFlgFalse(any());
     }
 
     @Test
     @DisplayName("Lấy danh sách người duyệt loại bỏ phân bổ đã xóa mềm hoặc đã miễn nhiệm")
     void getEligibleApprovers_DismissedOrDeletedAssignment_Excluded() {
-        Long docId = 1L;
-        Long userId = 100L;
-        Document doc = Document.builder().id(docId).build();
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-
-        UserLogin dismissedUser = UserLogin.builder().id(201L).username("dismissedLeader").build();
-        vn.edu.epu.eoffice_be.entity.PositionAssignment dismissedPa = vn.edu.epu.eoffice_be.entity.PositionAssignment.builder()
-                .id(1L)
-                .userLogin(dismissedUser)
-                .positionCd("HT")
-                .deleteFlg(false)
-                .actualDismissalDate(java.time.Instant.now())
-                .build();
-
-        UserLogin deletedUser = UserLogin.builder().id(202L).username("deletedAssignmentLeader").build();
-        vn.edu.epu.eoffice_be.entity.PositionAssignment deletedPa = vn.edu.epu.eoffice_be.entity.PositionAssignment.builder()
-                .id(2L)
-                .userLogin(deletedUser)
-                .positionCd("PHT")
-                .deleteFlg(true)
-                .build();
-
-        UserLogin activeUser = UserLogin.builder().id(203L).username("activeLeader").build();
-        vn.edu.epu.eoffice_be.entity.PositionAssignment activePa = vn.edu.epu.eoffice_be.entity.PositionAssignment.builder()
-                .id(3L)
-                .userLogin(activeUser)
-                .positionCd("TK")
-                .deleteFlg(false)
-                .build();
-
-        when(positionAssignmentRepository.findActiveAssignmentsByPositionCds(any(), any()))
-                .thenReturn(java.util.List.of(dismissedPa, deletedPa, activePa));
-        when(userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(203L))
-                .thenReturn(Optional.of(vn.edu.epu.eoffice_be.entity.UserInfo.builder().fullName("Trưởng Khoa Hoạt Động").build()));
-
-        var result = documentApprovalService.getEligibleApprovers(docId, userId);
+        UserLogin sender = UserLogin.builder().id(100L).role(Role.USER).build();
+        Document doc = Document.builder().id(1L).drafter(sender).status(DocumentStatus.DRAFT).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(sender));
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(doc));
+        org.springframework.test.util.ReflectionTestUtils.setField(documentApprovalService, "submissionRoutingService",
+                new SubmissionRoutingService(positionAssignmentRepository, userInfoRepository));
+        OrgNode faculty = OrgNode.builder().id(10L).typeCd("FACULTY").build();
+        var from = java.time.Instant.now().minusSeconds(60);
+        when(positionAssignmentRepository.findActiveAssignments(org.mockito.ArgumentMatchers.eq(100L), any()))
+                .thenReturn(List.of(PositionAssignment.builder().id(10L).userLogin(sender).orgNode(faculty)
+                        .positionCd("GV").effectiveFrom(from).build()));
+        UserLogin dismissed = UserLogin.builder().id(201L).username("dismissedLeader").build();
+        UserLogin deleted = UserLogin.builder().id(202L).username("deletedAssignmentLeader").build();
+        UserLogin active = UserLogin.builder().id(203L).username("activeLeader").build();
+        var invalid1 = PositionAssignment.builder().id(1L).userLogin(dismissed).orgNode(faculty)
+                .positionCd("TK").effectiveFrom(from).actualDismissalDate(java.time.Instant.now()).build();
+        var invalid2 = PositionAssignment.builder().id(2L).userLogin(deleted).orgNode(faculty)
+                .positionCd("TK").effectiveFrom(from).deleteFlg(true).build();
+        var valid = PositionAssignment.builder().id(3L).userLogin(active).orgNode(faculty)
+                .positionCd("TK").effectiveFrom(from).build();
+        when(positionAssignmentRepository.findSubmissionCandidates(any(), org.mockito.ArgumentMatchers.eq(10L), any()))
+                .thenReturn(List.of(invalid1, invalid2, valid));
+        var result = documentApprovalService.getEligibleApprovers(1L, 100L);
         assertEquals(1, result.size());
         assertEquals("activeLeader", result.get(0).getUsername());
         assertEquals("Trưởng khoa", result.get(0).getPositionName());
@@ -678,7 +681,6 @@ class DocumentApprovalServiceTest {
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(true);
         when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.empty());
 
         SubmitApprovalRequest req = SubmitApprovalRequest.builder().approverUserId(approverId).build();
@@ -947,14 +949,14 @@ class DocumentApprovalServiceTest {
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(sender));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(true);
         when(userLoginRepository.findByIdAndDeleteFlgFalse(crossUnitApproverId)).thenReturn(Optional.of(crossApprover));
 
         // Người duyệt thuộc Khoa Kinh tế
         PositionAssignment econPa = PositionAssignment.builder()
                 .id(3L).userLogin(crossApprover).positionCd("TK").orgNode(facultyEcon).deleteFlg(false).build();
-        when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(crossUnitApproverId)).thenReturn(List.of(econPa));
 
+        org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.APPROVER_NOT_ELIGIBLE))
+                .when(submissionRoutingService).resolve(any(), any(), any(), any());
         SubmitApprovalRequest request = SubmitApprovalRequest.builder()
                 .approverUserId(crossUnitApproverId)
                 .build();
@@ -1001,7 +1003,6 @@ class DocumentApprovalServiceTest {
                 .orgNode(nodeB)
                 .deleteFlg(false)
                 .build();
-        when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(approverId)).thenReturn(List.of(pa));
         when(documentRepository.save(any(Document.class))).thenReturn(doc);
 
         SubmitApprovalRequest request = SubmitApprovalRequest.builder()

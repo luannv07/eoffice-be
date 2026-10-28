@@ -36,6 +36,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @ExtendWith(MockitoExtension.class)
 class DocumentSubmissionOwnershipTest {
+    @Mock SubmissionRoutingService submissionRoutingService;
+    @Mock vn.edu.epu.eoffice_be.workflow.WorkflowEngine submissionWorkflowEngine;
+
     @Mock DocumentRepository documents;
     @Mock DocumentAttachmentRepository attachments;
     @Mock DocumentApprovalRequestRepository approvals;
@@ -120,7 +123,7 @@ class DocumentSubmissionOwnershipTest {
 
     @ParameterizedTest @EnumSource(Role.class)
     void workflowSubmitAlsoUsesDrafterForEveryRole(Role role) {
-        WorkflowEngine engine = new WorkflowEngine(documents, mock(DocumentWorkflowLogRepository.class), mock(PermissionResolver.class));
+        WorkflowEngine engine = new WorkflowEngine(documents, mock(DocumentWorkflowLogRepository.class), mock(PermissionResolver.class), submissionRoutingService);
         UserLogin actor = sender(role);
         Document document = Document.builder().drafter(actor).build();
         assertDoesNotThrow(() -> engine.validateActorPermission(document, actor, WorkflowAction.SUBMIT));

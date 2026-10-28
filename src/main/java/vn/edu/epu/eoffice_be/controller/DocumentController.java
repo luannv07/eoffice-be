@@ -315,8 +315,8 @@ public class DocumentController {
     // UC11: GỬI VĂN BẢN ĐỂ DUYỆT & THU HỒI YÊU CẦU DUYỆT
     // =========================================================================
 
-    @Operation(summary = "Danh sách cán bộ có thể duyệt (UC11)",
-            description = "Lấy danh sách các cán bộ có thẩm quyền duyệt văn bản phù hợp với đơn vị ban hành.")
+    @Operation(summary = "Danh sách người nhận theo tuyến gửi (UC11)",
+            description = "Người soạn lấy danh sách theo phân nhiệm/đơn vị tài khoản; hàng chờ văn thư không có người nhận cá nhân.")
     @GetMapping("/{id}/eligible-approvers")
     public BaseResponse<List<EligibleApproverResponse>> getEligibleApprovers(
             @PathVariable Long id,
@@ -326,8 +326,15 @@ public class DocumentController {
         return BaseResponse.success(documentApprovalService.getEligibleApprovers(id, userId));
     }
 
+    @Operation(summary = "Thông tin gửi lần đầu: chọn người nhận, tự gán hoặc hàng chờ văn thư")
+    @GetMapping("/{id}/submission-options")
+    public BaseResponse<vn.edu.epu.eoffice_be.dto.response.SubmissionOptionsResponse> getSubmissionOptions(
+            @PathVariable Long id, Authentication authentication) {
+        return BaseResponse.success(documentApprovalService.getSubmissionOptions(id, extractUserId(authentication)));
+    }
+
     @Operation(summary = "Gửi văn bản để duyệt (UC11)",
-            description = "Gửi hồ sơ văn bản tới cán bộ duyệt đã chọn. Kiểm tra tính đầy đủ hồ sơ (bắt buộc có tệp đính kèm chính hoặc nội dung).")
+            description = "Gửi lần đầu theo tuyến từ database: REVIEW, LEADER_APPROVAL hoặc HT vào CLERK_QUEUE; admin chỉ được chọn người nhận để test. Gửi lại giữ hợp đồng người nhận cũ.")
     @ApiResponse(responseCode = "200", description = "Gửi duyệt thành công")
     @ApiResponse(responseCode = "400", description = "Hồ sơ chưa đầy đủ hoặc trạng thái không hợp lệ (DOCUMENT_INCOMPLETE_DOSSIER / DOCUMENT_INVALID_STATUS)")
     @PostMapping("/{id}/submit-approval")
