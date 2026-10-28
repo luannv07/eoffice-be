@@ -68,20 +68,13 @@ flowchart TD
    DB_PASSWORD=your-password
    JWT_SECRET=your-jwt-secret-key-at-least-32-characters
    COOKIE_SECURE=false
+   DEMO_KS_PASSWORD=<mat_khau_keystore_rieng>
+   PKI_ENCRYPTION_KEY=<base64_cua_32_byte_ngau_nhien>
+   PKI_ENCRYPTION_KEY_ID=pki-key-01
    ```
+   Các biến PKI phải được cấu hình trước khi khởi chạy backend; giữ mật khẩu và khóa mã hóa ngoài Git.
 
-2. **Khởi tạo Root CA nội bộ (Chỉ cần chạy 1 lần cho máy mới clone code):**
-   ```powershell
-   # Trên Windows (PowerShell):
-   .\scripts\init-ca.ps1
-
-   # Trên Linux / macOS:
-   chmod +x ./scripts/init-ca.sh
-   ./scripts/init-ca.sh
-   ```
-   *(Script đã có chốt chặn chống ghi đè: nếu đã có CA hoặc chứng thư user thì script sẽ dừng ngay).*
-
-3. **Khởi chạy Backend (Terminal / PowerShell):**
+2. **Khởi chạy Backend (Terminal / PowerShell):**
    ```powershell
    # Trên Windows
    .\mvnw.cmd spring-boot:run
@@ -89,6 +82,12 @@ flowchart TD
    # Trên Linux / macOS
    ./mvnw spring-boot:run
    ```
+
+3. **Kiểm tra và khởi tạo Root CA bằng API sau khi backend chạy:**
+   - Đăng nhập bằng tài khoản `SYSTEM_ADMIN`, gọi `GET /api/v1/admin/pki/ca/status`.
+   - Chỉ khi `canInitialize=true`, gọi `POST /api/v1/admin/pki/ca/initialize` với phiên đăng nhập hợp lệ, không truyền body. CA được lưu mã hóa trong database, không khởi tạo lại theo từng máy clone code.
+   - Nếu trạng thái là `READY`, sử dụng CA hiện có. Nếu là `EXPIRED` hoặc `RECOVERY_REQUIRED`, khôi phục đúng dữ liệu PKI trước khi ký; không xóa dữ liệu cũ hoặc tạo CA thay thế.
+   - Kiểm thử tự động tự tạo CA/khóa riêng qua fixture, không cần gọi API khởi tạo CA của ứng dụng trên local hoặc CI.
 
 ---
 
