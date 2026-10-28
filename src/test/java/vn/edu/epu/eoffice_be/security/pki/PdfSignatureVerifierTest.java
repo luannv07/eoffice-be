@@ -32,10 +32,23 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@FastPkiTest
 public class PdfSignatureVerifierTest {
 
     @TempDir
     Path tempDir;
+
+    private InMemorySigningFixture memory;
+
+    private InMemorySigningFixture memoryFixture() throws Exception {
+        memory = InMemorySigningFixture.create(tempDir);
+        return memory;
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void onlyUnwrappedSyntheticKeysWereUsed() {
+        if (memory != null) memory.assertOnlyInMemoryKeysUsed();
+    }
 
     @BeforeAll
     static void setup() {
@@ -79,7 +92,7 @@ public class PdfSignatureVerifierTest {
     @DisplayName("Kiểm định thành công văn bản có 2 chữ ký tuần tự đạt 100% 7 tiêu chí bảo mật")
     void verify_sequentialSignatures_shouldPassAllCriteria() throws Exception {
         byte[] basePdf = createSamplePdfBytes();
-        PkiTestFixture pki = PkiTestFixture.create(tempDir);
+        InMemorySigningFixture pki = memoryFixture();
         PdfSigner signer = pki.signer();
 
         // 1. Cán bộ 1001 ký nháy với Chức vụ và Đơn vị
@@ -139,7 +152,7 @@ public class PdfSignatureVerifierTest {
     @DisplayName("Kiểm định phát hiện chứng thư đã bị thu hồi (Revocation CRL)")
     void verify_revokedCertificate_shouldFailRevocationCriterion() throws Exception {
         byte[] basePdf = createSamplePdfBytes();
-        PkiTestFixture pki = PkiTestFixture.create(tempDir);
+        InMemorySigningFixture pki = memoryFixture();
         Path revokedPath = pki.properties().revocations();
         PdfSigner signer = pki.signer();
 
@@ -165,7 +178,7 @@ public class PdfSignatureVerifierTest {
 
     @Test
     void revocationWriterWaitsForCaReadLockInTheSameJvm() throws Exception {
-        PkiTestFixture pki = PkiTestFixture.create(tempDir);
+        InMemorySigningFixture pki = memoryFixture();
         Path revocations = pki.properties().revocations();
         CountDownLatch writerStarted = new CountDownLatch(1);
         AtomicReference<Future<?>> writer = new AtomicReference<>();
@@ -196,7 +209,7 @@ public class PdfSignatureVerifierTest {
 
     @Test
     void verificationWaitsForCrlWriteAndObservesTheRevokedSerial() throws Exception {
-        PkiTestFixture pki = PkiTestFixture.create(tempDir);
+        InMemorySigningFixture pki = memoryFixture();
         var signed = pki.signer().signBytes(createSamplePdfBytes(), "1001", "Nguyen Van A", "Ký");
         Path revocations = pki.properties().revocations();
         CountDownLatch readerStarted = new CountDownLatch(1);

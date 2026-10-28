@@ -1,5 +1,9 @@
 package vn.edu.epu.eoffice_be.service;
 
+import vn.edu.epu.eoffice_be.security.pki.Crypto;
+import vn.edu.epu.eoffice_be.security.pki.PkiTestSamples;
+import vn.edu.epu.eoffice_be.security.pki.PkiSampleFixtures;
+import vn.edu.epu.eoffice_be.security.pki.FastPkiTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -24,6 +28,7 @@ import java.util.concurrent.Executors;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+@FastPkiTest
 class PkiCaServiceTest {
     @TempDir Path directory;
 
@@ -74,7 +79,7 @@ class PkiCaServiceTest {
 
     @Test
     void retiredCaCannotBeSilentlyReplaced() throws Exception {
-        var pki = PkiTestFixture.create(directory);
+        var pki = PkiSampleFixtures.create(directory);
         pki.repository().findActive().orElseThrow().setStatus(PkiCaEntity.Status.RETIRED);
         assertEquals(Reason.NO_ACTIVE_CA, pki.caService().status().diagnostics().reason());
         assertError(ErrorCode.PKI_CA_RECOVERY_REQUIRED, pki.caService()::initialize);
@@ -104,13 +109,12 @@ class PkiCaServiceTest {
 
     @Test
     void mismatchedPrivateKeyIsRejectedEvenWhenCertificateAndFingerprintMatch() throws Exception {
-        var pki = PkiTestFixture.create(directory);
+        var pki = PkiSampleFixtures.create(directory);
         var original = pki.caService().requireValidCa();
-        var generator = java.security.KeyPairGenerator.getInstance("RSA");
-        generator.initialize(2048);
+        var otherKey = PkiTestSamples.keyPair("mismatched-ca");
         char[] password = pki.properties().password();
-        byte[] plaintext = vn.edu.epu.eoffice_be.security.pki.Crypto.encodeP12(password, "mismatched",
-                generator.generateKeyPair().getPrivate(), original.chain());
+        byte[] plaintext = Crypto.encodeP12(password, "mismatched",
+                otherKey.getPrivate(), original.chain());
         try {
             var encrypted = pki.encryption().encrypt(plaintext);
             var record = pki.repository().findActive().orElseThrow();
@@ -126,7 +130,8 @@ class PkiCaServiceTest {
     @ParameterizedTest
     @ValueSource(strings = {"ciphertext", "nonce", "aes", "key-id", "password", "pem", "fingerprint", "certificate"})
     void invalidStoredMaterialRequiresRecoveryAndIsNeverReplaced(String damage) throws Exception {
-        var pki = PkiTestFixture.create(directory);
+        var pki = PkiSampleFixtures.create(directory);
+        assertEquals(State.READY, pki.caService().status().state());
         var record = pki.repository().findActive().orElseThrow();
         switch (damage) {
             case "ciphertext" -> {
@@ -147,13 +152,20 @@ class PkiCaServiceTest {
             case "password" -> pki.properties().setDefaultKeystorePassword("wrong-password");
             case "pem" -> record.setCertificatePem("invalid certificate");
             case "fingerprint" -> record.setFingerprintSha256("0".repeat(64));
-            case "certificate" -> record.setCertificatePem(PkiTestFixture.create(directory.resolve("other"))
+            case "certificate" -> record.setCertificatePem(PkiSampleFixtures.otherCa(directory.resolve("other"))
                     .repository().findActive().orElseThrow().getCertificatePem());
         }
         byte[] original = record.getKeystoreEncrypted().clone();
         clearInvocations(pki.repository());
         var status = pki.caService().status();
         assertEquals(State.RECOVERY_REQUIRED, status.state());
+        Reason expectedReason = switch (damage) {
+            case "pem" -> Reason.CA_CERTIFICATE_UNREADABLE;
+            case "fingerprint" -> Reason.CA_FINGERPRINT_MISMATCH;
+            case "certificate" -> Reason.CA_CERTIFICATE_MISMATCH;
+            default -> Reason.CA_KEYSTORE_UNREADABLE;
+        };
+        assertEquals(expectedReason, status.diagnostics().reason());
         assertTrue(status.diagnostics().caRecordExists());
         assertFalse(status.canInitialize());
         assertError(ErrorCode.PKI_CA_RECOVERY_REQUIRED, pki.caService()::requireValidCa);
@@ -164,7 +176,7 @@ class PkiCaServiceTest {
 
     @Test
     void publicVerificationDoesNotNeedPrivateKeyOrEncryptionConfiguration() throws Exception {
-        var pki = PkiTestFixture.create(directory);
+        var pki = PkiSampleFixtures.create(directory);
         var certificate = pki.caService().activeCertificate().orElseThrow();
         pki.encryptionProperties().setKey(null);
         pki.repository().findActive().orElseThrow().setKeystoreEncrypted(new byte[17]);
@@ -175,11 +187,11 @@ class PkiCaServiceTest {
     @Test
     void expirationAndFutureValidityAreEnforced() throws Exception {
         Instant now = Instant.now();
-        var expired = PkiTestFixture.create(directory.resolve("expired"), now.minus(2, ChronoUnit.DAYS), now.minus(1, ChronoUnit.DAYS));
+        var expired = PkiSampleFixtures.create(directory.resolve("expired"), now.minus(2, ChronoUnit.DAYS), now.minus(1, ChronoUnit.DAYS));
         assertEquals(State.EXPIRED, expired.caService().status().state());
         assertError(ErrorCode.PKI_CA_EXPIRED, expired.caService()::requireValidCa);
         assertError(ErrorCode.PKI_CA_ALREADY_EXISTS, expired.caService()::initialize);
-        var future = PkiTestFixture.create(directory.resolve("future"), now.plus(1, ChronoUnit.DAYS), now.plus(2, ChronoUnit.DAYS));
+        var future = PkiSampleFixtures.create(directory.resolve("future"), now.plus(1, ChronoUnit.DAYS), now.plus(2, ChronoUnit.DAYS));
         assertEquals(Reason.CA_NOT_YET_VALID, future.caService().status().diagnostics().reason());
     }
 
