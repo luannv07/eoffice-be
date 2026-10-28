@@ -2,6 +2,7 @@ package vn.edu.epu.eoffice_be.service;
 
 import org.hibernate.Hibernate;
 import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
 import jakarta.persistence.EntityManagerFactory;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +18,11 @@ import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
 import vn.edu.epu.eoffice_be.entity.UserInfo;
+import vn.edu.epu.eoffice_be.entity.DocumentBook;
+import vn.edu.epu.eoffice_be.repository.DocumentBookRepository;
+import vn.edu.epu.eoffice_be.repository.DictionaryItemRepository;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.core.env.Environment;
 import vn.edu.epu.eoffice_be.repository.UserInfoRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import vn.edu.epu.eoffice_be.repository.OrgNodeRepository;
@@ -26,6 +32,7 @@ import vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService;
 import java.util.Map;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.stream.Collectors;
 import java.util.UUID;
 
@@ -54,7 +61,75 @@ class DocumentDrafterIntegrationTest {
     @Autowired DocumentPublishService publishing;
     @Autowired UserInfoRepository profiles;
     @Autowired EntityManagerFactory entityManagerFactory;
+    @Autowired DocumentBookService bookService;
+    @Autowired DocumentBookRepository books;
+    @Autowired DictionaryItemRepository dictionary;
+    @Autowired Environment environment;
     @MockBean DocumentPdfStorageService pdfStorage;
+
+    @Test
+    void assignedPageUsesOneAuthorBatchAndConstantSqlAcrossPageSizes() {
+        assertEquals("false", environment.getProperty("spring.jpa.open-in-view"));
+        TransactionTemplate tx = new TransactionTemplate(transactions);
+        List<Long> ids = new ArrayList<>();
+        Long bookId = tx.execute(status -> {
+            var org = orgs.findAll().getFirst();
+            var type = dictionary.findByGroupCdAndDeleteFlgFalseAndActiveFlgTrueOrderByDisplayOrderAsc("DOCUMENT_TYPE").getFirst();
+            var book = books.saveAndFlush(DocumentBook.builder().bookCode("SQL-" + UUID.randomUUID())
+                    .bookName("Author batch integration").year(2026).bookLevel(1).documentType(type).orgNode(org)
+                    .numberPattern("{NUM}/TEST").build());
+            for (int i = 0; i < 9; i++) {
+                var author = users.saveAndFlush(UserLogin.builder().username("book-author-" + UUID.randomUUID())
+                        .passwordHash("test").build());
+                profiles.saveAndFlush(UserInfo.builder().userLogin(author).fullName("Book Author").build());
+                ids.add(documents.saveAndFlush(Document.builder().title("Book author SQL test")
+                        .draftCode("DT-" + UUID.randomUUID()).drafter(author).documentBook(book)
+                        .documentTypeCd(type.getItemCd()).issuingOrgNode(org).issuingOrg(org)
+                        .officialNumber(i + "/TEST").status(DocumentStatus.APPROVED).build()).getId());
+            }
+            return book.getId();
+        });
+        var statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        boolean previouslyEnabled = statistics.isStatisticsEnabled();
+        try {
+            statistics.setStatisticsEnabled(true);
+            statistics.clear();
+            var one = bookService.getAssignedDocuments(bookId, null, DocumentStatus.APPROVED, PageRequest.of(0, 1));
+            long oneAuthorSql = statistics.getPrepareStatementCount();
+            assertEquals(9, one.getTotalElements());
+            assertEquals(1, one.getNumberOfElements());
+            assertTrue(one.hasNext());
+            assertSingleAuthorBatch(statistics);
+            assertEquals(0, statistics.getEntityStatistics(UserLogin.class.getName()).getFetchCount());
+
+            statistics.clear();
+            // Both pages are full, with another result remaining: both execute the count query.
+            var many = bookService.getAssignedDocuments(bookId, null, DocumentStatus.APPROVED, PageRequest.of(0, 8));
+            assertEquals(9, many.getTotalElements());
+            assertEquals(8, many.getNumberOfElements());
+            assertTrue(many.hasNext());
+            assertEquals(oneAuthorSql, statistics.getPrepareStatementCount());
+            assertSingleAuthorBatch(statistics);
+            assertEquals(0, statistics.getEntityStatistics(UserLogin.class.getName()).getFetchCount());
+            assertEquals(8, many.stream().map(DocumentResponse::getDrafterId).distinct().count());
+            assertEquals(ids.reversed().subList(0, 8), many.stream().map(DocumentResponse::getId).toList());
+            for (var response : many) {
+                assertTrue(response.getDrafterUsername().startsWith("book-author-"));
+                assertEquals("Book Author", response.getDrafterFullName());
+                assertEquals(bookId, response.getDocumentBookId());
+            }
+        } finally {
+            statistics.setStatisticsEnabled(previouslyEnabled);
+            tx.executeWithoutResult(status -> ids.forEach(documents::deleteById));
+        }
+    }
+
+    private static void assertSingleAuthorBatch(Statistics statistics) {
+        var authorQueries = Arrays.stream(statistics.getQueries())
+                .filter(q -> q.contains("FROM UserLogin u LEFT JOIN UserInfo i")).toList();
+        assertEquals(1, authorQueries.size());
+        assertEquals(1, statistics.getQueryStatistics(authorQueries.getFirst()).getExecutionCount());
+    }
 
     @Test
     void authorProjectionLeftJoinsActiveProfilesAndKeepsHistoricalAccounts() {
