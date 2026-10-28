@@ -1,5 +1,19 @@
 package vn.edu.epu.eoffice_be.service;
 
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.web.multipart.MultipartFile;
+import vn.edu.epu.eoffice_be.config.UploadProperties;
+import vn.edu.epu.eoffice_be.storage.FileSystemStorageService;
+import vn.edu.epu.eoffice_be.storage.FileSecurityValidator;
+import java.nio.file.Path;
+import java.nio.file.Files;
+import java.util.stream.Stream;
+import static org.mockito.Mockito.verifyNoInteractions;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,6 +56,98 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class DocumentAttachmentServiceTest {
 
+    @ParameterizedTest
+    @MethodSource("nonPdfUploads")
+    void uploadAttachment_rejectsNonPdfBeforeAnySideEffects(String filename, boolean isMain) {
+        UserLogin drafter = UserLogin.builder().id(100L).role(Role.USER).build();
+        Document document = Document.builder().id(1L).drafter(drafter).status(DocumentStatus.DRAFT).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(drafter));
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
+        MockMultipartFile file = new MockMultipartFile("file", filename, "application/pdf", "%PDF-1.4".getBytes());
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> documentAttachmentService.uploadAttachment(1L, file, isMain, 100L));
+
+        assertEquals(ErrorCode.FILE_INVALID_FORMAT, error.getErrorCode());
+        assertEquals("Chỉ chấp nhận tệp PDF", error.getMessage());
+        verifyNoInteractions(fileStorageService, documentAttachmentRepository,
+                documentVersionRepository, documentProcessLogRepository);
+        assertEquals(DocumentStatus.DRAFT, document.getStatus());
+    }
+
+    static Stream<Arguments> nonPdfUploads() {
+        return Stream.of("file.docx", "file.doc", "file.png", "file", "vanban.pdf.docx", "file.")
+                .flatMap(name -> Stream.of(true, false)
+                        .map(main -> Arguments.of(name, main)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("pdfUploads")
+    void uploadAttachment_acceptsPdfRegardlessOfMime(String filename, String mime) {
+        UserLogin drafter = UserLogin.builder().id(100L).role(Role.USER).build();
+        Document document = Document.builder().id(1L).drafter(drafter).status(DocumentStatus.DRAFT).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(drafter));
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
+        MockMultipartFile file = new MockMultipartFile("file", filename, mime, "%PDF-1.4".getBytes());
+        when(fileStorageService.storeFile(file, 1L)).thenReturn(StoredFileInfo.builder()
+                .originalFileName(filename).fileExtension("PDF").build());
+        when(documentAttachmentRepository.save(any(DocumentAttachment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertEquals(filename, documentAttachmentService.uploadAttachment(1L, file, false, 100L).getOriginalFileName());
+        verify(fileStorageService).storeFile(file, 1L);
+        verify(documentProcessLogRepository).save(any(DocumentProcessLog.class));
+    }
+
+    static Stream<Arguments> pdfUploads() {
+        return Stream.of("file.pdf", "file.PDF")
+                .flatMap(name -> Stream.of("application/pdf", "application/octet-stream", null)
+                        .map(mime -> Arguments.of(name, mime)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void uploadAttachment_realStorageRejectsFakePdfWithoutWriting(boolean isMain,
+            @TempDir Path directory) throws Exception {
+        assertRejectedByRealStorage(new MockMultipartFile("file", "fake.pdf", "application/pdf", "not a PDF".getBytes()),
+                ErrorCode.FILE_INVALID_FORMAT, isMain, directory);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"null", "empty", "nullName", "blankName"})
+    void uploadAttachment_invalidInputKeepsExistingValidatorErrors(String input,
+            @TempDir Path directory) throws Exception {
+        MultipartFile file = switch (input) {
+            case "null" -> null;
+            case "empty" -> new MockMultipartFile("file", "file.docx", null, new byte[0]);
+            case "nullName" -> new MockMultipartFile("file", null, null, "%PDF-1.4".getBytes());
+            default -> new MockMultipartFile("file", " ", null, "%PDF-1.4".getBytes());
+        };
+        assertRejectedByRealStorage(file, ErrorCode.BAD_REQUEST, true, directory);
+    }
+
+    private void assertRejectedByRealStorage(MultipartFile file,
+            ErrorCode expected, boolean isMain, Path directory) throws Exception {
+        UserLogin drafter = UserLogin.builder().id(100L).role(Role.USER).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(drafter));
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(
+                Document.builder().id(1L).drafter(drafter).status(DocumentStatus.DRAFT).build()));
+        var properties = new UploadProperties();
+        properties.setDir(directory.toString());
+        var storage = new FileSystemStorageService(properties,
+                new FileSecurityValidator(properties));
+        var service = new DocumentAttachmentService(documentRepository, documentAttachmentRepository,
+                documentVersionRepository, documentProcessLogRepository, userLoginRepository,
+                storage, documentApprovalRequestRepository, null);
+
+        assertEquals(expected, assertThrows(BusinessException.class,
+                () -> service.uploadAttachment(1L, file, isMain, 100L)).getErrorCode());
+        verifyNoInteractions(documentAttachmentRepository, documentVersionRepository,
+                documentProcessLogRepository);
+        try (var files = Files.list(directory)) {
+            assertEquals(0L, files.count());
+        }
+    }
+
     @Mock
     private DocumentRepository documentRepository;
     @Mock
@@ -69,15 +175,15 @@ class DocumentAttachmentServiceTest {
         UserLogin drafter = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
         Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
 
-        MockMultipartFile file = new MockMultipartFile("file", "kehoach.docx",
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "dummy content".getBytes());
+        MockMultipartFile file = new MockMultipartFile("file", "kehoach.pdf",
+                "application/pdf", "%PDF-1.4\n%%EOF".getBytes());
 
         StoredFileInfo storedInfo = StoredFileInfo.builder()
-                .originalFileName("kehoach.docx")
-                .storageFileName("uuid-123.docx")
+                .originalFileName("kehoach.pdf")
+                .storageFileName("uuid-123.pdf")
                 .storagePath("uploads/documents/2026/09/1")
-                .fileExtension("DOCX")
-                .mimeType("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                .fileExtension("PDF")
+                .mimeType("application/pdf")
                 .fileSizeBytes(100L)
                 .sha256Checksum("hash123")
                 .build();
@@ -95,7 +201,7 @@ class DocumentAttachmentServiceTest {
 
         assertNotNull(response);
         assertEquals(10L, response.getId());
-        assertEquals("kehoach.docx", response.getOriginalFileName());
+        assertEquals("kehoach.pdf", response.getOriginalFileName());
         assertTrue(response.isMainDocument());
 
         verify(documentProcessLogRepository).save(any(DocumentProcessLog.class));

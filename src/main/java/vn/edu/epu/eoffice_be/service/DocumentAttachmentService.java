@@ -65,7 +65,7 @@ public class DocumentAttachmentService {
     }
 
     /**
-     * UC09: Tải tệp DOCX/PDF đính kèm lên hệ thống
+     * UC09: Tải tệp PDF đính kèm lên hệ thống
      */
     @Transactional
     public DocumentAttachmentResponse uploadAttachment(Long documentId, MultipartFile file, boolean isMain, Long userId) {
@@ -89,6 +89,17 @@ public class DocumentAttachmentService {
         && document.getStatus() != DocumentStatus.NEEDS_REVISION) {
             throw new BusinessException(ErrorCode.DOCUMENT_INVALID_STATUS,
                     "Chỉ có thể tải tệp lên khi văn bản ở trạng thái Dự thảo hoặc Cần chỉnh sửa");
+        }
+
+        // Chỉ giới hạn định dạng tại luồng văn bản; giữ validator/storage dùng chung.
+        if (file != null && !file.isEmpty()) {
+            String filename = file.getOriginalFilename();
+            if (filename != null && !filename.isBlank()) {
+                int extensionIndex = filename.lastIndexOf('.');
+                if (extensionIndex < 0 || !"pdf".equalsIgnoreCase(filename.substring(extensionIndex + 1))) {
+                    throw new BusinessException(ErrorCode.FILE_INVALID_FORMAT, "Chỉ chấp nhận tệp PDF");
+                }
+            }
         }
 
         // Lưu trữ tệp và quét an toàn

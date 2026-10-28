@@ -311,6 +311,18 @@ class DocumentControllerTest {
     }
 
     @Test
+    void uploadAttachment_invalidFormatReturns400() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "test.docx", "application/octet-stream", new byte[]{1});
+        when(documentAttachmentService.uploadAttachment(eq(1L), any(), anyBoolean(), eq(100L)))
+                .thenThrow(new BusinessException(ErrorCode.FILE_INVALID_FORMAT, "Chỉ chấp nhận tệp PDF"));
+
+        mockMvc.perform(multipart("/documents/1/attachments").file(file).param("isMain", "true").principal(auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.FILE_INVALID_FORMAT.getCode()))
+                .andExpect(jsonPath("$.message").value("Chỉ chấp nhận tệp PDF"));
+    }
+
+    @Test
     @DisplayName("API DELETE /documents/{id}/attachments/{attachmentId} - Xóa tệp đính kèm (UC09)")
     void deleteAttachment_Success() throws Exception {
         mockMvc.perform(delete("/documents/1/attachments/10").principal(auth))

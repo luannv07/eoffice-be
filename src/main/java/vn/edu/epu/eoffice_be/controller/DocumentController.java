@@ -218,18 +218,18 @@ public class DocumentController {
     }
 
     // =========================================================================
-    // UC09: TẢI FILE DOCX/PDF
+    // UC09: TẢI FILE PDF
     // =========================================================================
 
-    @Operation(summary = "Tải tệp DOCX/PDF đính kèm (UC09)",
-            description = "Tải tệp tài liệu đính kèm lên cho dự thảo. Kiểm tra định dạng (chỉ DOCX/PDF), quét an toàn mã độc và dung lượng tối đa.")
+    @Operation(summary = "Tải tệp PDF đính kèm (UC09)",
+            description = "Tải tệp PDF đính kèm lên cho dự thảo. Kiểm tra định dạng PDF, quét an toàn mã độc và dung lượng tối đa.")
     @ApiResponse(responseCode = "200", description = "Tải tệp lên thành công")
     @ApiResponse(responseCode = "400", description = "Định dạng không hợp lệ hoặc tệp không an toàn (FILE_INVALID_FORMAT / FILE_UNSAFE)")
     @ApiResponse(responseCode = "413", description = "Dung lượng vượt quá giới hạn (FILE_SIZE_EXCEEDED)")
     @PostMapping(value = "/{id}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public BaseResponse<DocumentAttachmentResponse> uploadAttachment(
             @PathVariable Long id,
-            @Parameter(description = "Tệp đính kèm (chỉ nhận DOCX hoặc PDF, tối đa 25MB)")
+            @Parameter(description = "Tệp đính kèm (chỉ nhận PDF, tối đa 25MB)")
             @RequestParam("file") MultipartFile file,
             @Parameter(description = "Đánh dấu là tệp văn bản chính hay tệp phụ lục")
             @RequestParam(value = "isMain", defaultValue = "false") boolean isMain,
