@@ -21,6 +21,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import vn.edu.epu.eoffice_be.common.annotation.Auditable;
 import vn.edu.epu.eoffice_be.common.dto.BaseResponse;
+import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
+import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.dto.response.StoredFileResponse;
 import vn.edu.epu.eoffice_be.storage.provider.FileStorageException;
 import vn.edu.epu.eoffice_be.storage.provider.FileStorageProvider;
@@ -156,8 +158,13 @@ public class FileStorageController {
     public BaseResponse<Void> deleteMany(
             @RequestBody List<String> fileIds,
             @RequestParam(required = false) String provider) {
-        for (String fileId : fileIds) documentFiles.assertUnboundWrite(resolve(provider).getName(), fileId);
-        resolve(provider).deleteMany(fileIds);
+        if (fileIds == null) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "Danh sách ID tệp không được để null.");
+        }
+        var storage = resolve(provider);
+        var providerName = storage.getName();
+        for (String fileId : fileIds) documentFiles.assertUnboundWrite(providerName, fileId);
+        storage.deleteMany(fileIds);
         return BaseResponse.success(null, "Xóa nhiều tệp thành công");
     }
 
