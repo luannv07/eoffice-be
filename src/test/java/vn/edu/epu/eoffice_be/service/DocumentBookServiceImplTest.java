@@ -150,6 +150,17 @@ class DocumentBookServiceImplTest {
 		SecurityContextHolder.clearContext();
 	}
 
+    @ParameterizedTest
+    @EnumSource(value=Role.class,names={"ADMIN","SYSTEM_ADMIN"})
+    void administratorCannotAllocateNumberBeforeBookLockOrPdfAccess(Role role) {
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(3003L)).thenReturn(Optional.of(
+                UserLogin.builder().id(3003L).role(role).build()));
+        var request=new AssignDocumentNumberRequest();request.setBookId(1L);request.setDocumentId(5001L);
+        assertEquals(ErrorCode.FORBIDDEN,assertThrows(BusinessException.class,
+                () -> documentBookService.assignNumber(request)).getErrorCode());
+        verifyNoInteractions(documentBookRepository,documentRepository,pdfSigner,documentPdfStorageService,documentWorkflowLogRepository);
+    }
+
     @Test
     void simulatedDocumentCannotConsumeARegistryNumber() {
         Document document = Document.builder().id(5001L).status(DocumentStatus.APPROVED).testDocument(true).build();

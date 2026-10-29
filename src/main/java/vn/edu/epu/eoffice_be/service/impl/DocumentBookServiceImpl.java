@@ -221,6 +221,7 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 	public AssignDocumentNumberResponse assignNumber(AssignDocumentNumberRequest request) {
 		// 1. Kiểm tra thẩm quyền người thực hiện: CHỈ CÁN BỘ VĂN THƯ (hoặc ADMIN / quyền DOCUMENT_ASSIGN_NUMBER)
 		UserLogin actor = getCurrentActor();
+		vn.edu.epu.eoffice_be.service.DocumentAdminPolicy.assertBusinessActor(actor);
 		validateClerkPermission(actor);
 
 		// 2. Pessimistic Write Lock: đảm bảo không trùng số dù nhiều request đồng thời
@@ -389,15 +390,13 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 		if (actor == null) {
 			throw new BusinessException(ErrorCode.UNAUTHORIZED);
 		}
-		if (actor.getRole() == Role.SYSTEM_ADMIN || actor.getRole() == Role.ADMIN || actor.getRole() == Role.CLERK) {
+		if (actor.getRole() == Role.CLERK) {
 			return;
 		}
 		if (auth.getAuthorities() != null) {
 			boolean hasPerm = auth.getAuthorities().stream()
 					.anyMatch(a -> "DOCUMENT_ASSIGN_NUMBER".equals(a.getAuthority())
-							|| "ROLE_CLERK".equals(a.getAuthority())
-							|| "ROLE_ADMIN".equals(a.getAuthority())
-							|| "ROLE_SYSTEM_ADMIN".equals(a.getAuthority()));
+							|| "ROLE_CLERK".equals(a.getAuthority()));
 			if (hasPerm) {
 				return;
 			}

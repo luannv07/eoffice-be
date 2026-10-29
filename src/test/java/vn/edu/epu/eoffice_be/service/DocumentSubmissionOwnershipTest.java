@@ -110,8 +110,11 @@ class DocumentSubmissionOwnershipTest {
         UserLogin actor = sender(role);
         Document document = fixture(actor, actor);
         when(attachments.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(1L)).thenReturn(true);
-        when(users.findByIdAndDeleteFlgFalse(200L)).thenReturn(Optional.of(
-                UserLogin.builder().id(200L).role(Role.ADMIN).build()));
+        var reviewer=UserLogin.builder().id(200L).role(Role.REVIEWER).build();
+        when(users.findByIdAndDeleteFlgFalse(200L)).thenReturn(Optional.of(reviewer));
+        when(positions.findByUserLoginIdAndDeleteFlgFalse(200L)).thenReturn(List.of(
+                vn.edu.epu.eoffice_be.entity.PositionAssignment.builder().userLogin(reviewer).positionCd("TK")
+                .orgNode(vn.edu.epu.eoffice_be.entity.OrgNode.builder().id(10L).build()).build()));
         byte[] original = {1, 2, 3};
         byte[] signed = {1, 2, 3, 4};
         when(pdfStorage.readPdf("storage://10")).thenReturn(original);

@@ -12,7 +12,7 @@ import vn.edu.epu.eoffice_be.repository.*;
 import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
 import java.util.Set;
 
-/** Draft access only. Registry and published documents retain their existing policies. */
+/** Administrator read-all exception; other readers retain the scoped draft/legacy policies. */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -37,7 +37,10 @@ public class DocumentReadPolicy {
     }
 
     public UserLogin currentUser() {
-        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authenticatedUser(SecurityContextHolder.getContext().getAuthentication());
+    }
+
+    public UserLogin authenticatedUser(org.springframework.security.core.Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated() || authentication instanceof AnonymousAuthenticationToken)
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         if (authentication.getPrincipal() instanceof JwtUserPrincipal principal) return requireUser(principal.userId());
@@ -49,6 +52,7 @@ public class DocumentReadPolicy {
     public void assertRead(Document document, Long userId) {
         var user = requireUser(userId);
         if (document == null || document.isDeleteFlg()) throw new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND);
+        if (DocumentAdminPolicy.isAdmin(user)) return;
         if (!applies(document)) throw new IllegalArgumentException("Use the legacy policy for this document status");
         if (document.getDrafter() != null && user.getId().equals(document.getDrafter().getId())) return;
         if (document.getId() != null && requests.existsParticipant(document.getId(), user.getId())) return;
@@ -57,9 +61,12 @@ public class DocumentReadPolicy {
 
     /** One account lookup and one history query for a complete list. */
     public Set<Long> readableIds(java.util.Collection<Document> documents) {
+        if (documents.isEmpty()) return Set.of();
+        var user = currentUser();
+        if (DocumentAdminPolicy.isAdmin(user)) return documents.stream().filter(d -> !d.isDeleteFlg())
+                .map(Document::getId).filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
         var scoped = documents.stream().filter(this::applies).filter(d -> !d.isDeleteFlg()).toList();
         if (scoped.isEmpty()) return Set.of();
-        var user = currentUser();
         var ids = scoped.stream().map(Document::getId).filter(java.util.Objects::nonNull).toList();
         Set<Long> readable = new java.util.HashSet<>(ids.isEmpty() ? java.util.List.of()
                 : requests.findParticipantDocumentIds(ids, user.getId()));

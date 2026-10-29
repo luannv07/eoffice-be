@@ -23,12 +23,13 @@ public interface DocumentRepository extends JpaRepository<Document, Long>, JpaSp
     Optional<Document> findByIdAndDeleteFlgFalse(Long id);
 
     /** Correlated EXISTS preserves paging/counts and avoids per-document participant queries. */
-    static Specification<Document> readableDrafts(Long userId, boolean legacyGlobal,
+    static Specification<Document> readableDrafts(Long userId, boolean legacyGlobal, boolean adminReadAll,
                                                   Collection<DocumentStatus> guardedStatuses) {
         if (guardedStatuses == null || guardedStatuses.isEmpty()) {
             throw new IllegalArgumentException("guardedStatuses must not be null or empty");
         }
         return (root, query, cb) -> {
+            if (adminReadAll) return cb.isFalse(root.get("deleteFlg"));
             var participation = query.subquery(Long.class);
             var request = participation.from(vn.edu.epu.eoffice_be.entity.DocumentApprovalRequest.class);
             participation.select(request.get("id")).where(
@@ -44,7 +45,7 @@ public interface DocumentRepository extends JpaRepository<Document, Long>, JpaSp
         };
     }
 
-    default Page<Document> searchReadableDrafts(Long userId, boolean legacyGlobal,
+    default Page<Document> searchReadableDrafts(Long userId, boolean legacyGlobal, boolean adminReadAll,
             Collection<DocumentStatus> guardedStatuses, DocumentStatus status, Long orgNodeId,
             String keyword, Pageable pageable) {
         Specification<Document> filter = (root, query, cb) -> {
@@ -59,7 +60,7 @@ public interface DocumentRepository extends JpaRepository<Document, Long>, JpaSp
             }
             return cb.and(conditions.toArray(Predicate[]::new));
         };
-        return findAll(readableDrafts(userId, legacyGlobal, guardedStatuses).and(filter), pageable);
+        return findAll(readableDrafts(userId, legacyGlobal, adminReadAll, guardedStatuses).and(filter), pageable);
     }
 
     @Query("SELECT d FROM Document d WHERE d.deleteFlg = false AND (d.primaryFilePath = :reference OR d.officialFilePath = :reference)")

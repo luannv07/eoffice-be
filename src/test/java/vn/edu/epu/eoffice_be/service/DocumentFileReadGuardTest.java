@@ -23,7 +23,7 @@ class DocumentFileReadGuardTest {
         metadata = mock(StoredFileMetadataRepository.class); documents = mock(DocumentRepository.class);
         users = mock(UserLoginRepository.class); requests = mock(DocumentApprovalRequestRepository.class);
         guard = new DocumentFileReadGuard(metadata, documents, new DocumentReadPolicy(users, requests));
-        var user = UserLogin.builder().id(10L).role(Role.ADMIN).build();
+        var user = UserLogin.builder().id(10L).role(Role.USER).build();
         when(users.findByIdAndDeleteFlgFalse(10L)).thenReturn(Optional.of(user));
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
                 new JwtUserPrincipal(10L, "admin", "ADMIN", true, List.of()), null, List.of()));
@@ -66,7 +66,7 @@ class DocumentFileReadGuardTest {
         when(documents.findFileLinkedDocuments(anyCollection(),anyCollection())).thenReturn(List.of(published));
         assertEquals(Set.of("published","other"),guard.visibleFileIds("test",List.of("published","other")));
         verifyNoInteractions(requests);
-        verify(users,never()).findByIdAndDeleteFlgFalse(any());
+        verify(users).findByIdAndDeleteFlgFalse(10L);
     }
     @Test void malformedOrMissingDeclaredDocumentIsHiddenInsteadOfTreatedAsUnbound() {
         when(metadata.findByProviderAndFileIdIn(eq("test"),anyCollection())).thenReturn(List.of(
@@ -74,7 +74,7 @@ class DocumentFileReadGuardTest {
         when(documents.findFileLinkedDocuments(anyCollection(),anyCollection())).thenReturn(List.of());
         assertEquals(Set.of("other"),guard.visibleFileIds("test",List.of("malformed","missing","other")));
     }
-    @Test void singleReadChecksDocumentBeforeProviderAndAdminDoesNotBypass() {
+    @Test void singleReadChecksDocumentBeforeProviderAndRejectsOutsider() {
         var record = file(101,"hidden",Map.of("documentId","1"));
         when(metadata.findByProviderAndFileId("test","hidden")).thenReturn(Optional.of(record));
         when(documents.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(doc(1,20,null)));

@@ -133,7 +133,7 @@ public class DocumentDraftService {
         Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
-        if (readPolicy.applies(document)) readPolicy.assertDraftWrite(document, userId);
+        if (readPolicy.applies(document) || DocumentAdminPolicy.isAdmin(user)) readPolicy.assertDraftWrite(document, userId);
         // Kiểm tra quyền: người tạo hoặc quản trị viên
         UserLogin drafter = document.getDrafter();
         boolean isDrafter = drafter != null
@@ -213,7 +213,7 @@ public class DocumentDraftService {
         Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
-        if (readPolicy.applies(document)) readPolicy.assertDraftWrite(document, userId);
+        if (readPolicy.applies(document) || DocumentAdminPolicy.isAdmin(user)) readPolicy.assertDraftWrite(document, userId);
         UserLogin drafter = document.getDrafter();
         boolean isDrafter = drafter != null && drafter.getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
@@ -263,7 +263,8 @@ public class DocumentDraftService {
         Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
-        if (readPolicy.applies(document)) readPolicy.assertRead(document, userId);
+        UserLogin viewer = readPolicy.requireUser(userId);
+        if (readPolicy.applies(document) || DocumentAdminPolicy.isAdmin(viewer)) readPolicy.assertRead(document, userId);
 
         List<DocumentAttachment> attachments = documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(documentId);
         List<DocumentVersion> versions = documentVersionRepository.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(documentId);
@@ -318,7 +319,7 @@ public class DocumentDraftService {
      */
     @Transactional(readOnly = true)
     public Page<DocumentResponse> searchDrafts(DocumentFilterRequest filter, Long userId) {
-        Pageable pageable = PageRequest.of(filter.getPage(), filter.getSize(), Sort.by(Sort.Direction.DESC, "createdDate"));
+        Pageable pageable = PageRequest.of(filter.getPage(), filter.getSize(), Sort.by(Sort.Direction.DESC, "createdDate", "id"));
         String keyword = filter.getKeyword();
         if (keyword != null) {
             keyword = keyword.trim();
@@ -333,7 +334,7 @@ public class DocumentDraftService {
         }
         UserLogin viewer = readPolicy.requireUser(userId);
         boolean legacyGlobal = viewer.getRole() == Role.CLERK || viewer.getRole() == Role.ADMIN || viewer.getRole() == Role.SYSTEM_ADMIN;
-        Page<Document> page = documentRepository.searchReadableDrafts(viewer.getId(), legacyGlobal,
+        Page<Document> page = documentRepository.searchReadableDrafts(viewer.getId(), legacyGlobal, DocumentAdminPolicy.isAdmin(viewer),
                 DocumentReadPolicy.STATUSES, filter.getStatus(), filter.getOrgNodeId(), keyword, pageable);
         return page.map(this::mapToDocumentResponse);
     }

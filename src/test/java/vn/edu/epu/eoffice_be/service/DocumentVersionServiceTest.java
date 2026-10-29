@@ -357,14 +357,13 @@ class DocumentVersionServiceTest {
     }
 
     @Test
-    @DisplayName("ADMIN và SYSTEM_ADMIN không có ngoại lệ đọc phiên bản dự thảo")
-    void assertCanViewDocumentVersions_UnrelatedAdmins_Forbidden() {
+    @DisplayName("ADMIN và SYSTEM_ADMIN được đọc phiên bản ngoài luồng")
+    void assertCanViewDocumentVersions_UnrelatedAdmins_ReadOnlySuccess() {
         var doc=Document.builder().id(1L).drafter(UserLogin.builder().id(100L).build()).status(DocumentStatus.DRAFT).build();
         for (Role role:List.of(Role.ADMIN,Role.SYSTEM_ADMIN)) {
             var actor=UserLogin.builder().id(999L).role(role).build();
             when(userLoginRepository.findByIdAndDeleteFlgFalse(999L)).thenReturn(Optional.of(actor));
-            assertEquals(ErrorCode.FORBIDDEN,assertThrows(BusinessException.class,
-                    () -> documentVersionService.assertCanViewDocumentVersions(doc,999L)).getErrorCode());
+            assertEquals(actor,documentVersionService.assertCanViewDocumentVersions(doc,999L));
         }
     }
 

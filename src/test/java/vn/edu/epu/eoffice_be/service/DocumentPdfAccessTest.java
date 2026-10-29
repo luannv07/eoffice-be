@@ -72,11 +72,6 @@ class DocumentPdfAccessTest {
             case APPROVED -> document.setStatus(DocumentStatus.APPROVED);
             case PUBLISHED -> document.setStatus(DocumentStatus.PUBLISHED);
         }
-        if (access == Access.ADMIN || access == Access.SYSTEM_ADMIN) {
-            assertEquals(ErrorCode.FORBIDDEN, assertThrows(BusinessException.class, () -> download(kind,100L)).getErrorCode());
-            verifyNoInteractions(storage);
-            return;
-        }
         Resource pdf = new ByteArrayResource(new byte[]{1, 2, 3});
         when(storage.readAsResource(reference(kind))).thenReturn(pdf);
 

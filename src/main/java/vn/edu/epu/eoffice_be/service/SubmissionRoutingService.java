@@ -133,7 +133,7 @@ public class SubmissionRoutingService {
 
     private List<PositionAssignment> candidates(Set<String> cds, Long unit, Instant at) {
         return positions.findSubmissionCandidates(cds, unit, at).stream()
-                .filter(p -> validAssignment(p, at) && activeUser(p.getUserLogin()))
+                .filter(p -> validAssignment(p, at) && activeUser(p.getUserLogin()) && !DocumentAdminPolicy.isAdmin(p.getUserLogin()))
                 .filter(p -> cds.contains(p.getPositionCd()))
                 .filter(p -> unit == null || unit.equals(p.getOrgNode().getId())).toList();
     }

@@ -77,7 +77,7 @@ public class DocumentAttachmentService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
         // Kiểm tra quyền: chỉ người tạo hoặc admin mới được upload tệp
-        if (readPolicy.applies(document)) readPolicy.assertDraftWrite(document, userId);
+        if (readPolicy.applies(document) || DocumentAdminPolicy.isAdmin(user)) readPolicy.assertDraftWrite(document, userId);
         UserLogin drafter = document.getDrafter();
         boolean isDrafter = drafter != null && drafter.getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
@@ -205,6 +205,10 @@ public class DocumentAttachmentService {
         UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
 
+        if (DocumentAdminPolicy.isAdmin(user)) {
+            readPolicy.assertRead(document, userId);
+            return;
+        }
         boolean isDrafter = document.getDrafter() != null && document.getDrafter().getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
         boolean isPublished = document.getStatus() == DocumentStatus.PUBLISHED || document.getStatus() == DocumentStatus.APPROVED;
@@ -230,7 +234,7 @@ public class DocumentAttachmentService {
         Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
-        if (readPolicy.applies(document)) readPolicy.assertDraftWrite(document, userId);
+        if (readPolicy.applies(document) || DocumentAdminPolicy.isAdmin(user)) readPolicy.assertDraftWrite(document, userId);
         UserLogin drafter = document.getDrafter();
         boolean isDrafter = drafter != null && drafter.getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;

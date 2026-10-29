@@ -203,20 +203,18 @@ class WorkflowEngineTest {
         UserLogin admin = UserLogin.builder().id(8889L).username("admin").role(Role.ADMIN).build();
 
         // Giả lập PermissionResolver trả về false vì không có chức vụ hay quyền ký duyệt
-        when(permissionResolver.hasPermission(eq(sysAdmin.getId()), eq(Role.SYSTEM_ADMIN), anyString(), eq(2001L)))
-                .thenReturn(false);
-        when(permissionResolver.hasPermission(eq(admin.getId()), eq(Role.ADMIN), anyString(), eq(2001L)))
-                .thenReturn(false);
+
+
 
         // SYSTEM_ADMIN bị từ chối
         BusinessException exSys = assertThrows(BusinessException.class, () ->
                 workflowEngine.validateActorPermission(document, sysAdmin, WorkflowAction.REVIEW_APPROVE));
-        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, exSys.getErrorCode());
+        assertEquals(ErrorCode.FORBIDDEN, exSys.getErrorCode());
 
         // ADMIN bị từ chối
         BusinessException exAdmin = assertThrows(BusinessException.class, () ->
                 workflowEngine.validateActorPermission(document, admin, WorkflowAction.LEADER_APPROVE));
-        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, exAdmin.getErrorCode());
+        assertEquals(ErrorCode.FORBIDDEN, exAdmin.getErrorCode());
     }
 
     @Test

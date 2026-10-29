@@ -41,6 +41,16 @@ public class DocumentQueryService {
     DocumentDistributionRepository distributionRepository;
     DocumentPdfStorageService documentPdfStorageService;
     vn.edu.epu.eoffice_be.repository.UserInfoRepository userInfoRepository;
+    DocumentReadPolicy readPolicy;
+
+    public vn.edu.epu.eoffice_be.common.enums.Role resolveViewerRole(org.springframework.security.core.Authentication authentication) {
+        return readPolicy.authenticatedUser(authentication).getRole();
+    }
+
+    private void requireAdminReader() {
+        if (!DocumentAdminPolicy.isAdmin(readPolicy.currentUser()))
+            throw new vn.edu.epu.eoffice_be.common.exception.BusinessException(vn.edu.epu.eoffice_be.common.enums.ErrorCode.FORBIDDEN);
+    }
 
     @Transactional(readOnly = true)
     public Object getDocumentDetails(Long id, Long orgId) {
@@ -61,8 +71,8 @@ public class DocumentQueryService {
 
     @Transactional(readOnly = true)
     public Object getDocumentDetailsForAdmin(Long id) {
+        requireAdminReader();
         Document document = documentRepository.findByIdAndDeleteFlgFalse(id)
-                .filter(d -> d.getStatus() == DocumentStatus.PUBLISHED || d.getStatus() == DocumentStatus.ISSUED)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền truy cập văn bản với ID: " + id));
 
         java.util.Map<String, Object> details = new java.util.LinkedHashMap<>();
@@ -113,8 +123,8 @@ public class DocumentQueryService {
     }
 
     public byte[] downloadDocumentForAdmin(Long documentId) {
+        requireAdminReader();
         Document doc = documentRepository.findByIdAndDeleteFlgFalse(documentId)
-                .filter(d -> d.getStatus() == DocumentStatus.PUBLISHED || d.getStatus() == DocumentStatus.ISSUED)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hoặc không có quyền tải văn bản: " + documentId));
         return readDocumentFileContent(doc);
     }

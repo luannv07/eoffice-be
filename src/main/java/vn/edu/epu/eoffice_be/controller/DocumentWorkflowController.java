@@ -141,7 +141,7 @@ public class DocumentWorkflowController {
     }
 
     // UC17.2: Danh sách văn bản tồn đọng / chờ xử lý kèm số ngày chờ SLA
-    @PreAuthorize("hasAnyRole('LEADER', 'REVIEWER', 'ADMIN', 'SYSTEM_ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Danh sách văn bản tồn đọng / chờ xử lý kèm số ngày chờ SLA")
     @GetMapping("/pending-review")
     public BaseResponse<Page<PendingDocumentResponse>> getPendingReviewDocuments(
@@ -151,7 +151,7 @@ public class DocumentWorkflowController {
     }
 
     // UC-NEW-1: Danh sách văn bản chờ ký số
-    @PreAuthorize("hasAnyRole('LEADER', 'ADMIN', 'SYSTEM_ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Danh sách văn bản chờ ký số (PENDING_SIGN)")
     @GetMapping("/pending-sign")
     public BaseResponse<Page<PendingDocumentResponse>> getPendingSignDocuments(
@@ -160,7 +160,7 @@ public class DocumentWorkflowController {
     }
 
     // UC-NEW-2: Danh sách văn bản chờ ban hành
-    @PreAuthorize("hasAnyRole('CLERK', 'LEADER', 'REVIEWER', 'ADMIN', 'SYSTEM_ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Danh sách văn bản chờ ban hành    (PENDING_ISSUANCE)")
     @GetMapping("/pending-publish")
     public BaseResponse<Page<PendingDocumentResponse>> getPendingPublishDocuments(

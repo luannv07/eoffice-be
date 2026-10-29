@@ -52,6 +52,10 @@ public class DocumentVersionService {
         UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
 
+        if (DocumentAdminPolicy.isAdmin(user)) {
+            readPolicy.assertRead(document, userId);
+            return user;
+        }
         boolean isDrafter = document.getDrafter() != null && document.getDrafter().getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
         if (!isDrafter && !isAdmin) {
@@ -126,6 +130,7 @@ public class DocumentVersionService {
 
         if (readPolicy.applies(document)) readPolicy.assertDraftWrite(document, userId);
         UserLogin user = assertCanViewDocumentVersions(document, userId);
+        if (!readPolicy.applies(document) && DocumentAdminPolicy.isAdmin(user)) readPolicy.assertDraftWrite(document, userId);
 
         if (document.getStatus() != DocumentStatus.DRAFT 
                 && document.getStatus() != DocumentStatus.REJECTED 

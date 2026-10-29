@@ -38,18 +38,21 @@ public class DocumentPublishService {
     private final DocumentBookService documentBookService;
     private final DocumentPdfStorageService documentPdfStorageService;
     private final UserInfoRepository userInfoRepository;
+    private final DocumentReadPolicy readPolicy;
 
     @Autowired
     public DocumentPublishService(DocumentRepository documentRepository,
                                   DocumentDistributionRepository distributionRepository,
                                   @Nullable DocumentBookService documentBookService,
                                   DocumentPdfStorageService documentPdfStorageService,
-                                  UserInfoRepository userInfoRepository) {
+                                  UserInfoRepository userInfoRepository,
+                                  DocumentReadPolicy readPolicy) {
         this.documentRepository = documentRepository;
         this.distributionRepository = distributionRepository;
         this.documentBookService = documentBookService;
         this.documentPdfStorageService = Objects.requireNonNull(
                 documentPdfStorageService, "documentPdfStorageService must not be null");
+        this.readPolicy = Objects.requireNonNull(readPolicy, "readPolicy must not be null");
         this.userInfoRepository = Objects.requireNonNull(userInfoRepository, "userInfoRepository must not be null");
     }
     
@@ -80,6 +83,7 @@ public class DocumentPublishService {
 
     @Transactional
     public Document publishDocument(Long documentId, PublishRequest request) {
+        DocumentAdminPolicy.assertBusinessActor(readPolicy.currentUser());
         Document doc = documentRepository.findById(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND,"Không tìm thấy văn bản có id"+ documentId));
         
@@ -230,20 +234,15 @@ public class DocumentPublishService {
             throw new org.springframework.security.access.AccessDeniedException("Yêu cầu xác thực người dùng");
         }
 
-        if (doc.getStatus() == DocumentStatus.PUBLISHED) {
+        var viewer = readPolicy.authenticatedUser(authentication);
+        if (DocumentAdminPolicy.isAdmin(viewer)) {
+            readPolicy.assertRead(doc, viewer.getId());
             return;
         }
-
-        boolean hasAdminOrPrivilege = authentication.getAuthorities() != null && authentication.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN")
-                            || a.getAuthority().equals("ADMIN")
-                            || a.getAuthority().equals("ROLE_SYSTEM_ADMIN")
-                            || a.getAuthority().equals("SYSTEM_ADMIN")
-                            || a.getAuthority().equals("DOCUMENT_VERIFY")
-                            || a.getAuthority().equals("DOCUMENT_PUBLISH"));
-        if (hasAdminOrPrivilege) {
-            return;
-        }
+        if (doc.getStatus() == DocumentStatus.PUBLISHED) return;
+        boolean hasPrivilege = authentication.getAuthorities() != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("DOCUMENT_VERIFY") || a.getAuthority().equals("DOCUMENT_PUBLISH"));
+        if (hasPrivilege) return;
 
         Long userId = extractUserId(authentication);
         Long drafterId = doc.getDrafter() != null ? doc.getDrafter().getId() : null;

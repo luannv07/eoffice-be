@@ -22,7 +22,7 @@ public interface PositionAssignmentRepository extends JpaRepository<PositionAssi
               AND pa.positionCd IN :codes AND o.deleteFlg = false
               AND u.deleteFlg = false AND u.userStatusCd = 'ACTIVE'
             """)
-    List<PositionAssignment> findSubmissionCandidatesAcrossUnits(@Param("codes") Collection<String> codes,
+    List<PositionAssignment> findSubmissionCandidatesAcrossUnitsInternal(@Param("codes") Collection<String> codes,
             @Param("at") Instant at);
 
     @Query("""
@@ -33,10 +33,22 @@ public interface PositionAssignmentRepository extends JpaRepository<PositionAssi
               AND pa.positionCd IN :codes AND o.deleteFlg = false
               AND u.deleteFlg = false AND u.userStatusCd = 'ACTIVE' AND o.id = :unit
             """)
-    List<PositionAssignment> findSubmissionCandidatesInUnit(@Param("codes") Collection<String> codes,
+    List<PositionAssignment> findSubmissionCandidatesInUnitInternal(@Param("codes") Collection<String> codes,
             @Param("unit") Long unit, @Param("at") Instant at);
 
+    /** An absent position filter has no eligible recipients; never query all positions. */
+    default List<PositionAssignment> findSubmissionCandidatesAcrossUnits(Collection<String> codes, Instant at) {
+        if (codes == null || codes.isEmpty()) return Collections.emptyList();
+        return findSubmissionCandidatesAcrossUnitsInternal(codes, at);
+    }
+
+    default List<PositionAssignment> findSubmissionCandidatesInUnit(Collection<String> codes, Long unit, Instant at) {
+        if (codes == null || codes.isEmpty()) return Collections.emptyList();
+        return findSubmissionCandidatesInUnitInternal(codes, unit, at);
+    }
+
     default List<PositionAssignment> findSubmissionCandidates(Collection<String> codes, Long unit, Instant at) {
+        if (codes == null || codes.isEmpty()) return Collections.emptyList();
         return unit == null ? findSubmissionCandidatesAcrossUnits(codes, at)
                 : findSubmissionCandidatesInUnit(codes, unit, at);
     }

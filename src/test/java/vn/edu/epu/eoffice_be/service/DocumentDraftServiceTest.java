@@ -589,7 +589,7 @@ class DocumentDraftServiceTest {
         org.springframework.data.domain.Page<Document> mockPage =
                 new org.springframework.data.domain.PageImpl<>(java.util.List.of(doc));
 
-        when(documentRepository.searchReadableDrafts(org.mockito.ArgumentMatchers.eq(userId), eq(false), eq(DocumentReadPolicy.STATUSES),
+        when(documentRepository.searchReadableDrafts(org.mockito.ArgumentMatchers.eq(userId), eq(false), eq(false), eq(DocumentReadPolicy.STATUSES),
                 org.mockito.ArgumentMatchers.eq(DocumentStatus.DRAFT),
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.eq("test\\%\\_\\\\"),
@@ -614,7 +614,7 @@ class DocumentDraftServiceTest {
         org.springframework.data.domain.Page<Document> mockPage =
                 new org.springframework.data.domain.PageImpl<>(java.util.List.of());
 
-        when(documentRepository.searchReadableDrafts(org.mockito.ArgumentMatchers.eq(userId), eq(false), eq(DocumentReadPolicy.STATUSES),
+        when(documentRepository.searchReadableDrafts(org.mockito.ArgumentMatchers.eq(userId), eq(false), eq(false), eq(DocumentReadPolicy.STATUSES),
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.isNull(),
@@ -638,7 +638,7 @@ class DocumentDraftServiceTest {
         org.mockito.ArgumentCaptor<org.springframework.data.domain.Pageable> pageableCaptor =
                 org.mockito.ArgumentCaptor.forClass(org.springframework.data.domain.Pageable.class);
 
-        when(documentRepository.searchReadableDrafts(org.mockito.ArgumentMatchers.eq(userId), eq(false), eq(DocumentReadPolicy.STATUSES),
+        when(documentRepository.searchReadableDrafts(org.mockito.ArgumentMatchers.eq(userId), eq(false), eq(false), eq(DocumentReadPolicy.STATUSES),
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.isNull(),
@@ -679,7 +679,7 @@ class DocumentDraftServiceTest {
         org.springframework.data.domain.Page<Document> mockPage =
                 new org.springframework.data.domain.PageImpl<>(java.util.List.of(doc));
 
-        when(documentRepository.searchReadableDrafts(eq(userId), eq(true), eq(DocumentReadPolicy.STATUSES),
+        when(documentRepository.searchReadableDrafts(eq(userId), eq(true), eq(false), eq(DocumentReadPolicy.STATUSES),
                 org.mockito.ArgumentMatchers.eq(DocumentStatus.APPROVED),
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.isNull(),
@@ -690,7 +690,7 @@ class DocumentDraftServiceTest {
         assertNotNull(result);
         assertEquals(1, result.getTotalElements());
         verify(documentRepository).searchReadableDrafts(
-                eq(userId), eq(true), eq(DocumentReadPolicy.STATUSES),
+                eq(userId), eq(true), eq(false), eq(DocumentReadPolicy.STATUSES),
                 org.mockito.ArgumentMatchers.eq(DocumentStatus.APPROVED),
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.isNull(),

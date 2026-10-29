@@ -121,6 +121,12 @@ public class WorkflowEngine {
             throw new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND);
         }
 
+        if (vn.edu.epu.eoffice_be.service.DocumentAdminPolicy.isAdmin(actor)
+                && action != WorkflowAction.SUBMIT && action != WorkflowAction.SUBMIT_TO_LEADER
+                && action != WorkflowAction.WITHDRAW) {
+            vn.edu.epu.eoffice_be.service.DocumentAdminPolicy.assertBusinessActor(actor);
+        }
+
         if (!hasActionPermission(document, actor, action)) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
         }

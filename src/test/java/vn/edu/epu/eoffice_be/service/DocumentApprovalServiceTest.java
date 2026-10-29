@@ -159,14 +159,22 @@ class DocumentApprovalServiceTest {
 
     @ParameterizedTest
     @MethodSource("adminRecallDrafters")
-    void recallApproval_AdminExceptionRemainsForOtherOrMissingDrafter(Role role, String kind) {
+    void recallApproval_AdminCannotRecallForOtherOrMissingDrafter(Role role, String kind) {
         UserLogin actor = UserLogin.builder().id(100L).role(role).build();
         UserLogin drafter = switch (kind) {
             case "OTHER_USER" -> UserLogin.builder().id(200L).build();
             case "NULL_DRAFTER" -> null;
             default -> UserLogin.builder().build();
         };
-        assertRecallSucceeds(actor, drafter);
+        Document document=Document.builder().id(1L).drafter(drafter).status(DocumentStatus.IN_REVIEW).currentVersion(2).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(actor));
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
+        assertEquals(ErrorCode.FORBIDDEN,assertThrows(BusinessException.class,
+                () -> documentApprovalService.recallApproval(1L,null,100L)).getErrorCode());
+        assertEquals(DocumentStatus.IN_REVIEW,document.getStatus());
+        assertEquals(2,document.getCurrentVersion());
+        verify(documentRepository,never()).save(any());
+        verifyNoInteractions(documentApprovalRequestRepository,documentProcessLogRepository,documentDraftService);
     }
 
     private void assertRecallSucceeds(UserLogin actor, UserLogin drafter) {
@@ -195,9 +203,9 @@ class DocumentApprovalServiceTest {
 
     @ParameterizedTest
     @EnumSource(value = Role.class, names = {"ADMIN", "SYSTEM_ADMIN"})
-    void recallApproval_AdminWithMissingDrafterStillMustHaveValidDocumentStatus(Role role) {
+    void recallApproval_AdminAsDrafterStillMustHaveValidDocumentStatus(Role role) {
         UserLogin actor = UserLogin.builder().id(100L).role(role).build();
-        Document document = Document.builder().id(1L).status(DocumentStatus.DRAFT).build();
+        Document document = Document.builder().id(1L).drafter(actor).status(DocumentStatus.DRAFT).build();
         when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(actor));
         when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
 
@@ -211,9 +219,9 @@ class DocumentApprovalServiceTest {
 
     @ParameterizedTest
     @EnumSource(value = Role.class, names = {"ADMIN", "SYSTEM_ADMIN"})
-    void recallApproval_AdminWithMissingDrafterCannotRecallProcessedRequest(Role role) {
+    void recallApproval_AdminAsDrafterCannotRecallProcessedRequest(Role role) {
         UserLogin actor = UserLogin.builder().id(100L).role(role).build();
-        Document document = Document.builder().id(1L).status(DocumentStatus.IN_REVIEW).build();
+        Document document = Document.builder().id(1L).drafter(actor).status(DocumentStatus.IN_REVIEW).build();
         DocumentApprovalRequest processed = DocumentApprovalRequest.builder().id(50L)
                 .document(document).status(ApprovalRequestStatus.APPROVED).build();
         when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(actor));
@@ -239,7 +247,8 @@ class DocumentApprovalServiceTest {
     })
     void submitForApproval_keepsPkiErrorAndDoesNotSubmitDocument(ErrorCode code) {
         UserLogin sender = UserLogin.builder().id(100L).username("author").role(Role.USER).build();
-        UserLogin approver = UserLogin.builder().id(200L).username("dean").role(Role.ADMIN).build();
+        UserLogin approver = UserLogin.builder().id(200L).username("dean").role(Role.REVIEWER).build();
+        org.mockito.Mockito.lenient().when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(approver.getId())).thenReturn(java.util.List.of(vn.edu.epu.eoffice_be.entity.PositionAssignment.builder().positionCd("TK").build()));
         Document document = Document.builder().id(1L).title("Title").summary("Summary")
                 .drafter(sender).status(DocumentStatus.DRAFT).primaryFilePath("drafts/doc_1.pdf").build();
         when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(sender));
@@ -273,7 +282,8 @@ class DocumentApprovalServiceTest {
         Long approverId = 200L;
 
         UserLogin sender = UserLogin.builder().id(senderId).username("author").role(Role.USER).build();
-        UserLogin approver = UserLogin.builder().id(approverId).username("dean").role(Role.ADMIN).build();
+        UserLogin approver = UserLogin.builder().id(approverId).username("dean").role(Role.REVIEWER).build();
+        org.mockito.Mockito.lenient().when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(approver.getId())).thenReturn(java.util.List.of(vn.edu.epu.eoffice_be.entity.PositionAssignment.builder().positionCd("TK").build()));
 
         Document doc = Document.builder()
                 .id(docId)
@@ -316,7 +326,8 @@ class DocumentApprovalServiceTest {
         Long approverId = 200L;
 
         UserLogin sender = UserLogin.builder().id(senderId).username("author").role(Role.USER).build();
-        UserLogin approver = UserLogin.builder().id(approverId).username("dean").role(Role.ADMIN).build();
+        UserLogin approver = UserLogin.builder().id(approverId).username("dean").role(Role.REVIEWER).build();
+        org.mockito.Mockito.lenient().when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(approver.getId())).thenReturn(java.util.List.of(vn.edu.epu.eoffice_be.entity.PositionAssignment.builder().positionCd("TK").build()));
 
         Document doc = Document.builder()
                 .id(docId)
@@ -547,9 +558,9 @@ class DocumentApprovalServiceTest {
 
         // ADMIN hoặc SYSTEM_ADMIN
         UserLogin admin = UserLogin.builder().id(2L).role(Role.ADMIN).build();
-        org.junit.jupiter.api.Assertions.assertTrue(documentApprovalService.isUserEligibleApprover(admin));
+        org.junit.jupiter.api.Assertions.assertFalse(documentApprovalService.isUserEligibleApprover(admin));
         UserLogin sysAdmin = UserLogin.builder().id(3L).role(Role.SYSTEM_ADMIN).build();
-        org.junit.jupiter.api.Assertions.assertTrue(documentApprovalService.isUserEligibleApprover(sysAdmin));
+        org.junit.jupiter.api.Assertions.assertFalse(documentApprovalService.isUserEligibleApprover(sysAdmin));
 
         // User thường có PositionAssignment hợp lệ
         UserLogin dean = UserLogin.builder().id(4L).role(Role.USER).build();
@@ -796,7 +807,8 @@ class DocumentApprovalServiceTest {
         Long approverId = 200L;
 
         UserLogin sender = UserLogin.builder().id(senderId).username("author").role(Role.USER).build();
-        UserLogin approver = UserLogin.builder().id(approverId).username("dean").role(Role.ADMIN).build();
+        UserLogin approver = UserLogin.builder().id(approverId).username("dean").role(Role.REVIEWER).build();
+        org.mockito.Mockito.lenient().when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(approver.getId())).thenReturn(java.util.List.of(vn.edu.epu.eoffice_be.entity.PositionAssignment.builder().positionCd("TK").build()));
 
         Document doc = Document.builder()
                 .id(docId)
@@ -871,7 +883,8 @@ class DocumentApprovalServiceTest {
         Long approverId = 200L;
 
         UserLogin sender = UserLogin.builder().id(senderId).username("author").role(Role.USER).build();
-        UserLogin approver = UserLogin.builder().id(approverId).username("dean").role(Role.ADMIN).build();
+        UserLogin approver = UserLogin.builder().id(approverId).username("dean").role(Role.REVIEWER).build();
+        org.mockito.Mockito.lenient().when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(approver.getId())).thenReturn(java.util.List.of(vn.edu.epu.eoffice_be.entity.PositionAssignment.builder().positionCd("TK").build()));
 
         Document doc = Document.builder()
                 .id(docId)

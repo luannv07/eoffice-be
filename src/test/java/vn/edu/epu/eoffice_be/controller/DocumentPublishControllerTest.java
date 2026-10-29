@@ -35,6 +35,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @ExtendWith(MockitoExtension.class)
 class DocumentPublishControllerTest {
+    @org.junit.jupiter.api.BeforeEach
+    void publishingAccountFixture() {
+        var account=vn.edu.epu.eoffice_be.entity.UserLogin.builder().id(9001L).role(vn.edu.epu.eoffice_be.common.enums.Role.CLERK).build();
+        org.mockito.Mockito.lenient().when(draftReadPolicy.currentUser()).thenReturn(account);
+        org.mockito.Mockito.lenient().when(draftReadPolicy.authenticatedUser(org.mockito.ArgumentMatchers.any())).thenReturn(account);
+    }
+
+    @org.mockito.Mock private vn.edu.epu.eoffice_be.service.DocumentReadPolicy draftReadPolicy;
+
 
     private MockMvc mockMvc;
 

@@ -52,6 +52,13 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class DocumentServiceCoverageTest {
+    @org.junit.jupiter.api.BeforeEach
+    void publishingAccountFixture() {
+        var account=vn.edu.epu.eoffice_be.entity.UserLogin.builder().id(9001L).role(vn.edu.epu.eoffice_be.common.enums.Role.CLERK).build();
+        org.mockito.Mockito.lenient().when(draftReadPolicy.currentUser()).thenReturn(account);
+        org.mockito.Mockito.lenient().when(draftReadPolicy.authenticatedUser(org.mockito.ArgumentMatchers.any())).thenReturn(account);
+    }
+
 
     @Mock
     DocumentRepository documentRepository;
@@ -91,7 +98,7 @@ class DocumentServiceCoverageTest {
     void clearAuthentication() { org.springframework.security.core.context.SecurityContextHolder.clearContext(); }
 
     private void authenticatePendingReader() {
-        var user = UserLogin.builder().id(990L).username("pending-reader").role(vn.edu.epu.eoffice_be.common.enums.Role.USER).build();
+        var user = UserLogin.builder().id(990L).username("pending-reader").role(vn.edu.epu.eoffice_be.common.enums.Role.REVIEWER).build();
         when(userLoginRepository.findByIdAndDeleteFlgFalse(990L)).thenReturn(Optional.of(user));
         var principal = new JwtUserPrincipal(990L, "pending-reader", "USER", true, List.of());
         org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
@@ -302,6 +309,7 @@ class DocumentServiceCoverageTest {
         req.setIssueDate(LocalDate.now());
 
         stubOfficialPdf(doc);
+        when(draftReadPolicy.currentUser()).thenReturn(UserLogin.builder().id(9001L).role(vn.edu.epu.eoffice_be.common.enums.Role.CLERK).build());
         Document result = documentPublishService.publishDocument(1L, req);
         assertNotNull(result);
         assertEquals("01/QĐ-ĐHL", result.getOfficialNumber());
@@ -444,6 +452,7 @@ class DocumentServiceCoverageTest {
         when(documentRepository.save(any(Document.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         stubOfficialPdf(doc);
+        when(draftReadPolicy.currentUser()).thenReturn(UserLogin.builder().id(9001L).role(vn.edu.epu.eoffice_be.common.enums.Role.CLERK).build());
         Document published = documentPublishService.publishDocument(10L, null);
         assertNotNull(published);
         assertEquals("10/QĐ-ĐHL", published.getOfficialNumber());
@@ -487,6 +496,8 @@ class DocumentServiceCoverageTest {
         PublishRequest req = new PublishRequest();
         req.setIssueDate(LocalDate.now());
 
+        when(draftReadPolicy.currentUser()).thenReturn(UserLogin.builder().id(9001L).role(vn.edu.epu.eoffice_be.common.enums.Role.CLERK).build());
+
         Document result = documentPublishService.publishDocument(77L, req);
         assertNotNull(result);
         assertNotNull(result.getOfficialHash());
@@ -520,7 +531,8 @@ class DocumentServiceCoverageTest {
     }
 
     @Test
-    void testDownloadDocumentForAdmin_SuccessAndDraftRejected() {
+    void testDownloadDocumentForAdmin_AcceptsPublishedAndDraftStates() {
+        when(draftReadPolicy.currentUser()).thenReturn(UserLogin.builder().id(9001L).role(vn.edu.epu.eoffice_be.common.enums.Role.ADMIN).build());
         Document publishedDoc = new Document();
         publishedDoc.setId(500L);
         publishedDoc.setStatus(DocumentStatus.PUBLISHED);
@@ -537,8 +549,10 @@ class DocumentServiceCoverageTest {
         byte[] bytes = documentQueryService.downloadDocumentForAdmin(500L);
         assertNotNull(bytes);
 
-        assertThrows(IllegalArgumentException.class, () -> documentQueryService.downloadDocumentForAdmin(501L));
-        assertThrows(IllegalArgumentException.class, () -> documentQueryService.getDocumentDetailsForAdmin(501L));
+        draftDoc.setOfficialFilePath("storage://35002");
+        when(documentPdfStorageService.readPdf("storage://35002")).thenReturn(new byte[]{4,5});
+        assertArrayEquals(new byte[]{4,5},documentQueryService.downloadDocumentForAdmin(501L));
+        assertEquals(DocumentStatus.DRAFT,((java.util.Map<?,?>)documentQueryService.getDocumentDetailsForAdmin(501L)).get("status"));
     }
 
     @Test
@@ -713,6 +727,7 @@ class DocumentServiceCoverageTest {
         }
 
         stubOfficialPdf(doc);
+        when(draftReadPolicy.currentUser()).thenReturn(UserLogin.builder().id(9001L).role(vn.edu.epu.eoffice_be.common.enums.Role.CLERK).build());
         Document published = documentPublishService.publishDocument(25L, req);
         assertNotNull(published);
     }
@@ -790,6 +805,7 @@ class DocumentServiceCoverageTest {
         req.setIsPublicToAll(true);
 
         stubOfficialPdf(doc);
+        when(draftReadPolicy.currentUser()).thenReturn(UserLogin.builder().id(9001L).role(vn.edu.epu.eoffice_be.common.enums.Role.CLERK).build());
         Document result = documentPublishService.publishDocument(90L, req);
         assertNotNull(result);
         assertNotNull(result.getIssueDate());
@@ -815,6 +831,8 @@ class DocumentServiceCoverageTest {
 
         PublishRequest req = new PublishRequest();
         req.setIsPublicToAll(true);
+
+        when(draftReadPolicy.currentUser()).thenReturn(UserLogin.builder().id(9001L).role(vn.edu.epu.eoffice_be.common.enums.Role.CLERK).build());
 
         Document published = documentPublishService.publishDocument(999L, req);
         assertNotNull(published.getOfficialHash());
@@ -931,6 +949,7 @@ class DocumentServiceCoverageTest {
         req.setEffectiveDate(LocalDate.now().plusMonths(1));
 
         stubOfficialPdf(doc);
+        when(draftReadPolicy.currentUser()).thenReturn(UserLogin.builder().id(9001L).role(vn.edu.epu.eoffice_be.common.enums.Role.CLERK).build());
         Document result = documentPublishService.publishDocument(505L, req);
         assertNotNull(result);
         assertEquals("PUBLISHED", String.valueOf(result.getStatus()));
@@ -952,6 +971,7 @@ class DocumentServiceCoverageTest {
 
         PublishRequest req = new PublishRequest();
         req.setIsPublicToAll(true);
+        when(draftReadPolicy.currentUser()).thenReturn(UserLogin.builder().id(9001L).role(vn.edu.epu.eoffice_be.common.enums.Role.CLERK).build());
         Document published = documentPublishService.publishDocument(606L, req);
 
         doc.setOfficialHash(published.getOfficialHash());
@@ -1105,6 +1125,7 @@ class DocumentServiceCoverageTest {
 
         Authentication adminAuth = new UsernamePasswordAuthenticationToken(
                 otherUser, null, List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+        when(draftReadPolicy.authenticatedUser(adminAuth)).thenReturn(UserLogin.builder().id(200L).role(vn.edu.epu.eoffice_be.common.enums.Role.ADMIN).build());
         assertTrue(documentPublishService.verifyIntegrity(500L, adminAuth));
 
         Authentication verifyAuth = new UsernamePasswordAuthenticationToken(

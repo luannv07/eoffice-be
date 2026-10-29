@@ -27,6 +27,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @ExtendWith(MockitoExtension.class)
 class DocumentPdfDownloadErrorTest {
+    @org.mockito.Mock private vn.edu.epu.eoffice_be.service.DocumentReadPolicy draftReadPolicy;
+
     @Mock DocumentQueryService service;
     @InjectMocks DocumentQueryController controller;
 
@@ -44,6 +46,7 @@ class DocumentPdfDownloadErrorTest {
                 new JwtUserPrincipal(1001L, "admin", "ADMIN", true, List.of()),
                 null, List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
         SecurityContextHolder.getContext().setAuthentication(admin);
+        when(service.resolveViewerRole(admin)).thenReturn(vn.edu.epu.eoffice_be.common.enums.Role.ADMIN);
         when(service.downloadDocumentForAdmin(5001L)).thenThrow(new BusinessException(code));
         var filter = new SecurityContextHolderAwareRequestFilter();
         filter.afterPropertiesSet();

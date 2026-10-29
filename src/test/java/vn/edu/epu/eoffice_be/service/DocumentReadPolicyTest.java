@@ -34,10 +34,14 @@ class DocumentReadPolicyTest {
         assertDoesNotThrow(() -> policy.assertRead(doc, 10L)); verifyNoInteractions(requests);
     }
     @ParameterizedTest @MethodSource("subjects")
-    void outsiderCannotReadEvenWhenAdminOrLeader(Role role, DocumentStatus status) {
+    void outsiderReadDependsOnDatabaseRole(Role role, DocumentStatus status) {
         user(role); var doc = doc(status);
-        assertEquals(ErrorCode.FORBIDDEN, assertThrows(BusinessException.class, () -> policy.assertRead(doc, 10L)).getErrorCode());
-        verify(requests).existsParticipant(1L,10L);
+        if (role == Role.ADMIN || role == Role.SYSTEM_ADMIN) {
+            assertDoesNotThrow(() -> policy.assertRead(doc,10L)); verifyNoInteractions(requests);
+        } else {
+            assertEquals(ErrorCode.FORBIDDEN, assertThrows(BusinessException.class, () -> policy.assertRead(doc, 10L)).getErrorCode());
+            verify(requests).existsParticipant(1L,10L);
+        }
     }
     @ParameterizedTest @MethodSource("subjects")
     void historicalParticipantCanReadWithoutGettingWriteRights(Role role, DocumentStatus status) {
@@ -52,8 +56,9 @@ class DocumentReadPolicyTest {
         assertEquals(ErrorCode.ACCOUNT_DISABLED, assertThrows(BusinessException.class, () -> policy.assertRead(doc(DocumentStatus.DRAFT),10L)).getErrorCode());
         verifyNoInteractions(requests);
     }
-    @Test void missingDrafterIsControlledAndDoesNotGrantAnAdminBypass() {
+    @Test void adminReadAllDoesNotRequireADrafter() {
         user(Role.ADMIN);var document = doc(DocumentStatus.DRAFT); document.setDrafter(null);
-        assertEquals(ErrorCode.FORBIDDEN, assertThrows(BusinessException.class, () -> policy.assertRead(document,10L)).getErrorCode());
+        assertDoesNotThrow(() -> policy.assertRead(document,10L));
+        assertEquals(ErrorCode.FORBIDDEN,assertThrows(BusinessException.class,()->policy.assertDraftWrite(document,10L)).getErrorCode());
     }
 }

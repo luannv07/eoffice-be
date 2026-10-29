@@ -26,7 +26,7 @@ class DocumentQueryBatchAuthorsTest {
     private final DocumentRepository documents = mock(DocumentRepository.class);
     private final UserInfoRepository profiles = mock(UserInfoRepository.class);
     private final DocumentQueryService service = new DocumentQueryService(documents,
-            mock(DocumentDistributionRepository.class), mock(DocumentPdfStorageService.class), profiles);
+            mock(DocumentDistributionRepository.class), mock(DocumentPdfStorageService.class), profiles, org.mockito.Mockito.mock(vn.edu.epu.eoffice_be.service.DocumentReadPolicy.class));
 
     private void stubRoute(Route route, List<Document> docs) {
         switch (route) {

@@ -423,7 +423,7 @@ public class DocumentApprovalService {
                 && drafter.getId() != null
                 && drafter.getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
-        if (!isDrafter && !isAdmin) {
+        if (!isDrafter) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền thu hồi yêu cầu duyệt của văn bản này");
         }
 
@@ -487,6 +487,7 @@ public class DocumentApprovalService {
     }
 
     public boolean isUserEligibleApprover(UserLogin user) {
+        if (DocumentAdminPolicy.isAdmin(user)) return false;
         return isUserEligibleApprover(user, null);
     }
 
@@ -494,9 +495,7 @@ public class DocumentApprovalService {
         if (user == null || user.isDeleteFlg()) {
             return false;
         }
-        if (user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN) {
-            return true;
-        }
+        if (DocumentAdminPolicy.isAdmin(user)) return false;
 
         Set<String> leaderCds = Set.of("HT", "PHT", "TK", "TP", "PK", "PP");
         Set<String> approverPositions = positionPermissionRepository

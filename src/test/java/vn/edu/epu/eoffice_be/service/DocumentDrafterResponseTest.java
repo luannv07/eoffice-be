@@ -59,13 +59,15 @@ class DocumentDrafterResponseTest {
         profile();
         DocumentDistributionRepository distributions = mock(DocumentDistributionRepository.class);
         DocumentQueryService query = new DocumentQueryService(documents, distributions,
-                mock(DocumentPdfStorageService.class), profiles);
+                mock(DocumentPdfStorageService.class), profiles, org.mockito.Mockito.mock(vn.edu.epu.eoffice_be.service.DocumentReadPolicy.class));
         when(documents.findAccessiblePublishedDocument(10L, 20L)).thenReturn(Optional.of(document));
         assertContract(query.getDocumentDetail(10L, 20L));
         assertContract(query.getDocumentDetails(10L, 20L));
 
         DocumentPdfStorageService storage = mock(DocumentPdfStorageService.class);
-        DocumentPublishService publishing = new DocumentPublishService(documents, distributions, null, storage, profiles);
+        var publishPolicy=mock(DocumentReadPolicy.class);
+        when(publishPolicy.currentUser()).thenReturn(UserLogin.builder().id(9001L).role(vn.edu.epu.eoffice_be.common.enums.Role.CLERK).build());
+        DocumentPublishService publishing = new DocumentPublishService(documents, distributions, null, storage, profiles, publishPolicy);
         when(documents.findById(10L)).thenReturn(Optional.of(document));
         when(documents.save(document)).thenReturn(document);
         document.setOfficialFilePath("test.pdf");

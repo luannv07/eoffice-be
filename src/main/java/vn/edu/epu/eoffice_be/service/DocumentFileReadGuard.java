@@ -37,9 +37,15 @@ public class DocumentFileReadGuard {
         return List.copyOf(found.values());
     }
     public void assertRead(String provider, String fileId) {
-        var scoped = linked(provider, fileId).stream().filter(policy::applies).toList();
-        if (scoped.isEmpty()) return;
+        var linkedDocuments = linked(provider, fileId);
+        if (linkedDocuments.isEmpty()) return;
         var user = policy.currentUser();
+        if (DocumentAdminPolicy.isAdmin(user)) {
+            policy.assertRead(linkedDocuments.getFirst(), user.getId());
+            return;
+        }
+        var scoped = linkedDocuments.stream().filter(policy::applies).toList();
+        if (scoped.isEmpty()) return;
         for (var doc : scoped) {
             try { policy.assertRead(doc, user.getId()); return; }
             catch (BusinessException e) { if (e.getErrorCode() != ErrorCode.FORBIDDEN) throw e; }
@@ -47,7 +53,10 @@ public class DocumentFileReadGuard {
         throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền xem văn bản này.");
     }
     public void assertUnboundWrite(String provider, String fileId) {
-        if (linked(provider, fileId).stream().anyMatch(policy::applies))
+        var linkedDocuments = linked(provider, fileId);
+        if (linkedDocuments.isEmpty()) return;
+        boolean admin = DocumentAdminPolicy.isAdmin(policy.currentUser());
+        if (admin || linkedDocuments.stream().anyMatch(policy::applies))
             throw new BusinessException(ErrorCode.FORBIDDEN, "Tệp đã gắn với hồ sơ; vui lòng thao tác qua API văn bản.");
     }
     /** Bulk visibility evaluation; unrelated files retain their existing behavior. */

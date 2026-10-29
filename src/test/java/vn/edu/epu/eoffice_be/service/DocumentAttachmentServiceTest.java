@@ -374,16 +374,20 @@ class DocumentAttachmentServiceTest {
     }
 
     @Test
-    @DisplayName("Admin không tham gia không được đọc metadata dự thảo người khác")
-    void getAttachmentMetadata_UnrelatedAdmin_Forbidden() {
+    @DisplayName("Admin ngoài luồng được đọc metadata, không được sửa hồ sơ")
+    void getAttachmentMetadata_UnrelatedAdmin_ReadOnlySuccess() {
         Long docId=1L, attId=10L, adminId=999L;
         var admin=UserLogin.builder().id(adminId).role(Role.ADMIN).build();
         var doc=Document.builder().id(docId).drafter(UserLogin.builder().id(100L).build()).status(DocumentStatus.DRAFT).build();
         when(userLoginRepository.findByIdAndDeleteFlgFalse(adminId)).thenReturn(Optional.of(admin));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        var attachment=DocumentAttachment.builder().id(attId).document(doc).originalFileName("draft.pdf").build();
+        when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId,docId)).thenReturn(Optional.of(attachment));
+        assertEquals(attachment,documentAttachmentService.getAttachmentMetadata(docId,attId,adminId));
         assertEquals(ErrorCode.FORBIDDEN,assertThrows(BusinessException.class,
-                () -> documentAttachmentService.getAttachmentMetadata(docId,attId,adminId)).getErrorCode());
-        verifyNoInteractions(documentAttachmentRepository,fileStorageService);
+                () -> documentAttachmentService.deleteAttachment(docId,attId,adminId)).getErrorCode());
+        verify(documentAttachmentRepository,org.mockito.Mockito.never()).save(any());
+        verifyNoInteractions(fileStorageService);
     }
 
     @Test

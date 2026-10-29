@@ -67,6 +67,17 @@ class DocumentDrafterIntegrationTest {
     @Autowired Environment environment;
     @MockBean DocumentPdfStorageService pdfStorage;
 
+    private void authenticatePublisher() {
+        var operator=new TransactionTemplate(transactions).execute(status -> users.saveAndFlush(
+                UserLogin.builder().username("publisher-"+UUID.randomUUID()).passwordHash("test")
+                .role(vn.edu.epu.eoffice_be.common.enums.Role.CLERK).build()));
+        var principal=new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(operator.getId(),operator.getUsername(),"CLERK",true,List.of());
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(principal,null,List.of()));
+    }
+    @org.junit.jupiter.api.AfterEach
+    void clearPublisherAuthentication() { org.springframework.security.core.context.SecurityContextHolder.clearContext(); }
+
     @Test
     void assignedPageUsesOneAuthorBatchAndConstantSqlAcrossPageSizes() {
         assertEquals("false", environment.getProperty("spring.jpa.open-in-view"));
@@ -220,12 +231,18 @@ class DocumentDrafterIntegrationTest {
         });
         try {
             when(pdfStorage.readPdf("test-response.pdf")).thenReturn(new byte[]{1, 2, 3});
+            authenticatePublisher();
             DocumentResponse response = publishing.publishDocumentResponse(id, null);
             assertEquals(id, response.getId());
             assertEquals(DocumentStatus.PUBLISHED, response.getStatus());
             assertNotNull(response.getDrafterId());
             assertNotNull(response.getDrafterUsername());
             assertNotNull(response.getDrafterFullName());
+            var reader=tx.execute(status -> users.saveAndFlush(UserLogin.builder().username("reader-"+UUID.randomUUID())
+                    .passwordHash("test").role(vn.edu.epu.eoffice_be.common.enums.Role.ADMIN).build()));
+            var readerPrincipal=new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(reader.getId(),reader.getUsername(),"ADMIN",true,List.of());
+            org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                    new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(readerPrincipal,null,List.of()));
             Map<?, ?> detail = (Map<?, ?>) query.getDocumentDetailsForAdmin(id);
             assertEquals(detail.get("drafterId"), response.getDrafterId());
             assertEquals(detail.get("drafterUsername"), response.getDrafterUsername());
@@ -248,9 +265,15 @@ class DocumentDrafterIntegrationTest {
         });
         try {
             when(pdfStorage.readPdf("test-author.pdf")).thenReturn(new byte[]{1, 2, 3});
+            authenticatePublisher();
             Document published = publishing.publishDocument(id, null);
             assertTrue(Hibernate.isInitialized(published.getDrafter()));
             assertNotNull(published.getDrafter().getUsername());
+            var reader=tx.execute(status -> users.saveAndFlush(UserLogin.builder().username("reader-"+UUID.randomUUID())
+                    .passwordHash("test").role(vn.edu.epu.eoffice_be.common.enums.Role.ADMIN).build()));
+            var readerPrincipal=new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(reader.getId(),reader.getUsername(),"ADMIN",true,List.of());
+            org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                    new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(readerPrincipal,null,List.of()));
             Map<?, ?> detail = (Map<?, ?>) query.getDocumentDetailsForAdmin(id);
             assertEquals(published.getDrafter().getId(), detail.get("drafterId"));
             assertEquals(published.getDrafter().getUsername(), detail.get("drafterUsername"));

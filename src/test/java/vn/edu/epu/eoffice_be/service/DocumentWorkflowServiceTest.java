@@ -125,7 +125,7 @@ class DocumentWorkflowServiceTest {
 
     @BeforeEach
     void setUp() {
-        leader = UserLogin.builder().id(1002L).username("leader").role(Role.ADMIN).build();
+        leader = UserLogin.builder().id(1002L).username("leader").role(Role.LEADER).build();
         orgNode = OrgNode.builder().id(2001L).nameVn("Khoa CNTT").build();
 
         document = Document.builder()
@@ -137,7 +137,7 @@ class DocumentWorkflowServiceTest {
                 .status(DocumentStatus.IN_REVIEW	)
                 .build();
 
-        JwtUserPrincipal principal = new JwtUserPrincipal(1002L, "leader", Role.ADMIN.name(), true, List.of());
+        JwtUserPrincipal principal = new JwtUserPrincipal(1002L, "leader", Role.LEADER.name(), true, List.of());
         Authentication auth = new UsernamePasswordAuthenticationToken(principal, null, List.of());
         SecurityContextHolder.getContext().setAuthentication(auth);
         lenient().when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));

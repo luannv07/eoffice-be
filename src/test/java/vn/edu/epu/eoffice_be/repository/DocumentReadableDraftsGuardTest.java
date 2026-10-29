@@ -21,29 +21,26 @@ import static org.mockito.Mockito.verify;
 
 class DocumentReadableDraftsGuardTest {
     static Stream<Arguments> invalidPolicies() {
-        return Stream.of(
-                Arguments.of(null, false),
-                Arguments.of(null, true),
-                Arguments.of(List.of(), false),
-                Arguments.of(List.of(), true));
+        return Stream.of(false,true).flatMap(legacy -> Stream.of(false,true).flatMap(admin -> Stream.of(
+                Arguments.of(null,legacy,admin),Arguments.of(List.of(),legacy,admin))));
     }
 
     @ParameterizedTest
     @MethodSource("invalidPolicies")
-    void rejectsMissingPolicyBeforeBuildingCriteria(Collection<DocumentStatus> statuses, boolean legacyGlobal) {
+    void rejectsMissingPolicyBeforeBuildingCriteria(Collection<DocumentStatus> statuses, boolean legacyGlobal, boolean adminReadAll) {
         var error = assertThrows(IllegalArgumentException.class,
-                () -> DocumentRepository.readableDrafts(10L, legacyGlobal, statuses));
+                () -> DocumentRepository.readableDrafts(10L, legacyGlobal, adminReadAll, statuses));
 
         assertEquals("guardedStatuses must not be null or empty", error.getMessage());
     }
 
     @ParameterizedTest
     @MethodSource("invalidPolicies")
-    void searchRejectsMissingPolicyBeforeExecutingAnyQuery(Collection<DocumentStatus> statuses, boolean legacyGlobal) {
+    void searchRejectsMissingPolicyBeforeExecutingAnyQuery(Collection<DocumentStatus> statuses, boolean legacyGlobal, boolean adminReadAll) {
         var repository = mock(DocumentRepository.class, CALLS_REAL_METHODS);
 
         var error = assertThrows(IllegalArgumentException.class,
-                () -> repository.searchReadableDrafts(10L, legacyGlobal, statuses,
+                () -> repository.searchReadableDrafts(10L, legacyGlobal, adminReadAll, statuses,
                         DocumentStatus.DRAFT, null, null, PageRequest.of(0, 10)));
 
         assertEquals("guardedStatuses must not be null or empty", error.getMessage());
