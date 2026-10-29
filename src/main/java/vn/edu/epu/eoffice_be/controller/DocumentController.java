@@ -122,6 +122,11 @@ public class DocumentController {
         return BaseResponse.success(documentDraftService.createDraft(request, userId));
     }
 
+    @GetMapping("/draft-options")
+    public BaseResponse<vn.edu.epu.eoffice_be.dto.response.DraftOptionsResponse> draftOptions(Authentication authentication) {
+        return BaseResponse.success(documentDraftService.getDraftOptions(extractUserId(authentication)));
+    }
+
     @Operation(summary = "Xem chi tiết dự thảo văn bản",
             description = "Lấy thông tin chi tiết dự thảo, kèm danh sách các tệp đính kèm và lịch sử các phiên bản.")
     @GetMapping("/{id}")

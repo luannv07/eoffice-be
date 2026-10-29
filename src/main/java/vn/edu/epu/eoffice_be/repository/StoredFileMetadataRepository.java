@@ -11,4 +11,6 @@ public interface StoredFileMetadataRepository extends JpaRepository<StoredFileMe
     Optional<StoredFileMetadata> findByProviderAndFileId(String provider, String fileId);
 
     List<StoredFileMetadata> findByProvider(String provider);
+
+    List<StoredFileMetadata> findByProviderAndFileIdIn(String provider, java.util.Collection<String> fileIds);
 }

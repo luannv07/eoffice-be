@@ -54,10 +54,9 @@ class DocumentFirstSubmissionTest {
     OrgNode school = OrgNode.builder().id(1L).typeCd("UNIVERSITY").nameVn("EPU").build();
 
     @BeforeEach void setup() {
-        routing = new SubmissionRoutingService(positions, profiles);
+        routing = new SubmissionRoutingService(positions, profiles, vn.edu.epu.eoffice_be.service.TestDraftUnits.resolver(positions));
         engine = new WorkflowEngine(documents, workflowLogs, permissionResolver, routing);
-        service = new DocumentApprovalService(documents, attachments, approvals, processLogs, users, profiles,
-                positions, permissions, events, drafts, pdfStorage, storage, signer, routing, engine);
+        service = new DocumentApprovalService(documents, attachments, approvals, processLogs, users, profiles, positions, permissions, events, drafts, pdfStorage, storage, signer, routing, engine, org.mockito.Mockito.mock(vn.edu.epu.eoffice_be.service.DraftUnitResolver.class));
         lenient().when(users.findByIdAndDeleteFlgFalse(anyLong())).thenAnswer(inv -> Optional.ofNullable(accounts.get(inv.getArgument(0))));
         lenient().when(documents.findByIdAndDeleteFlgFalse(1L)).thenAnswer(inv -> Optional.of(document));
         lenient().when(positions.findActiveAssignments(anyLong(), any())).thenAnswer(inv -> assignments.stream()
@@ -72,13 +71,14 @@ class DocumentFirstSubmissionTest {
         accounts.put(id, user); return user;
     }
     void assign(UserLogin u, String cd, OrgNode org) {
+        if (document != null && sender != null && sender.getId().equals(u.getId())) document.setIssuingOrgNode(org);
         assignments.add(PositionAssignment.builder().id((long) assignments.size() + 1).userLogin(u).orgNode(org)
                 .positionCd(cd).effectiveFrom(Instant.now().minusSeconds(60)).build());
     }
     void prepare(Role role, String cd) {
         sender = account(10, role);
         document = Document.builder().id(1L).drafter(sender).title("Test").summary("Summary")
-                .primaryFilePath("storage://1").status(DocumentStatus.DRAFT).currentVersion(1).build();
+                .issuingOrgNode(faculty).primaryFilePath("storage://1").status(DocumentStatus.DRAFT).currentVersion(1).build();
         if (!cd.equals("NONE")) assign(sender, cd, Set.of("HT", "PHT").contains(cd) ? school : faculty);
         assign(account(20, Role.REVIEWER), "TK", faculty);
         if (!cd.equals("HT")) assign(account(30, Role.LEADER), "HT", school);
@@ -212,8 +212,7 @@ class DocumentFirstSubmissionTest {
         when(attachments.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(1L)).thenReturn(true);
         when(pdfStorage.readPdf("storage://1")).thenReturn(failure.equals("missingPdf") ? null : new byte[]{1});
         if (failure.equals("missingSigner")) {
-            service = new DocumentApprovalService(documents, attachments, approvals, processLogs, users, profiles,
-                    positions, permissions, events, drafts, pdfStorage, storage, null, routing, engine);
+            service = new DocumentApprovalService(documents, attachments, approvals, processLogs, users, profiles, positions, permissions, events, drafts, pdfStorage, storage, null, routing, engine, org.mockito.Mockito.mock(vn.edu.epu.eoffice_be.service.DraftUnitResolver.class));
         } else if (!failure.equals("missingPdf")) {
             if (failure.equals("signFailure")) when(signer.signBytes(any(), any(), any(), any(), any(), any()))
                     .thenThrow(new BusinessException(ErrorCode.PKI_STORAGE_ERROR));

@@ -44,11 +44,23 @@ class DocumentPdfAccessTest {
     @Mock UserLoginRepository users;
     @Mock DocumentApprovalRequestRepository approvals;
     @Mock DocumentPdfStorageService storage;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentReadPolicy draftReadPolicy;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DraftUnitResolver draftUnitResolver;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentFileReadGuard documentFiles;
+
     @InjectMocks DocumentAttachmentService service;
+
+    @org.junit.jupiter.api.BeforeEach
+    void useActualReadPolicy() {
+        ReflectionTestUtils.setField(service, "readPolicy", new DocumentReadPolicy(users, approvals));
+    }
 
     @ParameterizedTest
     @MethodSource("allowedAccess")
-    void usesExistingAttachmentPermissionsAndReadsOnlyRequestedVersion(Kind kind, Access access) {
+    void enforcesDocumentPermissionsAndReadsOnlyRequestedVersion(Kind kind, Access access) {
         Document document = prepare();
         UserLogin actor = UserLogin.builder().id(100L).role(Role.USER).build();
         when(users.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(actor));
@@ -56,11 +68,14 @@ class DocumentPdfAccessTest {
             case DRAFTER -> document.setDrafter(actor);
             case ADMIN -> actor.setRole(Role.ADMIN);
             case SYSTEM_ADMIN -> actor.setRole(Role.SYSTEM_ADMIN);
-            case PENDING_APPROVER -> when(approvals.findByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(5001L))
-                    .thenReturn(List.of(DocumentApprovalRequest.builder().approverUser(actor)
-                            .status(ApprovalRequestStatus.PENDING).build()));
+            case PENDING_APPROVER -> when(approvals.existsParticipant(5001L,100L)).thenReturn(true);
             case APPROVED -> document.setStatus(DocumentStatus.APPROVED);
             case PUBLISHED -> document.setStatus(DocumentStatus.PUBLISHED);
+        }
+        if (access == Access.ADMIN || access == Access.SYSTEM_ADMIN) {
+            assertEquals(ErrorCode.FORBIDDEN, assertThrows(BusinessException.class, () -> download(kind,100L)).getErrorCode());
+            verifyNoInteractions(storage);
+            return;
         }
         Resource pdf = new ByteArrayResource(new byte[]{1, 2, 3});
         when(storage.readAsResource(reference(kind))).thenReturn(pdf);

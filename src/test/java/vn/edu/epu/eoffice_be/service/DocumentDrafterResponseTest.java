@@ -42,9 +42,7 @@ class DocumentDrafterResponseTest {
         profile();
         DocumentAttachmentRepository attachments = mock(DocumentAttachmentRepository.class);
         DocumentVersionRepository versions = mock(DocumentVersionRepository.class);
-        DocumentDraftService drafts = new DocumentDraftService(documents, versions, attachments,
-                mock(DocumentProcessLogRepository.class), mock(OrgNodeRepository.class),
-                mock(UserLoginRepository.class), profiles, mock(DictionaryItemRepository.class));
+        DocumentDraftService drafts = new DocumentDraftService(documents, org.mockito.Mockito.mock(vn.edu.epu.eoffice_be.service.DocumentReadPolicy.class), org.mockito.Mockito.mock(vn.edu.epu.eoffice_be.service.DraftUnitResolver.class), versions, attachments, mock(DocumentProcessLogRepository.class), mock(OrgNodeRepository.class), mock(UserLoginRepository.class), profiles, mock(DictionaryItemRepository.class));
         when(documents.findByIdAndDeleteFlgFalse(10L)).thenReturn(Optional.of(document));
         when(attachments.findByDocumentIdAndDeleteFlgFalse(10L)).thenReturn(List.of());
         when(versions.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(10L)).thenReturn(List.of());

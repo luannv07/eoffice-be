@@ -62,6 +62,7 @@ public class DocumentPublishService {
     private DocumentResponse toPublishResponse(Document doc) {
         return DocumentResponse.builder()
                 .id(doc.getId())
+                .testDocument(doc.isTestDocument())
                 .drafterId(doc.getDrafter() != null ? doc.getDrafter().getId() : null)
                 .drafterUsername(doc.getDrafter() != null ? doc.getDrafter().getUsername() : null)
                 .drafterFullName(doc.getDrafter() != null ? userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(doc.getDrafter().getId())
@@ -82,6 +83,7 @@ public class DocumentPublishService {
         Document doc = documentRepository.findById(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND,"Không tìm thấy văn bản có id"+ documentId));
         
+        vn.edu.epu.eoffice_be.service.TestDocumentGuard.assertReal(doc);
         if(Boolean.TRUE.equals(doc.isDeleteFlg())){
             throw new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND, "Văn bản đã bị xoá");
         }

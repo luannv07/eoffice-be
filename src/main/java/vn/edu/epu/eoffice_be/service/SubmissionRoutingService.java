@@ -29,6 +29,7 @@ public class SubmissionRoutingService {
     private static final Set<String> UNSUPPORTED = Set.of("GĐTT", "GDTT", "PGDTT", "BT", "PBT", "UV");
     private final PositionAssignmentRepository positions;
     private final UserInfoRepository profiles;
+    private final DraftUnitResolver units;
 
     public record Decision(SubmissionRoute route, Long approverUserId) {}
     private record SenderRoute(SubmissionRoute route, Long unitId, Set<String> positions, boolean requiresChoice) {}
@@ -49,11 +50,18 @@ public class SubmissionRoutingService {
                     "Thông tin tuyến gửi lần đầu chỉ áp dụng cho dự thảo DRAFT");
         }
         if (!activeUser(sender)) throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
-        if (isAdmin(sender)) {
-            List<PositionAssignment> candidates = candidates(RECEIVERS, null, at);
+        OrgNode selectedUnit = units.resolve(sender, document.getOrgId(), at);
+        if (units.simulated(sender)) {
+            List<PositionAssignment> candidates = candidates(RECEIVERS, null, at).stream()
+                    .filter(p -> !sender.getId().equals(p.getUserLogin().getId())).toList();
             validateLeadershipCounts(candidates, false);
             List<RouteOption> routes = new ArrayList<>();
-            addRoute(routes, SubmissionRoute.REVIEW, candidates.stream().filter(p -> REVIEWERS.contains(p.getPositionCd())).toList());
+            if (selectedUnit != null) {
+                Set<String> reviewers = "FACULTY".equals(selectedUnit.getTypeCd()) ? Set.of("TK", "PK")
+                        : "DEPARTMENT".equals(selectedUnit.getTypeCd()) ? Set.of("TP", "PP") : Set.of();
+                addRoute(routes, SubmissionRoute.REVIEW, candidates.stream()
+                        .filter(p -> reviewers.contains(p.getPositionCd()) && selectedUnit.getId().equals(p.getOrgNode().getId())).toList());
+            }
             addRoute(routes, SubmissionRoute.LEADER_APPROVAL, candidates.stream().filter(p -> LEADERS.contains(p.getPositionCd())).toList());
             if (routes.isEmpty()) throw bad("Không có người nhận có chức vụ hợp lệ để kiểm thử");
             return new SubmissionOptionsResponse(SelectionMode.SELECT, List.copyOf(routes));
@@ -68,7 +76,8 @@ public class SubmissionRoutingService {
             return new SubmissionOptionsResponse(SelectionMode.QUEUE,
                     List.of(new RouteOption(route.route(), route.route().getNextStatus(), List.of())));
         }
-        List<PositionAssignment> candidates = candidates(route.positions(), route.unitId(), at);
+        List<PositionAssignment> candidates = candidates(route.positions(), route.unitId(), at).stream()
+                .filter(p -> !sender.getId().equals(p.getUserLogin().getId())).toList();
         if (route.route() == SubmissionRoute.LEADER_APPROVAL) {
             // Validate the global HT/PHT invariant even when a PHT may only choose HT.
             List<PositionAssignment> leaders = route.positions().equals(LEADERS)
@@ -88,7 +97,7 @@ public class SubmissionRoutingService {
     public Decision resolve(Document document, UserLogin sender, SubmitApprovalRequest request, Instant at) {
         SubmissionOptionsResponse options = options(document, sender, at);
         if (request == null) throw bad("Thiếu thông tin gửi văn bản");
-        if (isAdmin(sender) && (request.getRoute() == null || request.getApproverUserId() == null)) {
+        if (units.simulated(sender) && (request.getRoute() == null || request.getApproverUserId() == null)) {
             throw bad("ADMIN/SYSTEM_ADMIN phải chọn tuyến và người nhận để kiểm thử");
         }
         SubmissionRoute selected = request.getRoute();
@@ -106,6 +115,10 @@ public class SubmissionRoutingService {
         if (id == null) throw bad("Vui lòng chọn người nhận hợp lệ");
         Long approverId = id;
         if (route.approvers().stream().noneMatch(p -> approverId.equals(p.getUserId()))) {
+            if (selectedRoute == SubmissionRoute.REVIEW) {
+                throw new BusinessException(ErrorCode.FORBIDDEN,
+                        "Người nhận được chọn không thuộc phạm vi thẩm định của khoa/phòng bạn.");
+            }
             throw new BusinessException(ErrorCode.APPROVER_NOT_ELIGIBLE,
                     "Người được chọn không thuộc tuyến hoặc đơn vị được phép nhận văn bản");
         }
@@ -113,41 +126,9 @@ public class SubmissionRoutingService {
     }
 
     private SenderRoute senderRoute(UserLogin sender, Instant at) {
-        List<PositionAssignment> assignments = positions.findActiveAssignments(sender.getId(), at).stream()
-                .filter(p -> validAssignment(p, at)).toList();
-        if (assignments.stream().anyMatch(p -> UNSUPPORTED.contains(p.getPositionCd()))) {
-            throw bad("Chức danh chưa có tuyến gửi duyệt được quy định trên hệ thống");
-        }
-        if (sender.getRole() == Role.CLERK
-                && assignments.stream().anyMatch(p -> !"VT".equals(p.getPositionCd()))) {
-            throw bad("Không xác định được duy nhất tư cách/đơn vị gửi. Vui lòng kiểm tra các phân nhiệm đang hiệu lực.");
-        }
-        Set<SenderRoute> routes = new HashSet<>();
-        for (PositionAssignment p : assignments) {
-            String cd = p.getPositionCd();
-            if ("HT".equals(cd)) routes.add(new SenderRoute(SubmissionRoute.CLERK_QUEUE, null, Set.of(), false));
-            else if ("PHT".equals(cd)) routes.add(new SenderRoute(SubmissionRoute.LEADER_APPROVAL, null, Set.of("HT"), false));
-            else if (REVIEWERS.contains(cd) || "VT".equals(cd)) {
-                routes.add(new SenderRoute(SubmissionRoute.LEADER_APPROVAL, null, LEADERS, false));
-            } else if (sender.getRole() == Role.USER) {
-                String type = p.getOrgNode().getTypeCd();
-                if ("FACULTY".equals(type)) routes.add(new SenderRoute(SubmissionRoute.REVIEW,
-                        p.getOrgNode().getId(), Set.of("TK", "PK"), true));
-                else if ("DEPARTMENT".equals(type)) routes.add(new SenderRoute(SubmissionRoute.REVIEW,
-                        p.getOrgNode().getId(), Set.of("TP", "PP"), true));
-                else throw bad("Đơn vị của USER không phải khoa/phòng hợp lệ");
-            } else throw bad("Tài khoản chưa có chức vụ/phân nhiệm hợp lệ để xác định tuyến gửi.");
-        }
-        if (sender.getRole() == Role.CLERK) routes.add(new SenderRoute(SubmissionRoute.LEADER_APPROVAL, null, LEADERS, false));
-        // Different units/positions are ambiguous even when their destinations happen to match.
-        long identities = assignments.stream().map(p -> p.getPositionCd() + ":" + p.getOrgNode().getId()).distinct().count();
-        if (identities > 1 || routes.size() > 1) {
-            throw bad("Không xác định được duy nhất tư cách/đơn vị gửi. Vui lòng kiểm tra các phân nhiệm đang hiệu lực.");
-        }
-        if (routes.isEmpty()) throw bad(sender.getRole() == Role.USER
-                ? "Tài khoản USER chưa được phân vào khoa/phòng."
-                : "Tài khoản chưa có chức vụ/phân nhiệm hợp lệ để xác định tuyến gửi.");
-        return routes.iterator().next();
+        var identity = units.identity(sender, at);
+        return new SenderRoute(identity.route(), identity.route() == SubmissionRoute.REVIEW ? identity.unit().getId() : null,
+                identity.recipients(), identity.choice());
     }
 
     private List<PositionAssignment> candidates(Set<String> cds, Long unit, Instant at) {

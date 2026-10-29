@@ -50,6 +50,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -75,8 +76,27 @@ class DocumentDraftServiceTest {
     @Mock
     private DictionaryItemRepository dictionaryItemRepository;
 
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentReadPolicy draftReadPolicy;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DraftUnitResolver draftUnitResolver;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentFileReadGuard documentFiles;
+
     @InjectMocks
     private DocumentDraftService documentDraftService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void phaseAPolicyFixture() {
+        var actualPolicy = new DocumentReadPolicy(userLoginRepository,
+                org.mockito.Mockito.mock(vn.edu.epu.eoffice_be.repository.DocumentApprovalRequestRepository.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(documentDraftService, "readPolicy", actualPolicy);
+        org.mockito.Mockito.lenient().when(draftUnitResolver.resolve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(inv -> orgNodeRepository.findByIdAndDeleteFlgFalse(inv.getArgument(1))
+                        .orElseThrow(() -> new BusinessException(ErrorCode.BAD_REQUEST)));
+        org.mockito.Mockito.lenient().when(userLoginRepository.findByIdAndDeleteFlgFalse(org.mockito.ArgumentMatchers.anyLong()))
+                .thenAnswer(inv -> java.util.Optional.of(UserLogin.builder().id(inv.getArgument(0)).role(Role.USER).build()));
+    }
 
     private Document prepareUpdate(UserLogin actor, UserLogin drafter, DocumentStatus status) {
         Document document = Document.builder().id(1L).drafter(drafter).status(status)
@@ -142,14 +162,17 @@ class DocumentDraftServiceTest {
 
     @ParameterizedTest
     @MethodSource("adminUpdateDrafters")
-    void updateDraft_AdminExceptionRemainsForOtherOrMissingDrafter(Role role, String kind) {
+    void updateDraft_AdminCannotModifyAnotherOrUnownedDraft(Role role, String kind) {
         UserLogin actor = UserLogin.builder().id(100L).username("admin").role(role).build();
         UserLogin drafter = switch (kind) {
             case "OTHER_USER" -> UserLogin.builder().id(200L).username("author").build();
             case "NULL_DRAFTER" -> null;
             default -> UserLogin.builder().username("legacy-author").build();
         };
-        assertUpdateSucceeds(actor, drafter, DocumentStatus.DRAFT);
+        Document document = prepareUpdate(actor, drafter, DocumentStatus.DRAFT);
+        assertEquals(ErrorCode.FORBIDDEN, assertThrows(BusinessException.class,
+                () -> documentDraftService.updateDraft(1L, updateRequest(), 100L)).getErrorCode());
+        assertDraftUnchanged(document, DocumentStatus.DRAFT);
     }
 
     private void assertUpdateSucceeds(UserLogin actor, UserLogin drafter, DocumentStatus status) {
@@ -174,9 +197,9 @@ class DocumentDraftServiceTest {
 
     @ParameterizedTest
     @EnumSource(value = Role.class, names = {"ADMIN", "SYSTEM_ADMIN"})
-    void updateDraft_AdminWithMissingDrafterStillBlockedByDocumentStatus(Role role) {
+    void updateDraft_AdminAsDrafterStillBlockedByDocumentStatus(Role role) {
         UserLogin actor = UserLogin.builder().id(100L).role(role).build();
-        Document document = prepareUpdate(actor, null, DocumentStatus.IN_REVIEW);
+        Document document = prepareUpdate(actor, actor, DocumentStatus.IN_REVIEW);
 
         BusinessException error = assertThrows(BusinessException.class,
                 () -> documentDraftService.updateDraft(1L, updateRequest(), 100L));
@@ -188,9 +211,9 @@ class DocumentDraftServiceTest {
 
     @ParameterizedTest
     @EnumSource(value = Role.class, names = {"ADMIN", "SYSTEM_ADMIN"})
-    void updateDraft_AdminWithMissingDrafterStillRequiresValidIssuingOrg(Role role) {
+    void updateDraft_AdminAsDrafterStillRequiresValidIssuingOrg(Role role) {
         UserLogin actor = UserLogin.builder().id(100L).role(role).build();
-        Document document = prepareUpdate(actor, null, DocumentStatus.DRAFT);
+        Document document = prepareUpdate(actor, actor, DocumentStatus.DRAFT);
         when(orgNodeRepository.findByIdAndDeleteFlgFalse(20L)).thenReturn(Optional.empty());
 
         BusinessException error = assertThrows(BusinessException.class,
@@ -509,8 +532,8 @@ class DocumentDraftServiceTest {
     }
 
     @Test
-    @DisplayName("Admin có thể cập nhật dự thảo của người khác")
-    void updateDraft_Admin_Success() {
+    @DisplayName("Admin chỉ cập nhật dự thảo do chính mình soạn")
+    void updateDraft_AdminAsDrafter_Success() {
         Long adminId = 999L;
         Long docId = 1L;
         Long orgNodeId = 10L;
@@ -538,6 +561,7 @@ class DocumentDraftServiceTest {
                 .saveNewVersion(false)
                 .build();
 
+        doc.setDrafter(admin);
         DocumentResponse response = documentDraftService.updateDraft(docId, request, adminId);
         assertNotNull(response);
         assertEquals("Admin sửa", response.getTitle());
@@ -565,8 +589,7 @@ class DocumentDraftServiceTest {
         org.springframework.data.domain.Page<Document> mockPage =
                 new org.springframework.data.domain.PageImpl<>(java.util.List.of(doc));
 
-        when(documentRepository.searchDocuments(
-                org.mockito.ArgumentMatchers.eq(userId),
+        when(documentRepository.searchReadableDrafts(org.mockito.ArgumentMatchers.eq(userId), eq(false), eq(DocumentReadPolicy.STATUSES),
                 org.mockito.ArgumentMatchers.eq(DocumentStatus.DRAFT),
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.eq("test\\%\\_\\\\"),
@@ -591,8 +614,7 @@ class DocumentDraftServiceTest {
         org.springframework.data.domain.Page<Document> mockPage =
                 new org.springframework.data.domain.PageImpl<>(java.util.List.of());
 
-        when(documentRepository.searchDocuments(
-                org.mockito.ArgumentMatchers.eq(userId),
+        when(documentRepository.searchReadableDrafts(org.mockito.ArgumentMatchers.eq(userId), eq(false), eq(DocumentReadPolicy.STATUSES),
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.isNull(),
@@ -616,8 +638,7 @@ class DocumentDraftServiceTest {
         org.mockito.ArgumentCaptor<org.springframework.data.domain.Pageable> pageableCaptor =
                 org.mockito.ArgumentCaptor.forClass(org.springframework.data.domain.Pageable.class);
 
-        when(documentRepository.searchDocuments(
-                org.mockito.ArgumentMatchers.eq(userId),
+        when(documentRepository.searchReadableDrafts(org.mockito.ArgumentMatchers.eq(userId), eq(false), eq(DocumentReadPolicy.STATUSES),
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.isNull(),
@@ -658,8 +679,7 @@ class DocumentDraftServiceTest {
         org.springframework.data.domain.Page<Document> mockPage =
                 new org.springframework.data.domain.PageImpl<>(java.util.List.of(doc));
 
-        when(documentRepository.searchDocuments(
-                org.mockito.ArgumentMatchers.isNull(),
+        when(documentRepository.searchReadableDrafts(eq(userId), eq(true), eq(DocumentReadPolicy.STATUSES),
                 org.mockito.ArgumentMatchers.eq(DocumentStatus.APPROVED),
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.isNull(),
@@ -669,8 +689,8 @@ class DocumentDraftServiceTest {
         var result = documentDraftService.searchDrafts(filter, userId);
         assertNotNull(result);
         assertEquals(1, result.getTotalElements());
-        verify(documentRepository).searchDocuments(
-                org.mockito.ArgumentMatchers.isNull(),
+        verify(documentRepository).searchReadableDrafts(
+                eq(userId), eq(true), eq(DocumentReadPolicy.STATUSES),
                 org.mockito.ArgumentMatchers.eq(DocumentStatus.APPROVED),
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.isNull(),
@@ -727,7 +747,7 @@ class DocumentDraftServiceTest {
 
     @Test
     @DisplayName("Xóa dự thảo thành công bởi quản trị viên (Admin) có tệp đính kèm và phiên bản")
-    void deleteDraft_Success_ByAdmin() {
+    void deleteDraft_Success_ByAdmin_AsDrafter() {
         Long drafterId = 100L;
         Long adminId = 999L;
         Long docId = 1L;
@@ -762,6 +782,7 @@ class DocumentDraftServiceTest {
         when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(docId)).thenReturn(List.of(attachment));
         when(documentVersionRepository.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(docId)).thenReturn(List.of(version));
 
+        doc.setDrafter(admin);
         documentDraftService.deleteDraft(docId, adminId);
 
         assertTrue(doc.isDeleteFlg());
@@ -776,7 +797,7 @@ class DocumentDraftServiceTest {
 
     @Test
     @DisplayName("Xóa dự thảo thành công bởi quản trị viên (Admin) khi không có tệp đính kèm và phiên bản")
-    void deleteDraft_Success_ByAdmin_WithoutAttachmentsAndVersions() {
+    void deleteDraft_Success_ByAdmin_WithoutAttachmentsAndVersions_AsDrafter() {
         Long drafterId = 100L;
         Long adminId = 999L;
         Long docId = 1L;
@@ -797,6 +818,7 @@ class DocumentDraftServiceTest {
         when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(docId)).thenReturn(List.of());
         when(documentVersionRepository.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(docId)).thenReturn(List.of());
 
+        doc.setDrafter(admin);
         documentDraftService.deleteDraft(docId, adminId);
 
         assertTrue(doc.isDeleteFlg());

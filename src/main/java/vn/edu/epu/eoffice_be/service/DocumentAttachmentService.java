@@ -37,6 +37,7 @@ import java.util.Optional;
 public class DocumentAttachmentService {
 
     private final DocumentRepository documentRepository;
+    private final DocumentReadPolicy readPolicy;
     private final DocumentAttachmentRepository documentAttachmentRepository;
     private final DocumentVersionRepository documentVersionRepository;
     private final DocumentProcessLogRepository documentProcessLogRepository;
@@ -76,6 +77,7 @@ public class DocumentAttachmentService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
         // Kiểm tra quyền: chỉ người tạo hoặc admin mới được upload tệp
+        if (readPolicy.applies(document)) readPolicy.assertDraftWrite(document, userId);
         UserLogin drafter = document.getDrafter();
         boolean isDrafter = drafter != null && drafter.getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
@@ -185,13 +187,17 @@ public class DocumentAttachmentService {
     }
 
     /**
-     * Kiểm tra quyền truy cập tệp đính kèm:
+     * Draft states use the participant policy. Legacy rules below apply only outside that scope:
      * - Người tạo văn bản
      * - Quản trị viên hệ thống (ADMIN, SYSTEM_ADMIN)
      * - Văn bản đã ban hành hoặc đã được phê duyệt (ISSUED, APPROVED)
      * - Người duyệt được phân công trong yêu cầu phê duyệt đang chờ xử lý (PENDING)
      */
     void assertCanAccessAttachment(Document document, Long userId) {
+        if (readPolicy.applies(document)) {
+            readPolicy.assertRead(document, userId);
+            return;
+        }
         if (userId == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "Yêu cầu đăng nhập để truy cập tệp đính kèm");
         }
@@ -224,6 +230,7 @@ public class DocumentAttachmentService {
         Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
+        if (readPolicy.applies(document)) readPolicy.assertDraftWrite(document, userId);
         UserLogin drafter = document.getDrafter();
         boolean isDrafter = drafter != null && drafter.getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;

@@ -90,6 +90,13 @@ class DocumentApprovalServiceTest {
     @Mock
     vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService documentPdfStorageService;
 
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentReadPolicy draftReadPolicy;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DraftUnitResolver draftUnitResolver;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentFileReadGuard documentFiles;
+
     @InjectMocks
     private DocumentApprovalService documentApprovalService;
 
@@ -575,7 +582,7 @@ class DocumentApprovalServiceTest {
         when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(sender));
         when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(doc));
         org.springframework.test.util.ReflectionTestUtils.setField(documentApprovalService, "submissionRoutingService",
-                new SubmissionRoutingService(positionAssignmentRepository, userInfoRepository));
+                new SubmissionRoutingService(positionAssignmentRepository, userInfoRepository, vn.edu.epu.eoffice_be.service.TestDraftUnits.resolver(positionAssignmentRepository)));
         OrgNode school = OrgNode.builder().id(1L).typeCd("UNIVERSITY").build();
         UserLogin leader = UserLogin.builder().id(200L).username("leader").role(Role.LEADER).build();
         PositionAssignment pa = PositionAssignment.builder().id(1L).userLogin(leader).orgNode(school)
@@ -596,7 +603,7 @@ class DocumentApprovalServiceTest {
         when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(sender));
         when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(doc));
         org.springframework.test.util.ReflectionTestUtils.setField(documentApprovalService, "submissionRoutingService",
-                new SubmissionRoutingService(positionAssignmentRepository, userInfoRepository));
+                new SubmissionRoutingService(positionAssignmentRepository, userInfoRepository, vn.edu.epu.eoffice_be.service.TestDraftUnits.resolver(positionAssignmentRepository)));
         BusinessException failure = assertThrows(BusinessException.class,
                 () -> documentApprovalService.getEligibleApprovers(1L, 100L));
         assertEquals(ErrorCode.BAD_REQUEST, failure.getErrorCode());
@@ -612,8 +619,9 @@ class DocumentApprovalServiceTest {
         when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(sender));
         when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(doc));
         org.springframework.test.util.ReflectionTestUtils.setField(documentApprovalService, "submissionRoutingService",
-                new SubmissionRoutingService(positionAssignmentRepository, userInfoRepository));
+                new SubmissionRoutingService(positionAssignmentRepository, userInfoRepository, vn.edu.epu.eoffice_be.service.TestDraftUnits.resolver(positionAssignmentRepository)));
         OrgNode faculty = OrgNode.builder().id(10L).typeCd("FACULTY").build();
+        doc.setIssuingOrgNode(faculty);
         var from = java.time.Instant.now().minusSeconds(60);
         when(positionAssignmentRepository.findActiveAssignments(org.mockito.ArgumentMatchers.eq(100L), any()))
                 .thenReturn(List.of(PositionAssignment.builder().id(10L).userLogin(sender).orgNode(faculty)

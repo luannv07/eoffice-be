@@ -237,6 +237,7 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 			document = documentRepository.findById(request.getDocumentId())
 					.orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
+			vn.edu.epu.eoffice_be.service.TestDocumentGuard.assertReal(document);
 			if (document.getStatus() != DocumentStatus.APPROVED) {
 				throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATUS, "Văn bản chưa ở trạng thái Đã phê duyệt");
 			}

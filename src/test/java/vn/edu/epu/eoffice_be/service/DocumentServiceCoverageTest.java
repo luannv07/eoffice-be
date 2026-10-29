@@ -71,6 +71,13 @@ class DocumentServiceCoverageTest {
     @Mock
     private vn.edu.epu.eoffice_be.repository.UserInfoRepository userInfoRepository;
 
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentReadPolicy draftReadPolicy;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DraftUnitResolver draftUnitResolver;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentFileReadGuard documentFiles;
+
     @InjectMocks
     DocumentQueryService documentQueryService;
 
@@ -80,6 +87,17 @@ class DocumentServiceCoverageTest {
     @InjectMocks
     private DocumentWorkflowServiceImpl documentWorkflowService;
     
+    @org.junit.jupiter.api.AfterEach
+    void clearAuthentication() { org.springframework.security.core.context.SecurityContextHolder.clearContext(); }
+
+    private void authenticatePendingReader() {
+        var user = UserLogin.builder().id(990L).username("pending-reader").role(vn.edu.epu.eoffice_be.common.enums.Role.USER).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(990L)).thenReturn(Optional.of(user));
+        var principal = new JwtUserPrincipal(990L, "pending-reader", "USER", true, List.of());
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, List.of()));
+    }
+
     public static class TestOrgPrincipal implements vn.edu.epu.eoffice_be.security.OrgAwarePrincipal {
         @Override
         public Long getOrgId() { return 1L; }
@@ -296,6 +314,7 @@ class DocumentServiceCoverageTest {
 
     @Test
     void testDocumentWorkflowService_Coverage() {
+        authenticatePendingReader();
         Document doc1 = new Document();
         doc1.setId(1L);
         doc1.setStatus(DocumentStatus.IN_REVIEW);
@@ -308,7 +327,7 @@ class DocumentServiceCoverageTest {
         doc3.setId(3L);
         doc3.setStatus(DocumentStatus.DRAFT);
 
-        lenient().when(documentRepository.findByStatusInAndDeleteFlgFalse(any())).thenReturn(List.of(doc1, doc2, doc3));
+        lenient().when(documentRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class))).thenReturn(List.of(doc1, doc2, doc3));
         lenient().when(documentRepository.findAll()).thenReturn(List.of(doc1, doc2, doc3));
 
         var pending = documentWorkflowService.getPendingDocuments();
@@ -651,6 +670,7 @@ class DocumentServiceCoverageTest {
 
     @Test
     void testDocumentWorkflowService_SlaAndDateCalculations() {
+        authenticatePendingReader();
         Document doc1 = new Document();
         doc1.setId(11L);
         doc1.setTitle("Doc 1");
@@ -661,7 +681,7 @@ class DocumentServiceCoverageTest {
         doc2.setTitle("Doc 2");
         doc2.setStatus(DocumentStatus.APPROVED);
 
-        lenient().when(documentRepository.findByStatusInAndDeleteFlgFalse(any()))
+        lenient().when(documentRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class)))
                 .thenReturn(List.of(doc1, doc2));
 
         var pendingList = documentWorkflowService.getPendingDocuments();
@@ -829,6 +849,7 @@ class DocumentServiceCoverageTest {
 
     @Test
     void testDocumentWorkflowService_CompletePendingFlow() {
+        authenticatePendingReader();
         Document docInReview = new Document();
         docInReview.setId(101L);
         docInReview.setStatus(DocumentStatus.IN_REVIEW);
@@ -837,7 +858,7 @@ class DocumentServiceCoverageTest {
         docDraft.setId(102L);
         docDraft.setStatus(DocumentStatus.DRAFT);
 
-        when(documentRepository.findByStatusInAndDeleteFlgFalse(anyList()))
+        when(documentRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class)))
                 .thenReturn(List.of(docInReview, docDraft));
 
         var result = documentWorkflowService.getPendingDocuments();
@@ -886,7 +907,8 @@ class DocumentServiceCoverageTest {
 
     @Test
     void testDocumentWorkflowService_EmptyPendingList() {
-        when(documentRepository.findByStatusInAndDeleteFlgFalse(anyList()))
+        authenticatePendingReader();
+        when(documentRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class)))
                 .thenReturn(Collections.emptyList());
 
         var pending = documentWorkflowService.getPendingDocuments();
@@ -944,6 +966,7 @@ class DocumentServiceCoverageTest {
 
     @Test
     void testDocumentWorkflowService_PendingDocumentsWithVariousStatuses() {
+        authenticatePendingReader();
         Document doc1 = new Document();
         doc1.setId(701L);
         doc1.setStatus(DocumentStatus.APPROVED);
@@ -952,7 +975,7 @@ class DocumentServiceCoverageTest {
         doc2.setId(702L);
         doc2.setStatus(DocumentStatus.IN_REVIEW);
 
-        when(documentRepository.findByStatusInAndDeleteFlgFalse(anyList()))
+        when(documentRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class)))
                 .thenReturn(List.of(doc1, doc2));
         var res = documentWorkflowService.getPendingDocuments();
         assertNotNull(res);
@@ -1125,25 +1148,31 @@ class DocumentServiceCoverageTest {
         pendingDoc.setStatus(DocumentStatus.IN_REVIEW);
         pendingDoc.setDrafter(drafter);
 
-        when(documentRepository.findById(600L)).thenReturn(Optional.of(pendingDoc));
+        when(documentRepository.findByIdAndDeleteFlgFalse(600L)).thenReturn(Optional.of(pendingDoc));
+
+        var history = mock(vn.edu.epu.eoffice_be.repository.DocumentApprovalRequestRepository.class);
+        var actualPolicy = new DocumentReadPolicy(userLoginRepository, history);
+        org.springframework.test.util.ReflectionTestUtils.setField(documentWorkflowService, "readPolicy", actualPolicy);
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(drafter));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(200L)).thenReturn(Optional.of(UserLogin.builder().id(200L).role(vn.edu.epu.eoffice_be.common.enums.Role.USER).build()));
 
         JwtUserPrincipal otherUser = new JwtUserPrincipal(200L, "other", "USER", true, List.of());
 
         Authentication docViewAuth = new UsernamePasswordAuthenticationToken(
                 otherUser, null, List.of(new SimpleGrantedAuthority("DOCUMENT_VIEW")));
-        assertThrows(AccessDeniedException.class, () -> documentWorkflowService.verifyUserCanAccessDocument(600L, docViewAuth));
+        assertEquals(vn.edu.epu.eoffice_be.common.enums.ErrorCode.FORBIDDEN, assertThrows(BusinessException.class, () -> documentWorkflowService.verifyUserCanAccessDocument(600L, docViewAuth)).getErrorCode());
 
         Authentication docApproveAuth = new UsernamePasswordAuthenticationToken(
                 otherUser, null, List.of(new SimpleGrantedAuthority("DOCUMENT_APPROVE")));
-        assertThrows(AccessDeniedException.class, () -> documentWorkflowService.verifyUserCanAccessDocument(600L, docApproveAuth));
+        assertEquals(vn.edu.epu.eoffice_be.common.enums.ErrorCode.FORBIDDEN, assertThrows(BusinessException.class, () -> documentWorkflowService.verifyUserCanAccessDocument(600L, docApproveAuth)).getErrorCode());
 
         Authentication docPublishAuth = new UsernamePasswordAuthenticationToken(
                 otherUser, null, List.of(new SimpleGrantedAuthority("DOCUMENT_PUBLISH")));
-        assertThrows(AccessDeniedException.class, () -> documentWorkflowService.verifyUserCanAccessDocument(600L, docPublishAuth));
+        assertEquals(vn.edu.epu.eoffice_be.common.enums.ErrorCode.FORBIDDEN, assertThrows(BusinessException.class, () -> documentWorkflowService.verifyUserCanAccessDocument(600L, docPublishAuth)).getErrorCode());
 
         Authentication adminAuth = new UsernamePasswordAuthenticationToken(
                 otherUser, null, List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
-        assertDoesNotThrow(() -> documentWorkflowService.verifyUserCanAccessDocument(600L, adminAuth));
+        assertEquals(vn.edu.epu.eoffice_be.common.enums.ErrorCode.FORBIDDEN, assertThrows(BusinessException.class, () -> documentWorkflowService.verifyUserCanAccessDocument(600L, adminAuth)).getErrorCode());
 
         JwtUserPrincipal drafterPrincipal = new JwtUserPrincipal(100L, "drafter", "USER", true, List.of());
         Authentication drafterAuth = new UsernamePasswordAuthenticationToken(
@@ -1154,6 +1183,7 @@ class DocumentServiceCoverageTest {
         publishedDoc.setId(601L);
         publishedDoc.setStatus(DocumentStatus.PUBLISHED);
         publishedDoc.setDrafter(drafter);
+        when(documentRepository.findByIdAndDeleteFlgFalse(601L)).thenReturn(Optional.of(publishedDoc));
         when(documentRepository.findById(601L)).thenReturn(Optional.of(publishedDoc));
 
         assertDoesNotThrow(() -> documentWorkflowService.verifyUserCanAccessDocument(601L, docViewAuth));

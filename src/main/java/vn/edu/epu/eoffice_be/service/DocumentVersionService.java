@@ -30,6 +30,7 @@ import java.util.Objects;
 public class DocumentVersionService {
 
     private final DocumentRepository documentRepository;
+    private final DocumentReadPolicy readPolicy;
     private final DocumentVersionRepository documentVersionRepository;
     private final DocumentProcessLogRepository documentProcessLogRepository;
     private final UserLoginRepository userLoginRepository;
@@ -37,9 +38,13 @@ public class DocumentVersionService {
 
     /**
      * Xác thực quyền truy cập thông tin phiên bản văn bản.
-     * Yêu cầu người dùng đăng nhập và phải là người tạo văn bản hoặc Quản trị viên.
+     * Draft states use the participant policy; other states retain the legacy owner/admin rule.
      */
     UserLogin assertCanViewDocumentVersions(Document document, Long userId) {
+        if (readPolicy.applies(document)) {
+            readPolicy.assertRead(document, userId);
+            return readPolicy.requireUser(userId);
+        }
         if (userId == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "Yêu cầu đăng nhập để truy cập thông tin phiên bản văn bản");
         }
@@ -119,6 +124,7 @@ public class DocumentVersionService {
         Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
+        if (readPolicy.applies(document)) readPolicy.assertDraftWrite(document, userId);
         UserLogin user = assertCanViewDocumentVersions(document, userId);
 
         if (document.getStatus() != DocumentStatus.DRAFT 

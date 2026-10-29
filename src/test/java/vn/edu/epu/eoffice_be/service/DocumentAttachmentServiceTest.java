@@ -56,6 +56,12 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class DocumentAttachmentServiceTest {
 
+    @org.junit.jupiter.api.BeforeEach
+    void useActualReadPolicy() {
+        org.springframework.test.util.ReflectionTestUtils.setField(documentAttachmentService, "readPolicy",
+                new DocumentReadPolicy(userLoginRepository, documentApprovalRequestRepository));
+    }
+
     @ParameterizedTest
     @MethodSource("nonPdfUploads")
     void uploadAttachment_rejectsNonPdfBeforeAnySideEffects(String filename, boolean isMain) {
@@ -135,9 +141,7 @@ class DocumentAttachmentServiceTest {
         properties.setDir(directory.toString());
         var storage = new FileSystemStorageService(properties,
                 new FileSecurityValidator(properties));
-        var service = new DocumentAttachmentService(documentRepository, documentAttachmentRepository,
-                documentVersionRepository, documentProcessLogRepository, userLoginRepository,
-                storage, documentApprovalRequestRepository, null);
+        var service = new DocumentAttachmentService(documentRepository, org.mockito.Mockito.mock(vn.edu.epu.eoffice_be.service.DocumentReadPolicy.class), documentAttachmentRepository, documentVersionRepository, documentProcessLogRepository, userLoginRepository, storage, documentApprovalRequestRepository, null);
 
         assertEquals(expected, assertThrows(BusinessException.class,
                 () -> service.uploadAttachment(1L, file, isMain, 100L)).getErrorCode());
@@ -162,6 +166,13 @@ class DocumentAttachmentServiceTest {
     private FileStorageService fileStorageService;
     @Mock
     private DocumentApprovalRequestRepository documentApprovalRequestRepository;
+
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentReadPolicy draftReadPolicy;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DraftUnitResolver draftUnitResolver;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentFileReadGuard documentFiles;
 
     @InjectMocks
     private DocumentAttachmentService documentAttachmentService;
@@ -363,25 +374,16 @@ class DocumentAttachmentServiceTest {
     }
 
     @Test
-    @DisplayName("Lấy metadata tệp đính kèm thành công khi người dùng là Quản trị viên (ADMIN)")
-    void getAttachmentMetadata_Admin_Success() {
-        Long docId = 1L;
-        Long attId = 10L;
-        Long adminId = 999L;
-        Long drafterId = 100L;
-
-        UserLogin drafter = UserLogin.builder().id(drafterId).username("drafter").role(Role.USER).build();
-        UserLogin admin = UserLogin.builder().id(adminId).username("admin").role(Role.ADMIN).build();
-        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
-        DocumentAttachment att = DocumentAttachment.builder().id(attId).document(doc).originalFileName("test.docx").build();
-
+    @DisplayName("Admin không tham gia không được đọc metadata dự thảo người khác")
+    void getAttachmentMetadata_UnrelatedAdmin_Forbidden() {
+        Long docId=1L, attId=10L, adminId=999L;
+        var admin=UserLogin.builder().id(adminId).role(Role.ADMIN).build();
+        var doc=Document.builder().id(docId).drafter(UserLogin.builder().id(100L).build()).status(DocumentStatus.DRAFT).build();
         when(userLoginRepository.findByIdAndDeleteFlgFalse(adminId)).thenReturn(Optional.of(admin));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-        when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId, docId)).thenReturn(Optional.of(att));
-
-        DocumentAttachment result = documentAttachmentService.getAttachmentMetadata(docId, attId, adminId);
-        assertNotNull(result);
-        assertEquals("test.docx", result.getOriginalFileName());
+        assertEquals(ErrorCode.FORBIDDEN,assertThrows(BusinessException.class,
+                () -> documentAttachmentService.getAttachmentMetadata(docId,attId,adminId)).getErrorCode());
+        verifyNoInteractions(documentAttachmentRepository,fileStorageService);
     }
 
     @Test
@@ -467,8 +469,7 @@ class DocumentAttachmentServiceTest {
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.of(approver));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-        when(documentApprovalRequestRepository.findByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(docId))
-                .thenReturn(java.util.List.of(pendingReq));
+        when(documentApprovalRequestRepository.existsParticipant(docId,approverId)).thenReturn(true);
         when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId, docId)).thenReturn(Optional.of(att));
 
         DocumentAttachment result = documentAttachmentService.getAttachmentMetadata(docId, attId, approverId);
@@ -477,8 +478,8 @@ class DocumentAttachmentServiceTest {
     }
 
     @Test
-    @DisplayName("Lấy metadata tệp đính kèm bị từ chối khi người duyệt có yêu cầu cũ không phải PENDING (REJECTED)")
-    void getAttachmentMetadata_RejectedApprover_ThrowsForbidden() {
+    @DisplayName("Người duyệt trong yêu cầu REJECTED chưa xóa vẫn được đọc metadata")
+    void getAttachmentMetadata_RejectedApprover_ReadOnlySuccess() {
         Long docId = 1L;
         Long attId = 10L;
         Long formerApproverId = 300L;
@@ -497,11 +498,13 @@ class DocumentAttachmentServiceTest {
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(formerApproverId)).thenReturn(Optional.of(formerApprover));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-        when(documentApprovalRequestRepository.findByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(docId))
-                .thenReturn(java.util.List.of(oldReq));
-
-        BusinessException ex = assertThrows(BusinessException.class,
-                () -> documentAttachmentService.getAttachmentMetadata(docId, attId, formerApproverId));
-        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+        when(documentApprovalRequestRepository.existsParticipant(docId,formerApproverId)).thenReturn(true);
+        var attachment=DocumentAttachment.builder().id(attId).document(doc).originalFileName("historical.pdf").build();
+        when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId,docId)).thenReturn(Optional.of(attachment));
+        var result=documentAttachmentService.getAttachmentMetadata(docId,attId,formerApproverId);
+        assertEquals("historical.pdf",result.getOriginalFileName());
+        assertEquals(ApprovalRequestStatus.REJECTED,oldReq.getStatus());
+        verifyNoInteractions(fileStorageService);
+        verify(documentAttachmentRepository,org.mockito.Mockito.never()).save(any());
     }
 }

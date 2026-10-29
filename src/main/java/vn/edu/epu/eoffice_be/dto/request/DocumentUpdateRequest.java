@@ -39,8 +39,8 @@ public class DocumentUpdateRequest {
     @Schema(description = "Mã loại văn bản trong từ điển DOCUMENT_TYPE_CD", example = "QUYET_DINH")
     String documentTypeCd;
 
-    @NotNull(message = "Đơn vị ban hành không được để trống")
     @Schema(description = "ID đơn vị ban hành / chủ trì soạn thảo", example = "1001")
+    @jakarta.validation.constraints.Positive(message = "ID đơn vị ban hành phải lớn hơn 0")
     Long issuingOrgNodeId;
 
     @Schema(description = "Độ mật (NORMAL, CONFIDENTIAL, SECRET)", example = "NORMAL")

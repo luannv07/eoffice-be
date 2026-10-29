@@ -69,6 +69,7 @@ public class DocumentApprovalService {
     private final PdfSigner pdfSigner;
     private final SubmissionRoutingService submissionRoutingService;
     private final WorkflowEngine workflowEngine;
+    private final DraftUnitResolver units;
 
     /**
      * Lấy danh sách cán bộ có thẩm quyền duyệt văn bản (theo đơn vị hoặc toàn hệ thống)
@@ -244,6 +245,11 @@ public class DocumentApprovalService {
             }
         } else if (request.getApproverUserId() == null) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "Người duyệt không được để trống khi gửi lại");
+        }
+        if (document.getStatus() == DocumentStatus.DRAFT && units.simulated(sender)) {
+            document.setTestDocument(true);
+            log.info("ADMIN_SIMULATION submit actor={} document={} unit={} route={} recipient={}",
+                    sender.getId(), document.getId(), document.getOrgId(), decision.route(), decision.approverUserId());
         }
         boolean clerkQueue = decision != null && decision.route() == SubmissionRoute.CLERK_QUEUE;
 

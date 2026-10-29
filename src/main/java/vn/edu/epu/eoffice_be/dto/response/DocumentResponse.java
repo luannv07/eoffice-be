@@ -21,6 +21,8 @@ import java.time.LocalDate;
 public class DocumentResponse {
 
     Long id;
+
+    private boolean testDocument;
     String draftCode;
     String title;
     String summary;

@@ -22,6 +22,8 @@ public class DocumentDetailResponse {
     @Schema(description = "ID văn bản")
     private Long id;
 
+    private boolean testDocument;
+
     @Schema(description = "Trích yếu văn bản")
     private String title;
 

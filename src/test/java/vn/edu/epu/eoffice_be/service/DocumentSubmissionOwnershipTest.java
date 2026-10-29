@@ -52,6 +52,13 @@ class DocumentSubmissionOwnershipTest {
     @Mock DocumentPdfStorageService pdfStorage;
     @Mock vn.edu.epu.eoffice_be.storage.FileStorageService storage;
     @Mock PdfSigner signer;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentReadPolicy draftReadPolicy;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DraftUnitResolver draftUnitResolver;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentFileReadGuard documentFiles;
+
     @InjectMocks DocumentApprovalService service;
 
     private UserLogin sender(Role role) {

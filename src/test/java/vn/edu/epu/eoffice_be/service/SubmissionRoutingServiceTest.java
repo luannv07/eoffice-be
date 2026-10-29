@@ -34,10 +34,11 @@ class SubmissionRoutingServiceTest {
 
     @BeforeEach
     void setup() {
-        routing = new SubmissionRoutingService(positions, profiles);
+        routing = new SubmissionRoutingService(positions, profiles, vn.edu.epu.eoffice_be.service.TestDraftUnits.resolver(positions));
         sender = user(10, Role.USER);
         document = Document.builder().id(1L).drafter(sender).status(DocumentStatus.DRAFT).build();
         faculty = org(100, "FACULTY"); department = org(200, "DEPARTMENT"); school = org(1, "UNIVERSITY");
+        document.setIssuingOrgNode(faculty);
         lenient().when(positions.findActiveAssignments(anyLong(), any())).thenAnswer(inv -> assignments.stream()
                 .filter(p -> p.getUserLogin().getId().equals(inv.getArgument(0))).toList());
         lenient().when(positions.findSubmissionCandidates(anyCollection(), nullable(Long.class), any()))
@@ -49,7 +50,9 @@ class SubmissionRoutingServiceTest {
     PositionAssignment assign(UserLogin user, OrgNode org, String code) {
         var p = PositionAssignment.builder().id((long) assignments.size() + 1).userLogin(user).orgNode(org)
                 .positionCd(code).effectiveFrom(now.minusSeconds(60)).build();
-        assignments.add(p); return p;
+        assignments.add(p);
+        if (sender.getId().equals(user.getId())) document.setIssuingOrgNode(org);
+        return p;
     }
     List<Long> ids() { return routing.options(document, sender, now).routes().stream()
             .flatMap(r -> r.approvers().stream()).map(p -> p.getUserId()).toList(); }
@@ -75,7 +78,7 @@ class SubmissionRoutingServiceTest {
         assertEquals(List.of(20L, 21L), ids());
         assertEquals(SelectionMode.SELECT, routing.options(document, sender, now).selectionMode());
         var request = SubmitApprovalRequest.builder().approverUserId(22L).build();
-        assertEquals(ErrorCode.APPROVER_NOT_ELIGIBLE,
+        assertEquals(ErrorCode.FORBIDDEN,
                 assertThrows(BusinessException.class, () -> routing.resolve(document, sender, request, now)).getErrorCode());
         assertEquals(SubmissionRoute.REVIEW, routing.resolve(document, sender,
                 SubmitApprovalRequest.builder().approverUserId(20L).build(), now).route());
@@ -94,7 +97,7 @@ class SubmissionRoutingServiceTest {
     }
 
     @Test void clerkWithoutAssignmentStillHasLeadershipRouteAndAutoSelectsOnlyCandidate() {
-        sender.setRole(Role.CLERK);
+        sender.setRole(Role.CLERK); document.setIssuingOrgNode(null);
         assign(user(30, Role.LEADER), school, "HT");
         assertEquals(SelectionMode.AUTO, routing.options(document, sender, now).selectionMode());
         assertEquals(30L, routing.resolve(document, sender, new SubmitApprovalRequest(), now).approverUserId());
@@ -102,7 +105,7 @@ class SubmissionRoutingServiceTest {
 
     @Test void viceRectorMustUseRectorAndCannotUseSelfOrQueue() {
         sender.setRole(Role.LEADER);
-        assign(sender, school, "PHT");
+        assign(sender, school, "PHT"); document.setIssuingOrgNode(school);
         assign(user(30, Role.LEADER), school, "HT");
         assertEquals(List.of(30L), ids());
         assertEquals(SelectionMode.AUTO, routing.options(document, sender, now).selectionMode());
@@ -126,7 +129,7 @@ class SubmissionRoutingServiceTest {
     }
 
     @ParameterizedTest @EnumSource(value = Role.class, names = {"ADMIN", "SYSTEM_ADMIN"})
-    void adminSelectsOnlyQualifiedPeopleAcrossUnitsAndMustSpecifyRoute(Role role) {
+    void adminSelectsReviewersInSelectedUnitOrLeadersAndMustSpecifyRoute(Role role) {
         sender.setRole(role);
         assign(user(20, Role.REVIEWER), faculty, "TK");
         assign(user(21, Role.REVIEWER), department, "PP");
@@ -134,7 +137,12 @@ class SubmissionRoutingServiceTest {
         assign(user(31, Role.LEADER), school, "PHT");
         assign(user(40, Role.CLERK), department, "VT");
         assign(user(41, Role.USER), faculty, "GV");
-        assertEquals(List.of(20L, 21L, 30L, 31L), ids());
+        assertEquals(List.of(20L, 30L, 31L), ids());
+        assertThrows(BusinessException.class, () -> routing.resolve(document, sender,
+                SubmitApprovalRequest.builder().route(SubmissionRoute.REVIEW).approverUserId(21L).build(), now));
+        document.setIssuingOrgNode(department);
+        assertEquals(List.of(21L, 30L, 31L), ids());
+        document.setIssuingOrgNode(faculty);
         assertEquals(SubmissionRoute.LEADER_APPROVAL, routing.resolve(document, sender,
                 SubmitApprovalRequest.builder().route(SubmissionRoute.LEADER_APPROVAL).approverUserId(31L).build(), now).route());
         assertThrows(BusinessException.class, () -> routing.resolve(document, sender,
@@ -212,13 +220,13 @@ class SubmissionRoutingServiceTest {
     }
 
     @Test void missingRectorBlocksLeadershipRoutingEvenWithViceRectorPresent() {
-        sender.setRole(Role.CLERK); assign(user(30, Role.LEADER), school, "PHT");
+        sender.setRole(Role.CLERK); document.setIssuingOrgNode(null); assign(user(30, Role.LEADER), school, "PHT");
         error("Chưa có Hiệu trưởng", () -> routing.options(document, sender, now));
     }
 
     @ParameterizedTest @ValueSource(strings = {"HT", "TK", "STAFF"})
     void conflictingClerkRoleAndPositionAreRejected(String cd) {
-        sender.setRole(Role.CLERK); assign(sender, school, cd);
+        sender.setRole(Role.CLERK); document.setIssuingOrgNode(null); assign(sender, school, cd);
         error("Không xác định được duy nhất", () -> routing.options(document, sender, now));
     }
 }

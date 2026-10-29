@@ -45,6 +45,7 @@ public class FileStorageController {
 
     private final FileStorageProviderRegistry registry;
     private final StoredFileMetadataRepository metadataRepository;
+    private final vn.edu.epu.eoffice_be.service.DocumentFileReadGuard documentFiles;
 
     @Operation(summary = "Tải tệp lên backend lưu trữ (Create)")
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -86,6 +87,7 @@ public class FileStorageController {
     public ResponseEntity<Resource> download(
             @PathVariable String fileId,
             @RequestParam(required = false) String provider) {
+        documentFiles.assertRead(resolve(provider).getName(), fileId);
         StoredFile sf = resolve(provider).get(fileId);
         ByteArrayResource resource = new ByteArrayResource(sf.getContent());
         String name = sf.getOriginalFileName() != null ? sf.getOriginalFileName() : "file";
@@ -101,6 +103,7 @@ public class FileStorageController {
     public BaseResponse<StoredFileResponse> getMetadata(
             @PathVariable String fileId,
             @RequestParam(required = false) String provider) {
+        documentFiles.assertRead(resolve(provider).getName(), fileId);
         return BaseResponse.success(toResponse(resolve(provider).get(fileId)));
     }
 
@@ -110,6 +113,7 @@ public class FileStorageController {
             @PathVariable String fileId,
             @RequestParam("file") MultipartFile file,
             @RequestParam(required = false) String provider) {
+        documentFiles.assertUnboundWrite(resolve(provider).getName(), fileId);
         StoredFile updated = resolve(provider).update(fileId, toStoredFile(file));
         return BaseResponse.success(toResponse(updated));
     }
@@ -119,6 +123,7 @@ public class FileStorageController {
     public BaseResponse<Void> delete(
             @PathVariable String fileId,
             @RequestParam(required = false) String provider) {
+        documentFiles.assertUnboundWrite(resolve(provider).getName(), fileId);
         resolve(provider).delete(fileId);
         return BaseResponse.success(null, "Xóa tệp thành công");
     }
@@ -127,7 +132,11 @@ public class FileStorageController {
     @GetMapping
     public BaseResponse<List<StoredFileResponse>> getAll(
             @RequestParam(required = false) String provider) {
-        List<StoredFileResponse> list = resolve(provider).getAll().stream()
+        var storage = resolve(provider);
+        var files = storage.getAll();
+        var visible = documentFiles.visibleFileIds(storage.getName(), files.stream().map(StoredFile::getId).toList());
+        List<StoredFileResponse> list = files.stream()
+                .filter(file -> visible.contains(file.getId()))
                 .map(this::toResponse)
                 .toList();
         return BaseResponse.success(list);
@@ -138,6 +147,7 @@ public class FileStorageController {
     public BaseResponse<StoredFileResponse> getDetail(
             @PathVariable String fileId,
             @RequestParam(required = false) String provider) {
+        documentFiles.assertRead(resolve(provider).getName(), fileId);
         return BaseResponse.success(toResponse(resolve(provider).getDetail(fileId)));
     }
 
@@ -146,6 +156,7 @@ public class FileStorageController {
     public BaseResponse<Void> deleteMany(
             @RequestBody List<String> fileIds,
             @RequestParam(required = false) String provider) {
+        for (String fileId : fileIds) documentFiles.assertUnboundWrite(resolve(provider).getName(), fileId);
         resolve(provider).deleteMany(fileIds);
         return BaseResponse.success(null, "Xóa nhiều tệp thành công");
     }

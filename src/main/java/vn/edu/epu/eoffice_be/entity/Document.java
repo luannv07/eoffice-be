@@ -52,6 +52,10 @@ public class Document extends BaseEntity {
     @SequenceGenerator(name = "eoffice_seq", sequenceName = "hibernate_sequence", allocationSize = 50)
     Long id;
 
+    @Column(name = "is_test_document", nullable = false)
+    @Builder.Default
+    boolean testDocument = false;
+
     @Column(name = "draft_code", length = 50)
     String draftCode;
 

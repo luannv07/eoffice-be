@@ -150,6 +150,23 @@ class DocumentBookServiceImplTest {
 		SecurityContextHolder.clearContext();
 	}
 
+    @Test
+    void simulatedDocumentCannotConsumeARegistryNumber() {
+        Document document = Document.builder().id(5001L).status(DocumentStatus.APPROVED).testDocument(true).build();
+        when(documentBookRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(book));
+        when(documentRepository.findById(5001L)).thenReturn(Optional.of(document));
+        AssignDocumentNumberRequest request = new AssignDocumentNumberRequest();
+        request.setBookId(1L); request.setDocumentId(5001L);
+        assertEquals(ErrorCode.FORBIDDEN, assertThrows(BusinessException.class,
+                () -> documentBookService.assignNumber(request)).getErrorCode());
+        assertEquals(0, book.getCurrentNumber());
+        assertNull(document.getOfficialNumber());
+        assertEquals(DocumentStatus.APPROVED, document.getStatus());
+        verify(documentBookRepository, never()).save(any());
+        verify(documentRepository, never()).save(any());
+        verifyNoInteractions(pdfSigner, documentPdfStorageService, documentWorkflowLogRepository);
+    }
+
 	@ParameterizedTest
 	@EnumSource(value = ErrorCode.class, names = {
 			"PKI_CA_NOT_INITIALIZED", "PKI_CA_EXPIRED", "PKI_CA_RECOVERY_REQUIRED",

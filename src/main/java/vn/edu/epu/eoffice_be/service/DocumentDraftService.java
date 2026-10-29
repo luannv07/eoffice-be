@@ -51,6 +51,8 @@ import java.util.Optional;
 public class DocumentDraftService {
 
     private final DocumentRepository documentRepository;
+    private final DocumentReadPolicy readPolicy;
+    private final DraftUnitResolver units;
     private final DocumentVersionRepository documentVersionRepository;
     private final DocumentAttachmentRepository documentAttachmentRepository;
     private final DocumentProcessLogRepository documentProcessLogRepository;
@@ -66,11 +68,9 @@ public class DocumentDraftService {
      */
     @Transactional
     public DocumentResponse createDraft(DocumentCreateRequest request, Long userId) {
-        UserLogin drafter = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED, "Người dùng không tồn tại"));
+        UserLogin drafter = readPolicy.requireUser(userId);
 
-        OrgNode issuingOrg = orgNodeRepository.findByIdAndDeleteFlgFalse(request.getIssuingOrgNodeId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.BAD_REQUEST, "Đơn vị ban hành không tồn tại"));
+        OrgNode issuingOrg = units.resolve(drafter, request.getIssuingOrgNodeId(), java.time.Instant.now());
 
         String draftCode = generateUniqueDraftCode();
 
@@ -83,6 +83,7 @@ public class DocumentDraftService {
                 .issuingOrgNode(issuingOrg)
                 .issuingOrg(issuingOrg)
                 .drafter(drafter)
+                .testDocument(units.simulated(drafter))
                 .status(DocumentStatus.DRAFT)
                 .currentVersion(1)
                 .securityLevel(request.getSecurityLevel())
@@ -90,6 +91,8 @@ public class DocumentDraftService {
                 .build();
 
         Document savedDocument = documentRepository.save(document);
+        if (units.simulated(drafter)) log.info("ADMIN_SIMULATION create actor={} document={} unit={}",
+                drafter.getId(), savedDocument.getId(), issuingOrg == null ? null : issuingOrg.getId());
 
         // Lưu phiên bản khởi tạo (Version 1)
         DocumentVersion initialVersion = DocumentVersion.builder()
@@ -125,12 +128,12 @@ public class DocumentDraftService {
      */
     @Transactional
     public DocumentResponse updateDraft(Long documentId, DocumentUpdateRequest request, Long userId) {
-        UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+        UserLogin user = readPolicy.requireUser(userId);
 
         Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
+        if (readPolicy.applies(document)) readPolicy.assertDraftWrite(document, userId);
         // Kiểm tra quyền: người tạo hoặc quản trị viên
         UserLogin drafter = document.getDrafter();
         boolean isDrafter = drafter != null
@@ -147,8 +150,7 @@ public class DocumentDraftService {
                     "Không thể chỉnh sửa văn bản đang ở trạng thái: " + document.getStatus().getDescription());
         }
 
-        OrgNode issuingOrg = orgNodeRepository.findByIdAndDeleteFlgFalse(request.getIssuingOrgNodeId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.BAD_REQUEST, "Đơn vị ban hành không tồn tại"));
+        OrgNode issuingOrg = units.resolve(user, request.getIssuingOrgNodeId(), java.time.Instant.now());
 
         // Cập nhật thông tin
         document.setTitle(request.getTitle());
@@ -157,6 +159,7 @@ public class DocumentDraftService {
         document.setDocumentTypeCd(request.getDocumentTypeCd());
         document.setIssuingOrgNode(issuingOrg);
         document.setIssuingOrg(issuingOrg);
+        if (units.simulated(user)) document.setTestDocument(true);
         if (request.getSecurityLevel() != null) {
             document.setSecurityLevel(request.getSecurityLevel());
         }
@@ -183,6 +186,8 @@ public class DocumentDraftService {
         }
 
         Document updatedDocument = documentRepository.save(document);
+        if (units.simulated(user)) log.info("ADMIN_SIMULATION update actor={} document={} unit={}",
+                user.getId(), document.getId(), issuingOrg == null ? null : issuingOrg.getId());
 
         // Ghi nhật ký tiến trình
         DocumentProcessLog processLog = DocumentProcessLog.builder()
@@ -203,12 +208,12 @@ public class DocumentDraftService {
      */
     @Transactional
     public void deleteDraft(Long documentId, Long userId) {
-        UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+        UserLogin user = readPolicy.requireUser(userId);
 
         Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
+        if (readPolicy.applies(document)) readPolicy.assertDraftWrite(document, userId);
         UserLogin drafter = document.getDrafter();
         boolean isDrafter = drafter != null && drafter.getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
@@ -258,6 +263,8 @@ public class DocumentDraftService {
         Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
+        if (readPolicy.applies(document)) readPolicy.assertRead(document, userId);
+
         List<DocumentAttachment> attachments = documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(documentId);
         List<DocumentVersion> versions = documentVersionRepository.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(documentId);
 
@@ -275,6 +282,7 @@ public class DocumentDraftService {
 
         return DocumentDetailResponse.builder()
                 .id(document.getId())
+                .testDocument(document.isTestDocument())
                 .title(document.getTitle())
                 .documentTypeCd(document.getDocumentTypeCd())
                 .issuingOrgId(org != null ? org.getId() : null)
@@ -323,16 +331,16 @@ public class DocumentDraftService {
                 keyword = keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
             }
         }
-        Long drafterId = userId;
-        if (userId != null) {
-            UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(userId).orElse(null);
-            if (user != null && (user.getRole() == Role.CLERK || user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN)) {
-                drafterId = null;
-            }
-        }
-        Page<Document> page = documentRepository.searchDocuments(
-                drafterId, filter.getStatus(), filter.getOrgNodeId(), keyword, pageable);
+        UserLogin viewer = readPolicy.requireUser(userId);
+        boolean legacyGlobal = viewer.getRole() == Role.CLERK || viewer.getRole() == Role.ADMIN || viewer.getRole() == Role.SYSTEM_ADMIN;
+        Page<Document> page = documentRepository.searchReadableDrafts(viewer.getId(), legacyGlobal,
+                DocumentReadPolicy.STATUSES, filter.getStatus(), filter.getOrgNodeId(), keyword, pageable);
         return page.map(this::mapToDocumentResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public vn.edu.epu.eoffice_be.dto.response.DraftOptionsResponse getDraftOptions(Long userId) {
+        return units.options(readPolicy.requireUser(userId), java.time.Instant.now());
     }
 
     private String generateUniqueDraftCode() {
@@ -362,6 +370,7 @@ public class DocumentDraftService {
 
         return DocumentResponse.builder()
                 .id(doc.getId())
+                .testDocument(doc.isTestDocument())
                 .draftCode(doc.getDraftCode())
                 .title(doc.getTitle())
                 .summary(doc.getSummary())
