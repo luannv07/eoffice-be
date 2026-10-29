@@ -25,6 +25,9 @@ public interface DocumentRepository extends JpaRepository<Document, Long>, JpaSp
     /** Correlated EXISTS preserves paging/counts and avoids per-document participant queries. */
     static Specification<Document> readableDrafts(Long userId, boolean legacyGlobal,
                                                   Collection<DocumentStatus> guardedStatuses) {
+        if (guardedStatuses == null || guardedStatuses.isEmpty()) {
+            throw new IllegalArgumentException("guardedStatuses must not be null or empty");
+        }
         return (root, query, cb) -> {
             var participation = query.subquery(Long.class);
             var request = participation.from(vn.edu.epu.eoffice_be.entity.DocumentApprovalRequest.class);
