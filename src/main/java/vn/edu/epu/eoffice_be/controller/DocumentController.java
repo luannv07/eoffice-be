@@ -122,6 +122,11 @@ public class DocumentController {
         return BaseResponse.success(documentDraftService.createDraft(request, userId));
     }
 
+    @GetMapping("/draft-options")
+    public BaseResponse<vn.edu.epu.eoffice_be.dto.response.DraftOptionsResponse> draftOptions(Authentication authentication) {
+        return BaseResponse.success(documentDraftService.getDraftOptions(extractUserId(authentication)));
+    }
+
     @Operation(summary = "Xem chi tiết dự thảo văn bản",
             description = "Lấy thông tin chi tiết dự thảo, kèm danh sách các tệp đính kèm và lịch sử các phiên bản.")
     @GetMapping("/{id}")
@@ -218,18 +223,18 @@ public class DocumentController {
     }
 
     // =========================================================================
-    // UC09: TẢI FILE DOCX/PDF
+    // UC09: TẢI FILE PDF
     // =========================================================================
 
-    @Operation(summary = "Tải tệp DOCX/PDF đính kèm (UC09)",
-            description = "Tải tệp tài liệu đính kèm lên cho dự thảo. Kiểm tra định dạng (chỉ DOCX/PDF), quét an toàn mã độc và dung lượng tối đa.")
+    @Operation(summary = "Tải tệp PDF đính kèm (UC09)",
+            description = "Tải tệp PDF đính kèm lên cho dự thảo. Kiểm tra định dạng PDF, quét an toàn mã độc và dung lượng tối đa.")
     @ApiResponse(responseCode = "200", description = "Tải tệp lên thành công")
     @ApiResponse(responseCode = "400", description = "Định dạng không hợp lệ hoặc tệp không an toàn (FILE_INVALID_FORMAT / FILE_UNSAFE)")
     @ApiResponse(responseCode = "413", description = "Dung lượng vượt quá giới hạn (FILE_SIZE_EXCEEDED)")
     @PostMapping(value = "/{id}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public BaseResponse<DocumentAttachmentResponse> uploadAttachment(
             @PathVariable Long id,
-            @Parameter(description = "Tệp đính kèm (chỉ nhận DOCX hoặc PDF, tối đa 25MB)")
+            @Parameter(description = "Tệp đính kèm (chỉ nhận PDF, tối đa 25MB)")
             @RequestParam("file") MultipartFile file,
             @Parameter(description = "Đánh dấu là tệp văn bản chính hay tệp phụ lục")
             @RequestParam(value = "isMain", defaultValue = "false") boolean isMain,
@@ -315,8 +320,8 @@ public class DocumentController {
     // UC11: GỬI VĂN BẢN ĐỂ DUYỆT & THU HỒI YÊU CẦU DUYỆT
     // =========================================================================
 
-    @Operation(summary = "Danh sách cán bộ có thể duyệt (UC11)",
-            description = "Lấy danh sách các cán bộ có thẩm quyền duyệt văn bản phù hợp với đơn vị ban hành.")
+    @Operation(summary = "Danh sách người nhận theo tuyến gửi (UC11)",
+            description = "Người soạn lấy danh sách theo phân nhiệm/đơn vị tài khoản; hàng chờ văn thư không có người nhận cá nhân.")
     @GetMapping("/{id}/eligible-approvers")
     public BaseResponse<List<EligibleApproverResponse>> getEligibleApprovers(
             @PathVariable Long id,
@@ -326,8 +331,15 @@ public class DocumentController {
         return BaseResponse.success(documentApprovalService.getEligibleApprovers(id, userId));
     }
 
+    @Operation(summary = "Thông tin gửi lần đầu: chọn người nhận, tự gán hoặc hàng chờ văn thư")
+    @GetMapping("/{id}/submission-options")
+    public BaseResponse<vn.edu.epu.eoffice_be.dto.response.SubmissionOptionsResponse> getSubmissionOptions(
+            @PathVariable Long id, Authentication authentication) {
+        return BaseResponse.success(documentApprovalService.getSubmissionOptions(id, extractUserId(authentication)));
+    }
+
     @Operation(summary = "Gửi văn bản để duyệt (UC11)",
-            description = "Gửi hồ sơ văn bản tới cán bộ duyệt đã chọn. Kiểm tra tính đầy đủ hồ sơ (bắt buộc có tệp đính kèm chính hoặc nội dung).")
+            description = "Gửi lần đầu theo tuyến từ database: REVIEW, LEADER_APPROVAL hoặc HT vào CLERK_QUEUE; admin chỉ được chọn người nhận để test. Gửi lại giữ hợp đồng người nhận cũ.")
     @ApiResponse(responseCode = "200", description = "Gửi duyệt thành công")
     @ApiResponse(responseCode = "400", description = "Hồ sơ chưa đầy đủ hoặc trạng thái không hợp lệ (DOCUMENT_INCOMPLETE_DOSSIER / DOCUMENT_INVALID_STATUS)")
     @PostMapping("/{id}/submit-approval")

@@ -52,6 +52,10 @@ public class Document extends BaseEntity {
     @SequenceGenerator(name = "eoffice_seq", sequenceName = "hibernate_sequence", allocationSize = 50)
     Long id;
 
+    @Column(name = "is_test_document", nullable = false)
+    @Builder.Default
+    boolean testDocument = false;
+
     @Column(name = "draft_code", length = 50)
     String draftCode;
 
@@ -74,15 +78,12 @@ public class Document extends BaseEntity {
     OrgNode issuingOrgNode;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "creator_user_id")
-    UserLogin creatorUser;
-
-    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "issuing_org_id")
     OrgNode issuingOrg;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "drafter_id")
+    @NotNull
+    @JoinColumn(name = "drafter_id", nullable = false)
     UserLogin drafter;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -178,11 +179,6 @@ public class Document extends BaseEntity {
             this.issuingOrg = this.issuingOrgNode;
         } else if (this.issuingOrgNode == null && this.issuingOrg != null) {
             this.issuingOrgNode = this.issuingOrg;
-        }
-        if (this.drafter == null && this.creatorUser != null) {
-            this.drafter = this.creatorUser;
-        } else if (this.creatorUser == null && this.drafter != null) {
-            this.creatorUser = this.drafter;
         }
     }
 

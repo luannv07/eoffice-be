@@ -21,6 +21,8 @@ import java.time.LocalDate;
 public class DocumentResponse {
 
     Long id;
+
+    private boolean testDocument;
     String draftCode;
     String title;
     String summary;
@@ -29,9 +31,9 @@ public class DocumentResponse {
     String documentTypeName;
     Long issuingOrgNodeId;
     String issuingOrgNodeName;
-    Long creatorUserId;
-    String creatorUsername;
-    String creatorFullName;
+    Long drafterId;
+    String drafterUsername;
+    String drafterFullName;
     DocumentStatus status;
     String statusDescription;
     int currentVersion;

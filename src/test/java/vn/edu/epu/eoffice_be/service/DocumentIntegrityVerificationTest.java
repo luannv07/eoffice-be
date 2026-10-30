@@ -29,9 +29,21 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class DocumentIntegrityVerificationTest {
+    @org.junit.jupiter.api.BeforeEach
+    void publishingAccountFixture() {
+        var account=vn.edu.epu.eoffice_be.entity.UserLogin.builder().id(9001L).role(vn.edu.epu.eoffice_be.common.enums.Role.CLERK).build();
+        org.mockito.Mockito.lenient().when(draftReadPolicy.currentUser()).thenReturn(account);
+        org.mockito.Mockito.lenient().when(draftReadPolicy.authenticatedUser(org.mockito.ArgumentMatchers.any())).thenReturn(account);
+    }
+
+    @org.mockito.Mock private vn.edu.epu.eoffice_be.service.DocumentReadPolicy draftReadPolicy;
+
     @Mock DocumentRepository documents;
     @Mock DocumentDistributionRepository distributions;
     @Mock DocumentPdfStorageService storage;
+    @Mock
+    private vn.edu.epu.eoffice_be.repository.UserInfoRepository userInfoRepository;
+
     @InjectMocks DocumentPublishService service;
 
     private static final String SHA256_ABC = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
@@ -40,7 +52,7 @@ class DocumentIntegrityVerificationTest {
     @Test
     void rejectsMissingPdfStorageAtConstruction() {
         NullPointerException exception = assertThrows(NullPointerException.class,
-                () -> new DocumentPublishService(documents, distributions, null, null));
+                () -> new DocumentPublishService(documents, distributions, null, null, userInfoRepository, org.mockito.Mockito.mock(vn.edu.epu.eoffice_be.service.DocumentReadPolicy.class)));
 
         assertEquals("documentPdfStorageService must not be null", exception.getMessage());
         verifyNoInteractions(documents, distributions, storage);

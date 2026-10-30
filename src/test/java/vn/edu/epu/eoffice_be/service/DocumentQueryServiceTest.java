@@ -30,6 +30,13 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class DocumentQueryServiceTest {
+    @org.mockito.Mock private vn.edu.epu.eoffice_be.service.DocumentReadPolicy draftReadPolicy;
+
+    @org.junit.jupiter.api.BeforeEach
+    void authorizedAdminReaderFixture() {
+        lenient().when(draftReadPolicy.currentUser()).thenReturn(vn.edu.epu.eoffice_be.entity.UserLogin.builder()
+                .id(1001L).role(vn.edu.epu.eoffice_be.common.enums.Role.ADMIN).build());
+    }
     enum Route { USER, ADMIN, STAFF, RESOURCE }
 
     @Mock DocumentRepository documents;

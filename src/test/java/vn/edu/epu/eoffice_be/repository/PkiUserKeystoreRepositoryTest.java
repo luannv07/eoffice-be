@@ -1,5 +1,7 @@
 package vn.edu.epu.eoffice_be.repository;
 
+import vn.edu.epu.eoffice_be.security.pki.PkiTestSamples;
+import vn.edu.epu.eoffice_be.security.pki.FastPkiTest;
 import liquibase.Contexts;
 import liquibase.Liquibase;
 import liquibase.database.jvm.JdbcConnection;
@@ -41,6 +43,7 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.*;
 
 /** Real repositories and transactions on isolated H2; never reads application env or real keys. */
+@FastPkiTest
 class PkiUserKeystoreRepositoryTest {
     private static SessionFactory factory;
     private static String url;
@@ -101,7 +104,10 @@ class PkiUserKeystoreRepositoryTest {
         encryption = new PkiEncryptionService(encryptionProperties);
         history = new PkiSigningHistory(new JdbcTemplate(new DriverManagerDataSource(url, "sa", "")));
         caService = new PkiCaService(properties, history, caRepository, encryption);
-        caId = tx.execute(s -> { caService.initialize(); return caRepository.findActive().orElseThrow().getId(); });
+        caId = tx.execute(s -> caRepository.saveAndFlush(
+                PkiTestSamples.caRecord(
+                        PkiTestSamples.root(), properties, encryption)).getId());
+        assertNotNull(tx.execute(s -> caService.requireValidCa()).privateKey());
     }
 
     @AfterEach
@@ -175,7 +181,10 @@ class PkiUserKeystoreRepositoryTest {
 
     @Test
     void uniqueOwnerCaAndForeignKeysRemainEnforcedByDatabase() {
-        tx.executeWithoutResult(s -> service().ensure(userId.toString(), "Test signer", null, null));
+        var sample = PkiTestSamples.user(
+                PkiTestSamples.root(), userId.toString(), "Test signer", null, null);
+        tx.executeWithoutResult(s -> repository.saveAndFlush(
+                PkiTestSamples.userRecord(sample, userId, caId, properties, encryption)));
         var original = tx.execute(s -> repository.findByUserIdAndCaId(userId, caId).orElseThrow());
         var duplicate = copy(original);
         duplicate.setCertificateSerial("different-serial");

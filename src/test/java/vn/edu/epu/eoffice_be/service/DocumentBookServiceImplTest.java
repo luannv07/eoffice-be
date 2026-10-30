@@ -43,6 +43,12 @@ import vn.edu.epu.eoffice_be.security.pki.PdfSigner;
 import vn.edu.epu.eoffice_be.service.impl.DocumentBookServiceImpl;
 
 import java.time.LocalDate;
+import java.time.Instant;
+import java.util.Set;
+import vn.edu.epu.eoffice_be.repository.UserInfoRepository.DrafterName;
+import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
+import vn.edu.epu.eoffice_be.common.enums.DocumentSecurityLevel;
+import vn.edu.epu.eoffice_be.common.enums.DocumentUrgencyLevel;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -143,6 +149,34 @@ class DocumentBookServiceImplTest {
 	void tearDown() {
 		SecurityContextHolder.clearContext();
 	}
+
+    @ParameterizedTest
+    @EnumSource(value=Role.class,names={"ADMIN","SYSTEM_ADMIN"})
+    void administratorCannotAllocateNumberBeforeBookLockOrPdfAccess(Role role) {
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(3003L)).thenReturn(Optional.of(
+                UserLogin.builder().id(3003L).role(role).build()));
+        var request=new AssignDocumentNumberRequest();request.setBookId(1L);request.setDocumentId(5001L);
+        assertEquals(ErrorCode.FORBIDDEN,assertThrows(BusinessException.class,
+                () -> documentBookService.assignNumber(request)).getErrorCode());
+        verifyNoInteractions(documentBookRepository,documentRepository,pdfSigner,documentPdfStorageService,documentWorkflowLogRepository);
+    }
+
+    @Test
+    void simulatedDocumentCannotConsumeARegistryNumber() {
+        Document document = Document.builder().id(5001L).status(DocumentStatus.APPROVED).testDocument(true).build();
+        when(documentBookRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(book));
+        when(documentRepository.findById(5001L)).thenReturn(Optional.of(document));
+        AssignDocumentNumberRequest request = new AssignDocumentNumberRequest();
+        request.setBookId(1L); request.setDocumentId(5001L);
+        assertEquals(ErrorCode.FORBIDDEN, assertThrows(BusinessException.class,
+                () -> documentBookService.assignNumber(request)).getErrorCode());
+        assertEquals(0, book.getCurrentNumber());
+        assertNull(document.getOfficialNumber());
+        assertEquals(DocumentStatus.APPROVED, document.getStatus());
+        verify(documentBookRepository, never()).save(any());
+        verify(documentRepository, never()).save(any());
+        verifyNoInteractions(pdfSigner, documentPdfStorageService, documentWorkflowLogRepository);
+    }
 
 	@ParameterizedTest
 	@EnumSource(value = ErrorCode.class, names = {
@@ -722,6 +756,148 @@ class DocumentBookServiceImplTest {
 		var result = documentBookService.getAssignedDocuments(1L, "  100%_special\\char  ", null, PageRequest.of(0, 10));
 		assertNotNull(result);
 		verify(documentRepository).findAssignedDocuments(eq(1L), any(), any(), any(), eq("100\\%\\_special\\\\char"), any(Pageable.class));
+	}
+
+	private static DrafterName drafterName(Long id, String username, String fullName) {
+		return new DrafterName() {
+			public Long getUserId() { return id; }
+			public String getUsername() { return username; }
+			public String getFullName() { return fullName; }
+		};
+	}
+
+	@Test
+	void getAssignedDocuments_batchesPageAuthorsAndPreservesFieldsFiltersAndPagination() {
+		UserLogin first = mock(UserLogin.class);
+		UserLogin second = mock(UserLogin.class);
+		when(first.getId()).thenReturn(11L);
+		when(second.getId()).thenReturn(22L);
+		Instant date = Instant.parse("2026-10-27T18:00:00Z");
+		List<Document> docs = List.of(first, second, first).stream().map(author -> {
+			Document doc = Document.builder().id(author == first ? 50L : 40L).drafter(author)
+					.draftCode("draft").title("Title").summary("Summary").content("Content")
+					.documentTypeCd("QD").issuingOrgNode(orgNode).status(DocumentStatus.APPROVED)
+					.currentVersion(3).securityLevel(DocumentSecurityLevel.NORMAL).urgencyLevel(DocumentUrgencyLevel.NORMAL)
+					.submittedAt(date).officialNumber("01/QD").issueDate(date).effectiveDate(date)
+					.officialFilePath("official.pdf").officialHash("hash").build();
+			doc.setCreatedDate(date);
+			doc.setUpdatedDate(date);
+			return doc;
+		}).toList();
+		docs.get(2).setId(30L);
+		Pageable pageable = PageRequest.of(1, 3);
+		when(documentBookRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(book));
+		when(documentRepository.findAssignedDocuments(1L, "QD", 1001L, DocumentStatus.APPROVED,
+				"100\\%\\_x\\\\y", pageable)).thenReturn(new PageImpl<>(docs, pageable, 10));
+		when(dictionaryItemRepository.findByGroupCdAndItemCdInAndDeleteFlgFalse("DOCUMENT_TYPE", Set.of("QD")))
+				.thenReturn(List.of(docType));
+		when(userInfoRepository.findDrafterNamesByUserIds(Set.of(11L, 22L)))
+				.thenReturn(List.of(drafterName(11L, "alice", "Alice"), drafterName(22L, "bob", null)));
+
+		var page = documentBookService.getAssignedDocuments(1L, " 100%_x\\y ", DocumentStatus.APPROVED, pageable);
+		assertEquals(List.of(50L, 40L, 30L), page.stream().map(DocumentResponse::getId).toList());
+		assertEquals(pageable, page.getPageable());
+		assertEquals(1, page.getNumber());
+		assertEquals(3, page.getSize());
+		assertEquals(10, page.getTotalElements());
+		assertEquals(4, page.getTotalPages());
+		for (int i = 0; i < docs.size(); i++) {
+			boolean alice = i != 1;
+			DocumentResponse expected = DocumentResponse.builder().id(docs.get(i).getId()).draftCode("draft")
+					.title("Title").summary("Summary").content("Content").documentTypeCd("QD").documentTypeName("Quyết định")
+					.issuingOrgNodeId(1001L).issuingOrgNodeName(orgNode.getNameVn())
+					.drafterId(alice ? 11L : 22L).drafterUsername(alice ? "alice" : "bob").drafterFullName(alice ? "Alice" : "bob")
+					.status(DocumentStatus.APPROVED).statusDescription(DocumentStatus.APPROVED.getDescription()).currentVersion(3)
+					.securityLevel(DocumentSecurityLevel.NORMAL).urgencyLevel(DocumentUrgencyLevel.NORMAL)
+					.submittedAt(date).createdDate(date).updatedDate(date).officialNumber("01/QD")
+					.documentBookId(1L).documentBookCode(book.getBookCode())
+					.issueDate(LocalDate.of(2026, 10, 28)).effectiveDate(LocalDate.of(2026, 10, 28))
+					.officialFilePath("official.pdf").officialHash("hash").build();
+			assertEquals(expected, page.getContent().get(i));
+		}
+		verify(first, never()).getUsername();
+		verify(second, never()).getUsername();
+		verify(userInfoRepository).findDrafterNamesByUserIds(Set.of(11L, 22L));
+		verifyNoMoreInteractions(userInfoRepository);
+		verify(documentRepository).findAssignedDocuments(1L, "QD", 1001L, DocumentStatus.APPROVED, "100\\%\\_x\\\\y", pageable);
+		verifyNoMoreInteractions(documentRepository);
+	}
+
+	@Test
+	void getAssignedDocuments_emptyPageDoesNotLookupAuthors() {
+		Pageable pageable = PageRequest.of(3, 10);
+		when(documentBookRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(book));
+		when(documentRepository.findAssignedDocuments(1L, "QD", 1001L, null, null, pageable))
+				.thenReturn(new PageImpl<>(List.of(), pageable, 25));
+		var page = documentBookService.getAssignedDocuments(1L, "  ", null, pageable);
+		assertTrue(page.isEmpty());
+		assertEquals(pageable, page.getPageable());
+		assertEquals(25, page.getTotalElements());
+		verifyNoInteractions(userInfoRepository, dictionaryItemRepository);
+	}
+
+	@Test
+	void getAssignedDocuments_missingAuthorOrIdSkipsBatchAndKeepsDefaults() {
+		Document missing = Document.builder().id(10L).build();
+		Document noId = Document.builder().id(20L).drafter(UserLogin.builder().username("legacy").build()).build();
+		Pageable pageable = PageRequest.of(0, 10);
+		when(documentBookRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(book));
+		when(documentRepository.findAssignedDocuments(1L, "QD", 1001L, null, null, pageable))
+				.thenReturn(new PageImpl<>(List.of(missing, noId)));
+		var result = documentBookService.getAssignedDocuments(1L, null, null, pageable).getContent();
+		assertNull(result.get(0).getDrafterId());
+		assertNull(result.get(0).getDrafterUsername());
+		assertNull(result.get(0).getDrafterFullName());
+		assertNull(result.get(1).getDrafterId());
+		assertEquals("legacy", result.get(1).getDrafterUsername());
+		assertEquals("legacy", result.get(1).getDrafterFullName());
+		assertEquals(DocumentStatus.DRAFT, result.getFirst().getStatus());
+		assertEquals(DocumentSecurityLevel.NORMAL, result.getFirst().getSecurityLevel());
+		assertEquals(DocumentUrgencyLevel.NORMAL, result.getFirst().getUrgencyLevel());
+		verifyNoInteractions(userInfoRepository);
+	}
+
+	@Test
+	void getAssignedDocuments_preservesEmptyNameAndEntityFallbackForMissingProjection() {
+		Pageable pageable = PageRequest.of(0, 10);
+		List<Document> docs = List.of(
+				Document.builder().id(10L).drafter(UserLogin.builder().id(11L).build()).build(),
+				Document.builder().id(20L).drafter(UserLogin.builder().id(22L).username("legacy").build()).build());
+		when(documentBookRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(book));
+		when(documentRepository.findAssignedDocuments(1L, "QD", 1001L, null, null, pageable))
+				.thenReturn(new PageImpl<>(docs));
+		when(userInfoRepository.findDrafterNamesByUserIds(Set.of(11L, 22L)))
+				.thenReturn(List.of(drafterName(11L, "empty", "")));
+		var result = documentBookService.getAssignedDocuments(1L, null, null, pageable).getContent();
+		assertEquals("", result.get(0).getDrafterFullName());
+		assertEquals("empty", result.get(0).getDrafterUsername());
+		assertEquals("legacy", result.get(1).getDrafterFullName());
+		assertEquals("legacy", result.get(1).getDrafterUsername());
+		verify(userInfoRepository).findDrafterNamesByUserIds(Set.of(11L, 22L));
+		verifyNoMoreInteractions(userInfoRepository);
+	}
+
+	@Test
+	void getAssignedDocuments_batchFailurePropagates() {
+		Pageable pageable = PageRequest.of(0, 10);
+		when(documentBookRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(book));
+		when(documentRepository.findAssignedDocuments(1L, "QD", 1001L, null, null, pageable))
+				.thenReturn(new PageImpl<>(List.of(Document.builder().drafter(UserLogin.builder().id(11L).build()).build())));
+		RuntimeException failure = new IllegalStateException("lookup failed");
+		when(userInfoRepository.findDrafterNamesByUserIds(Set.of(11L))).thenThrow(failure);
+		assertSame(failure, assertThrows(IllegalStateException.class,
+				() -> documentBookService.getAssignedDocuments(1L, null, null, pageable)));
+		verify(userInfoRepository).findDrafterNamesByUserIds(Set.of(11L));
+		verifyNoMoreInteractions(userInfoRepository);
+	}
+
+	@Test
+	void getAssignedDocuments_missingBookFailsBeforeDocumentOrAuthorLookup() {
+		when(documentBookRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.empty());
+		var failure = assertThrows(BusinessException.class,
+				() -> documentBookService.getAssignedDocuments(1L, null, null, PageRequest.of(0, 10)));
+		assertEquals(ErrorCode.DOCUMENT_BOOK_NOT_FOUND, failure.getErrorCode());
+		verifyNoInteractions(documentRepository, userInfoRepository, dictionaryItemRepository);
 	}
 
 	@Test

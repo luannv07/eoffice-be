@@ -16,7 +16,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import vn.edu.epu.eoffice_be.common.exception.GlobalExceptionHandler;
 import vn.edu.epu.eoffice_be.dto.PublishRequest;
-import vn.edu.epu.eoffice_be.entity.Document;
+import vn.edu.epu.eoffice_be.dto.response.DocumentResponse;
+import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.service.DocumentPublishService;
 
 import java.util.List;
@@ -34,6 +35,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @ExtendWith(MockitoExtension.class)
 class DocumentPublishControllerTest {
+    @org.junit.jupiter.api.BeforeEach
+    void publishingAccountFixture() {
+        var account=vn.edu.epu.eoffice_be.entity.UserLogin.builder().id(9001L).role(vn.edu.epu.eoffice_be.common.enums.Role.CLERK).build();
+        org.mockito.Mockito.lenient().when(draftReadPolicy.currentUser()).thenReturn(account);
+        org.mockito.Mockito.lenient().when(draftReadPolicy.authenticatedUser(org.mockito.ArgumentMatchers.any())).thenReturn(account);
+    }
+
+    @org.mockito.Mock private vn.edu.epu.eoffice_be.service.DocumentReadPolicy draftReadPolicy;
+
 
     private MockMvc mockMvc;
 
@@ -52,11 +62,10 @@ class DocumentPublishControllerTest {
 
     @Test
     void testPublishDocumentEndpoint() throws Exception {
-        Document doc = new Document();
-        doc.setId(1L);
-        doc.setStatus("PUBLISHED");
+        DocumentResponse doc = DocumentResponse.builder().id(1L).status(DocumentStatus.PUBLISHED)
+                .statusDescription(DocumentStatus.PUBLISHED.getDescription()).drafterFullName("Author").build();
 
-        when(publishService.publishDocument(eq(1L), any(PublishRequest.class))).thenReturn(doc);
+        when(publishService.publishDocumentResponse(eq(1L), any(PublishRequest.class))).thenReturn(doc);
 
         String rawJson = "{\"issueDate\":\"2026-09-12\",\"isPublicToAll\":true}";
 
@@ -64,8 +73,23 @@ class DocumentPublishControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(rawJson))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.drafterFullName").value("Author"))
                 .andExpect(jsonPath("$.status").value("PUBLISHED"))
                 .andExpect(jsonPath("$.statusDescription").value(vn.edu.epu.eoffice_be.common.enums.DocumentStatus.PUBLISHED.getDescription()));
+        ArgumentCaptor<PublishRequest> request = ArgumentCaptor.forClass(PublishRequest.class);
+        verify(publishService).publishDocumentResponse(eq(1L), request.capture());
+        assertEquals(java.time.LocalDate.of(2026, 9, 12), request.getValue().getIssueDate());
+        assertTrue(request.getValue().getIsPublicToAll());
+        verify(publishService, never()).publishDocument(any(), any());
+    }
+
+    @Test
+    void controllerReturnsServiceResponseWithoutRemapping() {
+        PublishRequest request = new PublishRequest();
+        DocumentResponse response = DocumentResponse.builder().id(10L).drafterFullName("Author").build();
+        when(publishService.publishDocumentResponse(10L, request)).thenReturn(response);
+        org.junit.jupiter.api.Assertions.assertSame(response, publishController.publishDocument(10L, request).getBody());
+        verify(publishService).publishDocumentResponse(10L, request);
     }
 
     @Test

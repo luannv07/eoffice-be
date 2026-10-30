@@ -22,7 +22,6 @@ import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.KeyPairGenerator;
 import java.security.cert.Certificate;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -32,6 +31,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+@FastPkiTest
 class PdfSignerLifecycleTest {
     @TempDir Path directory;
 
@@ -56,7 +56,7 @@ class PdfSignerLifecycleTest {
 
     @Test
     void firstSignPersistsOneEncryptedKeystoreAndNewInstanceReusesItWithoutFiles() throws Exception {
-        var pki = PkiTestFixture.create(directory);
+        var pki = PkiSampleFixtures.cachedCa(directory);
         var first = pki.signer().signBytes(pdf(), "1001", "Nguyen Van A", "First");
         var record = record(pki);
         byte[] encrypted = record.getKeystoreEncrypted().clone();
@@ -77,7 +77,7 @@ class PdfSignerLifecycleTest {
     @ParameterizedTest
     @ValueSource(strings = {"user_1001.p12", "user_1001.crt", ".user_1001.p12.interrupted.tmp", "user_1001.crt.tmp"})
     void legacyUserFilesBlockIssuanceWithoutRemovingEvidence(String filename) throws Exception {
-        var pki = PkiTestFixture.create(directory);
+        var pki = PkiSampleFixtures.cachedCa(directory);
         Files.createDirectories(pki.properties().userKeystores());
         var evidence = pki.properties().userKeystores().resolve(filename);
         Files.writeString(evidence, "old key evidence");
@@ -88,7 +88,7 @@ class PdfSignerLifecycleTest {
 
     @Test
     void anotherUsersLegacyFilesDoNotBlockIssuance() throws Exception {
-        var pki = PkiTestFixture.create(directory);
+        var pki = PkiSampleFixtures.cachedCa(directory);
         Files.createDirectories(pki.properties().userKeystores());
         Files.writeString(pki.properties().userKeystores().resolve("user_10010.p12"), "other user");
         pki.signer().ensureUserCertificate("1001", "A");
@@ -97,7 +97,7 @@ class PdfSignerLifecycleTest {
 
     @Test
     void missingKeysWithSigningHistoryRequireRecovery() throws Exception {
-        var pki = PkiTestFixture.create(directory);
+        var pki = PkiSampleFixtures.cachedCa(directory);
         when(pki.history().hasUserSigningHistory("1001")).thenReturn(true);
         assertUserInvalid(() -> pki.signer().ensureUserCertificate("1001", "A"));
         verify(pki.userRepository(), never()).saveAndFlush(any());
@@ -105,7 +105,7 @@ class PdfSignerLifecycleTest {
 
     @Test
     void missingOwnerAndInvalidUserIdsCannotIssueKeys() throws Exception {
-        var pki = PkiTestFixture.create(directory);
+        var pki = PkiSampleFixtures.cachedCa(directory);
         when(pki.users().lockForPkiIssuance(1001L)).thenReturn(Optional.empty());
         assertError(ErrorCode.BAD_REQUEST, () -> pki.signer().ensureUserCertificate("1001", "A"));
         for (String invalid : new String[]{"../1", "0", "-1", "01", "abc", "99999999999999999999999"}) {
@@ -116,7 +116,7 @@ class PdfSignerLifecycleTest {
 
     @Test
     void unavailableHistoryAndDatabaseFailClosed() throws Exception {
-        var pki = PkiTestFixture.create(directory);
+        var pki = PkiSampleFixtures.cachedCa(directory);
         when(pki.history().hasUserSigningHistory("1001")).thenThrow(new DataAccessResourceFailureException("unavailable"));
         assertError(ErrorCode.PKI_STORAGE_ERROR, () -> pki.signer().ensureUserCertificate("1001", "A"));
         when(pki.userRepository().findByUserIdAndCaId(1001L, 1L)).thenThrow(new DataAccessResourceFailureException("unavailable"));
@@ -127,8 +127,8 @@ class PdfSignerLifecycleTest {
     @ParameterizedTest
     @ValueSource(strings = {"ciphertext", "nonce", "key-id", "pem", "serial", "owner", "ca", "password"})
     void corruptUserRecordIsNeverReplaced(String damage) throws Exception {
-        var pki = PkiTestFixture.create(directory);
-        pki.signer().ensureUserCertificate("1001", "A");
+        var pki = PkiSampleFixtures.existingUser(directory);
+        assertNotNull(pki.userService().require("1001").privateKey());
         var record = record(pki);
         switch (damage) {
             case "ciphertext" -> {
@@ -153,6 +153,20 @@ class PdfSignerLifecycleTest {
                 finally { java.util.Arrays.fill(plaintext, (byte) 0); }
             }
         }
+        var encryptedRecord = new vn.edu.epu.eoffice_be.service.PkiEncryptionService.EncryptedKeystore(
+                record.getKeystoreEncrypted(), record.getEncryptionNonce(), record.getEncryptionKeyId());
+        if (java.util.Set.of("ciphertext", "nonce", "key-id").contains(damage)) {
+            assertThrows(RuntimeException.class, () -> pki.encryption().decrypt(encryptedRecord));
+        } else {
+            byte[] plaintext = pki.encryption().decrypt(encryptedRecord);
+            try {
+                if (damage.equals("password")) {
+                    assertThrows(IllegalArgumentException.class, () -> Crypto.decodeP12(plaintext, pki.properties().password()));
+                } else {
+                    assertNotNull(Crypto.decodeP12(plaintext, pki.properties().password()).privateKey());
+                }
+            } finally { java.util.Arrays.fill(plaintext, (byte) 0); }
+        }
         byte[] original = record.getKeystoreEncrypted().clone();
         clearInvocations(pki.userRepository());
         assertUserInvalid(() -> pki.signer().ensureUserCertificate("1001", "A"));
@@ -163,8 +177,9 @@ class PdfSignerLifecycleTest {
 
     @Test
     void storedKeysStillRequireValidCa() throws Exception {
-        var pki = PkiTestFixture.create(directory);
-        pki.signer().ensureUserCertificate("1001", "A");
+        var pki = PkiSampleFixtures.create(directory);
+        var user = PkiTestSamples.user(PkiTestSamples.root(), "1001", "A", null, null);
+        pki.userRepository().saveAndFlush(PkiTestSamples.userRecord(user, 1001L, 1L, pki.properties(), pki.encryption()));
         pki.repository().findActive().orElseThrow().setKeystoreEncrypted(new byte[17]);
         assertError(ErrorCode.PKI_CA_RECOVERY_REQUIRED, () -> pki.userService().require("1001"));
     }
@@ -172,7 +187,7 @@ class PdfSignerLifecycleTest {
     @Test
     void userCertificateCannotOutliveCa() throws Exception {
         Instant now = Instant.now();
-        var pki = PkiTestFixture.create(directory, now.minus(1, ChronoUnit.HOURS), now.plus(7, ChronoUnit.DAYS));
+        var pki = PkiSampleFixtures.create(directory, now.minus(1, ChronoUnit.HOURS), now.plus(7, ChronoUnit.DAYS));
         pki.signer().ensureUserCertificate("1001", "A");
         var root = pki.caService().requireValidCa().getEndEntityCertificate();
         var leaf = pki.userService().require("1001").getEndEntityCertificate();
@@ -182,12 +197,11 @@ class PdfSignerLifecycleTest {
 
     @Test
     void privateKeyMismatchIsRejected() throws Exception {
-        var pki = PkiTestFixture.create(directory);
-        pki.signer().ensureUserCertificate("1001", "A");
+        var pki = PkiSampleFixtures.existingUser(directory);
         var bundle = pki.userService().require("1001");
-        var generator = KeyPairGenerator.getInstance("RSA"); generator.initialize(2048);
+        var otherKey = PkiTestSamples.keyPair("mismatched-user");
         char[] password = pki.properties().password();
-        byte[] plaintext = Crypto.encodeP12(password, "user", generator.generateKeyPair().getPrivate(), bundle.chain());
+        byte[] plaintext = Crypto.encodeP12(password, "user", otherKey.getPrivate(), bundle.chain());
         try { replaceEncrypted(pki, record(pki), plaintext); }
         finally { java.util.Arrays.fill(password, '\0'); java.util.Arrays.fill(plaintext, (byte) 0); }
         assertUserInvalid(() -> pki.userService().require("1001"));
@@ -195,8 +209,7 @@ class PdfSignerLifecycleTest {
 
     @Test
     void issuerAndUidMismatchAreRejected() throws Exception {
-        var pki = PkiTestFixture.create(directory);
-        pki.signer().ensureUserCertificate("1001", "A");
+        var pki = PkiSampleFixtures.existingUser(directory);
         var original = record(pki);
         var wrongOwner = new PkiUserKeystoreEntity();
         wrongOwner.setUserId(1002L); wrongOwner.setCaId(1L);
@@ -205,15 +218,14 @@ class PdfSignerLifecycleTest {
         wrongOwner.setEncryptionKeyId(original.getEncryptionKeyId());
         when(pki.userRepository().findByUserIdAndCaId(1002L, 1L)).thenReturn(Optional.of(wrongOwner));
         assertUserInvalid(() -> pki.userService().require("1002"));
-        var other = PkiTestFixture.create(directory.resolve("other"));
+        var other = PkiSampleFixtures.otherCa(directory.resolve("other"));
         when(other.userRepository().findByUserIdAndCaId(1001L, 1L)).thenReturn(Optional.of(original));
         assertUserInvalid(() -> other.userService().require("1001"));
     }
 
     @Test
     void expiredCertificateIsNotAutomaticallyRenewed() throws Exception {
-        var pki = PkiTestFixture.create(directory);
-        pki.signer().ensureUserCertificate("1001", "A");
+        var pki = PkiSampleFixtures.existingUser(directory);
         var user = pki.userService().require("1001");
         var ca = pki.caService().requireValidCa();
         var leaf = user.getEndEntityCertificate();

@@ -13,7 +13,6 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.*;
 import vn.edu.epu.eoffice_be.common.enums.Role;
 import vn.edu.epu.eoffice_be.security.OrgAwarePrincipal;
@@ -24,8 +23,6 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Slf4j
 @RestController
@@ -174,7 +171,6 @@ public class DocumentQueryController {
         return ORG_ID_METHOD_CACHE.get(clazz);
     }
 
-    private static final String ROLE_PREFIX = "ROLE_";
     public static final Long SYSTEM_WIDE_ORG_ID = 0L;
 
     private boolean isAdmin(Authentication authentication) {
@@ -212,16 +208,11 @@ public class DocumentQueryController {
     }
 
     private boolean hasAnyRole(Authentication authentication, Role... roles) {
-        if (authentication == null || !authentication.isAuthenticated() || authentication.getAuthorities() == null) {
+        if (authentication == null || !authentication.isAuthenticated()) {
             return false;
         }
-        Set<String> targetRoles = Arrays.stream(roles)
-                .flatMap(r -> Stream.of(r.name(), ROLE_PREFIX + r.name()))
-                .collect(Collectors.toSet());
-
-        return authentication.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .anyMatch(auth -> targetRoles.stream().anyMatch(tr -> tr.equalsIgnoreCase(auth)));
+        Role databaseRole = queryService.resolveViewerRole(authentication);
+        return Arrays.asList(roles).contains(databaseRole);
     }
 
     // UC16.1: Tra cứu danh sách văn bản ban hành (BE-04: hỗ trợ lọc theo documentBookId)

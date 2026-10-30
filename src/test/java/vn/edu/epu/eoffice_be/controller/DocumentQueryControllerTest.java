@@ -39,6 +39,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @ExtendWith(MockitoExtension.class)
 class DocumentQueryControllerTest {
+    @org.mockito.Mock private vn.edu.epu.eoffice_be.service.DocumentReadPolicy draftReadPolicy;
+
 
     private MockMvc mockMvc;
 
@@ -53,6 +55,15 @@ class DocumentQueryControllerTest {
     @BeforeEach
     void setUp() {
         SecurityContextHolder.clearContext();
+        lenient().when(documentQueryService.resolveViewerRole(any())).thenAnswer(invocation -> {
+            Authentication subject=invocation.getArgument(0);
+            if(subject!=null && subject.getAuthorities()!=null) for(var authority:subject.getAuthorities()) {
+                String value=authority.getAuthority().replaceFirst("^ROLE_", "");
+                try { return vn.edu.epu.eoffice_be.common.enums.Role.valueOf(value.toUpperCase(java.util.Locale.ROOT)); }
+                catch(IllegalArgumentException ignored) { }
+            }
+            return vn.edu.epu.eoffice_be.common.enums.Role.USER;
+        });
         documentQueryController.resetAllowedLegacyPrincipals();
         auth = mock(Authentication.class);
         lenient().when(auth.isAuthenticated()).thenReturn(true);
@@ -158,7 +169,8 @@ class DocumentQueryControllerTest {
         when(auth.getPrincipal()).thenReturn(new UnapprovedPrincipalWithGetOrgId());
 
         assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(null, auth));
-        verifyNoInteractions(documentQueryService);
+        verify(documentQueryService, atMost(3)).resolveViewerRole(any());
+        verifyNoMoreInteractions(documentQueryService);
     }
 
     @Test
@@ -172,7 +184,8 @@ class DocumentQueryControllerTest {
         // Kiểm tra sau khi reset, principal này bị từ chối với AccessDeniedException
         when(auth.getPrincipal()).thenReturn(new UnapprovedPrincipalWithGetOrgId());
         assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(null, auth));
-        verifyNoInteractions(documentQueryService);
+        verify(documentQueryService, atMost(3)).resolveViewerRole(any());
+        verifyNoMoreInteractions(documentQueryService);
     }
 
     @Test
@@ -241,7 +254,8 @@ class DocumentQueryControllerTest {
         when(auth.getPrincipal()).thenReturn(new MissingOrgIdPrincipal());
 
         assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(null, auth));
-        verifyNoInteractions(documentQueryService);
+        verify(documentQueryService, atMost(3)).resolveViewerRole(any());
+        verifyNoMoreInteractions(documentQueryService);
     }
 
     @Test
@@ -249,7 +263,8 @@ class DocumentQueryControllerTest {
         when(auth.getPrincipal()).thenReturn(new ValidPrincipal(null));
 
         assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(null, auth));
-        verifyNoInteractions(documentQueryService);
+        verify(documentQueryService, atMost(3)).resolveViewerRole(any());
+        verifyNoMoreInteractions(documentQueryService);
     }
 
     @Test
@@ -257,7 +272,8 @@ class DocumentQueryControllerTest {
         when(auth.getPrincipal()).thenReturn(new NullOrgIdReflectionPrincipal());
 
         assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(null, auth));
-        verifyNoInteractions(documentQueryService);
+        verify(documentQueryService, atMost(3)).resolveViewerRole(any());
+        verifyNoMoreInteractions(documentQueryService);
     }
 
     @Test
@@ -265,7 +281,8 @@ class DocumentQueryControllerTest {
         when(auth.getPrincipal()).thenReturn(new NonLongOrgIdPrincipal());
 
         assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(null, auth));
-        verifyNoInteractions(documentQueryService);
+        verify(documentQueryService, atMost(3)).resolveViewerRole(any());
+        verifyNoMoreInteractions(documentQueryService);
     }
 
     @Test
@@ -274,7 +291,8 @@ class DocumentQueryControllerTest {
 
         RuntimeException exception = assertThrows(RuntimeException.class, () -> documentQueryController.getPublishedDocuments(null, auth));
         assertEquals("Reflection invocation error", exception.getMessage());
-        verifyNoInteractions(documentQueryService);
+        verify(documentQueryService, atMost(3)).resolveViewerRole(any());
+        verifyNoMoreInteractions(documentQueryService);
     }
 
     @Test
@@ -283,7 +301,8 @@ class DocumentQueryControllerTest {
 
         AssertionError error = assertThrows(AssertionError.class, () -> documentQueryController.getPublishedDocuments(null, auth));
         assertEquals("JVM Error inside getOrgId", error.getMessage());
-        verifyNoInteractions(documentQueryService);
+        verify(documentQueryService, atMost(3)).resolveViewerRole(any());
+        verifyNoMoreInteractions(documentQueryService);
     }
 
     @Test
@@ -291,7 +310,8 @@ class DocumentQueryControllerTest {
         when(auth.isAuthenticated()).thenReturn(false);
 
         assertThrows(AuthenticationCredentialsNotFoundException.class, () -> documentQueryController.getPublishedDocuments(null, auth));
-        verifyNoInteractions(documentQueryService);
+        verify(documentQueryService, atMost(3)).resolveViewerRole(any());
+        verifyNoMoreInteractions(documentQueryService);
     }
 
     @Test
@@ -300,13 +320,15 @@ class DocumentQueryControllerTest {
                 "key", "anonymousUser", AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS"));
 
         assertThrows(AuthenticationCredentialsNotFoundException.class, () -> documentQueryController.getPublishedDocuments(null, anonymous));
-        verifyNoInteractions(documentQueryService);
+        verify(documentQueryService, atMost(3)).resolveViewerRole(any());
+        verifyNoMoreInteractions(documentQueryService);
     }
 
     @Test
     void testResolveUserOrgId_NullAuthentication_ThrowsAuthenticationException() {
         assertThrows(AuthenticationCredentialsNotFoundException.class, () -> documentQueryController.getPublishedDocuments(null, null));
-        verifyNoInteractions(documentQueryService);
+        verify(documentQueryService, atMost(3)).resolveViewerRole(any());
+        verifyNoMoreInteractions(documentQueryService);
     }
 
     @Test
@@ -314,7 +336,8 @@ class DocumentQueryControllerTest {
         when(auth.getPrincipal()).thenReturn(null);
 
         assertThrows(AuthenticationCredentialsNotFoundException.class, () -> documentQueryController.getPublishedDocuments(null, auth));
-        verifyNoInteractions(documentQueryService);
+        verify(documentQueryService, atMost(3)).resolveViewerRole(any());
+        verifyNoMoreInteractions(documentQueryService);
     }
 
     // MockMvc Integration Tests verifying Spring Security & Error Contract Enforcement
@@ -342,7 +365,8 @@ class DocumentQueryControllerTest {
         mockMvc.perform(get("/documents/published"))
                 .andExpect(status().isUnauthorized());
 
-        verifyNoInteractions(documentQueryService);
+        verify(documentQueryService, atMost(3)).resolveViewerRole(any());
+        verifyNoMoreInteractions(documentQueryService);
     }
 
     @Test
@@ -359,7 +383,8 @@ class DocumentQueryControllerTest {
             SecurityContextHolder.clearContext();
         }
 
-        verifyNoInteractions(documentQueryService);
+        verify(documentQueryService, atMost(3)).resolveViewerRole(any());
+        verifyNoMoreInteractions(documentQueryService);
     }
 
     @Test
@@ -376,7 +401,8 @@ class DocumentQueryControllerTest {
             SecurityContextHolder.clearContext();
         }
 
-        verifyNoInteractions(documentQueryService);
+        verify(documentQueryService, atMost(3)).resolveViewerRole(any());
+        verifyNoMoreInteractions(documentQueryService);
     }
 
     @Test
@@ -393,7 +419,8 @@ class DocumentQueryControllerTest {
             SecurityContextHolder.clearContext();
         }
 
-        verifyNoInteractions(documentQueryService);
+        verify(documentQueryService, atMost(3)).resolveViewerRole(any());
+        verifyNoMoreInteractions(documentQueryService);
     }
 
     @Test
@@ -442,7 +469,8 @@ class DocumentQueryControllerTest {
         mockMvc.perform(get("/documents/1/download"))
                 .andExpect(status().isUnauthorized());
 
-        verifyNoInteractions(documentQueryService);
+        verify(documentQueryService, atMost(3)).resolveViewerRole(any());
+        verifyNoMoreInteractions(documentQueryService);
     }
 
     @Test
@@ -459,7 +487,8 @@ class DocumentQueryControllerTest {
             SecurityContextHolder.clearContext();
         }
 
-        verifyNoInteractions(documentQueryService);
+        verify(documentQueryService, atMost(3)).resolveViewerRole(any());
+        verifyNoMoreInteractions(documentQueryService);
     }
 
     @Test
@@ -553,7 +582,7 @@ class DocumentQueryControllerTest {
 
     @Test
     void testGetPublishedDocuments_JwtUserPrincipalUser_WithOrgId_Success() {
-        vn.edu.epu.eoffice_be.security.JwtUserPrincipal userPrincipal = 
+        vn.edu.epu.eoffice_be.security.JwtUserPrincipal userPrincipal =
                 new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(2L, "staff", "USER", true, List.of(), 50L);
         when(auth.getPrincipal()).thenReturn(userPrincipal);
         when(documentQueryService.getPublishedDocuments(50L)).thenReturn(List.of());
@@ -567,7 +596,7 @@ class DocumentQueryControllerTest {
 
     @Test
     void testGetDocumentDetails_JwtUserPrincipalUser_WithOrgId_Success() {
-        vn.edu.epu.eoffice_be.security.JwtUserPrincipal userPrincipal = 
+        vn.edu.epu.eoffice_be.security.JwtUserPrincipal userPrincipal =
                 new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(2L, "staff", "USER", true, List.of(), 50L);
         when(auth.getPrincipal()).thenReturn(userPrincipal);
         when(documentQueryService.getDocumentDetails(10L, 50L)).thenReturn(java.util.Map.of("id", 10L));
@@ -581,7 +610,7 @@ class DocumentQueryControllerTest {
 
     @Test
     void testDownloadDocument_JwtUserPrincipalUser_WithOrgId_Success() {
-        vn.edu.epu.eoffice_be.security.JwtUserPrincipal userPrincipal = 
+        vn.edu.epu.eoffice_be.security.JwtUserPrincipal userPrincipal =
                 new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(2L, "staff", "USER", true, List.of(), 50L);
         when(auth.getPrincipal()).thenReturn(userPrincipal);
         byte[] content = "PDF_CONTENT".getBytes(StandardCharsets.UTF_8);
@@ -596,12 +625,13 @@ class DocumentQueryControllerTest {
 
     @Test
     void testGetPublishedDocuments_JwtUserPrincipalUser_WithoutOrgId_ThrowsAccessDenied() {
-        vn.edu.epu.eoffice_be.security.JwtUserPrincipal userPrincipal = 
+        vn.edu.epu.eoffice_be.security.JwtUserPrincipal userPrincipal =
                 new vn.edu.epu.eoffice_be.security.JwtUserPrincipal(2L, "staff", "USER", true, List.of(), null);
         when(auth.getPrincipal()).thenReturn(userPrincipal);
 
         assertThrows(AccessDeniedException.class, () -> documentQueryController.getPublishedDocuments(null, auth));
-        verifyNoInteractions(documentQueryService);
+        verify(documentQueryService, atMost(3)).resolveViewerRole(any());
+        verifyNoMoreInteractions(documentQueryService);
     }
 
     @Test
@@ -762,7 +792,7 @@ class DocumentQueryControllerTest {
         doReturn(List.of(new SimpleGrantedAuthority("ROLE_LEADER"))).when(auth).getAuthorities();
         when(auth.getPrincipal()).thenReturn(new MissingOrgIdPrincipal());
 
-        assertThrows(AccessDeniedException.class, 
+        assertThrows(AccessDeniedException.class,
                 () -> documentQueryController.getDocumentDetails(10L, auth));
     }
 
@@ -771,7 +801,7 @@ class DocumentQueryControllerTest {
         doReturn(List.of(new SimpleGrantedAuthority("ROLE_LEADER"))).when(auth).getAuthorities();
         when(auth.getPrincipal()).thenReturn(new MissingOrgIdPrincipal());
 
-        assertThrows(AccessDeniedException.class, 
+        assertThrows(AccessDeniedException.class,
                 () -> documentQueryController.downloadDocument(10L, auth));
     }
 
@@ -779,7 +809,7 @@ class DocumentQueryControllerTest {
     void testGetDocumentDetails_LeaderRole_Unauthenticated_ThrowsException() {
         when(auth.isAuthenticated()).thenReturn(false);
 
-        assertThrows(AuthenticationCredentialsNotFoundException.class, 
+        assertThrows(AuthenticationCredentialsNotFoundException.class,
                 () -> documentQueryController.getDocumentDetails(10L, auth));
     }
 
@@ -808,4 +838,4 @@ class DocumentQueryControllerTest {
         assertThrows(AccessDeniedException.class, () -> documentQueryController.downloadDocument(513L, auth));
         verify(documentQueryService).downloadDocumentForStaff(513L, 50L);
     }
-}
+}

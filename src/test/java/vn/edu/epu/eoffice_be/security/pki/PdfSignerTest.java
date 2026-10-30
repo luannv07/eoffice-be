@@ -29,10 +29,23 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@FastPkiTest
 public class PdfSignerTest {
 
     @TempDir
     Path tempDir;
+
+    private InMemorySigningFixture memory;
+
+    private InMemorySigningFixture memoryFixture() throws Exception {
+        memory = InMemorySigningFixture.create(tempDir);
+        return memory;
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void onlyUnwrappedSyntheticKeysWereUsed() {
+        if (memory != null) memory.assertOnlyInMemoryKeysUsed();
+    }
 
     @BeforeAll
     static void setup() {
@@ -90,7 +103,7 @@ public class PdfSignerTest {
         Path signed1 = tempDir.resolve("doc_signed_1.pdf");
         Path signed2 = tempDir.resolve("doc_signed_2.pdf");
 
-        PkiTestFixture pki = PkiTestFixture.create(tempDir);
+        InMemorySigningFixture pki = memoryFixture();
         PdfSigner signer = pki.signer();
         signer.ensureUserCertificate("1001", "Nguyen Van A");
         signer.ensureUserCertificate("1002", "Tran Thi B");
@@ -149,7 +162,7 @@ public class PdfSignerTest {
     @Test
     void testSignBytesOverload() throws Exception {
         byte[] originalBytes = createSamplePdfBytes();
-        PkiTestFixture pki = PkiTestFixture.create(tempDir);
+        InMemorySigningFixture pki = memoryFixture();
         PdfSigner signer = pki.signer();
 
         PdfSigner.SignResult result = signer.signBytes(originalBytes, "1001", "Nguyen Van A", "Ký nháy byte array");
@@ -168,7 +181,7 @@ public class PdfSignerTest {
     @Test
     void testSignAndCertifyBytes_sequentialApprovalAndCertification_shouldPass7Criteria() throws Exception {
         byte[] originalBytes = createSamplePdfBytes();
-        PkiTestFixture pki = PkiTestFixture.create(tempDir);
+        InMemorySigningFixture pki = memoryFixture();
         PdfSigner signer = pki.signer();
 
         // 1. Chuyên viên 1001 ký nháy
@@ -224,7 +237,7 @@ public class PdfSignerTest {
     @Test
     void testSignVisibleBytes_LeaderApprove_WithoutDocMdpLock() throws Exception {
         byte[] rawPdf = createSamplePdfBytes();
-        PkiTestFixture pki = PkiTestFixture.create(tempDir);
+        InMemorySigningFixture pki = memoryFixture();
         PdfSigner signer = pki.signer();
 
         // 1. Hiệu trưởng ký số hiển thị với ảnh con dấu tại tọa độ mặc định (trang cuối)

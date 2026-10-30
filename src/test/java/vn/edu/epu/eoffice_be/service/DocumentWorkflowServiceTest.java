@@ -109,6 +109,13 @@ class DocumentWorkflowServiceTest {
     @Mock
     private vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService documentPdfStorageService;
 
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentReadPolicy draftReadPolicy;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DraftUnitResolver draftUnitResolver;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentFileReadGuard documentFiles;
+
     @InjectMocks
     private DocumentWorkflowServiceImpl documentWorkflowService;
 
@@ -118,7 +125,7 @@ class DocumentWorkflowServiceTest {
 
     @BeforeEach
     void setUp() {
-        leader = UserLogin.builder().id(1002L).username("leader").role(Role.ADMIN).build();
+        leader = UserLogin.builder().id(1002L).username("leader").role(Role.LEADER).build();
         orgNode = OrgNode.builder().id(2001L).nameVn("Khoa CNTT").build();
 
         document = Document.builder()
@@ -130,7 +137,7 @@ class DocumentWorkflowServiceTest {
                 .status(DocumentStatus.IN_REVIEW	)
                 .build();
 
-        JwtUserPrincipal principal = new JwtUserPrincipal(1002L, "leader", Role.ADMIN.name(), true, List.of());
+        JwtUserPrincipal principal = new JwtUserPrincipal(1002L, "leader", Role.LEADER.name(), true, List.of());
         Authentication auth = new UsernamePasswordAuthenticationToken(principal, null, List.of());
         SecurityContextHolder.getContext().setAuthentication(auth);
         lenient().when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
@@ -139,6 +146,20 @@ class DocumentWorkflowServiceTest {
     @AfterEach
     void tearDown() {
         SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    void simulatedDocumentCannotBeSignedOrPublished() {
+        document.setTestDocument(true);
+        document.setStatus(DocumentStatus.APPROVED);
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        assertEquals(ErrorCode.FORBIDDEN, assertThrows(BusinessException.class,
+                () -> documentWorkflowService.signAndPublish(5001L, DocumentPublishRequest.builder().build())).getErrorCode());
+        assertNull(document.getOfficialNumber());
+        assertNull(document.getSigner());
+        assertEquals(DocumentStatus.APPROVED, document.getStatus());
+        verifyNoInteractions(pdfSigner, documentPdfStorageService, documentBookService, workflowEngine);
+        verify(documentRepository, never()).save(any());
     }
 
     @ParameterizedTest
@@ -1560,7 +1581,7 @@ class DocumentWorkflowServiceTest {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Document> documentPage = new PageImpl<>(List.of(doc1), pageable, 1);
 
-        when(documentRepository.findByStatusInAndDeleteFlgFalse(eq(DocumentWorkflowServiceImpl.PENDING_STATUSES), eq(pageable)))
+        when(documentRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), eq(pageable)))
                 .thenReturn(documentPage);
 
         Page<PendingDocumentResponse> result = documentWorkflowService.getPendingDocuments(pageable);
@@ -1571,7 +1592,7 @@ class DocumentWorkflowServiceTest {
         assertEquals("Tờ trình mua sắm máy tính", result.getContent().get(0).getTitle());
         assertEquals(DocumentStatus.PENDING_APPROVAL.name(), result.getContent().get(0).getStatus());
         assertEquals("Lãnh đạo phê duyệt", result.getContent().get(0).getCurrentHolder());
-        verify(documentRepository).findByStatusInAndDeleteFlgFalse(eq(DocumentWorkflowServiceImpl.PENDING_STATUSES), eq(pageable));
+        verify(documentRepository).findAll(any(org.springframework.data.jpa.domain.Specification.class), eq(pageable));
     }
 
     @Test
@@ -1587,7 +1608,7 @@ class DocumentWorkflowServiceTest {
                 .status(DocumentStatus.IN_REVIEW)
                 .build();
         docInReview.setId(103L);
-        when(documentRepository.findByStatusInAndDeleteFlgFalse(eq(DocumentWorkflowServiceImpl.PENDING_STATUSES)))
+        when(documentRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class)))
                 .thenReturn(List.of(docPendingApproval, docInReview));
         List<PendingDocumentResponse> list = documentWorkflowService.getPendingDocuments();
         assertNotNull(list);

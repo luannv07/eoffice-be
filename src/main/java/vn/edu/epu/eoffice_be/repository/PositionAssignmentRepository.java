@@ -14,6 +14,45 @@ import java.util.List;
 
 public interface PositionAssignmentRepository extends JpaRepository<PositionAssignment, Long> {
 
+    @Query("""
+            SELECT pa FROM PositionAssignment pa
+            JOIN FETCH pa.userLogin u JOIN FETCH pa.orgNode o
+            WHERE pa.deleteFlg = false AND pa.actualDismissalDate IS NULL
+              AND pa.effectiveFrom <= :at AND (pa.effectiveTo IS NULL OR pa.effectiveTo >= :at)
+              AND pa.positionCd IN :codes AND o.deleteFlg = false
+              AND u.deleteFlg = false AND u.userStatusCd = 'ACTIVE'
+            """)
+    List<PositionAssignment> findSubmissionCandidatesAcrossUnitsInternal(@Param("codes") Collection<String> codes,
+            @Param("at") Instant at);
+
+    @Query("""
+            SELECT pa FROM PositionAssignment pa
+            JOIN FETCH pa.userLogin u JOIN FETCH pa.orgNode o
+            WHERE pa.deleteFlg = false AND pa.actualDismissalDate IS NULL
+              AND pa.effectiveFrom <= :at AND (pa.effectiveTo IS NULL OR pa.effectiveTo >= :at)
+              AND pa.positionCd IN :codes AND o.deleteFlg = false
+              AND u.deleteFlg = false AND u.userStatusCd = 'ACTIVE' AND o.id = :unit
+            """)
+    List<PositionAssignment> findSubmissionCandidatesInUnitInternal(@Param("codes") Collection<String> codes,
+            @Param("unit") Long unit, @Param("at") Instant at);
+
+    /** An absent position filter has no eligible recipients; never query all positions. */
+    default List<PositionAssignment> findSubmissionCandidatesAcrossUnits(Collection<String> codes, Instant at) {
+        if (codes == null || codes.isEmpty()) return Collections.emptyList();
+        return findSubmissionCandidatesAcrossUnitsInternal(codes, at);
+    }
+
+    default List<PositionAssignment> findSubmissionCandidatesInUnit(Collection<String> codes, Long unit, Instant at) {
+        if (codes == null || codes.isEmpty()) return Collections.emptyList();
+        return findSubmissionCandidatesInUnitInternal(codes, unit, at);
+    }
+
+    default List<PositionAssignment> findSubmissionCandidates(Collection<String> codes, Long unit, Instant at) {
+        if (codes == null || codes.isEmpty()) return Collections.emptyList();
+        return unit == null ? findSubmissionCandidatesAcrossUnits(codes, at)
+                : findSubmissionCandidatesInUnit(codes, unit, at);
+    }
+
 	List<PositionAssignment> findByUserLoginIdAndDeleteFlgFalse(Long userLoginId);
 
 	List<PositionAssignment> findByOrgNodeIdAndDeleteFlgFalse(Long orgNodeId);

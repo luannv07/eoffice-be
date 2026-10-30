@@ -17,6 +17,9 @@ import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentWorkflowLogRepository;
 
 import vn.edu.epu.eoffice_be.service.PermissionResolver;
+import vn.edu.epu.eoffice_be.service.SubmissionRoutingService;
+import vn.edu.epu.eoffice_be.common.enums.SubmissionRoute;
+import java.time.Instant;
 
 import java.util.EnumMap;
 import java.util.Map;
@@ -30,6 +33,7 @@ public class WorkflowEngine {
     private final DocumentRepository documentRepository;
     private final DocumentWorkflowLogRepository documentWorkflowLogRepository;
     private final PermissionResolver permissionResolver;
+    private final SubmissionRoutingService submissionRoutingService;
 
     private static final Map<DocumentStatus, Map<WorkflowAction, DocumentStatus>> TRANSITION_MATRIX =
             new EnumMap<>(DocumentStatus.class);
@@ -38,6 +42,8 @@ public class WorkflowEngine {
          // 1. DRAFT (Dự thảo): Gửi duyệt sẽ chuyển sang IN_REVIEW
         Map<WorkflowAction, DocumentStatus> draftTransitions = new EnumMap<>(WorkflowAction.class);
         draftTransitions.put(WorkflowAction.SUBMIT, DocumentStatus.IN_REVIEW);
+        draftTransitions.put(WorkflowAction.SUBMIT_TO_LEADER, DocumentStatus.PENDING_APPROVAL);
+        draftTransitions.put(WorkflowAction.SUBMIT_TO_CLERK_QUEUE, DocumentStatus.APPROVED);
         TRANSITION_MATRIX.put(DocumentStatus.DRAFT, draftTransitions);
         // 2. IN_REVIEW (Đang thẩm định & ký nháy)
         Map<WorkflowAction, DocumentStatus> inReviewTransitions = new EnumMap<>(WorkflowAction.class);
@@ -115,6 +121,12 @@ public class WorkflowEngine {
             throw new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND);
         }
 
+        if (vn.edu.epu.eoffice_be.service.DocumentAdminPolicy.isAdmin(actor)
+                && action != WorkflowAction.SUBMIT && action != WorkflowAction.SUBMIT_TO_LEADER
+                && action != WorkflowAction.WITHDRAW) {
+            vn.edu.epu.eoffice_be.service.DocumentAdminPolicy.assertBusinessActor(actor);
+        }
+
         if (!hasActionPermission(document, actor, action)) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
         }
@@ -123,6 +135,14 @@ public class WorkflowEngine {
     private boolean hasActionPermission(Document document, UserLogin actor, WorkflowAction action) {
         boolean isDrafter = document.getDrafter() != null && Objects.equals(document.getDrafter().getId(), actor.getId());
         boolean isAssignedSigner = document.getSigner() != null && Objects.equals(document.getSigner().getId(), actor.getId());
+
+        if (action == WorkflowAction.SUBMIT_TO_LEADER || action == WorkflowAction.SUBMIT_TO_CLERK_QUEUE) {
+            if (!isDrafter || actor.getId() == null) return false;
+            SubmissionRoute route = action == WorkflowAction.SUBMIT_TO_LEADER
+                    ? SubmissionRoute.LEADER_APPROVAL : SubmissionRoute.CLERK_QUEUE;
+            return submissionRoutingService.options(document, actor, Instant.now()).routes().stream()
+                    .anyMatch(option -> option.route() == route);
+        }
 
         // 1. Nhóm hành động soạn thảo chỉ căn cứ vào người tạo bản thảo
         if (action == WorkflowAction.SUBMIT || action == WorkflowAction.WITHDRAW) {
@@ -169,6 +189,11 @@ public class WorkflowEngine {
     ) {
         validateTransition(document, action, comment);
         validateActorPermission(document, actor, action);
+
+        if (action == WorkflowAction.SUBMIT_TO_CLERK_QUEUE && (signatureHash == null || signatureHash.isBlank())) {
+            throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR,
+                    "Hiệu trưởng phải ký xác nhận thành công trước khi chuyển hàng chờ văn thư");
+        }
 
         DocumentStatus fromStatus = document.getStatus();
         DocumentStatus toStatus = getNextStatus(fromStatus, action);

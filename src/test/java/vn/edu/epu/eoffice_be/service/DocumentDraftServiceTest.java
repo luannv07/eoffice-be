@@ -3,6 +3,10 @@ package vn.edu.epu.eoffice_be.service;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -37,14 +41,19 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Arrays;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -67,8 +76,153 @@ class DocumentDraftServiceTest {
     @Mock
     private DictionaryItemRepository dictionaryItemRepository;
 
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentReadPolicy draftReadPolicy;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DraftUnitResolver draftUnitResolver;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentFileReadGuard documentFiles;
+
     @InjectMocks
     private DocumentDraftService documentDraftService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void phaseAPolicyFixture() {
+        var actualPolicy = new DocumentReadPolicy(userLoginRepository,
+                org.mockito.Mockito.mock(vn.edu.epu.eoffice_be.repository.DocumentApprovalRequestRepository.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(documentDraftService, "readPolicy", actualPolicy);
+        org.mockito.Mockito.lenient().when(draftUnitResolver.resolve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(inv -> orgNodeRepository.findByIdAndDeleteFlgFalse(inv.getArgument(1))
+                        .orElseThrow(() -> new BusinessException(ErrorCode.BAD_REQUEST)));
+        org.mockito.Mockito.lenient().when(userLoginRepository.findByIdAndDeleteFlgFalse(org.mockito.ArgumentMatchers.anyLong()))
+                .thenAnswer(inv -> java.util.Optional.of(UserLogin.builder().id(inv.getArgument(0)).role(Role.USER).build()));
+    }
+
+    private Document prepareUpdate(UserLogin actor, UserLogin drafter, DocumentStatus status) {
+        Document document = Document.builder().id(1L).drafter(drafter).status(status)
+                .title("Old title").summary("Old summary").content("Old content").currentVersion(3)
+                .issuingOrgNode(OrgNode.builder().id(10L).build()).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(actor));
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
+        return document;
+    }
+
+    private DocumentUpdateRequest updateRequest() {
+        return DocumentUpdateRequest.builder().title("New title").summary("New summary").content("New content")
+                .documentTypeCd("CONG_VAN").issuingOrgNodeId(20L).saveNewVersion(true).build();
+    }
+
+    private void assertDraftUnchanged(Document document, DocumentStatus status) {
+        assertEquals("Old title", document.getTitle());
+        assertEquals("Old summary", document.getSummary());
+        assertEquals("Old content", document.getContent());
+        assertEquals(3, document.getCurrentVersion());
+        assertEquals(status, document.getStatus());
+        assertEquals(10L, document.getIssuingOrgNode().getId());
+        verify(documentRepository, never()).save(any());
+        verifyNoInteractions(documentVersionRepository, documentProcessLogRepository,
+                documentAttachmentRepository, dictionaryItemRepository, userInfoRepository);
+    }
+
+    static Stream<Arguments> nonAdminMissingUpdateDrafters() {
+        return Arrays.stream(Role.values()).filter(role -> role != Role.ADMIN && role != Role.SYSTEM_ADMIN)
+                .flatMap(role -> Stream.of(Arguments.of(role, true), Arguments.of(role, false)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("nonAdminMissingUpdateDrafters")
+    void updateDraft_MissingDrafterOrId_RejectsNonAdminsWithoutSideEffects(Role role, boolean missingDrafter) {
+        UserLogin actor = UserLogin.builder().id(100L).role(role).build();
+        Document document = prepareUpdate(actor, missingDrafter ? null : UserLogin.builder().build(), DocumentStatus.DRAFT);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> documentDraftService.updateDraft(1L, updateRequest(), 100L));
+
+        assertEquals(ErrorCode.FORBIDDEN, error.getErrorCode());
+        assertDraftUnchanged(document, DocumentStatus.DRAFT);
+        verifyNoInteractions(orgNodeRepository);
+    }
+
+    static Stream<Arguments> drafterRolesAndEditableStatuses() {
+        return Arrays.stream(Role.values()).flatMap(role -> Stream.of(DocumentStatus.DRAFT,
+                DocumentStatus.REJECTED, DocumentStatus.NEEDS_REVISION).map(status -> Arguments.of(role, status)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("drafterRolesAndEditableStatuses")
+    void updateDraft_DrafterStillAllowedForEveryRoleAndEditableStatus(Role role, DocumentStatus status) {
+        UserLogin actor = UserLogin.builder().id(100L).username("author").role(role).build();
+        assertUpdateSucceeds(actor, actor, status);
+    }
+
+    static Stream<Arguments> adminUpdateDrafters() {
+        return Stream.of(Role.ADMIN, Role.SYSTEM_ADMIN).flatMap(role -> Stream.of(
+                Arguments.of(role, "OTHER_USER"), Arguments.of(role, "NULL_DRAFTER"), Arguments.of(role, "NULL_ID")));
+    }
+
+    @ParameterizedTest
+    @MethodSource("adminUpdateDrafters")
+    void updateDraft_AdminCannotModifyAnotherOrUnownedDraft(Role role, String kind) {
+        UserLogin actor = UserLogin.builder().id(100L).username("admin").role(role).build();
+        UserLogin drafter = switch (kind) {
+            case "OTHER_USER" -> UserLogin.builder().id(200L).username("author").build();
+            case "NULL_DRAFTER" -> null;
+            default -> UserLogin.builder().username("legacy-author").build();
+        };
+        Document document = prepareUpdate(actor, drafter, DocumentStatus.DRAFT);
+        assertEquals(ErrorCode.FORBIDDEN, assertThrows(BusinessException.class,
+                () -> documentDraftService.updateDraft(1L, updateRequest(), 100L)).getErrorCode());
+        assertDraftUnchanged(document, DocumentStatus.DRAFT);
+    }
+
+    private void assertUpdateSucceeds(UserLogin actor, UserLogin drafter, DocumentStatus status) {
+        Document document = prepareUpdate(actor, drafter, status);
+        OrgNode org = OrgNode.builder().id(20L).nameVn("New unit").build();
+        when(orgNodeRepository.findByIdAndDeleteFlgFalse(20L)).thenReturn(Optional.of(org));
+        when(documentRepository.save(document)).thenReturn(document);
+
+        DocumentResponse response = documentDraftService.updateDraft(1L, updateRequest(), 100L);
+
+        assertEquals("New title", response.getTitle());
+        assertEquals("New summary", document.getSummary());
+        assertEquals("New content", document.getContent());
+        assertEquals(4, response.getCurrentVersion());
+        assertEquals(status, response.getStatus());
+        assertSame(drafter, document.getDrafter());
+        assertSame(org, document.getIssuingOrgNode());
+        verify(documentRepository).save(document);
+        verify(documentVersionRepository).save(any(DocumentVersion.class));
+        verify(documentProcessLogRepository).save(any(DocumentProcessLog.class));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = Role.class, names = {"ADMIN", "SYSTEM_ADMIN"})
+    void updateDraft_AdminAsDrafterStillBlockedByDocumentStatus(Role role) {
+        UserLogin actor = UserLogin.builder().id(100L).role(role).build();
+        Document document = prepareUpdate(actor, actor, DocumentStatus.IN_REVIEW);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> documentDraftService.updateDraft(1L, updateRequest(), 100L));
+
+        assertEquals(ErrorCode.DOCUMENT_INVALID_STATUS, error.getErrorCode());
+        assertDraftUnchanged(document, DocumentStatus.IN_REVIEW);
+        verifyNoInteractions(orgNodeRepository);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = Role.class, names = {"ADMIN", "SYSTEM_ADMIN"})
+    void updateDraft_AdminAsDrafterStillRequiresValidIssuingOrg(Role role) {
+        UserLogin actor = UserLogin.builder().id(100L).role(role).build();
+        Document document = prepareUpdate(actor, actor, DocumentStatus.DRAFT);
+        when(orgNodeRepository.findByIdAndDeleteFlgFalse(20L)).thenReturn(Optional.empty());
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> documentDraftService.updateDraft(1L, updateRequest(), 100L));
+
+        assertEquals(ErrorCode.BAD_REQUEST, error.getErrorCode());
+        assertDraftUnchanged(document, DocumentStatus.DRAFT);
+        verify(orgNodeRepository).findByIdAndDeleteFlgFalse(20L);
+    }
 
     @Test
     @DisplayName("Tạo dự thảo thành công (UC08): sinh mã, gán DRAFT, tạo version 1")
@@ -76,10 +230,10 @@ class DocumentDraftServiceTest {
         Long userId = 100L;
         Long orgNodeId = 10L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
         OrgNode orgNode = OrgNode.builder().id(orgNodeId).nameVn("Khoa CNTT").build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(orgNodeRepository.findByIdAndDeleteFlgFalse(orgNodeId)).thenReturn(Optional.of(orgNode));
         when(documentRepository.existsByDraftCodeAndDeleteFlgFalse(any())).thenReturn(false);
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> {
@@ -116,8 +270,8 @@ class DocumentDraftServiceTest {
         Long userId = 100L;
         Long orgNodeId = 999L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("author").build();
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        UserLogin drafter = UserLogin.builder().id(userId).username("author").build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(orgNodeRepository.findByIdAndDeleteFlgFalse(orgNodeId)).thenReturn(Optional.empty());
 
         DocumentCreateRequest request = DocumentCreateRequest.builder()
@@ -139,7 +293,7 @@ class DocumentDraftServiceTest {
         Long docId = 1L;
         Long orgId = 10L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
         OrgNode orgNode = OrgNode.builder().id(orgId).nameVn("Phòng Đào tạo").build();
 
         Document doc = Document.builder()
@@ -148,13 +302,13 @@ class DocumentDraftServiceTest {
                 .title("Tiêu đề cũ")
                 .summary("Trích yếu cũ")
                 .content("Nội dung cũ")
-                .creatorUser(creator)
+                .drafter(drafter)
                 .issuingOrgNode(orgNode)
                 .status(DocumentStatus.DRAFT)
                 .currentVersion(1)
                 .build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(orgNodeRepository.findByIdAndDeleteFlgFalse(orgId)).thenReturn(Optional.of(orgNode));
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -184,7 +338,7 @@ class DocumentDraftServiceTest {
         Long docId = 1L;
         Long orgId = 10L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
         OrgNode orgNode = OrgNode.builder().id(orgId).nameVn("Phòng Đào tạo").build();
 
         Document doc = Document.builder()
@@ -194,13 +348,13 @@ class DocumentDraftServiceTest {
                 .content("Nội dung")
                 .securityLevel(DocumentSecurityLevel.SECRET)
                 .urgencyLevel(DocumentUrgencyLevel.TOP_URGENT)
-                .creatorUser(creator)
+                .drafter(drafter)
                 .issuingOrgNode(orgNode)
                 .status(DocumentStatus.DRAFT)
                 .currentVersion(1)
                 .build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(orgNodeRepository.findByIdAndDeleteFlgFalse(orgId)).thenReturn(Optional.of(orgNode));
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -224,17 +378,17 @@ class DocumentDraftServiceTest {
 
     @Test
     @DisplayName("Chỉnh sửa dự thảo bị từ chối khi không phải người tạo (FORBIDDEN)")
-    void updateDraft_Forbidden_WhenNotCreator() {
-        Long creatorId = 100L;
+    void updateDraft_Forbidden_WhenNotDrafter() {
+        Long drafterId = 100L;
         Long otherUserId = 200L;
         Long docId = 1L;
 
-        UserLogin creator = UserLogin.builder().id(creatorId).username("author").build();
+        UserLogin drafter = UserLogin.builder().id(drafterId).username("author").build();
         UserLogin otherUser = UserLogin.builder().id(otherUserId).username("other").role(Role.USER).build();
 
         Document doc = Document.builder()
                 .id(docId)
-                .creatorUser(creator)
+                .drafter(drafter)
                 .status(DocumentStatus.DRAFT)
                 .build();
 
@@ -259,14 +413,14 @@ class DocumentDraftServiceTest {
         Long userId = 100L;
         Long docId = 1L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
         Document doc = Document.builder()
                 .id(docId)
-                .creatorUser(creator)
+                .drafter(drafter)
                 .status(DocumentStatus.IN_REVIEW)
                 .build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
 
         DocumentUpdateRequest request = DocumentUpdateRequest.builder()
@@ -287,13 +441,13 @@ class DocumentDraftServiceTest {
         Long docId = 1L;
         Long userId = 100L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("author").build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("author").build();
         Document doc = Document.builder()
                 .id(docId)
                 .draftCode("DT-2026-00001")
                 .title("Quyết định mẫu")
                 .summary("Trích yếu mẫu")
-                .creatorUser(creator)
+                .drafter(drafter)
                 .status(DocumentStatus.DRAFT)
                 .currentVersion(1)
                 .build();
@@ -309,8 +463,8 @@ class DocumentDraftServiceTest {
     }
 
     @Test
-    @DisplayName("Lấy chi tiết dự thảo thành công khi creatorUser null (fallback sang drafter)")
-    void getDraftDetail_WhenCreatorUserIsNull_FallbackToDrafter_Success() {
+    @DisplayName("Lấy chi tiết dự thảo từ người soạn duy nhất drafter")
+    void getDraftDetail_UsesDrafter_Success() {
         Long docId = 2L;
         Long userId = 2001L;
 
@@ -321,7 +475,6 @@ class DocumentDraftServiceTest {
                 .title("Quyết định ban hành")
                 .summary("Trích yếu")
                 .drafter(drafter)
-                .creatorUser(null)
                 .status(DocumentStatus.IN_REVIEW	)
                 .currentVersion(1)
                 .build();
@@ -334,8 +487,8 @@ class DocumentDraftServiceTest {
 
         assertNotNull(detail);
         assertEquals("DT-2026-00002", detail.getDocument().getDraftCode());
-        assertEquals(userId, detail.getDocument().getCreatorUserId());
-        assertEquals("drafterUser", detail.getDocument().getCreatorUsername());
+        assertEquals(userId, detail.getDocument().getDrafterId());
+        assertEquals("drafterUser", detail.getDocument().getDrafterUsername());
     }
 
     @Test
@@ -345,19 +498,19 @@ class DocumentDraftServiceTest {
         Long docId = 1L;
         Long orgNodeId = 10L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
         OrgNode orgNode = OrgNode.builder().id(orgNodeId).nameVn("Khoa CNTT").build();
         Document doc = Document.builder()
                 .id(docId)
                 .title("Tiêu đề cũ")
                 .summary("Trích yếu cũ")
                 .content("Nội dung cũ")
-                .creatorUser(creator)
+                .drafter(drafter)
                 .status(DocumentStatus.DRAFT)
                 .currentVersion(1)
                 .build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(orgNodeRepository.findByIdAndDeleteFlgFalse(orgNodeId)).thenReturn(Optional.of(orgNode));
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -379,18 +532,18 @@ class DocumentDraftServiceTest {
     }
 
     @Test
-    @DisplayName("Admin có thể cập nhật dự thảo của người khác")
-    void updateDraft_Admin_Success() {
+    @DisplayName("Admin chỉ cập nhật dự thảo do chính mình soạn")
+    void updateDraft_AdminAsDrafter_Success() {
         Long adminId = 999L;
         Long docId = 1L;
         Long orgNodeId = 10L;
 
         UserLogin admin = UserLogin.builder().id(adminId).username("admin").role(Role.ADMIN).build();
-        UserLogin creator = UserLogin.builder().id(100L).username("author").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(100L).username("author").role(Role.USER).build();
         OrgNode orgNode = OrgNode.builder().id(orgNodeId).nameVn("Khoa CNTT").build();
         Document doc = Document.builder()
                 .id(docId)
-                .creatorUser(creator)
+                .drafter(drafter)
                 .status(DocumentStatus.DRAFT)
                 .currentVersion(1)
                 .build();
@@ -408,6 +561,7 @@ class DocumentDraftServiceTest {
                 .saveNewVersion(false)
                 .build();
 
+        doc.setDrafter(admin);
         DocumentResponse response = documentDraftService.updateDraft(docId, request, adminId);
         assertNotNull(response);
         assertEquals("Admin sửa", response.getTitle());
@@ -428,15 +582,14 @@ class DocumentDraftServiceTest {
                 .id(1L)
                 .draftCode("DT-2026-00001")
                 .title("Tài liệu test%_\\")
-                .creatorUser(UserLogin.builder().id(userId).username("author").build())
+                .drafter(UserLogin.builder().id(userId).username("author").build())
                 .status(DocumentStatus.DRAFT)
                 .build();
 
         org.springframework.data.domain.Page<Document> mockPage =
                 new org.springframework.data.domain.PageImpl<>(java.util.List.of(doc));
 
-        when(documentRepository.searchDocuments(
-                org.mockito.ArgumentMatchers.eq(userId),
+        when(documentRepository.searchReadableDrafts(org.mockito.ArgumentMatchers.eq(userId), eq(false), eq(false), eq(DocumentReadPolicy.STATUSES),
                 org.mockito.ArgumentMatchers.eq(DocumentStatus.DRAFT),
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.eq("test\\%\\_\\\\"),
@@ -461,8 +614,7 @@ class DocumentDraftServiceTest {
         org.springframework.data.domain.Page<Document> mockPage =
                 new org.springframework.data.domain.PageImpl<>(java.util.List.of());
 
-        when(documentRepository.searchDocuments(
-                org.mockito.ArgumentMatchers.eq(userId),
+        when(documentRepository.searchReadableDrafts(org.mockito.ArgumentMatchers.eq(userId), eq(false), eq(false), eq(DocumentReadPolicy.STATUSES),
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.isNull(),
@@ -486,8 +638,7 @@ class DocumentDraftServiceTest {
         org.mockito.ArgumentCaptor<org.springframework.data.domain.Pageable> pageableCaptor =
                 org.mockito.ArgumentCaptor.forClass(org.springframework.data.domain.Pageable.class);
 
-        when(documentRepository.searchDocuments(
-                org.mockito.ArgumentMatchers.eq(userId),
+        when(documentRepository.searchReadableDrafts(org.mockito.ArgumentMatchers.eq(userId), eq(false), eq(false), eq(DocumentReadPolicy.STATUSES),
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.isNull(),
@@ -506,8 +657,8 @@ class DocumentDraftServiceTest {
     }
 
     @Test
-    @DisplayName("Tìm kiếm dự thảo với vai trò CLERK thì không lọc theo creatorUserId")
-    void searchDrafts_WithClerkRole_ShouldNotFilterByCreatorUserId() {
+    @DisplayName("Tìm kiếm dự thảo với vai trò CLERK thì không lọc theo drafterId")
+    void searchDrafts_WithClerkRole_ShouldNotFilterByDrafterId() {
         Long userId = 1004L;
         UserLogin clerk = UserLogin.builder().id(userId).username("vanthu").role(Role.CLERK).build();
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(clerk));
@@ -528,8 +679,7 @@ class DocumentDraftServiceTest {
         org.springframework.data.domain.Page<Document> mockPage =
                 new org.springframework.data.domain.PageImpl<>(java.util.List.of(doc));
 
-        when(documentRepository.searchDocuments(
-                org.mockito.ArgumentMatchers.isNull(),
+        when(documentRepository.searchReadableDrafts(eq(userId), eq(true), eq(false), eq(DocumentReadPolicy.STATUSES),
                 org.mockito.ArgumentMatchers.eq(DocumentStatus.APPROVED),
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.isNull(),
@@ -539,8 +689,8 @@ class DocumentDraftServiceTest {
         var result = documentDraftService.searchDrafts(filter, userId);
         assertNotNull(result);
         assertEquals(1, result.getTotalElements());
-        verify(documentRepository).searchDocuments(
-                org.mockito.ArgumentMatchers.isNull(),
+        verify(documentRepository).searchReadableDrafts(
+                eq(userId), eq(true), eq(false), eq(DocumentReadPolicy.STATUSES),
                 org.mockito.ArgumentMatchers.eq(DocumentStatus.APPROVED),
                 org.mockito.ArgumentMatchers.isNull(),
                 org.mockito.ArgumentMatchers.isNull(),
@@ -549,17 +699,17 @@ class DocumentDraftServiceTest {
     }
 
     @Test
-    @DisplayName("Xóa dự thảo thành công bởi người tạo (Creator)")
-    void deleteDraft_Success_ByCreator() {
+    @DisplayName("Xóa dự thảo thành công bởi người soạn (Drafter)")
+    void deleteDraft_Success_ByDrafter() {
         Long userId = 100L;
         Long docId = 1L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
         Document doc = Document.builder()
                 .id(docId)
                 .draftCode("DT-2026-00001")
                 .title("Dự thảo kế hoạch")
-                .creatorUser(creator)
+                .drafter(drafter)
                 .status(DocumentStatus.DRAFT)
                 .deleteFlg(false)
                 .build();
@@ -578,7 +728,7 @@ class DocumentDraftServiceTest {
                 .deleteFlg(false)
                 .build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(docId)).thenReturn(List.of(attachment));
         when(documentVersionRepository.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(docId)).thenReturn(List.of(version));
@@ -597,18 +747,18 @@ class DocumentDraftServiceTest {
 
     @Test
     @DisplayName("Xóa dự thảo thành công bởi quản trị viên (Admin) có tệp đính kèm và phiên bản")
-    void deleteDraft_Success_ByAdmin() {
-        Long creatorId = 100L;
+    void deleteDraft_Success_ByAdmin_AsDrafter() {
+        Long drafterId = 100L;
         Long adminId = 999L;
         Long docId = 1L;
 
-        UserLogin creator = UserLogin.builder().id(creatorId).username("author").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(drafterId).username("author").role(Role.USER).build();
         UserLogin admin = UserLogin.builder().id(adminId).username("admin").role(Role.ADMIN).build();
         Document doc = Document.builder()
                 .id(docId)
                 .draftCode("DT-2026-00001")
                 .title("Dự thảo kế hoạch")
-                .creatorUser(creator)
+                .drafter(drafter)
                 .status(DocumentStatus.DRAFT)
                 .deleteFlg(false)
                 .build();
@@ -632,6 +782,7 @@ class DocumentDraftServiceTest {
         when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(docId)).thenReturn(List.of(attachment));
         when(documentVersionRepository.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(docId)).thenReturn(List.of(version));
 
+        doc.setDrafter(admin);
         documentDraftService.deleteDraft(docId, adminId);
 
         assertTrue(doc.isDeleteFlg());
@@ -646,18 +797,18 @@ class DocumentDraftServiceTest {
 
     @Test
     @DisplayName("Xóa dự thảo thành công bởi quản trị viên (Admin) khi không có tệp đính kèm và phiên bản")
-    void deleteDraft_Success_ByAdmin_WithoutAttachmentsAndVersions() {
-        Long creatorId = 100L;
+    void deleteDraft_Success_ByAdmin_WithoutAttachmentsAndVersions_AsDrafter() {
+        Long drafterId = 100L;
         Long adminId = 999L;
         Long docId = 1L;
 
-        UserLogin creator = UserLogin.builder().id(creatorId).username("author").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(drafterId).username("author").role(Role.USER).build();
         UserLogin admin = UserLogin.builder().id(adminId).username("admin").role(Role.ADMIN).build();
         Document doc = Document.builder()
                 .id(docId)
                 .draftCode("DT-2026-00001")
                 .title("Dự thảo kế hoạch")
-                .creatorUser(creator)
+                .drafter(drafter)
                 .status(DocumentStatus.DRAFT)
                 .deleteFlg(false)
                 .build();
@@ -667,6 +818,7 @@ class DocumentDraftServiceTest {
         when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(docId)).thenReturn(List.of());
         when(documentVersionRepository.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(docId)).thenReturn(List.of());
 
+        doc.setDrafter(admin);
         documentDraftService.deleteDraft(docId, adminId);
 
         assertTrue(doc.isDeleteFlg());
@@ -716,17 +868,17 @@ class DocumentDraftServiceTest {
 
     @Test
     @DisplayName("Xóa dự thảo thất bại khi người thực hiện không phải người tạo và không phải Admin")
-    void deleteDraft_ThrowsForbidden_WhenUserNotCreatorAndNotAdmin() {
-        Long creatorId = 100L;
+    void deleteDraft_ThrowsForbidden_WhenUserNotDrafterAndNotAdmin() {
+        Long drafterId = 100L;
         Long otherUserId = 200L;
         Long docId = 1L;
 
-        UserLogin creator = UserLogin.builder().id(creatorId).username("author").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(drafterId).username("author").role(Role.USER).build();
         UserLogin otherUser = UserLogin.builder().id(otherUserId).username("other").role(Role.USER).build();
         Document doc = Document.builder()
                 .id(docId)
                 .draftCode("DT-2026-00001")
-                .creatorUser(creator)
+                .drafter(drafter)
                 .status(DocumentStatus.DRAFT)
                 .build();
 
@@ -749,15 +901,15 @@ class DocumentDraftServiceTest {
         Long userId = 100L;
         Long docId = 1L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
         Document doc = Document.builder()
                 .id(docId)
                 .draftCode("DT-2026-00001")
-                .creatorUser(creator)
+                .drafter(drafter)
                 .status(DocumentStatus.IN_REVIEW)
                 .build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
 
         BusinessException ex = assertThrows(BusinessException.class,

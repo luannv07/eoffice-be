@@ -1,6 +1,7 @@
 package vn.edu.epu.eoffice_be.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import static org.mockito.ArgumentMatchers.argThat;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -60,6 +61,46 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith(MockitoExtension.class)
 class DocumentControllerTest {
 
+    @Test
+    void submissionOptionsUsesAuthenticatedUserAndSerializesRouteContract() throws Exception {
+        var options = new vn.edu.epu.eoffice_be.dto.response.SubmissionOptionsResponse(
+                vn.edu.epu.eoffice_be.dto.response.SubmissionOptionsResponse.SelectionMode.QUEUE,
+                java.util.List.of(new vn.edu.epu.eoffice_be.dto.response.SubmissionOptionsResponse.RouteOption(
+                        vn.edu.epu.eoffice_be.common.enums.SubmissionRoute.CLERK_QUEUE,
+                        DocumentStatus.APPROVED, java.util.List.of())));
+        when(documentApprovalService.getSubmissionOptions(1L, 100L)).thenReturn(options);
+        mockMvc.perform(get("/documents/1/submission-options").principal(auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.selectionMode").value("QUEUE"))
+                .andExpect(jsonPath("$.data.routes[0].route").value("CLERK_QUEUE"))
+                .andExpect(jsonPath("$.data.routes[0].nextStatus").value("APPROVED"))
+                .andExpect(jsonPath("$.data.routes[0].approvers").isEmpty());
+        verify(documentApprovalService).getSubmissionOptions(1L, 100L);
+    }
+
+    @Test
+    void submitQueueAllowsMissingIndividualApproverAndPassesPrincipalToService() throws Exception {
+        when(documentApprovalService.submitForApproval(eq(1L), any(), eq(100L)))
+                .thenReturn(DocumentResponse.builder().id(1L).status(DocumentStatus.APPROVED).build());
+        mockMvc.perform(post("/documents/1/submit-approval").principal(auth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"route\":\"CLERK_QUEUE\",\"submitNote\":\"Xác nhận nội dung\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("APPROVED"));
+        verify(documentApprovalService).submitForApproval(eq(1L), argThat(request ->
+                request.getApproverUserId() == null && request.getRoute()
+                        == vn.edu.epu.eoffice_be.common.enums.SubmissionRoute.CLERK_QUEUE), eq(100L));
+    }
+
+    @Test
+    void submissionOptionsPropagatesOwnershipFailure() throws Exception {
+        when(documentApprovalService.getSubmissionOptions(1L, 100L))
+                .thenThrow(new BusinessException(ErrorCode.FORBIDDEN));
+        mockMvc.perform(get("/documents/1/submission-options").principal(auth))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.errorCode").value("FORBIDDEN"));
+    }
+
     @Mock
     private DocumentDraftService documentDraftService;
     @Mock
@@ -68,6 +109,13 @@ class DocumentControllerTest {
     private DocumentVersionService documentVersionService;
     @Mock
     private DocumentApprovalService documentApprovalService;
+
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentReadPolicy draftReadPolicy;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DraftUnitResolver draftUnitResolver;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentFileReadGuard documentFiles;
 
     @InjectMocks
     private DocumentController documentController;
@@ -308,6 +356,18 @@ class DocumentControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(10))
                 .andExpect(jsonPath("$.data.originalFileName").value("test.pdf"));
+    }
+
+    @Test
+    void uploadAttachment_invalidFormatReturns400() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "test.docx", "application/octet-stream", new byte[]{1});
+        when(documentAttachmentService.uploadAttachment(eq(1L), any(), anyBoolean(), eq(100L)))
+                .thenThrow(new BusinessException(ErrorCode.FILE_INVALID_FORMAT, "Chỉ chấp nhận tệp PDF"));
+
+        mockMvc.perform(multipart("/documents/1/attachments").file(file).param("isMain", "true").principal(auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.FILE_INVALID_FORMAT.getCode()))
+                .andExpect(jsonPath("$.message").value("Chỉ chấp nhận tệp PDF"));
     }
 
     @Test

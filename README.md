@@ -42,7 +42,7 @@ Hệ thống chuẩn hóa luồng xử lý văn bản khép kín qua các trạn
 ## 2. HẠ TẦNG KÝ SỐ PKI & KIỂM ĐỊNH CHỮ KÝ (VERIFY ENGINE)
 
 ### 2.1. Ký số điện tử PKI X.509 PAdES (Digital Signature)
-* **Root CA nội bộ**: Quản lý chứng thư số Root CA bằng API dành cho `SYSTEM_ADMIN`, tạo khóa RSA 3072-bit và chứng thư CA hiệu lực 3650 ngày; từ chối tạo đè CA đang có, kể cả đã hết hạn. Script `scripts/init-ca.ps1` / `scripts/init-ca.sh` vẫn dành cho hỗ trợ local.
+* **Root CA nội bộ**: Quản lý chứng thư số Root CA bằng API dành cho `SYSTEM_ADMIN`, lưu keystore mã hóa trong database, tạo khóa RSA 3072-bit và chứng thư CA hiệu lực 3650 ngày; từ chối tạo đè CA đang có, kể cả đã hết hạn.
 * **Cấp phát chứng thư người dùng tự động**: Khi người dùng ký lần đầu, hệ thống tự động sinh cặp khóa RSA 2048-bit và cấp chứng thư X.509 (`uploads/keystores/users/user_<id>.p12`). Hiệu lực tối đa 3 năm, không vượt quá hạn CA. Đăng ký và hoàn tất profile chưa cấp key. Lần ký sau dùng lại key; key thiếu sau khi đã sử dụng hoặc key hỏng/hết hạn yêu cầu khôi phục, không tự tạo thay thế.
 * **Lưu tăng dần (Incremental Save)**: Đảm bảo văn bản qua nhiều lần ký nháy (Chuyên viên $\rightarrow$ Thẩm định viên $\rightarrow$ Hiệu trưởng) không bị hỏng chữ ký của người ký trước.
 * **Niêm phong DocMDP ($P=1$)**: Khi ban hành, tài liệu được khóa niêm phong chống mọi hành vi chỉnh sửa sau ký.
@@ -137,31 +137,21 @@ JWT_ALLOWED_ORIGINS=
 ```
 
 ### Bước 4: Cấu hình PKI cho môi trường đang chạy
-Thư mục `uploads/keystores/` chứa khóa mật mã và bị loại khỏi Git. Cấu hình các biến sau trong môi trường của backend; đặt mật khẩu riêng trước lần khởi tạo đầu tiên:
+CA được khởi tạo bằng API và keystore được lưu mã hóa trong database. Cấu hình các biến sau trong môi trường của backend; đặt mật khẩu riêng và khóa mã hóa trước lần khởi tạo đầu tiên. Các đường dẫn được giữ để kiểm tra dấu vết PKI cũ; không xóa dữ liệu đang có để ép khởi tạo CA mới:
 ```properties
 PKI_CA_KEYSTORE_PATH=./uploads/keystores/ca/ca.p12
 PKI_CA_CERT_PATH=./uploads/keystores/ca/ca.crt
 PKI_USER_KEYSTORES_DIR=./uploads/keystores/users
 PKI_REVOKED_PATH=./uploads/keystores/ca/revoked.json
 DEMO_KS_PASSWORD=<mat_khau_keystore_rieng>
+PKI_ENCRYPTION_KEY=<base64_cua_32_byte_ngau_nhien>
+PKI_ENCRYPTION_KEY_ID=pki-key-01
 ```
-Sau khi chạy backend ở bước 6, đăng nhập tài khoản `SYSTEM_ADMIN`, gọi `GET /api/v1/admin/pki/ca/status`, sau đó gọi `POST /api/v1/admin/pki/ca/initialize` không body nếu `canInitialize=true`. Nếu môi trường đã từng ký thì khôi phục đúng bộ file cũ theo mục 2.4.
-
-Local vẫn có thể khởi tạo bằng script hỗ trợ, trước khi backend ký lần đầu:
-```powershell
-# Trên Windows (PowerShell):
-.\scripts\init-ca.ps1
-
-# Trên Linux / macOS / Docker:
-chmod +x ./scripts/init-ca.sh
-./scripts/init-ca.sh
-```
-> [!NOTE]
-> - Script có chốt chặn chống ghi đè CA/chứng thư đã có; không dùng script để thay thế CA cũ hoặc hết hạn.
-> - Script hỗ trợ hiện dùng mật khẩu local `changeit` và các đường dẫn mặc định; nếu dùng bộ key do script tạo thì cấu hình backend phải khớp. Để dùng đường dẫn/mật khẩu môi trường riêng, khởi tạo bằng API. Không đổi mật khẩu khi dùng lại bộ keystore đã tồn tại.
+Giữ bí mật và sao lưu khóa mã hóa ngoài Git. Sau khi chạy backend ở bước 6, đăng nhập tài khoản `SYSTEM_ADMIN`, gọi `GET /api/v1/admin/pki/ca/status`, sau đó gọi `POST /api/v1/admin/pki/ca/initialize` không body nếu `canInitialize=true`. Khi trạng thái là `READY`, dùng CA hiện có; nếu là `EXPIRED` hoặc `RECOVERY_REQUIRED`, xử lý khôi phục trước khi ký, không tạo thay CA.
 
 ### Bước 5: Chạy kiểm thử tự động (Auto Liquibase Migration)
 Chạy lệnh sau để Maven tự động tải thư viện, kích hoạt Liquibase tạo bảng và chạy toàn bộ test case:
+Các test PKI tự chuẩn bị CA/khóa riêng qua fixture; không cần khởi tạo CA của ứng dụng trước khi chạy test local hoặc CI.
 ```powershell
 # Chạy toàn bộ test
 .\mvnw.cmd test -Dspring.profiles.active=test

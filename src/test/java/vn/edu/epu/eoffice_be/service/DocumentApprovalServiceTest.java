@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -37,6 +39,8 @@ import vn.edu.epu.eoffice_be.service.FileStorageService;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Arrays;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -46,11 +50,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class DocumentApprovalServiceTest {
+    @Mock SubmissionRoutingService submissionRoutingService;
+    @Mock vn.edu.epu.eoffice_be.workflow.WorkflowEngine submissionWorkflowEngine;
+
 
     @Mock
     private DocumentRepository documentRepository;
@@ -82,8 +90,155 @@ class DocumentApprovalServiceTest {
     @Mock
     vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService documentPdfStorageService;
 
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentReadPolicy draftReadPolicy;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DraftUnitResolver draftUnitResolver;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentFileReadGuard documentFiles;
+
     @InjectMocks
     private DocumentApprovalService documentApprovalService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void acceptedRoutingForSignerAndLegacyServiceTests() {
+        // Routing itself is exercised with real policy/engine in dedicated suites.
+        org.mockito.Mockito.lenient().when(submissionRoutingService.resolve(any(), any(), any(), any()))
+                .thenAnswer(inv -> new SubmissionRoutingService.Decision(
+                        vn.edu.epu.eoffice_be.common.enums.SubmissionRoute.REVIEW,
+                        ((SubmitApprovalRequest) inv.getArgument(2)).getApproverUserId()));
+        org.mockito.Mockito.lenient().when(submissionWorkflowEngine.executeTransition(any(), any(), any(), any(), any(), any(), any()))
+                .thenAnswer(inv -> {
+                    Document doc = inv.getArgument(0);
+                    doc.setStatus(DocumentStatus.IN_REVIEW);
+                    documentRepository.save(doc);
+                    return null;
+                });
+    }
+
+    static Stream<Arguments> missingRecallDraftersForNonAdmins() {
+        return Arrays.stream(Role.values()).filter(role -> role != Role.ADMIN && role != Role.SYSTEM_ADMIN)
+                .flatMap(role -> Stream.of(Arguments.of(role, true), Arguments.of(role, false)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("missingRecallDraftersForNonAdmins")
+    void recallApproval_MissingDrafterOrId_RejectsNonAdminsWithoutSideEffects(Role role, boolean missingDrafter) {
+        UserLogin actor = UserLogin.builder().id(100L).role(role).build();
+        Document document = Document.builder().id(1L).status(DocumentStatus.IN_REVIEW)
+                .drafter(missingDrafter ? null : UserLogin.builder().build()).currentVersion(4)
+                .primaryFilePath("storage://10").build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(actor));
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> documentApprovalService.recallApproval(1L, null, 100L));
+
+        assertEquals(ErrorCode.FORBIDDEN, error.getErrorCode());
+        assertEquals(DocumentStatus.IN_REVIEW, document.getStatus());
+        assertEquals(4, document.getCurrentVersion());
+        assertEquals("storage://10", document.getPrimaryFilePath());
+        verify(documentRepository, never()).save(any());
+        verifyNoInteractions(documentApprovalRequestRepository, documentProcessLogRepository,
+                documentDraftService, documentAttachmentRepository, eventPublisher, pdfSigner,
+                documentPdfStorageService, unifiedStorageService);
+    }
+
+    @ParameterizedTest
+    @EnumSource(Role.class)
+    void recallApproval_DrafterCanRecallForEveryRole(Role role) {
+        UserLogin actor = UserLogin.builder().id(100L).role(role).build();
+        assertRecallSucceeds(actor, actor);
+    }
+
+    static Stream<Arguments> adminRecallDrafters() {
+        return Stream.of(Role.ADMIN, Role.SYSTEM_ADMIN).flatMap(role -> Stream.of(
+                Arguments.of(role, "OTHER_USER"), Arguments.of(role, "NULL_DRAFTER"),
+                Arguments.of(role, "NULL_ID")));
+    }
+
+    @ParameterizedTest
+    @MethodSource("adminRecallDrafters")
+    void recallApproval_AdminCannotRecallForOtherOrMissingDrafter(Role role, String kind) {
+        UserLogin actor = UserLogin.builder().id(100L).role(role).build();
+        UserLogin drafter = switch (kind) {
+            case "OTHER_USER" -> UserLogin.builder().id(200L).build();
+            case "NULL_DRAFTER" -> null;
+            default -> UserLogin.builder().build();
+        };
+        Document document=Document.builder().id(1L).drafter(drafter).status(DocumentStatus.IN_REVIEW).currentVersion(2).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(actor));
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
+        assertEquals(ErrorCode.FORBIDDEN,assertThrows(BusinessException.class,
+                () -> documentApprovalService.recallApproval(1L,null,100L)).getErrorCode());
+        assertEquals(DocumentStatus.IN_REVIEW,document.getStatus());
+        assertEquals(2,document.getCurrentVersion());
+        verify(documentRepository,never()).save(any());
+        verifyNoInteractions(documentApprovalRequestRepository,documentProcessLogRepository,documentDraftService);
+    }
+
+    private void assertRecallSucceeds(UserLogin actor, UserLogin drafter) {
+        Document document = Document.builder().id(1L).drafter(drafter).status(DocumentStatus.IN_REVIEW).build();
+        DocumentApprovalRequest pending = DocumentApprovalRequest.builder().id(50L)
+                .document(document).status(ApprovalRequestStatus.PENDING).build();
+        DocumentResponse expected = DocumentResponse.builder().id(1L).status(DocumentStatus.DRAFT).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(actor));
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
+        when(documentApprovalRequestRepository.findTopByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(1L))
+                .thenReturn(Optional.of(pending));
+        when(documentRepository.save(document)).thenReturn(document);
+        when(documentDraftService.mapToDocumentResponse(document)).thenReturn(expected);
+
+        assertSame(expected, documentApprovalService.recallApproval(1L,
+                RecallApprovalRequest.builder().recallReason("Bổ sung số liệu").build(), 100L));
+
+        assertEquals(DocumentStatus.DRAFT, document.getStatus());
+        assertEquals(ApprovalRequestStatus.RECALLED, pending.getStatus());
+        assertNotNull(pending.getProcessedAt());
+        verify(documentApprovalRequestRepository).save(pending);
+        verify(documentRepository).save(document);
+        verify(documentProcessLogRepository).save(any(DocumentProcessLog.class));
+        verify(documentDraftService).mapToDocumentResponse(document);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = Role.class, names = {"ADMIN", "SYSTEM_ADMIN"})
+    void recallApproval_AdminAsDrafterStillMustHaveValidDocumentStatus(Role role) {
+        UserLogin actor = UserLogin.builder().id(100L).role(role).build();
+        Document document = Document.builder().id(1L).drafter(actor).status(DocumentStatus.DRAFT).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(actor));
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> documentApprovalService.recallApproval(1L, null, 100L));
+
+        assertEquals(ErrorCode.DOCUMENT_INVALID_STATUS, error.getErrorCode());
+        verify(documentRepository, never()).save(any());
+        verifyNoInteractions(documentApprovalRequestRepository, documentProcessLogRepository, documentDraftService);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = Role.class, names = {"ADMIN", "SYSTEM_ADMIN"})
+    void recallApproval_AdminAsDrafterCannotRecallProcessedRequest(Role role) {
+        UserLogin actor = UserLogin.builder().id(100L).role(role).build();
+        Document document = Document.builder().id(1L).drafter(actor).status(DocumentStatus.IN_REVIEW).build();
+        DocumentApprovalRequest processed = DocumentApprovalRequest.builder().id(50L)
+                .document(document).status(ApprovalRequestStatus.APPROVED).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(actor));
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
+        when(documentApprovalRequestRepository.findTopByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(1L))
+                .thenReturn(Optional.of(processed));
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> documentApprovalService.recallApproval(1L, null, 100L));
+
+        assertEquals(ErrorCode.DOCUMENT_CANNOT_RECALL, error.getErrorCode());
+        assertEquals(DocumentStatus.IN_REVIEW, document.getStatus());
+        assertEquals(ApprovalRequestStatus.APPROVED, processed.getStatus());
+        verify(documentApprovalRequestRepository, never()).save(any());
+        verify(documentRepository, never()).save(any());
+        verifyNoInteractions(documentProcessLogRepository, documentDraftService);
+    }
 
     @ParameterizedTest
     @EnumSource(value = ErrorCode.class, names = {
@@ -92,9 +247,10 @@ class DocumentApprovalServiceTest {
     })
     void submitForApproval_keepsPkiErrorAndDoesNotSubmitDocument(ErrorCode code) {
         UserLogin sender = UserLogin.builder().id(100L).username("author").role(Role.USER).build();
-        UserLogin approver = UserLogin.builder().id(200L).username("dean").role(Role.ADMIN).build();
+        UserLogin approver = UserLogin.builder().id(200L).username("dean").role(Role.REVIEWER).build();
+        org.mockito.Mockito.lenient().when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(approver.getId())).thenReturn(java.util.List.of(vn.edu.epu.eoffice_be.entity.PositionAssignment.builder().positionCd("TK").build()));
         Document document = Document.builder().id(1L).title("Title").summary("Summary")
-                .creatorUser(sender).status(DocumentStatus.DRAFT).primaryFilePath("drafts/doc_1.pdf").build();
+                .drafter(sender).status(DocumentStatus.DRAFT).primaryFilePath("drafts/doc_1.pdf").build();
         when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(sender));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(200L)).thenReturn(Optional.of(approver));
         when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
@@ -126,7 +282,8 @@ class DocumentApprovalServiceTest {
         Long approverId = 200L;
 
         UserLogin sender = UserLogin.builder().id(senderId).username("author").role(Role.USER).build();
-        UserLogin approver = UserLogin.builder().id(approverId).username("dean").role(Role.ADMIN).build();
+        UserLogin approver = UserLogin.builder().id(approverId).username("dean").role(Role.REVIEWER).build();
+        org.mockito.Mockito.lenient().when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(approver.getId())).thenReturn(java.util.List.of(vn.edu.epu.eoffice_be.entity.PositionAssignment.builder().positionCd("TK").build()));
 
         Document doc = Document.builder()
                 .id(docId)
@@ -134,7 +291,7 @@ class DocumentApprovalServiceTest {
                 .title("Kế hoạch công tác năm 2026")
                 .summary("Chi tiết kế hoạch")
                 .content("Nội dung kế hoạch")
-                .creatorUser(sender)
+                .drafter(sender)
                 .status(DocumentStatus.DRAFT)
                 .build();
 
@@ -169,7 +326,8 @@ class DocumentApprovalServiceTest {
         Long approverId = 200L;
 
         UserLogin sender = UserLogin.builder().id(senderId).username("author").role(Role.USER).build();
-        UserLogin approver = UserLogin.builder().id(approverId).username("dean").role(Role.ADMIN).build();
+        UserLogin approver = UserLogin.builder().id(approverId).username("dean").role(Role.REVIEWER).build();
+        org.mockito.Mockito.lenient().when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(approver.getId())).thenReturn(java.util.List.of(vn.edu.epu.eoffice_be.entity.PositionAssignment.builder().positionCd("TK").build()));
 
         Document doc = Document.builder()
                 .id(docId)
@@ -177,7 +335,7 @@ class DocumentApprovalServiceTest {
                 .title("Kế hoạch công tác năm 2026")
                 .summary("Chi tiết kế hoạch")
                 .content("Nội dung kế hoạch")
-                .creatorUser(sender)
+                .drafter(sender)
                 .status(DocumentStatus.DRAFT)
                 .primaryFilePath("drafts/doc_1.pdf")
                 .build();
@@ -236,15 +394,16 @@ class DocumentApprovalServiceTest {
                 .title("Tiêu đề")
                 .summary("Trích yếu")
                 .content("Nội dung")
-                .creatorUser(sender)
+                .drafter(sender)
                 .status(DocumentStatus.DRAFT)
                 .build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(sender));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(true);
         when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.of(approver));
 
+        org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.APPROVER_NOT_ELIGIBLE))
+                .when(submissionRoutingService).resolve(any(), any(), any(), any());
         SubmitApprovalRequest request = SubmitApprovalRequest.builder()
                 .approverUserId(approverId)
                 .build();
@@ -271,7 +430,7 @@ class DocumentApprovalServiceTest {
                 .title("Tiêu đề")
                 .summary("Trích yếu")
                 .content("") // Không có nội dung
-                .creatorUser(sender)
+                .drafter(sender)
                 .status(DocumentStatus.DRAFT)
                 .build();
 
@@ -280,6 +439,8 @@ class DocumentApprovalServiceTest {
         when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(false);
         when(documentAttachmentRepository.existsByDocumentIdAndDeleteFlgFalse(docId)).thenReturn(false);
 
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.of(
+                UserLogin.builder().id(approverId).role(Role.REVIEWER).build()));
         SubmitApprovalRequest request = SubmitApprovalRequest.builder().approverUserId(approverId).build();
 
         BusinessException ex = assertThrows(BusinessException.class,
@@ -297,7 +458,7 @@ class DocumentApprovalServiceTest {
         Document doc = Document.builder()
                 .id(docId)
                 .draftCode("DT-2026-00001")
-                .creatorUser(user)
+                .drafter(user)
                 .status(DocumentStatus.IN_REVIEW)
                 .build();
 
@@ -334,7 +495,7 @@ class DocumentApprovalServiceTest {
         UserLogin user = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
         Document doc = Document.builder()
                 .id(docId)
-                .creatorUser(user)
+                .drafter(user)
                 .status(DocumentStatus.IN_REVIEW)
                 .build();
 
@@ -397,9 +558,9 @@ class DocumentApprovalServiceTest {
 
         // ADMIN hoặc SYSTEM_ADMIN
         UserLogin admin = UserLogin.builder().id(2L).role(Role.ADMIN).build();
-        org.junit.jupiter.api.Assertions.assertTrue(documentApprovalService.isUserEligibleApprover(admin));
+        org.junit.jupiter.api.Assertions.assertFalse(documentApprovalService.isUserEligibleApprover(admin));
         UserLogin sysAdmin = UserLogin.builder().id(3L).role(Role.SYSTEM_ADMIN).build();
-        org.junit.jupiter.api.Assertions.assertTrue(documentApprovalService.isUserEligibleApprover(sysAdmin));
+        org.junit.jupiter.api.Assertions.assertFalse(documentApprovalService.isUserEligibleApprover(sysAdmin));
 
         // User thường có PositionAssignment hợp lệ
         UserLogin dean = UserLogin.builder().id(4L).role(Role.USER).build();
@@ -427,85 +588,67 @@ class DocumentApprovalServiceTest {
     @Test
     @DisplayName("Lấy danh sách người duyệt đủ thẩm quyền (getEligibleApprovers)")
     void getEligibleApprovers_Success() {
-        Long docId = 1L;
-        Long userId = 100L;
-        Document doc = Document.builder().id(docId).build();
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-
-        UserLogin leader = UserLogin.builder().id(200L).username("leader").build();
-        vn.edu.epu.eoffice_be.entity.PositionAssignment pa = vn.edu.epu.eoffice_be.entity.PositionAssignment.builder()
-                .id(1L)
-                .userLogin(leader)
-                .positionCd("HT")
-                .deleteFlg(false)
-                .build();
-        when(positionAssignmentRepository.findActiveAssignmentsByPositionCds(any(), any())).thenReturn(java.util.List.of(pa));
-        when(userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(200L))
-                .thenReturn(Optional.of(vn.edu.epu.eoffice_be.entity.UserInfo.builder().fullName("Nguyễn Văn Hiệu Trưởng").build()));
-
-        var result = documentApprovalService.getEligibleApprovers(docId, userId);
-        org.junit.jupiter.api.Assertions.assertFalse(result.isEmpty());
+        UserLogin sender = UserLogin.builder().id(100L).role(Role.CLERK).build();
+        Document doc = Document.builder().id(1L).drafter(sender).status(DocumentStatus.DRAFT).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(sender));
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(doc));
+        org.springframework.test.util.ReflectionTestUtils.setField(documentApprovalService, "submissionRoutingService",
+                new SubmissionRoutingService(positionAssignmentRepository, userInfoRepository, vn.edu.epu.eoffice_be.service.TestDraftUnits.resolver(positionAssignmentRepository)));
+        OrgNode school = OrgNode.builder().id(1L).typeCd("UNIVERSITY").build();
+        UserLogin leader = UserLogin.builder().id(200L).username("leader").role(Role.LEADER).build();
+        PositionAssignment pa = PositionAssignment.builder().id(1L).userLogin(leader).orgNode(school)
+                .positionCd("HT").effectiveFrom(java.time.Instant.now().minusSeconds(60)).build();
+        when(positionAssignmentRepository.findSubmissionCandidates(any(), org.mockito.ArgumentMatchers.isNull(), any()))
+                .thenReturn(List.of(pa));
+        var result = documentApprovalService.getEligibleApprovers(1L, 100L);
+        assertFalse(result.isEmpty());
         assertEquals("leader", result.get(0).getUsername());
         assertEquals("Hiệu trưởng", result.get(0).getPositionName());
     }
 
     @Test
     @DisplayName("Lấy danh sách người duyệt fallback về admin khi không có cán bộ nào")
-    void getEligibleApprovers_FallbackAdmin_Success() {
-        Long docId = 1L;
-        Long userId = 100L;
-        Document doc = Document.builder().id(docId).build();
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-
-        when(positionAssignmentRepository.findActiveAssignmentsByPositionCds(any(), any())).thenReturn(java.util.List.of());
-        UserLogin admin = UserLogin.builder().id(999L).username("admin").role(Role.ADMIN).build();
-        when(userLoginRepository.findByRoleInAndDeleteFlgFalse(any())).thenReturn(java.util.List.of(admin));
-
-        var result = documentApprovalService.getEligibleApprovers(docId, userId);
-        org.junit.jupiter.api.Assertions.assertFalse(result.isEmpty());
-        assertEquals("admin", result.get(0).getUsername());
-        assertEquals("Quản trị viên", result.get(0).getPositionName());
+    void getEligibleApprovers_NoLeadership_DoesNotFallbackToAdmin() {
+        UserLogin sender = UserLogin.builder().id(100L).role(Role.CLERK).build();
+        Document doc = Document.builder().id(1L).drafter(sender).status(DocumentStatus.DRAFT).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(sender));
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(doc));
+        org.springframework.test.util.ReflectionTestUtils.setField(documentApprovalService, "submissionRoutingService",
+                new SubmissionRoutingService(positionAssignmentRepository, userInfoRepository, vn.edu.epu.eoffice_be.service.TestDraftUnits.resolver(positionAssignmentRepository)));
+        BusinessException failure = assertThrows(BusinessException.class,
+                () -> documentApprovalService.getEligibleApprovers(1L, 100L));
+        assertEquals(ErrorCode.BAD_REQUEST, failure.getErrorCode());
+        assertTrue(failure.getMessage().contains("Chưa có Hiệu trưởng"));
+        verify(userLoginRepository, never()).findByRoleInAndDeleteFlgFalse(any());
     }
 
     @Test
     @DisplayName("Lấy danh sách người duyệt loại bỏ phân bổ đã xóa mềm hoặc đã miễn nhiệm")
     void getEligibleApprovers_DismissedOrDeletedAssignment_Excluded() {
-        Long docId = 1L;
-        Long userId = 100L;
-        Document doc = Document.builder().id(docId).build();
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-
-        UserLogin dismissedUser = UserLogin.builder().id(201L).username("dismissedLeader").build();
-        vn.edu.epu.eoffice_be.entity.PositionAssignment dismissedPa = vn.edu.epu.eoffice_be.entity.PositionAssignment.builder()
-                .id(1L)
-                .userLogin(dismissedUser)
-                .positionCd("HT")
-                .deleteFlg(false)
-                .actualDismissalDate(java.time.Instant.now())
-                .build();
-
-        UserLogin deletedUser = UserLogin.builder().id(202L).username("deletedAssignmentLeader").build();
-        vn.edu.epu.eoffice_be.entity.PositionAssignment deletedPa = vn.edu.epu.eoffice_be.entity.PositionAssignment.builder()
-                .id(2L)
-                .userLogin(deletedUser)
-                .positionCd("PHT")
-                .deleteFlg(true)
-                .build();
-
-        UserLogin activeUser = UserLogin.builder().id(203L).username("activeLeader").build();
-        vn.edu.epu.eoffice_be.entity.PositionAssignment activePa = vn.edu.epu.eoffice_be.entity.PositionAssignment.builder()
-                .id(3L)
-                .userLogin(activeUser)
-                .positionCd("TK")
-                .deleteFlg(false)
-                .build();
-
-        when(positionAssignmentRepository.findActiveAssignmentsByPositionCds(any(), any()))
-                .thenReturn(java.util.List.of(dismissedPa, deletedPa, activePa));
-        when(userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(203L))
-                .thenReturn(Optional.of(vn.edu.epu.eoffice_be.entity.UserInfo.builder().fullName("Trưởng Khoa Hoạt Động").build()));
-
-        var result = documentApprovalService.getEligibleApprovers(docId, userId);
+        UserLogin sender = UserLogin.builder().id(100L).role(Role.USER).build();
+        Document doc = Document.builder().id(1L).drafter(sender).status(DocumentStatus.DRAFT).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(sender));
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(doc));
+        org.springframework.test.util.ReflectionTestUtils.setField(documentApprovalService, "submissionRoutingService",
+                new SubmissionRoutingService(positionAssignmentRepository, userInfoRepository, vn.edu.epu.eoffice_be.service.TestDraftUnits.resolver(positionAssignmentRepository)));
+        OrgNode faculty = OrgNode.builder().id(10L).typeCd("FACULTY").build();
+        doc.setIssuingOrgNode(faculty);
+        var from = java.time.Instant.now().minusSeconds(60);
+        when(positionAssignmentRepository.findActiveAssignments(org.mockito.ArgumentMatchers.eq(100L), any()))
+                .thenReturn(List.of(PositionAssignment.builder().id(10L).userLogin(sender).orgNode(faculty)
+                        .positionCd("GV").effectiveFrom(from).build()));
+        UserLogin dismissed = UserLogin.builder().id(201L).username("dismissedLeader").build();
+        UserLogin deleted = UserLogin.builder().id(202L).username("deletedAssignmentLeader").build();
+        UserLogin active = UserLogin.builder().id(203L).username("activeLeader").build();
+        var invalid1 = PositionAssignment.builder().id(1L).userLogin(dismissed).orgNode(faculty)
+                .positionCd("TK").effectiveFrom(from).actualDismissalDate(java.time.Instant.now()).build();
+        var invalid2 = PositionAssignment.builder().id(2L).userLogin(deleted).orgNode(faculty)
+                .positionCd("TK").effectiveFrom(from).deleteFlg(true).build();
+        var valid = PositionAssignment.builder().id(3L).userLogin(active).orgNode(faculty)
+                .positionCd("TK").effectiveFrom(from).build();
+        when(positionAssignmentRepository.findSubmissionCandidates(any(), org.mockito.ArgumentMatchers.eq(10L), any()))
+                .thenReturn(List.of(invalid1, invalid2, valid));
+        var result = documentApprovalService.getEligibleApprovers(1L, 100L);
         assertEquals(1, result.size());
         assertEquals("activeLeader", result.get(0).getUsername());
         assertEquals("Trưởng khoa", result.get(0).getPositionName());
@@ -517,8 +660,8 @@ class DocumentApprovalServiceTest {
         Long docId = 1L;
         Long senderId = 200L;
         UserLogin sender = UserLogin.builder().id(senderId).role(Role.USER).build();
-        UserLogin creator = UserLogin.builder().id(100L).role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
+        UserLogin drafter = UserLogin.builder().id(100L).role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(sender));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
@@ -534,10 +677,10 @@ class DocumentApprovalServiceTest {
     void submitForApproval_InvalidStatus_ThrowsInvalidStatus() {
         Long docId = 1L;
         Long senderId = 100L;
-        UserLogin creator = UserLogin.builder().id(senderId).role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.IN_REVIEW).build();
+        UserLogin drafter = UserLogin.builder().id(senderId).role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.IN_REVIEW).build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
 
         SubmitApprovalRequest req = SubmitApprovalRequest.builder().approverUserId(300L).build();
@@ -552,12 +695,11 @@ class DocumentApprovalServiceTest {
         Long docId = 1L;
         Long senderId = 100L;
         Long approverId = 999L;
-        UserLogin creator = UserLogin.builder().id(senderId).role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).title("Tiêu đề").summary("Trích yếu").content("ND").build();
+        UserLogin drafter = UserLogin.builder().id(senderId).role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).title("Tiêu đề").summary("Trích yếu").content("ND").build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(true);
         when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.empty());
 
         SubmitApprovalRequest req = SubmitApprovalRequest.builder().approverUserId(approverId).build();
@@ -572,8 +714,8 @@ class DocumentApprovalServiceTest {
         Long docId = 1L;
         Long userId = 200L;
         UserLogin user = UserLogin.builder().id(userId).role(Role.USER).build();
-        UserLogin creator = UserLogin.builder().id(100L).role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.IN_REVIEW).build();
+        UserLogin drafter = UserLogin.builder().id(100L).role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.IN_REVIEW).build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(user));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
@@ -589,10 +731,10 @@ class DocumentApprovalServiceTest {
     void recallApproval_InvalidStatus_ThrowsInvalidStatus() {
         Long docId = 1L;
         Long userId = 100L;
-        UserLogin creator = UserLogin.builder().id(userId).role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
+        UserLogin drafter = UserLogin.builder().id(userId).role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
 
         RecallApprovalRequest req = RecallApprovalRequest.builder().recallReason("reason").build();
@@ -665,7 +807,8 @@ class DocumentApprovalServiceTest {
         Long approverId = 200L;
 
         UserLogin sender = UserLogin.builder().id(senderId).username("author").role(Role.USER).build();
-        UserLogin approver = UserLogin.builder().id(approverId).username("dean").role(Role.ADMIN).build();
+        UserLogin approver = UserLogin.builder().id(approverId).username("dean").role(Role.REVIEWER).build();
+        org.mockito.Mockito.lenient().when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(approver.getId())).thenReturn(java.util.List.of(vn.edu.epu.eoffice_be.entity.PositionAssignment.builder().positionCd("TK").build()));
 
         Document doc = Document.builder()
                 .id(docId)
@@ -673,7 +816,7 @@ class DocumentApprovalServiceTest {
                 .title("Kế hoạch bị từ chối sửa lại")
                 .summary("Trích yếu")
                 .content("Nội dung")
-                .creatorUser(sender)
+                .drafter(sender)
                 .status(DocumentStatus.REJECTED)
                 .build();
 
@@ -711,7 +854,7 @@ class DocumentApprovalServiceTest {
                 .id(docId)
                 .title("Kế hoạch")
                 .summary("Trích yếu")
-                .creatorUser(sender)
+                .drafter(sender)
                 .status(DocumentStatus.NEEDS_REVISION)
                 .currentVersion(1)
                 .build();
@@ -740,13 +883,14 @@ class DocumentApprovalServiceTest {
         Long approverId = 200L;
 
         UserLogin sender = UserLogin.builder().id(senderId).username("author").role(Role.USER).build();
-        UserLogin approver = UserLogin.builder().id(approverId).username("dean").role(Role.ADMIN).build();
+        UserLogin approver = UserLogin.builder().id(approverId).username("dean").role(Role.REVIEWER).build();
+        org.mockito.Mockito.lenient().when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(approver.getId())).thenReturn(java.util.List.of(vn.edu.epu.eoffice_be.entity.PositionAssignment.builder().positionCd("TK").build()));
 
         Document doc = Document.builder()
                 .id(docId)
                 .title("Kế hoạch v2")
                 .summary("Trích yếu v2")
-                .creatorUser(sender)
+                .drafter(sender)
                 .status(DocumentStatus.NEEDS_REVISION)
                 .currentVersion(1)
                 .build();
@@ -819,21 +963,21 @@ class DocumentApprovalServiceTest {
                 .title("Kế hoạch CNTT")
                 .summary("Trích yếu")
                 .content("Nội dung")
-                .creatorUser(sender)
+                .drafter(sender)
                 .issuingOrgNode(facultyIt)
                 .status(DocumentStatus.DRAFT)
                 .build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(sender));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(true);
         when(userLoginRepository.findByIdAndDeleteFlgFalse(crossUnitApproverId)).thenReturn(Optional.of(crossApprover));
 
         // Người duyệt thuộc Khoa Kinh tế
         PositionAssignment econPa = PositionAssignment.builder()
                 .id(3L).userLogin(crossApprover).positionCd("TK").orgNode(facultyEcon).deleteFlg(false).build();
-        when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(crossUnitApproverId)).thenReturn(List.of(econPa));
 
+        org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.APPROVER_NOT_ELIGIBLE))
+                .when(submissionRoutingService).resolve(any(), any(), any(), any());
         SubmitApprovalRequest request = SubmitApprovalRequest.builder()
                 .approverUserId(crossUnitApproverId)
                 .build();
@@ -862,7 +1006,7 @@ class DocumentApprovalServiceTest {
                 .title("Dự thảo kiểm tra chu trình")
                 .summary("Trích yếu")
                 .content("Nội dung")
-                .creatorUser(sender)
+                .drafter(sender)
                 .issuingOrgNode(nodeA)
                 .status(DocumentStatus.DRAFT)
                 .build();
@@ -880,7 +1024,6 @@ class DocumentApprovalServiceTest {
                 .orgNode(nodeB)
                 .deleteFlg(false)
                 .build();
-        when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(approverId)).thenReturn(List.of(pa));
         when(documentRepository.save(any(Document.class))).thenReturn(doc);
 
         SubmitApprovalRequest request = SubmitApprovalRequest.builder()
