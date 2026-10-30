@@ -417,12 +417,11 @@ public class DocumentApprovalService {
         Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
-        // Kiểm tra quyền: người tạo hoặc quản trị viên
+        // Kiểm tra quyền: chỉ người soạn được thu hồi yêu cầu duyệt
         UserLogin drafter = document.getDrafter();
         boolean isDrafter = drafter != null
                 && drafter.getId() != null
                 && drafter.getId().equals(userId);
-        boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
         if (!isDrafter) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền thu hồi yêu cầu duyệt của văn bản này");
         }
