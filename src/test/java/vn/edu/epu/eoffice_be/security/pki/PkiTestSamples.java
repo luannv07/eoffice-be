@@ -106,9 +106,13 @@ public final class PkiTestSamples {
                     subject.addRDN(BCStyle.CN, name == null || name.isBlank() ? "Can bo " + id : name);
                     var ca = root.getEndEntityCertificate();
                     var before = Date.from(START.minus(5, ChronoUnit.MINUTES));
-                    if (before.before(ca.getNotBefore())) before = ca.getNotBefore();
+                    // An expired CA needs a historical interval, not today's notBefore.
+                    if (before.before(ca.getNotBefore()) || before.after(ca.getNotAfter()))
+                        before = ca.getNotBefore();
                     var after = Date.from(START.plus(365, ChronoUnit.DAYS));
                     if (after.after(ca.getNotAfter())) after = ca.getNotAfter();
+                    // A future CA can start after the default user expiry date.
+                    if (after.before(before)) after = before;
                     var builder = new JcaX509v3CertificateBuilder(X500Name.getInstance(ca.getSubjectX500Principal().getEncoded()),
                             BigInteger.valueOf(SERIAL.incrementAndGet()), before, after, subject.build(), pair.getPublic());
                     builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(false));
