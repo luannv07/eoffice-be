@@ -486,7 +486,6 @@ public class DocumentApprovalService {
     }
 
     public boolean isUserEligibleApprover(UserLogin user) {
-        if (DocumentAdminPolicy.isAdmin(user)) return false;
         return isUserEligibleApprover(user, null);
     }
 
