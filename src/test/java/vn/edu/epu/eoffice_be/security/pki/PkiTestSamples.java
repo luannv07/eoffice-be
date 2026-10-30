@@ -90,6 +90,9 @@ public final class PkiTestSamples {
     }
 
     public static Crypto.P12Bundle user(Crypto.P12Bundle root, String id, String name, String title, String unit) {
+        if (id == null) {
+            throw new IllegalArgumentException("ID người dùng mẫu không được null");
+        }
         try {
             String identity = PkiCaService.certificateFingerprint(root.getEndEntityCertificate())
                     + ":" + List.of(id, Objects.toString(name, ""), Objects.toString(title, ""), Objects.toString(unit, ""));
