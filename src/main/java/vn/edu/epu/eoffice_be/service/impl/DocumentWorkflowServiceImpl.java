@@ -1063,15 +1063,10 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     @Override
     @Transactional(readOnly = true)
     public Page<PendingDocumentResponse> getPendingSignDocuments(Pageable pageable) {
-        // LEADER và ADMIN xử lý văn bản của toàn bộ hệ thống → không lọc theo người tạo.
-        // Các role khác chỉ thấy văn bản của mình (Data Isolation).
-        UserLogin currentActor = pendingReader(Role.LEADER, Role.ADMIN, Role.SYSTEM_ADMIN);
-        boolean isPrivileged = currentActor.getRole() == Role.LEADER
-                || currentActor.getRole() == Role.ADMIN
-                || currentActor.getRole() == Role.SYSTEM_ADMIN;
-        Long filterUserId = isPrivileged ? null : currentActor.getId();
+        // Kiểm tra role từ database; danh sách hàng chờ không lọc theo người soạn.
+        pendingReader(Role.LEADER, Role.ADMIN, Role.SYSTEM_ADMIN);
         return documentRepository
-                .searchDocuments(filterUserId, DocumentStatus.PENDING_SIGN, null, null, pageable)
+                .searchDocuments(null, DocumentStatus.PENDING_SIGN, null, null, pageable)
                 .map(doc -> PendingDocumentResponse.builder()
                         .id(doc.getId())
                         .title(doc.getTitle())
@@ -1086,17 +1081,10 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     @Override
     @Transactional(readOnly = true)
     public Page<PendingDocumentResponse> getPendingPublishDocuments(Pageable pageable) {
-        // LEADER, ADMIN và REVIEWER (văn thư) xử lý ban hành toàn hệ thống.
-        // Các role khác chỉ thấy văn bản của mình (Data Isolation).
-        UserLogin currentActor = pendingReader(Role.LEADER, Role.CLERK, Role.REVIEWER, Role.ADMIN, Role.SYSTEM_ADMIN);
-        boolean isPrivileged = currentActor.getRole() == Role.LEADER
-                || currentActor.getRole() == Role.ADMIN
-                || currentActor.getRole() == Role.SYSTEM_ADMIN
-                || currentActor.getRole() == Role.CLERK
-                || currentActor.getRole() == Role.REVIEWER;
-        Long filterUserId = isPrivileged ? null : currentActor.getId();
+        // Kiểm tra role từ database; quyền đọc hàng chờ không cấp quyền phát hành.
+        pendingReader(Role.LEADER, Role.CLERK, Role.REVIEWER, Role.ADMIN, Role.SYSTEM_ADMIN);
         return documentRepository
-                .searchDocuments(filterUserId, DocumentStatus.APPROVED, null, null, pageable)
+                .searchDocuments(null, DocumentStatus.APPROVED, null, null, pageable)
                 .map(doc -> PendingDocumentResponse.builder()
                         .id(doc.getId())
                         .title(doc.getTitle())
