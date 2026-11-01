@@ -1,0 +1,111 @@
+# Pipeline 6: Test Suite Stability (flaky-test evidence).
+#
+# The Technical Audit Report keeps "absence of flaky tests" as unproven: a single
+# green run of `mvn -B clean verify` cannot distinguish a stable suite from one
+# that fails intermittently. This workflow runs the full suite N times from the same
+# commit and keeps every Surefire/Failsafe report, so a flaky test is visible as a
+# class that fails in one run and passes in another.
+#
+# Manual only: workflow_dispatch input `repeat` controls the number of consecutive runs
+# (default 3, capped at 10 to stay inside the job timeout).
+
+name: "Pipeline 6: Test Suite Stability (flaky detection)"
+
+on:
+  workflow_dispatch:
+    inputs:
+      repeat:
+        description: "Number of consecutive full test-suite runs (2-10)"
+        required: true
+        default: "3"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-stability-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  stability:
+    name: "Repeat mvn clean verify"
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: 1. Checkout source
+        uses: actions/checkout@v4
+
+      - name: 2. Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+          cache: "maven"
+
+      - name: 3. Initialize PKI Root CA
+        run: |
+          chmod +x scripts/init-ca.sh
+          ./scripts/init-ca.sh
+
+      - name: 4. Run the suite repeatedly
+        run: |
+          set -euo pipefail
+          REPEAT="${{ inputs.repeat }}"
+          case "${REPEAT}" in
+            ''|*[!0-9]*) echo "::error::repeat must be an integer"; exit 1 ;;
+          esac
+          if [ "${REPEAT}" -lt 2 ] || [ "${REPEAT}" -gt 10 ]; then
+            echo "::error::repeat must be between 2 and 10"; exit 1
+          fi
+
+          mkdir -p stability
+          echo -e "run\texit_code\ttests_run\ttotal_line" > stability/summary.tsv
+
+          failed=0
+          for i in $(seq 1 "${REPEAT}"); do
+            echo "::group::Test suite run ${i}/${REPEAT}"
+            set +e
+            mvn -B clean verify > "stability/run-${i}.log" 2>&1
+            rc=$?
+            set -e
+
+            cp -r target/surefire-reports "stability/surefire-${i}" 2>/dev/null || mkdir -p "stability/surefire-${i}"
+            cp -r target/failsafe-reports "stability/failsafe-${i}" 2>/dev/null || mkdir -p "stability/failsafe-${i}"
+
+            tests_line=$(grep -h "Tests run:" "stability/run-${i}.log" | tail -1 || true)
+            printf "%s\t%s\t%s\t%s\n" "${i}" "${rc}" "${tests_line:-unavailable}" "${tests_line:-unavailable}" >> stability/summary.tsv
+            echo "Run ${i}: exit ${rc} | ${tests_line:-no summary}"
+            if [ "${rc}" -ne 0 ]; then
+              failed=1
+              grep -E "Tests run:.*(Failures: [1-9]|Errors: [1-9])" "stability/run-${i}.log" | tail -20 || true
+            fi
+            echo "::endgroup::"
+          done
+
+          echo "### Stability summary" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat stability/summary.tsv >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+          passes=$(awk -F'\t' 'NR>1 && $2==0 {count++} END {print count+0}' stability/summary.tsv)
+          runs=$(awk -F'\t' 'NR>1 {count++} END {print count+0}' stability/summary.tsv)
+          if [ "${passes}" -gt 0 ] && [ "${passes}" -lt "${runs}" ]; then
+            echo "**Verdict: FLAKY SUSPECTED** — the suite passed in ${passes}/${runs} identical runs." >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::Suite passed in ${passes}/${runs} runs from the same commit - flaky tests suspected"
+          elif [ "${passes}" -eq "${runs}" ]; then
+            echo "**Verdict: STABLE in ${runs}/${runs} runs.**" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "**Verdict: FAILED in all ${runs} runs** (deterministic failure, not flakiness)." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          exit "${failed}"
+
+      - name: 5. Upload per-run test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-stability-${{ github.run_id }}
+          path: stability/
+          if-no-files-found: warn
+          retention-days: 30

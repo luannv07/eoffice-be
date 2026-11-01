@@ -1,0 +1,130 @@
+# Pipeline 5: Behavioral Security Tests (independent of ZAP).
+#
+# ZAP is a black-box scanner: "no alert" does not prove that BOLA/IDOR, workflow
+# state bypass, refresh-token reuse, invalid uploads or per-role RBAC are actually
+# enforced. This workflow runs the dedicated harness that asserts each behavior and
+# records request/expected/actual/evidence per case.
+#
+# Behaviour:
+#   * A case is PASS only when the HTTP request really executed and the observed
+#     status matched the documented expectation.
+#   * Missing accounts/fixtures produce NOT VERIFIED (never PASS) and the job stays
+#     green so a nightly schedule is not noisy; a real FAIL (e.g. a cross-owner
+#     document readable) fails the job with exit code 2.
+#
+# Required secrets (all optional - unset secrets yield NOT VERIFIED):
+#   SEC_TEST_BASE_URL            https://<staging-host>/api/v1
+#   SEC_TEST_USER_USERNAME       SEC_TEST_USER_PASSWORD
+#   SEC_TEST_CLERK_USERNAME      SEC_TEST_CLERK_PASSWORD
+#   SEC_TEST_LEADER_USERNAME     SEC_TEST_LEADER_PASSWORD
+#   SEC_TEST_EXECUTIVE_*         only if the Role enum gains an EXECUTIVE value
+#   SEC_TEST_BOLA_VICTIM_DOC_ID  DRAFT document owned by another account
+#   SEC_TEST_STATE_DRAFT_DOC_ID  DRAFT document for the negative transition test
+#   SEC_TEST_UPLOAD_DOC_ID       optional document id for the attachment upload test
+
+name: "Pipeline 5: Behavioral Security Tests"
+
+on:
+  workflow_dispatch:
+    inputs:
+      allow_writes:
+        description: "Allow state-changing requests (approve a DRAFT, upload probe .exe, rotate a session)"
+        type: choice
+        options: ["true", "false"]
+        default: "true"
+  schedule:
+    - cron: "30 4 * * *" # 11:30 ICT (UTC+7), after the 10:00 DAST run
+
+permissions:
+  contents: read
+
+concurrency:
+  group: behavioral-security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  behavioral-security:
+    name: "BOLA / State / Refresh / Upload / RBAC"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      SEC_TEST_BASE_URL: ${{ secrets.SEC_TEST_BASE_URL }}
+      SEC_TEST_USER_USERNAME: ${{ secrets.SEC_TEST_USER_USERNAME }}
+      SEC_TEST_USER_PASSWORD: ${{ secrets.SEC_TEST_USER_PASSWORD }}
+      SEC_TEST_CLERK_USERNAME: ${{ secrets.SEC_TEST_CLERK_USERNAME }}
+      SEC_TEST_CLERK_PASSWORD: ${{ secrets.SEC_TEST_CLERK_PASSWORD }}
+      SEC_TEST_LEADER_USERNAME: ${{ secrets.SEC_TEST_LEADER_USERNAME }}
+      SEC_TEST_LEADER_PASSWORD: ${{ secrets.SEC_TEST_LEADER_PASSWORD }}
+      SEC_TEST_EXECUTIVE_USERNAME: ${{ secrets.SEC_TEST_EXECUTIVE_USERNAME }}
+      SEC_TEST_EXECUTIVE_PASSWORD: ${{ secrets.SEC_TEST_EXECUTIVE_PASSWORD }}
+      SEC_TEST_BOLA_VICTIM_DOC_ID: ${{ secrets.SEC_TEST_BOLA_VICTIM_DOC_ID }}
+      SEC_TEST_BOLA_ATTACKER_ROLE: ${{ secrets.SEC_TEST_BOLA_ATTACKER_ROLE }}
+      SEC_TEST_STATE_DRAFT_DOC_ID: ${{ secrets.SEC_TEST_STATE_DRAFT_DOC_ID }}
+      SEC_TEST_STATE_ACTOR_ROLE: ${{ secrets.SEC_TEST_STATE_ACTOR_ROLE }}
+      SEC_TEST_UPLOAD_DOC_ID: ${{ secrets.SEC_TEST_UPLOAD_DOC_ID }}
+      SEC_TEST_ALLOW_WRITES: ${{ github.event.inputs.allow_writes || 'true' }}
+
+    steps:
+      - name: 1. Checkout source
+        uses: actions/checkout@v4
+
+      - name: 2. Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 3. Run behavioral security tests
+        run: |
+          set -euo pipefail
+          python3 scripts/security-tests/behavioral_security_tests.py \
+            --out-dir security-test-evidence
+
+      - name: 4. Publish job summary
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ ! -f security-test-evidence/report.json ]; then
+            echo "No report produced." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python3 - <<'PY'
+          import json
+          import os
+
+          with open("security-test-evidence/report.json", encoding="utf-8") as handle:
+              report = json.load(handle)
+
+          summary = report["summary"]
+          lines = [
+              "## Behavioral security tests",
+              "",
+              f"**{summary['PASS']} PASS / {summary['FAIL']} FAIL / {summary['NOT VERIFIED']} NOT VERIFIED**",
+              "",
+              "| Case | Status | Request | Expected | Actual |",
+              "|---|---|---|---|---|",
+          ]
+          for case in report["cases"]:
+              request = case.get("request")
+              request_text = f"`{request['method']} {request['path']}`" if request else "—"
+              expected = case["expected"].get("allowed_statuses") or "—"
+              actual = case["actual"].get("status")
+              lines.append(
+                  f"| `{case['id']}` {case['name']} | {case['status']} | {request_text} | {expected} | {actual} |"
+              )
+          if report["meta"].get("role_problems"):
+              lines += ["", "### Missing authentication dependencies", ""]
+              for role, reason in report["meta"]["role_problems"].items():
+                  lines.append(f"- **{role}**: {reason}")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as handle:
+              handle.write("\n".join(lines) + "\n")
+          PY
+
+      - name: 5. Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: behavioral-security-evidence-${{ github.run_id }}
+          path: security-test-evidence/
+          if-no-files-found: warn
+          retention-days: 30

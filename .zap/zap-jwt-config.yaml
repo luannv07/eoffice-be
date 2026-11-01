@@ -102,6 +102,35 @@ jobs:
       maxRuleDurationInMins: 5
       maxScanDurationInMins: 30
 
+  # ---------------------------------------------------------------------------
+  # HTTP evidence exports (Technical Audit Report, Phase 1).
+  #
+  # The Automation Framework export job is the only supported way to persist raw
+  # traffic; it has no CSV/JSON metrics output, so the runner post-processes these
+  # two files with .zap/scripts/zap_http_evidence.py:
+  #   * type: har    + source: history   -> full request/response log
+  #   * type: yaml   + source: sitestree -> Sites Tree
+  # `history` is used (not `all`) because the existing scanned_urls.txt export with
+  # source: history already captures spider/active-scan traffic (107 URLs in run
+  # 41187583906), while `all` would also pull ZAP's own internal messages.
+  # Both files deliberately live OUTSIDE /zap/wrk/reports so they can never be
+  # swept into the uploaded artifact directory. They contain Authorization
+  # headers, cookies and bodies; the workflow deletes them before upload.
+  # ---------------------------------------------------------------------------
+  - type: "export"
+    parameters:
+      context: "EPU-EOffice-API"
+      type: "har"
+      source: "history"
+      fileName: "/zap/wrk/http_raw.har"
+
+  - type: "export"
+    parameters:
+      context: "EPU-EOffice-API"
+      type: "yaml"
+      source: "sitestree"
+      fileName: "/zap/wrk/sites_tree_raw.yaml"
+
   - type: "report"
     parameters:
       template: "traditional-json"

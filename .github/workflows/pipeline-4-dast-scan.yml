@@ -52,6 +52,18 @@ jobs:
     steps:
       - name: Checkout Repository Code
         uses: actions/checkout@v4
+        with:
+          # On workflow_run, scan the commit Pipeline 2 actually deployed, not whatever
+          # happens to sit on the default branch. On schedule/dispatch github.sha is used.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Record scanned commit
+        run: |
+          set -euo pipefail
+          echo "DAST_SCANNED_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "DAST_DEPLOYED_COMMIT=${{ github.event.workflow_run.head_sha || 'n/a (schedule/dispatch)' }}" >> "$GITHUB_ENV"
+          echo "Scanned commit: $(git rev-parse HEAD)"
+          echo "Trigger: ${GITHUB_EVENT_NAME}"
 
       - name: Fix permissions for ZAP container
         run: chmod 777 .
@@ -127,15 +139,56 @@ jobs:
           cmd_options: '-a -j -J zap_report.json -r zap_report.html -x zap_report.xml -z "-config api.disablekey=true"'
           fail_action: false
 
+      - name: Collect sanitized HTTP evidence (JWT scan)
+        if: always() && steps.dast_mode.outputs.authenticated == 'true'
+        run: |
+          set -euo pipefail
+          # ZAP AF can only export a raw HAR + Sites Tree YAML. This step turns them
+          # into sanitized, upload-safe audit artifacts (no headers, no bodies, no
+          # query values) and fails if a credential pattern leaks into the output.
+          python3 .zap/scripts/zap_http_evidence.py \
+            --har zap_workspace/http_raw.har \
+            --sites-tree zap_workspace/sites_tree_raw.yaml \
+            --report-dir zap_workspace/reports \
+            --out-dir zap_workspace/evidence \
+            --target-url "${APP_ROOT}" \
+            --run-id "${GITHUB_RUN_ID}" \
+            --commit "${DAST_SCANNED_COMMIT:-${GITHUB_SHA}}" \
+            --workflow "${GITHUB_WORKFLOW}"
+
+      - name: Remove raw ZAP exports (never upload credentials)
+        if: always()
+        run: |
+          set -euo pipefail
+          # The raw HAR contains Authorization headers, refresh-token cookies and
+          # response bodies, so it is deleted from the runner right after parsing.
+          rm -f zap_workspace/http_raw.har zap_workspace/sites_tree_raw.yaml
+          find zap_workspace -name '*.har' -print
+          echo "Raw HAR/Sites Tree exports removed."
+
+      - name: Validate artifacts before upload
+        if: always() && steps.dast_mode.outputs.authenticated == 'true'
+        run: |
+          set -euo pipefail
+          # Fail closed: if evidence is missing, a credential pattern is present, or
+          # any .har survived under the upload root, the job fails instead of
+          # publishing unsafe artifacts.
+          python3 .zap/scripts/zap_http_evidence.py \
+            --validate-only \
+            --out-dir zap_workspace/evidence \
+            --report-dir zap_workspace/reports \
+            --har-free-root zap_workspace
+          echo "EVIDENCE_VALIDATED=true" >> "$GITHUB_ENV"
+
       - name: Gate — fail only on HIGH/CRITICAL alerts
         if: always()
         run: |
           set -euo pipefail
           REPORT=""
-          if [ -f zap_workspace/reports/zap_report.xml ]; then
-            REPORT="zap_workspace/reports/zap_report.xml"
-          elif [ -f zap_report.xml ]; then
-            REPORT="zap_report.xml"
+          if [ -f zap_workspace/reports/zap_report.json ]; then
+            REPORT="zap_workspace/reports/zap_report.json"
+          elif [ -f zap_report.json ]; then
+            REPORT="zap_report.json"
           fi
           if [ -z "${REPORT}" ]; then
             echo "::error::ZAP report not found"
@@ -153,15 +206,37 @@ jobs:
             echo "::error::Authenticated scan reached only ${URLS} URLs - JWT context or OpenAPI import did not work"
             exit 1
           fi
-          high=$(grep -c '<riskdesc>High</riskdesc>' "${REPORT}" || true)
-          critical=$(grep -c '<riskdesc>Critical</riskdesc>' "${REPORT}" || true)
-          echo "ZAP HIGH alerts: ${high}"
-          echo "ZAP CRITICAL alerts: ${critical}"
-          if [ "${high}" -gt 0 ] || [ "${critical}" -gt 0 ]; then
-            echo "[FAIL] Found HIGH or CRITICAL alerts"
-            exit 1
-          fi
-          echo "[PASS] No HIGH or CRITICAL alerts"
+          # The previous gate grepped '<riskdesc>High</riskdesc>' against the XML
+          # report, but ZAP always formats that element as '<risk> (<confidence>)',
+          # e.g. '<riskdesc>High (Medium)</riskdesc>' - so the pattern could never
+          # match and the High/Critical gate never fired. Parse the JSON report and
+          # compare the risk prefix instead.
+          python3 - "${REPORT}" <<'PY'
+          import json
+          import sys
+          from collections import Counter
+
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              report = json.load(handle)
+
+          types = Counter()
+          instances = Counter()
+          for site in report.get("site", []):
+              for alert in site.get("alerts", []):
+                  risk = str(alert.get("riskdesc", "Unknown")).split()[0].lower()
+                  types[risk] += 1
+                  instances[risk] += len(alert.get("instances") or [])
+
+          for risk in ("critical", "high", "medium", "low", "informational", "unknown"):
+              if types.get(risk):
+                  print(f"ZAP {risk.upper()} alert types: {types[risk]} (instances: {instances[risk]})")
+
+          blocking = types.get("high", 0) + types.get("critical", 0)
+          if blocking:
+              print(f"[FAIL] Found {blocking} HIGH/CRITICAL alert type(s)")
+              sys.exit(1)
+          print("[PASS] No HIGH or CRITICAL alerts")
+          PY
 
       - name: Summarize DAST Findings
         if: always()
@@ -196,13 +271,16 @@ jobs:
           print(f"  Total: {sum(counts.values())}")
           PY
 
-      - name: Upload ZAP Reports
-        if: always()
+      - name: Upload ZAP Reports and sanitized HTTP evidence
+        if: always() && (steps.dast_mode.outputs.authenticated != 'true' || env.EVIDENCE_VALIDATED == 'true')
         uses: actions/upload-artifact@v4
         with:
           name: dast-zap-reports-${{ github.run_id }}
+          # Only sanitized evidence and (redacted) reports are published. The raw HAR
+          # was deleted above and the validator checked the upload root for leftovers.
           path: |
             zap_workspace/reports/
+            zap_workspace/evidence/
             zap_report.*
           if-no-files-found: warn
           retention-days: 30

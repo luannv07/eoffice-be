@@ -42,6 +42,19 @@ jobs:
       - name: 3. Build (Tests + Static Analysis)
         run: mvn -B clean verify
 
+      - name: 3.1. Upload Surefire/Failsafe test reports
+        # without this the 945-test evidence only exists in the GitHub log, which is
+        # not durable enough for audit and does not survive log expiry.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-failsafe-reports-${{ github.run_id }}
+          path: |
+            target/surefire-reports/
+            target/failsafe-reports/
+          if-no-files-found: warn
+          retention-days: 30
+
       - name: 4. Upload JaCoCo report & compiled classes for Sonar
         uses: actions/upload-artifact@v4
         with:
