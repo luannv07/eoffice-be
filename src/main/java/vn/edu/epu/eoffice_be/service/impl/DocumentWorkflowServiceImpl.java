@@ -314,7 +314,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 null,
                 null
         );
-        freezePreviousDocumentFiles(document);
+        documentAttachmentRepository.retireCurrentMain(document.getId());
+        document.setPrimaryFilePath(null);
         documentRepository.save(document);
         return mapToDetailResponse(document);
     }

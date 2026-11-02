@@ -203,7 +203,11 @@ public class DocumentApprovalService {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền gửi duyệt văn bản này");
         }
 
-        // Kiểm tra trạng thái: chỉ cho phép gửi khi là DRAFT hoặc REJECTED
+        if (!"ACTIVE".equals(sender.getUserStatusCd())) {
+            throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
+        }
+
+        // Preserve existing allowed statuses; terminal REJECTED policy is a separate change.
         
         if (document.getStatus() != DocumentStatus.DRAFT 
             && document.getStatus() != DocumentStatus.REJECTED 
@@ -246,108 +250,84 @@ public class DocumentApprovalService {
         } else if (request.getApproverUserId() == null) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "Người duyệt không được để trống khi gửi lại");
         }
-        if (document.getStatus() == DocumentStatus.DRAFT && units.simulated(sender)) {
-            document.setTestDocument(true);
-            log.info("ADMIN_SIMULATION submit actor={} document={} unit={} route={} recipient={}",
-                    sender.getId(), document.getId(), document.getOrgId(), decision.route(), decision.approverUserId());
-        }
         boolean clerkQueue = decision != null && decision.route() == SubmissionRoute.CLERK_QUEUE;
-
-        // 2. Kiểm tra tệp đính kèm và xử lý nâng phiên bản khi gửi duyệt lại (Resubmission)
-        boolean isResubmission = document.getStatus() == DocumentStatus.NEEDS_REVISION 
+        boolean isResubmission = document.getStatus() == DocumentStatus.NEEDS_REVISION
                 || document.getStatus() == DocumentStatus.REJECTED;
-
-        boolean hasMainAttachment = documentAttachmentRepository
-                .existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(documentId);
-        boolean hasAnyAttachment = documentAttachmentRepository
-                .existsByDocumentIdAndDeleteFlgFalse(documentId);
-        boolean hasContent = document.getContent() != null && !document.getContent().isBlank();
-
-        if (isResubmission) {
-            if (!hasMainAttachment) {
-                throw new BusinessException(ErrorCode.DOCUMENT_INCOMPLETE_DOSSIER,
-                        "Tệp PDF cũ đã bị đóng băng do bị từ chối/yêu cầu sửa. Bắt buộc phải tải lên tệp PDF mới (v2) trước khi gửi duyệt lại!");
-            }
-            int currentVer = document.getCurrentVersion() > 0
-                    ? document.getCurrentVersion()
-                    : 1;
-            document.setCurrentVersion(currentVer + 1);
-        } else {
-            if (!hasMainAttachment && !hasAnyAttachment && !hasContent) {
-                throw new BusinessException(ErrorCode.DOCUMENT_INCOMPLETE_DOSSIER,
-                        "Hồ sơ chưa đầy đủ: Bắt buộc phải đính kèm tệp văn bản (DOCX hoặc PDF) hoặc nội dung chi tiết trước khi gửi duyệt");
-            }
-        }
 
         if (decision == null) {
             // Preserve resubmission policy until its own rework.
             approver = userLoginRepository.findByIdAndDeleteFlgFalse(request.getApproverUserId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Không tìm thấy người duyệt được chỉ định"));
-            if (!isUserEligibleApprover(approver, document)) {
+            if (!"ACTIVE".equals(approver.getUserStatusCd()) || !isUserEligibleApprover(approver, document)) {
                 throw new BusinessException(ErrorCode.APPROVER_NOT_ELIGIBLE,
                         "Người được chọn không có thẩm quyền duyệt văn bản này hoặc không thuộc đơn vị phù hợp");
             }
         }
 
-        // Tự động ký nháy lần 1 nếu hồ sơ có tệp PDF (Người soạn thảo ký nháy tự động)
-        String signatureHash = null;
-        byte[] pdfBytes = loadDocumentPdfBytes(document);
-        if (clerkQueue && (pdfBytes == null || pdfBytes.length == 0 || pdfSigner == null)) {
-            throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR,
-                    "Hiệu trưởng phải có PDF và ký xác nhận thành công trước khi chuyển hàng chờ văn thư");
+        // Complete all dossier/recipient checks before signing or mutating submission data.
+        byte[] pdfBytes = loadSubmissionPdf(document);
+        if (pdfSigner == null) {
+            throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR, "Bộ ký xác nhận chưa khả dụng");
         }
-        if (pdfBytes != null && pdfBytes.length > 0 && pdfSigner != null) {
-            String signerFullName = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(sender.getId())
-                    .map(UserInfo::getFullName)
-                    .orElse(sender.getUsername());
-            SignerTitleInfo titleInfo = resolveSignerTitleInfo(sender);
-            String signerDisplayName = (titleInfo.title() != null && !titleInfo.title().isBlank())
-                    ? signerFullName + " - " + titleInfo.title()
-                    : signerFullName;
+        String signatureHash;
+        String signerFullName = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(sender.getId())
+                .map(UserInfo::getFullName)
+                .orElse(sender.getUsername());
+        SignerTitleInfo titleInfo = resolveSignerTitleInfo(sender);
+        String signerDisplayName = (titleInfo.title() != null && !titleInfo.title().isBlank())
+                ? signerFullName + " - " + titleInfo.title()
+                : signerFullName;
 
-            String signReason = (request.getSubmitNote() != null && !request.getSubmitNote().isBlank())
-                    ? request.getSubmitNote()
-                    : "Ký nháy văn bản (Người soạn thảo)";
+        String signReason = (request.getSubmitNote() != null && !request.getSubmitNote().isBlank())
+                ? request.getSubmitNote()
+                : "Ký nháy văn bản (Người soạn thảo)";
 
-            try {
-                PdfSigner.SignResult signResult = pdfSigner.signBytes(
-                        pdfBytes,
-                        String.valueOf(sender.getId()),
-                        signerDisplayName,
-                        titleInfo.title(),
-                        titleInfo.orgUnit(),
-                        signReason
-                );
-                if (clerkQueue && (signResult == null || signResult.signedPdfBytes() == null
-                        || signResult.signedPdfBytes().length == 0 || signResult.outPdfSha256() == null
-                        || signResult.outPdfSha256().isBlank())) {
-                    throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR, "Kết quả ký xác nhận không hợp lệ");
-                }
-                byte[] stampedPdfBytes = signResult.signedPdfBytes();
-                String newPdfReference = documentPdfStorageService.storeSignedPdf(
-                        stampedPdfBytes,
-                        "initial_signed_" + document.getId() + ".pdf",
-                        document.getId()
-                );
-                if (clerkQueue && (newPdfReference == null || newPdfReference.isBlank())) {
-                    throw new BusinessException(ErrorCode.DOCUMENT_PDF_STORAGE_FAILED);
-                }
-                document.setPrimaryFilePath(newPdfReference);
-                signatureHash = signResult.outPdfSha256();
-                log.info("Đã tự động ký nháy lần 1 cho văn bản id={}, người ký={}, hash={}",
-                        document.getId(), sender.getUsername(), signatureHash);
-            } catch (BusinessException ex) {
-                throw ex;
-            } catch (Exception ex) {
-                log.error("Lỗi khi tự động ký nháy văn bản id={}: {}", document.getId(), ex.getMessage(), ex);
-                throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR,
-                        "Lỗi khi tự động ký nháy văn bản: " + ex.getMessage());
+        try {
+            PdfSigner.SignResult signResult = pdfSigner.signBytes(
+                    pdfBytes,
+                    String.valueOf(sender.getId()),
+                    signerDisplayName,
+                    titleInfo.title(),
+                    titleInfo.orgUnit(),
+                    signReason
+            );
+            if (signResult == null || signResult.signedPdfBytes() == null
+                    || signResult.signedPdfBytes().length == 0 || signResult.outPdfSha256() == null
+                    || signResult.outPdfSha256().isBlank()) {
+                throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR, "Kết quả ký xác nhận không hợp lệ");
             }
+            byte[] stampedPdfBytes = signResult.signedPdfBytes();
+            String newPdfReference = documentPdfStorageService.storeSignedPdf(
+                    stampedPdfBytes,
+                    "initial_signed_" + document.getId() + ".pdf",
+                    document.getId()
+            );
+            if (newPdfReference == null || newPdfReference.isBlank()) {
+                throw new BusinessException(ErrorCode.DOCUMENT_PDF_STORAGE_FAILED);
+            }
+            document.setPrimaryFilePath(newPdfReference);
+            signatureHash = signResult.outPdfSha256();
+            log.info("Đã tự động ký nháy lần 1 cho văn bản id={}, người ký={}, hash={}",
+                    document.getId(), sender.getUsername(), signatureHash);
+        } catch (BusinessException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            log.error("Lỗi khi tự động ký nháy văn bản id={}: {}", document.getId(), ex.getMessage(), ex);
+            throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR,
+                    "Lỗi khi tự động ký nháy văn bản: " + ex.getMessage());
         }
 
         // Lưu trạng thái nguồn trước khi đổi trạng thái (Issue 18)
         DocumentStatus prevStatus = document.getStatus();
 
+        if (isResubmission) {
+            document.setCurrentVersion(Math.max(document.getCurrentVersion(), 1) + 1);
+        }
+        if (decision != null && units.simulated(sender)) {
+            document.setTestDocument(true);
+            log.info("ADMIN_SIMULATION submit actor={} document={} unit={} route={} recipient={}",
+                    sender.getId(), document.getId(), document.getOrgId(), decision.route(), decision.approverUserId());
+        }
         document.setSubmittedAt(now);
         Document savedDocument;
         if (decision != null) {
@@ -450,6 +430,8 @@ public class DocumentApprovalService {
         }
 
         // Chuyển trạng thái văn bản về lại DRAFT (PDF bước 4)
+        documentAttachmentRepository.retireCurrentMain(documentId);
+        document.setPrimaryFilePath(null);
         document.setStatus(DocumentStatus.DRAFT);
         Document savedDocument = documentRepository.save(document);
 
@@ -574,64 +556,57 @@ public class DocumentApprovalService {
         return new SignerTitleInfo(null, null);
     }
 
-    private byte[] loadDocumentPdfBytes(Document document) {
-        if (document == null) {
-            return null;
+    /** Submission signs the current uploaded main, never a previous round's signed PDF. */
+    private byte[] loadSubmissionPdf(Document document) {
+        List<DocumentAttachment> mains = documentAttachmentRepository
+                .findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(document.getId()).stream()
+                .filter(a -> a != null && !a.isDeleteFlg() && a.isMainDocument()).toList();
+        if (mains.isEmpty()) {
+            throw new BusinessException(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING,
+                    "Vui lòng tải lên tệp PDF chính trước khi gửi duyệt.");
         }
-
-        if (document.getPrimaryFilePath() != null && !document.getPrimaryFilePath().isBlank()) {
-            // Never replace a missing signed version with an unsigned original attachment.
-            return documentPdfStorageService.readPdf(document.getPrimaryFilePath());
+        if (mains.size() != 1) {
+            throw new BusinessException(ErrorCode.DOCUMENT_INCOMPLETE_DOSSIER,
+                    "Hồ sơ có nhiều tệp chính. Vui lòng kiểm tra lại trước khi gửi duyệt.");
         }
-
-        if (documentAttachmentRepository != null && document.getId() != null) {
-            List<DocumentAttachment> allAttachments = documentAttachmentRepository
-                    .findByDocumentIdAndDeleteFlgFalse(document.getId());
-
-            if (allAttachments != null && !allAttachments.isEmpty()) {
-                Optional<DocumentAttachment> mainAttachmentOpt = allAttachments.stream()
-                        .filter(att -> att != null && Boolean.TRUE.equals(att.isMainDocument()))
-                        .findFirst();
-
-                DocumentAttachment targetAttachment;
-                if (mainAttachmentOpt.isPresent()) {
-                    DocumentAttachment mainAtt = mainAttachmentOpt.get();
-                    if (!isPdfAttachment(mainAtt)) {
-                        return null;
-                    }
-                    targetAttachment = mainAtt;
-                } else {
-                    targetAttachment = allAttachments.stream()
-                            .filter(this::isPdfAttachment)
-                            .findFirst()
-                            .orElse(null);
-                }
-
-                if (targetAttachment != null && unifiedStorageService != null) {
-                    try {
-                        org.springframework.core.io.Resource res = unifiedStorageService.loadAsResource(
-                                targetAttachment.getStoragePath(), targetAttachment.getStorageFileName()
-                        );
-                        if (res != null && res.exists() && res.isReadable()) {
-                            try (java.io.InputStream is = res.getInputStream()) {
-                                byte[] bytes = is.readAllBytes();
-                                if (bytes.length > 0) {
-                                    return bytes;
-                                }
-                            }
-                        }
-                    } catch (Exception e) {
-                        log.warn("Không thể tải tệp PDF đính kèm từ unifiedStorageService: {}", e.getMessage());
-                    }
-                }
+        DocumentAttachment main = mains.getFirst();
+        if (!isPdfAttachment(main)) {
+            throw new BusinessException(ErrorCode.FILE_INVALID_FORMAT, "Tệp chính phải là PDF");
+        }
+        Optional<Instant> returnedAt = documentAttachmentRepository.findLatestPdfReturnAt(document.getId());
+        boolean requiresNewPdf = document.getStatus() == DocumentStatus.NEEDS_REVISION
+                || (document.getStatus() == DocumentStatus.DRAFT && document.getSubmittedAt() != null);
+        if ((requiresNewPdf && returnedAt.isEmpty())
+                || (returnedAt.isPresent() && (main.getCreatedDate() == null
+                || !main.getCreatedDate().isAfter(returnedAt.get())))) {
+            throw new BusinessException(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING,
+                    "Vui lòng tải lên tệp PDF chính mới sau khi thu hồi hoặc yêu cầu chỉnh sửa.");
+        }
+        if (unifiedStorageService == null) {
+            throw new BusinessException(ErrorCode.DOCUMENT_PDF_STORAGE_UNAVAILABLE);
+        }
+        try {
+            org.springframework.core.io.Resource resource = unifiedStorageService.loadAsResource(
+                    main.getStoragePath(), main.getStorageFileName());
+            if (resource == null || !resource.exists() || !resource.isReadable()) {
+                throw new BusinessException(ErrorCode.DOCUMENT_PDF_NOT_FOUND);
             }
+            try (java.io.InputStream input = resource.getInputStream()) {
+                byte[] bytes = input.readAllBytes();
+                if (bytes.length == 0) {
+                    throw new BusinessException(ErrorCode.FILE_INVALID_FORMAT, "Tệp PDF chính rỗng");
+                }
+                return bytes;
+            }
+        } catch (BusinessException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            log.warn("Không thể đọc PDF chính của văn bản {}", document.getId(), ex);
+            throw new BusinessException(ErrorCode.DOCUMENT_PDF_STORAGE_UNAVAILABLE);
         }
-        return null;
     }
 
     private boolean isPdfAttachment(DocumentAttachment att) {
-        if (att == null) return false;
-        return "PDF".equalsIgnoreCase(att.getFileExtension()) ||
-                (att.getOriginalFileName() != null && att.getOriginalFileName().toLowerCase().endsWith(".pdf"));
+        return "PDF".equalsIgnoreCase(att.getFileExtension());
     }
 }

@@ -762,8 +762,7 @@ class DocumentWorkflowServiceTest {
 
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
-        when(documentAttachmentRepository.findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(5001L))
-                .thenReturn(List.of(mainAttachment));
+
 
         DocumentRevisionRequest request = DocumentRevisionRequest.builder()
                 .comment("Can bo sung phan phan cong nhiem vu")
@@ -773,8 +772,8 @@ class DocumentWorkflowServiceTest {
 
         assertNotNull(response);
         assertNull(document.getPrimaryFilePath());
-        assertFalse(mainAttachment.isMainDocument());
-        verify(documentAttachmentRepository).save(mainAttachment);
+        verify(documentAttachmentRepository).retireCurrentMain(5001L);
+        verify(documentAttachmentRepository, never()).save(any());
         verify(documentRepository).save(document);
     }
 

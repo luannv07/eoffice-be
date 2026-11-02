@@ -116,6 +116,19 @@ class DocumentApprovalServiceTest {
                 });
     }
 
+    private void submissionPdf(Long id, byte[] bytes) {
+        var main = vn.edu.epu.eoffice_be.entity.DocumentAttachment.builder().id(901L).isMainDocument(true)
+                .fileExtension("PDF").storagePath("source").storageFileName("main.pdf").build();
+        main.setCreatedDate(java.time.Instant.now());
+        when(documentAttachmentRepository.findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(id)).thenReturn(List.of(main));
+        when(documentAttachmentRepository.findLatestPdfReturnAt(id)).thenReturn(Optional.of(java.time.Instant.now().minusSeconds(30)));
+        when(unifiedStorageService.loadAsResource("source", "main.pdf"))
+                .thenReturn(new org.springframework.core.io.ByteArrayResource(bytes));
+        org.mockito.Mockito.lenient().when(pdfSigner.signBytes(any(), any(), any(), any(), any(), any())).thenReturn(
+                new PdfSigner.SignResult("100", "author", "serial", "hash", new java.util.Date(), "field", null, new byte[]{4,5}));
+        org.mockito.Mockito.lenient().when(documentPdfStorageService.storeSignedPdf(any(), any(), any())).thenReturn("storage://35001");
+    }
+
     static Stream<Arguments> missingRecallDraftersForNonAdmins() {
         return Arrays.stream(Role.values()).filter(role -> role != Role.ADMIN && role != Role.SYSTEM_ADMIN)
                 .flatMap(role -> Stream.of(Arguments.of(role, true), Arguments.of(role, false)));
@@ -254,9 +267,7 @@ class DocumentApprovalServiceTest {
         when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(sender));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(200L)).thenReturn(Optional.of(approver));
         when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
-        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(1L))
-                .thenReturn(true);
-        when(documentPdfStorageService.readPdf("drafts/doc_1.pdf")).thenReturn(new byte[]{1, 2, 3});
+        submissionPdf(1L, new byte[]{1, 2, 3});
         BusinessException failure = new BusinessException(code);
         when(pdfSigner.signBytes(any(), any(), any(), any(), any(), any())).thenThrow(failure);
 
@@ -297,11 +308,11 @@ class DocumentApprovalServiceTest {
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(sender));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(true);
         when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.of(approver));
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
         when(documentDraftService.mapToDocumentResponse(any())).thenReturn(DocumentResponse.builder().id(docId).status(DocumentStatus.IN_REVIEW).build());
 
+        submissionPdf(docId, new byte[]{1, 2, 3});
         SubmitApprovalRequest request = SubmitApprovalRequest.builder()
                 .approverUserId(approverId)
                 .submitNote("Kính gửi thầy duyệt giúp")
@@ -345,12 +356,11 @@ class DocumentApprovalServiceTest {
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(sender));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(true);
         when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.of(approver));
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
         when(documentDraftService.mapToDocumentResponse(any())).thenReturn(DocumentResponse.builder().id(docId).status(DocumentStatus.IN_REVIEW).build());
 
-        when(documentPdfStorageService.readPdf("drafts/doc_1.pdf")).thenReturn(rawPdfBytes);
+        submissionPdf(docId, rawPdfBytes);
         PdfSigner.SignResult mockSignResult = new PdfSigner.SignResult(
                 String.valueOf(senderId),
                 "author",
@@ -436,8 +446,6 @@ class DocumentApprovalServiceTest {
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(sender));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(false);
-        when(documentAttachmentRepository.existsByDocumentIdAndDeleteFlgFalse(docId)).thenReturn(false);
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.of(
                 UserLogin.builder().id(approverId).role(Role.REVIEWER).build()));
@@ -445,7 +453,7 @@ class DocumentApprovalServiceTest {
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentApprovalService.submitForApproval(docId, request, senderId));
-        assertEquals(ErrorCode.DOCUMENT_INCOMPLETE_DOSSIER, ex.getErrorCode());
+        assertEquals(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING, ex.getErrorCode());
     }
 
     @Test
@@ -822,11 +830,11 @@ class DocumentApprovalServiceTest {
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(sender));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(true);
         when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.of(approver));
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
         when(documentDraftService.mapToDocumentResponse(any())).thenReturn(DocumentResponse.builder().id(docId).status(DocumentStatus.IN_REVIEW).build());
 
+        submissionPdf(docId, new byte[]{1, 2, 3});
         SubmitApprovalRequest request = SubmitApprovalRequest.builder()
                 .approverUserId(approverId)
                 .submitNote("Đã sửa theo góp ý")
@@ -862,8 +870,11 @@ class DocumentApprovalServiceTest {
         when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(sender));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         // Chưa có file chính mới
-        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(false);
 
+        var approver = UserLogin.builder().id(approverId).role(Role.REVIEWER).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.of(approver));
+        when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(approverId)).thenReturn(List.of(
+                vn.edu.epu.eoffice_be.entity.PositionAssignment.builder().positionCd("TK").build()));
         SubmitApprovalRequest request = SubmitApprovalRequest.builder()
                 .approverUserId(approverId)
                 .submitNote("Gửi lại")
@@ -871,8 +882,8 @@ class DocumentApprovalServiceTest {
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentApprovalService.submitForApproval(docId, request, senderId));
-        assertEquals(ErrorCode.DOCUMENT_INCOMPLETE_DOSSIER, ex.getErrorCode());
-        assertTrue(ex.getMessage().contains("Tệp PDF cũ đã bị đóng băng"));
+        assertEquals(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING, ex.getErrorCode());
+        assertTrue(ex.getMessage().contains("Vui lòng tải lên tệp PDF chính"));
     }
 
     @Test
@@ -897,11 +908,11 @@ class DocumentApprovalServiceTest {
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(sender));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(true);
         when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.of(approver));
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
         when(documentDraftService.mapToDocumentResponse(any())).thenReturn(DocumentResponse.builder().id(docId).status(DocumentStatus.IN_REVIEW).build());
 
+        submissionPdf(docId, new byte[]{1, 2, 3});
         SubmitApprovalRequest request = SubmitApprovalRequest.builder()
                 .approverUserId(approverId)
                 .submitNote("Đã sửa nội dung và tải file v2")
@@ -1013,7 +1024,6 @@ class DocumentApprovalServiceTest {
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(sender));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-        when(documentAttachmentRepository.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(docId)).thenReturn(true);
         when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.of(approver));
 
         // Approver thuộc nodeB (nằm trong chu trình của nodeA)
@@ -1026,6 +1036,7 @@ class DocumentApprovalServiceTest {
                 .build();
         when(documentRepository.save(any(Document.class))).thenReturn(doc);
 
+        submissionPdf(docId, new byte[]{1, 2, 3});
         SubmitApprovalRequest request = SubmitApprovalRequest.builder()
                 .approverUserId(approverId)
                 .build();

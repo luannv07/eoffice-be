@@ -109,7 +109,11 @@ class DocumentSubmissionOwnershipTest {
     void drafterSignsWithOwnDatabaseIdentityForEveryRole(Role role) {
         UserLogin actor = sender(role);
         Document document = fixture(actor, actor);
-        when(attachments.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(1L)).thenReturn(true);
+        var main = vn.edu.epu.eoffice_be.entity.DocumentAttachment.builder().isMainDocument(true)
+                .fileExtension("PDF").storagePath("source").storageFileName("new.pdf").build();
+        main.setCreatedDate(java.time.Instant.now());
+        when(attachments.findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(1L)).thenReturn(List.of(main));
+        when(attachments.findLatestPdfReturnAt(1L)).thenReturn(Optional.of(java.time.Instant.now().minusSeconds(30)));
         var reviewer=UserLogin.builder().id(200L).role(Role.REVIEWER).build();
         when(users.findByIdAndDeleteFlgFalse(200L)).thenReturn(Optional.of(reviewer));
         when(positions.findByUserLoginIdAndDeleteFlgFalse(200L)).thenReturn(List.of(
@@ -117,7 +121,7 @@ class DocumentSubmissionOwnershipTest {
                 .orgNode(vn.edu.epu.eoffice_be.entity.OrgNode.builder().id(10L).build()).build()));
         byte[] original = {1, 2, 3};
         byte[] signed = {1, 2, 3, 4};
-        when(pdfStorage.readPdf("storage://10")).thenReturn(original);
+        when(storage.loadAsResource("source", "new.pdf")).thenReturn(new org.springframework.core.io.ByteArrayResource(original));
         when(signer.signBytes(eq(original), eq("100"), any(), any(), any(), any()))
                 .thenReturn(new PdfSigner.SignResult("100", "author", "serial", "hash", new Date(), "sig_user_100", null, signed));
         when(pdfStorage.storeSignedPdf(signed, "initial_signed_1.pdf", 1L)).thenReturn("storage://11");
