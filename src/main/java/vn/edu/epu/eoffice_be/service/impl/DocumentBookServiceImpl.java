@@ -44,6 +44,7 @@ import vn.edu.epu.eoffice_be.entity.UserInfo;
 import vn.edu.epu.eoffice_be.repository.DocumentAttachmentRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentWorkflowLogRepository;
 import vn.edu.epu.eoffice_be.repository.UserInfoRepository;
+import vn.edu.epu.eoffice_be.repository.UserInfoRepository.DrafterName;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
 import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
 import vn.edu.epu.eoffice_be.security.pki.PdfSigner;
@@ -220,6 +221,7 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 	public AssignDocumentNumberResponse assignNumber(AssignDocumentNumberRequest request) {
 		// 1. Kiểm tra thẩm quyền người thực hiện: CHỈ CÁN BỘ VĂN THƯ (hoặc ADMIN / quyền DOCUMENT_ASSIGN_NUMBER)
 		UserLogin actor = getCurrentActor();
+		vn.edu.epu.eoffice_be.service.DocumentAdminPolicy.assertBusinessActor(actor);
 		validateClerkPermission(actor);
 
 		// 2. Pessimistic Write Lock: đảm bảo không trùng số dù nhiều request đồng thời
@@ -236,6 +238,7 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 			document = documentRepository.findById(request.getDocumentId())
 					.orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
+			vn.edu.epu.eoffice_be.service.TestDocumentGuard.assertReal(document);
 			if (document.getStatus() != DocumentStatus.APPROVED) {
 				throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATUS, "Văn bản chưa ở trạng thái Đã phê duyệt");
 			}
@@ -387,15 +390,13 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 		if (actor == null) {
 			throw new BusinessException(ErrorCode.UNAUTHORIZED);
 		}
-		if (actor.getRole() == Role.SYSTEM_ADMIN || actor.getRole() == Role.ADMIN || actor.getRole() == Role.CLERK) {
+		if (actor.getRole() == Role.CLERK) {
 			return;
 		}
 		if (auth.getAuthorities() != null) {
 			boolean hasPerm = auth.getAuthorities().stream()
 					.anyMatch(a -> "DOCUMENT_ASSIGN_NUMBER".equals(a.getAuthority())
-							|| "ROLE_CLERK".equals(a.getAuthority())
-							|| "ROLE_ADMIN".equals(a.getAuthority())
-							|| "ROLE_SYSTEM_ADMIN".equals(a.getAuthority()));
+							|| "ROLE_CLERK".equals(a.getAuthority()));
 			if (hasPerm) {
 				return;
 			}
@@ -492,10 +493,18 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 						.collect(Collectors.toMap(DictionaryItem::getItemCd, DictionaryItem::getNameVn,
 								(existing, replacement) -> existing));
 
-		return docs.map(doc -> toDocumentDto(doc, book, typeNameMap));
+		Set<Long> drafterIds = docs.getContent().stream().map(Document::getDrafter)
+				.filter(Objects::nonNull).map(UserLogin::getId).filter(Objects::nonNull)
+				.collect(Collectors.toSet());
+		Map<Long, DrafterName> drafterNames = drafterIds.isEmpty() ? Map.of()
+				: userInfoRepository.findDrafterNamesByUserIds(drafterIds).stream()
+						.collect(Collectors.toMap(DrafterName::getUserId, name -> name));
+
+		return docs.map(doc -> toDocumentDto(doc, book, typeNameMap, drafterNames));
 	}
 
-	private DocumentResponse toDocumentDto(Document doc, DocumentBook book, Map<String, String> typeNameMap) {
+	private DocumentResponse toDocumentDto(Document doc, DocumentBook book, Map<String, String> typeNameMap,
+			Map<Long, DrafterName> drafterNames) {
 		String typeName = doc.getDocumentTypeCd();
 		if (doc.getDocumentTypeCd() != null) {
 			typeName = typeNameMap.getOrDefault(doc.getDocumentTypeCd(), doc.getDocumentTypeCd());
@@ -505,9 +514,11 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 		Long orgId = org != null ? org.getId() : null;
 		String orgName = org != null ? org.getNameVn() : null;
 
-		UserLogin creator = doc.getCreatorUser() != null ? doc.getCreatorUser() : doc.getDrafter();
-		Long creatorId = creator != null ? creator.getId() : null;
-		String creatorUsername = creator != null ? creator.getUsername() : null;
+		UserLogin drafter = doc.getDrafter();
+		Long drafterId = drafter != null ? drafter.getId() : null;
+		DrafterName name = drafterId != null ? drafterNames.get(drafterId) : null;
+		String drafterUsername = name != null ? name.getUsername() : drafter != null ? drafter.getUsername() : null;
+		String drafterFullName = name != null && name.getFullName() != null ? name.getFullName() : drafterUsername;
 
 		DocumentStatus status = doc.getStatus() != null ? doc.getStatus() : DocumentStatus.DRAFT;
 
@@ -524,8 +535,9 @@ public class DocumentBookServiceImpl implements DocumentBookService {
 				.documentTypeName(typeName)
 				.issuingOrgNodeId(orgId)
 				.issuingOrgNodeName(orgName)
-				.creatorUserId(creatorId)
-				.creatorUsername(creatorUsername)
+				.drafterId(drafterId)
+				.drafterUsername(drafterUsername)
+				.drafterFullName(drafterFullName)
 				.status(status)
 				.statusDescription(status.getDescription())
 				.currentVersion(doc.getCurrentVersion())

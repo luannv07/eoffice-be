@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-10-29-draft-admin-simulation
+      author: eoffice
+      changes:
+        - addColumn:
+            tableName: documents
+            columns:
+              - column:
+                  name: is_test_document
+                  type: boolean
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+      rollback:
+        - dropColumn:
+            tableName: documents
+            columnName: is_test_document

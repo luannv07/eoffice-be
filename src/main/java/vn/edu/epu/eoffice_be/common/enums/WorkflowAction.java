@@ -5,6 +5,8 @@ import lombok.Getter;
 @Getter
 public enum WorkflowAction {
     SUBMIT("Gửi văn bản để duyệt"),
+    SUBMIT_TO_LEADER("Trình lãnh đạo phê duyệt"),
+    SUBMIT_TO_CLERK_QUEUE("Hiệu trưởng xác nhận nội dung và chuyển hàng chờ văn thư"),
     REVIEW_APPROVE("Duyệt chuyển tiếp"),
     REQUEST_REVISION("Yêu cầu chỉnh sửa"),
     INITIAL_SIGN("Ký nháy văn bản"),

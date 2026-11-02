@@ -39,26 +39,36 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class DocumentPdfAccessTest {
     enum Kind { PRIMARY, OFFICIAL }
-    enum Access { CREATOR, ADMIN, SYSTEM_ADMIN, PENDING_APPROVER, APPROVED, PUBLISHED }
+    enum Access { DRAFTER, ADMIN, SYSTEM_ADMIN, PENDING_APPROVER, APPROVED, PUBLISHED }
     @Mock DocumentRepository documents;
     @Mock UserLoginRepository users;
     @Mock DocumentApprovalRequestRepository approvals;
     @Mock DocumentPdfStorageService storage;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentReadPolicy draftReadPolicy;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DraftUnitResolver draftUnitResolver;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentFileReadGuard documentFiles;
+
     @InjectMocks DocumentAttachmentService service;
+
+    @org.junit.jupiter.api.BeforeEach
+    void useActualReadPolicy() {
+        ReflectionTestUtils.setField(service, "readPolicy", new DocumentReadPolicy(users, approvals));
+    }
 
     @ParameterizedTest
     @MethodSource("allowedAccess")
-    void usesExistingAttachmentPermissionsAndReadsOnlyRequestedVersion(Kind kind, Access access) {
+    void enforcesDocumentPermissionsAndReadsOnlyRequestedVersion(Kind kind, Access access) {
         Document document = prepare();
         UserLogin actor = UserLogin.builder().id(100L).role(Role.USER).build();
         when(users.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(actor));
         switch (access) {
-            case CREATOR -> document.setCreatorUser(actor);
+            case DRAFTER -> document.setDrafter(actor);
             case ADMIN -> actor.setRole(Role.ADMIN);
             case SYSTEM_ADMIN -> actor.setRole(Role.SYSTEM_ADMIN);
-            case PENDING_APPROVER -> when(approvals.findByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(5001L))
-                    .thenReturn(List.of(DocumentApprovalRequest.builder().approverUser(actor)
-                            .status(ApprovalRequestStatus.PENDING).build()));
+            case PENDING_APPROVER -> when(approvals.existsParticipant(5001L,100L)).thenReturn(true);
             case APPROVED -> document.setStatus(DocumentStatus.APPROVED);
             case PUBLISHED -> document.setStatus(DocumentStatus.PUBLISHED);
         }
@@ -105,7 +115,7 @@ class DocumentPdfAccessTest {
     @EnumSource(Kind.class)
     void missingRequestedVersionDoesNotServeTheOtherVersion(Kind kind) {
         Document document = prepare();
-        document.setCreatorUser(UserLogin.builder().id(100L).build());
+        document.setDrafter(UserLogin.builder().id(100L).build());
         when(users.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(UserLogin.builder().id(100L).role(Role.USER).build()));
         if (kind == Kind.PRIMARY) document.setPrimaryFilePath(null);
         else document.setOfficialFilePath(null);
@@ -125,7 +135,7 @@ class DocumentPdfAccessTest {
     @EnumSource(Kind.class)
     void providerFailureIsPreserved(Kind kind) {
         Document document = prepare();
-        document.setCreatorUser(UserLogin.builder().id(100L).build());
+        document.setDrafter(UserLogin.builder().id(100L).build());
         when(users.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(UserLogin.builder().id(100L).role(Role.USER).build()));
         BusinessException failure = new BusinessException(ErrorCode.DOCUMENT_PDF_STORAGE_UNAVAILABLE);
         when(storage.readAsResource(reference(kind))).thenThrow(failure);
@@ -135,7 +145,7 @@ class DocumentPdfAccessTest {
     }
 
     private Document prepare() {
-        Document document = Document.builder().id(5001L).creatorUser(UserLogin.builder().id(200L).build())
+        Document document = Document.builder().id(5001L).drafter(UserLogin.builder().id(200L).build())
                 .status(DocumentStatus.IN_REVIEW).primaryFilePath("storage://35001").officialFilePath("storage://36001").build();
         when(documents.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         return document;

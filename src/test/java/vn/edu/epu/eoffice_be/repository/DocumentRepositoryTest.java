@@ -265,7 +265,6 @@ class DocumentRepositoryTest {
                 .title("Doc for all null test")
                 .documentTypeCd("CONG_VAN")
                 .drafter(user)
-                .creatorUser(user)
                 .issuingOrg(org)
                 .issuingOrgNode(org)
                 .status(DocumentStatus.DRAFT)
@@ -281,7 +280,7 @@ class DocumentRepositoryTest {
     }
 
     @Test
-    @DisplayName("searchDocuments: Lọc chính xác theo creatorUserId, status, orgNodeId và keyword")
+    @DisplayName("searchDocuments: Lọc chính xác theo drafterId, status, orgNodeId và keyword")
     void searchDocuments_withFilters_shouldFilterCorrectly() {
         UserLogin user = getOrCreateUser();
         OrgNode org = getOrCreateOrg();
@@ -292,7 +291,6 @@ class DocumentRepositoryTest {
                 .summary("Tóm tắt nội dung kế hoạch")
                 .documentTypeCd("CONG_VAN")
                 .drafter(user)
-                .creatorUser(user)
                 .issuingOrg(org)
                 .issuingOrgNode(org)
                 .status(DocumentStatus.DRAFT)
@@ -306,7 +304,6 @@ class DocumentRepositoryTest {
                 .summary("Tóm tắt khác")
                 .documentTypeCd("CONG_VAN")
                 .drafter(user)
-                .creatorUser(user)
                 .issuingOrg(org)
                 .issuingOrgNode(org)
                 .status(DocumentStatus.APPROVED)

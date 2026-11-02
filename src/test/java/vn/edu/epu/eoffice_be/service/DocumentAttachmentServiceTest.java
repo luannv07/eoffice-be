@@ -1,5 +1,19 @@
 package vn.edu.epu.eoffice_be.service;
 
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.web.multipart.MultipartFile;
+import vn.edu.epu.eoffice_be.config.UploadProperties;
+import vn.edu.epu.eoffice_be.storage.FileSystemStorageService;
+import vn.edu.epu.eoffice_be.storage.FileSecurityValidator;
+import java.nio.file.Path;
+import java.nio.file.Files;
+import java.util.stream.Stream;
+import static org.mockito.Mockito.verifyNoInteractions;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,6 +56,102 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class DocumentAttachmentServiceTest {
 
+    @org.junit.jupiter.api.BeforeEach
+    void useActualReadPolicy() {
+        org.springframework.test.util.ReflectionTestUtils.setField(documentAttachmentService, "readPolicy",
+                new DocumentReadPolicy(userLoginRepository, documentApprovalRequestRepository));
+    }
+
+    @ParameterizedTest
+    @MethodSource("nonPdfUploads")
+    void uploadAttachment_rejectsNonPdfBeforeAnySideEffects(String filename, boolean isMain) {
+        UserLogin drafter = UserLogin.builder().id(100L).role(Role.USER).build();
+        Document document = Document.builder().id(1L).drafter(drafter).status(DocumentStatus.DRAFT).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(drafter));
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
+        MockMultipartFile file = new MockMultipartFile("file", filename, "application/pdf", "%PDF-1.4".getBytes());
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> documentAttachmentService.uploadAttachment(1L, file, isMain, 100L));
+
+        assertEquals(ErrorCode.FILE_INVALID_FORMAT, error.getErrorCode());
+        assertEquals("Chỉ chấp nhận tệp PDF", error.getMessage());
+        verifyNoInteractions(fileStorageService, documentAttachmentRepository,
+                documentVersionRepository, documentProcessLogRepository);
+        assertEquals(DocumentStatus.DRAFT, document.getStatus());
+    }
+
+    static Stream<Arguments> nonPdfUploads() {
+        return Stream.of("file.docx", "file.doc", "file.png", "file", "vanban.pdf.docx", "file.")
+                .flatMap(name -> Stream.of(true, false)
+                        .map(main -> Arguments.of(name, main)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("pdfUploads")
+    void uploadAttachment_acceptsPdfRegardlessOfMime(String filename, String mime) {
+        UserLogin drafter = UserLogin.builder().id(100L).role(Role.USER).build();
+        Document document = Document.builder().id(1L).drafter(drafter).status(DocumentStatus.DRAFT).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(drafter));
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
+        MockMultipartFile file = new MockMultipartFile("file", filename, mime, "%PDF-1.4".getBytes());
+        when(fileStorageService.storeFile(file, 1L)).thenReturn(StoredFileInfo.builder()
+                .originalFileName(filename).fileExtension("PDF").build());
+        when(documentAttachmentRepository.save(any(DocumentAttachment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertEquals(filename, documentAttachmentService.uploadAttachment(1L, file, false, 100L).getOriginalFileName());
+        verify(fileStorageService).storeFile(file, 1L);
+        verify(documentProcessLogRepository).save(any(DocumentProcessLog.class));
+    }
+
+    static Stream<Arguments> pdfUploads() {
+        return Stream.of("file.pdf", "file.PDF")
+                .flatMap(name -> Stream.of("application/pdf", "application/octet-stream", null)
+                        .map(mime -> Arguments.of(name, mime)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void uploadAttachment_realStorageRejectsFakePdfWithoutWriting(boolean isMain,
+            @TempDir Path directory) throws Exception {
+        assertRejectedByRealStorage(new MockMultipartFile("file", "fake.pdf", "application/pdf", "not a PDF".getBytes()),
+                ErrorCode.FILE_INVALID_FORMAT, isMain, directory);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"null", "empty", "nullName", "blankName"})
+    void uploadAttachment_invalidInputKeepsExistingValidatorErrors(String input,
+            @TempDir Path directory) throws Exception {
+        MultipartFile file = switch (input) {
+            case "null" -> null;
+            case "empty" -> new MockMultipartFile("file", "file.docx", null, new byte[0]);
+            case "nullName" -> new MockMultipartFile("file", null, null, "%PDF-1.4".getBytes());
+            default -> new MockMultipartFile("file", " ", null, "%PDF-1.4".getBytes());
+        };
+        assertRejectedByRealStorage(file, ErrorCode.BAD_REQUEST, true, directory);
+    }
+
+    private void assertRejectedByRealStorage(MultipartFile file,
+            ErrorCode expected, boolean isMain, Path directory) throws Exception {
+        UserLogin drafter = UserLogin.builder().id(100L).role(Role.USER).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(drafter));
+        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(
+                Document.builder().id(1L).drafter(drafter).status(DocumentStatus.DRAFT).build()));
+        var properties = new UploadProperties();
+        properties.setDir(directory.toString());
+        var storage = new FileSystemStorageService(properties,
+                new FileSecurityValidator(properties));
+        var service = new DocumentAttachmentService(documentRepository, org.mockito.Mockito.mock(vn.edu.epu.eoffice_be.service.DocumentReadPolicy.class), documentAttachmentRepository, documentVersionRepository, documentProcessLogRepository, userLoginRepository, storage, documentApprovalRequestRepository, null);
+
+        assertEquals(expected, assertThrows(BusinessException.class,
+                () -> service.uploadAttachment(1L, file, isMain, 100L)).getErrorCode());
+        verifyNoInteractions(documentAttachmentRepository, documentVersionRepository,
+                documentProcessLogRepository);
+        try (var files = Files.list(directory)) {
+            assertEquals(0L, files.count());
+        }
+    }
+
     @Mock
     private DocumentRepository documentRepository;
     @Mock
@@ -57,6 +167,13 @@ class DocumentAttachmentServiceTest {
     @Mock
     private DocumentApprovalRequestRepository documentApprovalRequestRepository;
 
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentReadPolicy draftReadPolicy;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DraftUnitResolver draftUnitResolver;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentFileReadGuard documentFiles;
+
     @InjectMocks
     private DocumentAttachmentService documentAttachmentService;
 
@@ -66,23 +183,23 @@ class DocumentAttachmentServiceTest {
         Long userId = 100L;
         Long docId = 1L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
 
-        MockMultipartFile file = new MockMultipartFile("file", "kehoach.docx",
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "dummy content".getBytes());
+        MockMultipartFile file = new MockMultipartFile("file", "kehoach.pdf",
+                "application/pdf", "%PDF-1.4\n%%EOF".getBytes());
 
         StoredFileInfo storedInfo = StoredFileInfo.builder()
-                .originalFileName("kehoach.docx")
-                .storageFileName("uuid-123.docx")
+                .originalFileName("kehoach.pdf")
+                .storageFileName("uuid-123.pdf")
                 .storagePath("uploads/documents/2026/09/1")
-                .fileExtension("DOCX")
-                .mimeType("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                .fileExtension("PDF")
+                .mimeType("application/pdf")
                 .fileSizeBytes(100L)
                 .sha256Checksum("hash123")
                 .build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(fileStorageService.storeFile(file, docId)).thenReturn(storedInfo);
         when(documentAttachmentRepository.save(any(DocumentAttachment.class))).thenAnswer(inv -> {
@@ -95,7 +212,7 @@ class DocumentAttachmentServiceTest {
 
         assertNotNull(response);
         assertEquals(10L, response.getId());
-        assertEquals("kehoach.docx", response.getOriginalFileName());
+        assertEquals("kehoach.pdf", response.getOriginalFileName());
         assertTrue(response.isMainDocument());
 
         verify(documentProcessLogRepository).save(any(DocumentProcessLog.class));
@@ -107,12 +224,12 @@ class DocumentAttachmentServiceTest {
         Long userId = 100L;
         Long docId = 1L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.PUBLISHED).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.PUBLISHED).build();
 
         MockMultipartFile file = new MockMultipartFile("file", "doc.pdf", "application/pdf", "dummy".getBytes());
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
 
         BusinessException ex = assertThrows(BusinessException.class,
@@ -127,8 +244,8 @@ class DocumentAttachmentServiceTest {
         Long docId = 1L;
         Long attId = 10L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
         DocumentAttachment att = DocumentAttachment.builder()
                 .id(attId)
                 .document(doc)
@@ -136,7 +253,7 @@ class DocumentAttachmentServiceTest {
                 .deleteFlg(false)
                 .build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId, docId))
                 .thenReturn(Optional.of(att));
@@ -155,10 +272,10 @@ class DocumentAttachmentServiceTest {
         Long attId = 999L;
         Long userId = 100L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("creator").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("drafter").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId, docId))
                 .thenReturn(Optional.empty());
@@ -175,8 +292,8 @@ class DocumentAttachmentServiceTest {
         Long attId = 10L;
         Long userId = 100L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("creator").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("drafter").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
         DocumentAttachment att = DocumentAttachment.builder()
                 .id(attId)
                 .document(doc)
@@ -186,7 +303,7 @@ class DocumentAttachmentServiceTest {
 
         Resource mockResource = mock(Resource.class);
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId, docId)).thenReturn(Optional.of(att));
         when(fileStorageService.loadAsResource("path/to", "file.pdf")).thenReturn(mockResource);
@@ -202,11 +319,11 @@ class DocumentAttachmentServiceTest {
         Long docId = 1L;
         Long attId = 10L;
         Long crossUserId = 200L;
-        Long creatorId = 100L;
+        Long drafterId = 100L;
 
-        UserLogin creator = UserLogin.builder().id(creatorId).username("creator").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(drafterId).username("drafter").role(Role.USER).build();
         UserLogin crossUser = UserLogin.builder().id(crossUserId).username("crossUser").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
 
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(crossUserId)).thenReturn(Optional.of(crossUser));
@@ -223,11 +340,11 @@ class DocumentAttachmentServiceTest {
         Long attId = 10L;
         Long userId = 100L;
 
-        UserLogin creator = UserLogin.builder().id(userId).username("creator").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
+        UserLogin drafter = UserLogin.builder().id(userId).username("drafter").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
         DocumentAttachment att = DocumentAttachment.builder().id(attId).document(doc).originalFileName("test.docx").build();
 
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(creator));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId, docId)).thenReturn(Optional.of(att));
 
@@ -242,11 +359,11 @@ class DocumentAttachmentServiceTest {
         Long docId = 1L;
         Long attId = 10L;
         Long crossUserId = 200L;
-        Long creatorId = 100L;
+        Long drafterId = 100L;
 
-        UserLogin creator = UserLogin.builder().id(creatorId).username("creator").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(drafterId).username("drafter").role(Role.USER).build();
         UserLogin crossUser = UserLogin.builder().id(crossUserId).username("crossUser").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
 
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(crossUserId)).thenReturn(Optional.of(crossUser));
@@ -257,25 +374,32 @@ class DocumentAttachmentServiceTest {
     }
 
     @Test
-    @DisplayName("Lấy metadata tệp đính kèm thành công khi người dùng là Quản trị viên (ADMIN)")
-    void getAttachmentMetadata_Admin_Success() {
-        Long docId = 1L;
-        Long attId = 10L;
-        Long adminId = 999L;
-        Long creatorId = 100L;
-
-        UserLogin creator = UserLogin.builder().id(creatorId).username("creator").role(Role.USER).build();
-        UserLogin admin = UserLogin.builder().id(adminId).username("admin").role(Role.ADMIN).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
-        DocumentAttachment att = DocumentAttachment.builder().id(attId).document(doc).originalFileName("test.docx").build();
-
+    @DisplayName("Admin ngoài luồng được đọc metadata")
+    void getAttachmentMetadata_UnrelatedAdmin_ReadOnlySuccess() {
+        Long docId=1L, attId=10L, adminId=999L;
+        var admin=UserLogin.builder().id(adminId).role(Role.ADMIN).build();
+        var doc=Document.builder().id(docId).drafter(UserLogin.builder().id(100L).build()).status(DocumentStatus.DRAFT).build();
         when(userLoginRepository.findByIdAndDeleteFlgFalse(adminId)).thenReturn(Optional.of(admin));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-        when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId, docId)).thenReturn(Optional.of(att));
+        var attachment=DocumentAttachment.builder().id(attId).document(doc).originalFileName("draft.pdf").build();
+        when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId,docId)).thenReturn(Optional.of(attachment));
+        assertEquals(attachment,documentAttachmentService.getAttachmentMetadata(docId,attId,adminId));
+        verify(documentAttachmentRepository,org.mockito.Mockito.never()).save(any());
+        verifyNoInteractions(fileStorageService);
+    }
 
-        DocumentAttachment result = documentAttachmentService.getAttachmentMetadata(docId, attId, adminId);
-        assertNotNull(result);
-        assertEquals("test.docx", result.getOriginalFileName());
+    @Test
+    @DisplayName("Admin ngoài luồng không được xóa attachment")
+    void deleteAttachment_UnrelatedAdmin_ThrowsForbiddenWithoutSideEffects() {
+        Long docId=1L, attId=10L, adminId=999L;
+        var admin=UserLogin.builder().id(adminId).role(Role.ADMIN).build();
+        var doc=Document.builder().id(docId).drafter(UserLogin.builder().id(100L).build()).status(DocumentStatus.DRAFT).build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(adminId)).thenReturn(Optional.of(admin));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        assertEquals(ErrorCode.FORBIDDEN,assertThrows(BusinessException.class,
+                () -> documentAttachmentService.deleteAttachment(docId,attId,adminId)).getErrorCode());
+        verifyNoInteractions(documentAttachmentRepository, documentVersionRepository,
+                documentProcessLogRepository, fileStorageService);
     }
 
     @Test
@@ -284,11 +408,11 @@ class DocumentAttachmentServiceTest {
         Long docId = 1L;
         Long attId = 10L;
         Long anyUserId = 500L;
-        Long creatorId = 100L;
+        Long drafterId = 100L;
 
-        UserLogin creator = UserLogin.builder().id(creatorId).username("creator").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(drafterId).username("drafter").role(Role.USER).build();
         UserLogin anyUser = UserLogin.builder().id(anyUserId).username("employee").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.PUBLISHED).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.PUBLISHED).build();
         DocumentAttachment att = DocumentAttachment.builder().id(attId).document(doc).originalFileName("decision.pdf").build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(anyUserId)).thenReturn(Optional.of(anyUser));
@@ -307,8 +431,8 @@ class DocumentAttachmentServiceTest {
         Long docId = 1L;
 
         UserLogin otherUser = UserLogin.builder().id(userId).username("other").role(Role.USER).build();
-        UserLogin creator = UserLogin.builder().id(999L).username("creator").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
+        UserLogin drafter = UserLogin.builder().id(999L).username("drafter").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
 
         MockMultipartFile file = new MockMultipartFile("file", "doc.pdf", "application/pdf", "dummy".getBytes());
 
@@ -328,8 +452,8 @@ class DocumentAttachmentServiceTest {
         Long attId = 10L;
 
         UserLogin otherUser = UserLogin.builder().id(userId).username("other").role(Role.USER).build();
-        UserLogin creator = UserLogin.builder().id(999L).username("creator").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.DRAFT).build();
+        UserLogin drafter = UserLogin.builder().id(999L).username("drafter").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(otherUser));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
@@ -345,11 +469,11 @@ class DocumentAttachmentServiceTest {
         Long docId = 1L;
         Long attId = 10L;
         Long approverId = 300L;
-        Long creatorId = 100L;
+        Long drafterId = 100L;
 
-        UserLogin creator = UserLogin.builder().id(creatorId).username("creator").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(drafterId).username("drafter").role(Role.USER).build();
         UserLogin approver = UserLogin.builder().id(approverId).username("approver").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.IN_REVIEW).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.IN_REVIEW).build();
         DocumentAttachment att = DocumentAttachment.builder().id(attId).document(doc).originalFileName("draft.docx").build();
 
         DocumentApprovalRequest pendingReq = DocumentApprovalRequest.builder()
@@ -361,8 +485,7 @@ class DocumentAttachmentServiceTest {
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.of(approver));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-        when(documentApprovalRequestRepository.findByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(docId))
-                .thenReturn(java.util.List.of(pendingReq));
+        when(documentApprovalRequestRepository.existsParticipant(docId,approverId)).thenReturn(true);
         when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId, docId)).thenReturn(Optional.of(att));
 
         DocumentAttachment result = documentAttachmentService.getAttachmentMetadata(docId, attId, approverId);
@@ -371,16 +494,16 @@ class DocumentAttachmentServiceTest {
     }
 
     @Test
-    @DisplayName("Lấy metadata tệp đính kèm bị từ chối khi người duyệt có yêu cầu cũ không phải PENDING (REJECTED)")
-    void getAttachmentMetadata_RejectedApprover_ThrowsForbidden() {
+    @DisplayName("Người duyệt trong yêu cầu REJECTED chưa xóa vẫn được đọc metadata")
+    void getAttachmentMetadata_RejectedApprover_ReadOnlySuccess() {
         Long docId = 1L;
         Long attId = 10L;
         Long formerApproverId = 300L;
-        Long creatorId = 100L;
+        Long drafterId = 100L;
 
-        UserLogin creator = UserLogin.builder().id(creatorId).username("creator").role(Role.USER).build();
+        UserLogin drafter = UserLogin.builder().id(drafterId).username("drafter").role(Role.USER).build();
         UserLogin formerApprover = UserLogin.builder().id(formerApproverId).username("formerApprover").role(Role.USER).build();
-        Document doc = Document.builder().id(docId).creatorUser(creator).status(DocumentStatus.IN_REVIEW).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.IN_REVIEW).build();
 
         DocumentApprovalRequest oldReq = DocumentApprovalRequest.builder()
                 .id(50L)
@@ -391,11 +514,13 @@ class DocumentAttachmentServiceTest {
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(formerApproverId)).thenReturn(Optional.of(formerApprover));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-        when(documentApprovalRequestRepository.findByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(docId))
-                .thenReturn(java.util.List.of(oldReq));
-
-        BusinessException ex = assertThrows(BusinessException.class,
-                () -> documentAttachmentService.getAttachmentMetadata(docId, attId, formerApproverId));
-        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+        when(documentApprovalRequestRepository.existsParticipant(docId,formerApproverId)).thenReturn(true);
+        var attachment=DocumentAttachment.builder().id(attId).document(doc).originalFileName("historical.pdf").build();
+        when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId,docId)).thenReturn(Optional.of(attachment));
+        var result=documentAttachmentService.getAttachmentMetadata(docId,attId,formerApproverId);
+        assertEquals("historical.pdf",result.getOriginalFileName());
+        assertEquals(ApprovalRequestStatus.REJECTED,oldReq.getStatus());
+        verifyNoInteractions(fileStorageService);
+        verify(documentAttachmentRepository,org.mockito.Mockito.never()).save(any());
     }
 }

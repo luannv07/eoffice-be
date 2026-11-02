@@ -60,6 +60,9 @@ import static org.mockito.Mockito.*;
 /** Covers the two additional signing entry points without loading the app, a DB, or Telegram. */
 @ExtendWith(MockitoExtension.class)
 class DocumentPdfSubmissionAndNumberingTest {
+    @Mock SubmissionRoutingService submissionRoutingService;
+    @Mock vn.edu.epu.eoffice_be.workflow.WorkflowEngine submissionWorkflowEngine;
+
     enum Step { SUBMIT, ASSIGN_NUMBER }
 
     @Mock DocumentRepository documents;
@@ -77,6 +80,13 @@ class DocumentPdfSubmissionAndNumberingTest {
     @Mock vn.edu.epu.eoffice_be.storage.FileStorageService unifiedStorage;
     @Mock DocumentPdfStorageService storage;
     @Mock PdfSigner signer;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentReadPolicy draftReadPolicy;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DraftUnitResolver draftUnitResolver;
+    @org.mockito.Mock
+    private vn.edu.epu.eoffice_be.service.DocumentFileReadGuard documentFiles;
+
     @InjectMocks DocumentApprovalService submission;
     @InjectMocks DocumentBookServiceImpl numbering;
 
@@ -180,9 +190,13 @@ class DocumentPdfSubmissionAndNumberingTest {
         UserLogin actor = UserLogin.builder().id(100L).username("tester").role(Role.CLERK).build();
         when(users.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(actor));
         Document document = Document.builder().id(5001L).title("Test").summary("Summary")
-                .creatorUser(actor).primaryFilePath("storage://35001")
+                .drafter(actor).primaryFilePath("storage://35001")
                 .status(step == Step.SUBMIT ? DocumentStatus.DRAFT : DocumentStatus.APPROVED).build();
         if (step == Step.SUBMIT) {
+            when(submissionRoutingService.resolve(any(), any(), any(), any())).thenReturn(
+                    new SubmissionRoutingService.Decision(vn.edu.epu.eoffice_be.common.enums.SubmissionRoute.LEADER_APPROVAL, 200L));
+            org.mockito.Mockito.lenient().when(submissionWorkflowEngine.executeTransition(any(), any(), any(), any(), any(), any(), any()))
+                    .thenAnswer(inv -> { document.setStatus(DocumentStatus.PENDING_APPROVAL); documents.save(document); return null; });
             when(documents.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
             when(users.findByIdAndDeleteFlgFalse(200L)).thenReturn(Optional.of(
                     UserLogin.builder().id(200L).username("approver").role(Role.ADMIN).build()));

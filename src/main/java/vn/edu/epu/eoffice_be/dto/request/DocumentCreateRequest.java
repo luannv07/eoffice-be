@@ -40,7 +40,6 @@ public class DocumentCreateRequest {
     @Schema(description = "Mã loại văn bản trong từ điển DOCUMENT_TYPE_CD", example = "QUYET_DINH")
     String documentTypeCd;
 
-    @NotNull(message = "Đơn vị ban hành không được để trống")
     @Positive(message = "ID đơn vị ban hành phải lớn hơn 0")
     @Schema(description = "ID đơn vị ban hành / chủ trì soạn thảo", example = "1001")
     Long issuingOrgNodeId;

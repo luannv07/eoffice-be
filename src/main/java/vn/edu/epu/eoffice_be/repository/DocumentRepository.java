@@ -22,6 +22,57 @@ public interface DocumentRepository extends JpaRepository<Document, Long>, JpaSp
 
     Optional<Document> findByIdAndDeleteFlgFalse(Long id);
 
+    /** Correlated EXISTS preserves paging/counts and avoids per-document participant queries. */
+    static Specification<Document> readableDrafts(Long userId, boolean legacyGlobal, boolean adminReadAll,
+                                                  Collection<DocumentStatus> guardedStatuses) {
+        if (guardedStatuses == null || guardedStatuses.isEmpty()) {
+            throw new IllegalArgumentException("guardedStatuses must not be null or empty");
+        }
+        return (root, query, cb) -> {
+            if (adminReadAll) return cb.isFalse(root.get("deleteFlg"));
+            var participation = query.subquery(Long.class);
+            var request = participation.from(vn.edu.epu.eoffice_be.entity.DocumentApprovalRequest.class);
+            participation.select(request.get("id")).where(
+                    cb.equal(request.get("document").get("id"), root.get("id")),
+                    cb.isFalse(request.get("deleteFlg")),
+                    cb.or(cb.equal(request.get("senderUser").get("id"), userId),
+                            cb.equal(request.get("approverUser").get("id"), userId)));
+            var owner = cb.equal(root.get("drafter").get("id"), userId);
+            var guarded = root.get("status").in(guardedStatuses);
+            return cb.and(cb.isFalse(root.get("deleteFlg")), cb.or(
+                    cb.and(guarded, cb.or(owner, cb.exists(participation))),
+                    cb.and(cb.not(guarded), legacyGlobal ? cb.conjunction() : owner)));
+        };
+    }
+
+    default Page<Document> searchReadableDrafts(Long userId, boolean legacyGlobal, boolean adminReadAll,
+            Collection<DocumentStatus> guardedStatuses, DocumentStatus status, Long orgNodeId,
+            String keyword, Pageable pageable) {
+        Specification<Document> filter = (root, query, cb) -> {
+            List<Predicate> conditions = new ArrayList<>();
+            if (status != null) conditions.add(cb.equal(root.get("status"), status));
+            if (orgNodeId != null) conditions.add(cb.equal(root.get("issuingOrgNode").get("id"), orgNodeId));
+            if (keyword != null && !keyword.isBlank()) {
+                String pattern = "%" + keyword.trim().toLowerCase() + "%";
+                conditions.add(cb.or(cb.like(cb.lower(root.get("title")), pattern, '\\'),
+                        cb.like(cb.lower(root.get("draftCode")), pattern, '\\'),
+                        cb.like(cb.lower(root.get("summary")), pattern, '\\')));
+            }
+            return cb.and(conditions.toArray(Predicate[]::new));
+        };
+        return findAll(readableDrafts(userId, legacyGlobal, adminReadAll, guardedStatuses).and(filter), pageable);
+    }
+
+    @Query("SELECT d FROM Document d WHERE d.deleteFlg = false AND (d.primaryFilePath = :reference OR d.officialFilePath = :reference)")
+    List<Document> findReferencingFile(@Param("reference") String reference);
+
+    @Query("""
+        SELECT d FROM Document d WHERE d.deleteFlg = false
+          AND (d.id IN :documentIds OR d.primaryFilePath IN :references OR d.officialFilePath IN :references)
+        """)
+    List<Document> findFileLinkedDocuments(@Param("documentIds") Collection<Long> documentIds,
+                                           @Param("references") Collection<String> references);
+
     Optional<Document> findByDraftCodeAndDeleteFlgFalse(String draftCode);
 
     boolean existsByDraftCodeAndDeleteFlgFalse(String draftCode);
@@ -30,7 +81,7 @@ public interface DocumentRepository extends JpaRepository<Document, Long>, JpaSp
 
     boolean existsByOfficialNumberAndDeleteFlgFalse(String officialNumber);
 
-    Page<Document> findByCreatorUserIdAndDeleteFlgFalse(Long creatorUserId, Pageable pageable);
+    Page<Document> findByDrafterIdAndDeleteFlgFalse(Long drafterId, Pageable pageable);
 
     /**
      * Tìm kiếm và phân trang tài liệu theo các tiêu chí kết hợp bằng JPA Specification.
@@ -44,7 +95,7 @@ public interface DocumentRepository extends JpaRepository<Document, Long>, JpaSp
      * </p>
      */
     default Page<Document> searchDocuments(
-            Long creatorUserId,
+            Long drafterId,
             DocumentStatus status,
             Long orgNodeId,
             String keyword,
@@ -54,8 +105,8 @@ public interface DocumentRepository extends JpaRepository<Document, Long>, JpaSp
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.isFalse(root.get("deleteFlg")));
 
-            if (creatorUserId != null) {
-                predicates.add(cb.equal(root.get("creatorUser").get("id"), creatorUserId));
+            if (drafterId != null) {
+                predicates.add(cb.equal(root.get("drafter").get("id"), drafterId));
             }
             if (status != null) {
                 predicates.add(cb.equal(root.get("status"), status));

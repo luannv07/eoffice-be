@@ -70,6 +70,7 @@ import vn.edu.epu.eoffice_be.service.DocumentBookService;
 public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
     private final DocumentRepository documentRepository;
+    private final vn.edu.epu.eoffice_be.service.DocumentReadPolicy readPolicy;
     private final DocumentWorkflowLogRepository documentWorkflowLogRepository;
     private final UserLoginRepository userLoginRepository;
     private final UserInfoRepository userInfoRepository;
@@ -85,9 +86,11 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     private final DocumentPdfStorageService documentPdfStorageService;
 
     public DocumentWorkflowServiceImpl(DocumentRepository documentRepository,
-                                       DocumentWorkflowLogRepository documentWorkflowLogRepository) {
+                                       DocumentWorkflowLogRepository documentWorkflowLogRepository,
+                                       vn.edu.epu.eoffice_be.service.DocumentReadPolicy readPolicy) {
         this(
                 documentRepository,
+                readPolicy,
                 documentWorkflowLogRepository,
                 null, // userLoginRepository
                 null, // userInfoRepository
@@ -390,6 +393,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     public DocumentDetailResponse signAndPublish(Long documentId, DocumentPublishRequest request) {
         UserLogin actor = getCurrentActor();
         Document document = findDocumentOrThrow(documentId);
+        vn.edu.epu.eoffice_be.service.DocumentAdminPolicy.assertBusinessActor(actor);
+        vn.edu.epu.eoffice_be.service.TestDocumentGuard.assertReal(document);
 
         // 1. Cập nhật thông tin ban hành chính thức
         Instant issueDate = request.getIssueDate() != null ? request.getIssueDate() : Instant.now();
@@ -608,7 +613,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
     /**
      * Kiểm tra quyền đọc/xem chi tiết văn bản và lịch sử xử lý (Issue 1).
-     * Cho phép: Quản trị viên (ADMIN, SYSTEM_ADMIN), người tạo (drafter),
+     * Draft states use the participant policy; legacy rules outside that scope allow:
+     * Quản trị viên (ADMIN, SYSTEM_ADMIN), người tạo (drafter),
      * người ký (signer), vai trò xét duyệt (LEADER, REVIEWER),
      * hoặc khi văn bản đã được ban hành chính thức (PUBLISHED).
      */
@@ -618,6 +624,10 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         }
         if (actor == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        if (readPolicy.applies(document) || vn.edu.epu.eoffice_be.service.DocumentAdminPolicy.isAdmin(actor)) {
+            readPolicy.assertRead(document, actor.getId());
+            return;
         }
         Role role = actor.getRole();
         if (role == Role.ADMIN || role == Role.SYSTEM_ADMIN || role == Role.LEADER || role == Role.REVIEWER) {
@@ -794,12 +804,15 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     private DocumentDetailResponse mapToDetailResponse(Document doc) {
         return DocumentDetailResponse.builder()
                 .id(doc.getId())
+                .testDocument(doc.isTestDocument())
                 .title(doc.getTitle())
                 .documentTypeCd(doc.getDocumentTypeCd())
                 .issuingOrgId(doc.getIssuingOrg() != null ? doc.getIssuingOrg().getId() : null)
                 .issuingOrgName(doc.getIssuingOrg() != null ? doc.getIssuingOrg().getNameVn() : null)
                 .drafterId(doc.getDrafter() != null ? doc.getDrafter().getId() : null)
                 .drafterUsername(doc.getDrafter() != null ? doc.getDrafter().getUsername() : null)
+                .drafterFullName(doc.getDrafter() != null ? userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(doc.getDrafter().getId())
+                        .map(UserInfo::getFullName).orElse(doc.getDrafter().getUsername()) : null)
                 .signerId(doc.getSigner() != null ? doc.getSigner().getId() : null)
                 .signerUsername(doc.getSigner() != null ? doc.getSigner().getUsername() : null)
                 .urgencyLevelCd(doc.getUrgencyLevelCd())
@@ -941,15 +954,22 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             throw new org.springframework.security.access.AccessDeniedException("Yêu cầu xác thực người dùng");
         }
 
-        boolean isAdmin = authentication.getAuthorities() != null && authentication.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN")
-                            || a.getAuthority().equals("ADMIN")
-                            || a.getAuthority().equals("ROLE_SYSTEM_ADMIN")
-                            || a.getAuthority().equals("SYSTEM_ADMIN")
-                            || a.getAuthority().equals("ROLE_CLERK")
-                            || a.getAuthority().equals("CLERK"));
-        if (isAdmin) {
+        Document scoped = documentRepository.findByIdAndDeleteFlgFalse(documentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
+        if (readPolicy.applies(scoped)) {
+            Long viewerId = extractUserId(authentication);
+            if (viewerId == null) throw new org.springframework.security.access.AccessDeniedException("Không xác định được người dùng");
+            readPolicy.assertRead(scoped, viewerId);
             return;
+        }
+        Long verifiedId = extractUserId(authentication);
+        if (verifiedId != null) {
+            UserLogin verified = readPolicy.requireUser(verifiedId);
+            if (vn.edu.epu.eoffice_be.service.DocumentAdminPolicy.isAdmin(verified)) {
+                readPolicy.assertRead(scoped, verifiedId);
+                return;
+            }
+            if (verified.getRole() == Role.CLERK) return;
         }
 
         Document doc = documentRepository.findById(documentId)
@@ -962,8 +982,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         }
 
         Long userId = extractUserId(authentication);
-        Long creatorId = doc.getCreatorUser() != null ? doc.getCreatorUser().getId() : null;
-        if (userId != null && userId.equals(creatorId)) {
+        Long drafterId = doc.getDrafter() != null ? doc.getDrafter().getId() : null;
+        if (userId != null && userId.equals(drafterId)) {
             return;
         }
 
@@ -991,10 +1011,26 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         return null;
     }
 
+    private void assertActiveReader(UserLogin viewer) {
+        if (viewer.isDeleteFlg() || !"ACTIVE".equals(viewer.getUserStatusCd()))
+            throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
+    }
+
+    private UserLogin pendingReader(Role... allowedRoles) {
+        UserLogin viewer = getCurrentActor();
+        assertActiveReader(viewer);
+        if (!java.util.Arrays.asList(allowedRoles).contains(viewer.getRole()))
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        return viewer;
+    }
+
     @Override
     @Transactional(readOnly = true)
     public Page<PendingDocumentResponse> getPendingDocuments(Pageable pageable) {
-        Page<Document> page = documentRepository.findByStatusInAndDeleteFlgFalse(PENDING_STATUSES, pageable);
+        UserLogin viewer = pendingReader(Role.LEADER, Role.REVIEWER, Role.ADMIN, Role.SYSTEM_ADMIN);
+        Page<Document> page = documentRepository.findAll(
+                DocumentRepository.readableDrafts(viewer.getId(), true, vn.edu.epu.eoffice_be.service.DocumentAdminPolicy.isAdmin(viewer), vn.edu.epu.eoffice_be.service.DocumentReadPolicy.STATUSES)
+                        .and((root, query, cb) -> root.get("status").in(PENDING_STATUSES)), pageable);
         if (page == null) {
             return Page.empty(pageable);
         }
@@ -1009,10 +1045,10 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     @Override
     @Transactional(readOnly = true)
     public List<PendingDocumentResponse> getPendingDocuments() {
-        List<Document> list = documentRepository.findByStatusInAndDeleteFlgFalse(PENDING_STATUSES);
-        if (list == null || list.isEmpty()) {
-            list = documentRepository.findByStatusAndDeleteFlgFalse(DocumentStatus.PENDING_APPROVAL);
-        }
+        UserLogin viewer = pendingReader(Role.LEADER, Role.REVIEWER, Role.ADMIN, Role.SYSTEM_ADMIN);
+        List<Document> list = documentRepository.findAll(
+                DocumentRepository.readableDrafts(viewer.getId(), true, vn.edu.epu.eoffice_be.service.DocumentAdminPolicy.isAdmin(viewer), vn.edu.epu.eoffice_be.service.DocumentReadPolicy.STATUSES)
+                        .and((root, query, cb) -> root.get("status").in(PENDING_STATUSES)));
         if (list == null) {
             list = List.of();
         }
@@ -1027,15 +1063,10 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     @Override
     @Transactional(readOnly = true)
     public Page<PendingDocumentResponse> getPendingSignDocuments(Pageable pageable) {
-        // LEADER và ADMIN xử lý văn bản của toàn bộ hệ thống → không lọc theo người tạo.
-        // Các role khác chỉ thấy văn bản của mình (Data Isolation).
-        UserLogin currentActor = getCurrentActor();
-        boolean isPrivileged = currentActor.getRole() == Role.LEADER
-                || currentActor.getRole() == Role.ADMIN
-                || currentActor.getRole() == Role.SYSTEM_ADMIN;
-        Long filterUserId = isPrivileged ? null : currentActor.getId();
+        // Kiểm tra role từ database; danh sách hàng chờ không lọc theo người soạn.
+        pendingReader(Role.LEADER, Role.ADMIN, Role.SYSTEM_ADMIN);
         return documentRepository
-                .searchDocuments(filterUserId, DocumentStatus.PENDING_SIGN, null, null, pageable)
+                .searchDocuments(null, DocumentStatus.PENDING_SIGN, null, null, pageable)
                 .map(doc -> PendingDocumentResponse.builder()
                         .id(doc.getId())
                         .title(doc.getTitle())
@@ -1050,17 +1081,10 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     @Override
     @Transactional(readOnly = true)
     public Page<PendingDocumentResponse> getPendingPublishDocuments(Pageable pageable) {
-        // LEADER, ADMIN và REVIEWER (văn thư) xử lý ban hành toàn hệ thống.
-        // Các role khác chỉ thấy văn bản của mình (Data Isolation).
-        UserLogin currentActor = getCurrentActor();
-        boolean isPrivileged = currentActor.getRole() == Role.LEADER
-                || currentActor.getRole() == Role.ADMIN
-                || currentActor.getRole() == Role.SYSTEM_ADMIN
-                || currentActor.getRole() == Role.CLERK
-                || currentActor.getRole() == Role.REVIEWER;
-        Long filterUserId = isPrivileged ? null : currentActor.getId();
+        // Kiểm tra role từ database; quyền đọc hàng chờ không cấp quyền phát hành.
+        pendingReader(Role.LEADER, Role.CLERK, Role.REVIEWER, Role.ADMIN, Role.SYSTEM_ADMIN);
         return documentRepository
-                .searchDocuments(filterUserId, DocumentStatus.APPROVED, null, null, pageable)
+                .searchDocuments(null, DocumentStatus.APPROVED, null, null, pageable)
                 .map(doc -> PendingDocumentResponse.builder()
                         .id(doc.getId())
                         .title(doc.getTitle())

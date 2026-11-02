@@ -37,6 +37,7 @@ import java.util.Optional;
 public class DocumentAttachmentService {
 
     private final DocumentRepository documentRepository;
+    private final DocumentReadPolicy readPolicy;
     private final DocumentAttachmentRepository documentAttachmentRepository;
     private final DocumentVersionRepository documentVersionRepository;
     private final DocumentProcessLogRepository documentProcessLogRepository;
@@ -65,7 +66,7 @@ public class DocumentAttachmentService {
     }
 
     /**
-     * UC09: Tải tệp DOCX/PDF đính kèm lên hệ thống
+     * UC09: Tải tệp PDF đính kèm lên hệ thống
      */
     @Transactional
     public DocumentAttachmentResponse uploadAttachment(Long documentId, MultipartFile file, boolean isMain, Long userId) {
@@ -76,10 +77,11 @@ public class DocumentAttachmentService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
         // Kiểm tra quyền: chỉ người tạo hoặc admin mới được upload tệp
-        UserLogin creator = document.getCreatorUser() != null ? document.getCreatorUser() : document.getDrafter();
-        boolean isCreator = creator != null && creator.getId().equals(userId);
+        if (readPolicy.applies(document) || DocumentAdminPolicy.isAdmin(user)) readPolicy.assertDraftWrite(document, userId);
+        UserLogin drafter = document.getDrafter();
+        boolean isDrafter = drafter != null && drafter.getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
-        if (!isCreator && !isAdmin) {
+        if (!isDrafter && !isAdmin) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền tải tệp lên dự thảo này");
         }
 
@@ -89,6 +91,17 @@ public class DocumentAttachmentService {
         && document.getStatus() != DocumentStatus.NEEDS_REVISION) {
             throw new BusinessException(ErrorCode.DOCUMENT_INVALID_STATUS,
                     "Chỉ có thể tải tệp lên khi văn bản ở trạng thái Dự thảo hoặc Cần chỉnh sửa");
+        }
+
+        // Chỉ giới hạn định dạng tại luồng văn bản; giữ validator/storage dùng chung.
+        if (file != null && !file.isEmpty()) {
+            String filename = file.getOriginalFilename();
+            if (filename != null && !filename.isBlank()) {
+                int extensionIndex = filename.lastIndexOf('.');
+                if (extensionIndex < 0 || !"pdf".equalsIgnoreCase(filename.substring(extensionIndex + 1))) {
+                    throw new BusinessException(ErrorCode.FILE_INVALID_FORMAT, "Chỉ chấp nhận tệp PDF");
+                }
+            }
         }
 
         // Lưu trữ tệp và quét an toàn
@@ -174,13 +187,17 @@ public class DocumentAttachmentService {
     }
 
     /**
-     * Kiểm tra quyền truy cập tệp đính kèm:
+     * Draft states use the participant policy. Legacy rules below apply only outside that scope:
      * - Người tạo văn bản
      * - Quản trị viên hệ thống (ADMIN, SYSTEM_ADMIN)
      * - Văn bản đã ban hành hoặc đã được phê duyệt (ISSUED, APPROVED)
      * - Người duyệt được phân công trong yêu cầu phê duyệt đang chờ xử lý (PENDING)
      */
     void assertCanAccessAttachment(Document document, Long userId) {
+        if (readPolicy.applies(document)) {
+            readPolicy.assertRead(document, userId);
+            return;
+        }
         if (userId == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "Yêu cầu đăng nhập để truy cập tệp đính kèm");
         }
@@ -188,7 +205,11 @@ public class DocumentAttachmentService {
         UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
 
-        boolean isCreator = document.getCreatorUser() != null && document.getCreatorUser().getId().equals(userId);
+        if (DocumentAdminPolicy.isAdmin(user)) {
+            readPolicy.assertRead(document, userId);
+            return;
+        }
+        boolean isDrafter = document.getDrafter() != null && document.getDrafter().getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
         boolean isPublished = document.getStatus() == DocumentStatus.PUBLISHED || document.getStatus() == DocumentStatus.APPROVED;
 
@@ -197,7 +218,7 @@ public class DocumentAttachmentService {
                 .filter(req -> req.getStatus() == ApprovalRequestStatus.PENDING)
                 .anyMatch(req -> req.getApproverUser() != null && req.getApproverUser().getId().equals(userId));
 
-        if (!isCreator && !isAdmin && !isPublished && !isApprover) {
+        if (!isDrafter && !isAdmin && !isPublished && !isApprover) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền truy cập tệp đính kèm của văn bản này");
         }
     }
@@ -213,10 +234,11 @@ public class DocumentAttachmentService {
         Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
-        UserLogin creator = document.getCreatorUser() != null ? document.getCreatorUser() : document.getDrafter();
-        boolean isCreator = creator != null && creator.getId().equals(userId);
+        if (readPolicy.applies(document) || DocumentAdminPolicy.isAdmin(user)) readPolicy.assertDraftWrite(document, userId);
+        UserLogin drafter = document.getDrafter();
+        boolean isDrafter = drafter != null && drafter.getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
-        if (!isCreator && !isAdmin) {
+        if (!isDrafter && !isAdmin) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền xóa tệp đính kèm này");
         }
 
