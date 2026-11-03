@@ -22,8 +22,8 @@ public interface DocumentAttachmentRepository extends JpaRepository<DocumentAtta
 
     boolean existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(Long documentId);
 
-    /** Retire only the current main; preserve physical files and supplementary attachments. */
-    @Modifying(flushAutomatically = true)
+    /** Flush pending changes before retirement; reload entities after the bulk update clears the context. */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("update DocumentAttachment a set a.deleteFlg = true, a.isMainDocument = false "
             + "where a.document.id = :documentId and a.deleteFlg = false and a.isMainDocument = true")
     int retireCurrentMain(@Param("documentId") Long documentId);

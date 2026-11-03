@@ -480,6 +480,56 @@ class PhaseAIntegrationTest {
         assertTrue(attachments.findLatestPdfReturnAt(draftId).isEmpty());
     }
 
+    @Test void retiringMainReloadsCurrentFlagsAndFlushesPendingChanges() {
+        Long mainId = uploadRoundPdf(draftId, true, new byte[]{1});
+        Long appendixId = uploadRoundPdf(draftId, false, new byte[]{2});
+        tx.executeWithoutResult(s -> {
+            var cachedMain = attachments.findById(mainId).orElseThrow();
+            assertFalse(cachedMain.isDeleteFlg());
+            assertTrue(cachedMain.isMainDocument());
+            var appendix = attachments.findById(appendixId).orElseThrow();
+            appendix.setOriginalFileName("pending-change.pdf");
+            var document = documents.findById(draftId).orElseThrow();
+            document.setSummary("Pending change before retirement");
+
+            assertEquals(1, attachments.retireCurrentMain(draftId));
+
+            var reloadedMain = attachments.findById(mainId).orElseThrow();
+            assertTrue(reloadedMain.isDeleteFlg(), "Lookup in the same transaction must not return stale flags");
+            assertFalse(reloadedMain.isMainDocument());
+            assertEquals("Pending change before retirement", documents.findById(draftId).orElseThrow().getSummary());
+            var reloadedAppendix = attachments.findById(appendixId).orElseThrow();
+            assertEquals("pending-change.pdf", reloadedAppendix.getOriginalFileName());
+            assertFalse(reloadedAppendix.isDeleteFlg());
+            assertFalse(reloadedAppendix.isMainDocument());
+        });
+        assertEquals("Pending change before retirement", documents.findById(draftId).orElseThrow().getSummary());
+        assertEquals("pending-change.pdf", attachments.findById(appendixId).orElseThrow().getOriginalFileName());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void returningWithPreloadedAttachmentPersistsDocumentAndReloadsRetiredMain(boolean revision) {
+        Long mainId = uploadRoundPdf(draftId, true, new byte[]{1});
+        roundSigning(); submitRound();
+        tx.executeWithoutResult(s -> {
+            var cachedMain = attachments.findById(mainId).orElseThrow();
+            assertFalse(cachedMain.isDeleteFlg());
+            returnRound(revision);
+            var main = attachments.findById(mainId).orElseThrow();
+            assertTrue(main.isDeleteFlg());
+            assertFalse(main.isMainDocument());
+            var document = documents.findById(draftId).orElseThrow();
+            assertEquals(revision ? DocumentStatus.NEEDS_REVISION : DocumentStatus.DRAFT, document.getStatus());
+            assertNull(document.getPrimaryFilePath());
+        });
+        var document = documents.findById(draftId).orElseThrow();
+        assertEquals(revision ? DocumentStatus.NEEDS_REVISION : DocumentStatus.DRAFT, document.getStatus());
+        assertNull(document.getPrimaryFilePath());
+        assertTrue(attachments.findLatestPdfReturnAt(draftId).isPresent());
+        assertTrue(attachments.findByIdAndDocumentIdAndDeleteFlgFalse(mainId, draftId).isEmpty());
+    }
+
     @Test void signedPdfFailureDoesNotPersistRevisionOrSendRequest() {
         uploadRoundPdf(draftId, true, new byte[]{1});roundSigning();submitRound();returnRound(true);
         uploadRoundPdf(draftId, true, new byte[]{2});

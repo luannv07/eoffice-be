@@ -730,6 +730,9 @@ class DocumentWorkflowServiceTest {
     void requestRevision_success() {
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+        Document savedDocument = Document.builder().id(5001L).title("Managed document after retirement")
+                .status(DocumentStatus.NEEDS_REVISION).build();
+        when(documentRepository.save(document)).thenReturn(savedDocument);
 
         DocumentRevisionRequest request = DocumentRevisionRequest.builder()
                 .comment("Can bo sung phan phan cong nhiem vu")
@@ -738,6 +741,8 @@ class DocumentWorkflowServiceTest {
         DocumentDetailResponse response = documentWorkflowService.requestRevision(5001L, request);
 
         assertNotNull(response);
+        assertEquals(savedDocument.getTitle(), response.getTitle());
+        assertEquals(DocumentStatus.NEEDS_REVISION, response.getStatus());
         verify(workflowEngine).executeTransition(
                 document,
                 WorkflowAction.REQUEST_REVISION,
@@ -752,6 +757,7 @@ class DocumentWorkflowServiceTest {
     @Test
     @DisplayName("requestRevision: Đóng băng tệp cũ (primaryFilePath = null, isMainDocument = false)")
     void requestRevision_freezesPreviousDocumentFiles() {
+        when(documentRepository.save(document)).thenReturn(document);
         document.setPrimaryFilePath("drafts/old_initial_signed.pdf");
         DocumentAttachment mainAttachment = DocumentAttachment.builder()
                 .id(999L)

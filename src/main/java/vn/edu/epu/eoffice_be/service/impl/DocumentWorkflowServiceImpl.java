@@ -319,8 +319,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         );
         documentAttachmentRepository.retireCurrentMain(document.getId());
         document.setPrimaryFilePath(null);
-        documentRepository.save(document);
-        return mapToDetailResponse(document);
+        // Retirement clears the context; map the managed instance returned by merge/save.
+        Document savedDocument = documentRepository.save(document);
+        return mapToDetailResponse(savedDocument);
     }
 
     @Override
