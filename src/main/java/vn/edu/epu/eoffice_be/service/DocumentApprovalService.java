@@ -563,7 +563,7 @@ public class DocumentApprovalService {
                 .filter(a -> a != null && !a.isDeleteFlg() && a.isMainDocument()).toList();
         if (mains.isEmpty()) {
             throw new BusinessException(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING,
-                    "Vui lòng tải lên tệp PDF chính trước khi gửi duyệt.");
+                    "Vui lòng tải lên tệp PDF chính mới để gửi duyệt.");
         }
         if (mains.size() != 1) {
             throw new BusinessException(ErrorCode.DOCUMENT_INCOMPLETE_DOSSIER,
@@ -572,15 +572,6 @@ public class DocumentApprovalService {
         DocumentAttachment main = mains.getFirst();
         if (!isPdfAttachment(main)) {
             throw new BusinessException(ErrorCode.FILE_INVALID_FORMAT, "Tệp chính phải là PDF");
-        }
-        Optional<Instant> returnedAt = documentAttachmentRepository.findLatestPdfReturnAt(document.getId());
-        boolean requiresNewPdf = document.getStatus() == DocumentStatus.NEEDS_REVISION
-                || (document.getStatus() == DocumentStatus.DRAFT && document.getSubmittedAt() != null);
-        if ((requiresNewPdf && returnedAt.isEmpty())
-                || (returnedAt.isPresent() && (main.getCreatedDate() == null
-                || !main.getCreatedDate().isAfter(returnedAt.get())))) {
-            throw new BusinessException(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING,
-                    "Vui lòng tải lên tệp PDF chính mới sau khi thu hồi hoặc yêu cầu chỉnh sửa.");
         }
         if (unifiedStorageService == null) {
             throw new BusinessException(ErrorCode.DOCUMENT_PDF_STORAGE_UNAVAILABLE);

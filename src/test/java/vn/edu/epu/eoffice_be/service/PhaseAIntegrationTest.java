@@ -459,6 +459,34 @@ class PhaseAIntegrationTest {
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void retiredMainAndNewUploadWorkWithoutReturnHistory(boolean revision) {
+        byte[] v1 = {1, 1}, v2 = {2, 2};
+        Long oldId = uploadRoundPdf(draftId, true, v1);
+        roundSigning(); submitRound(); returnRound(revision);
+        // Simulate missing historical logs only in this isolated test database.
+        tx.executeWithoutResult(s -> {
+            jdbc.update("delete from document_process_logs where document_id=? and action='RECALL_APPROVAL'", draftId);
+            jdbc.update("delete from document_workflow_logs where document_id=? and action='REQUEST_REVISION'", draftId);
+        });
+        assertTrue(attachments.findLatestPdfReturnAt(draftId).isEmpty());
+        assertTrue(attachments.findByIdAndDocumentIdAndDeleteFlgFalse(oldId, draftId).isEmpty());
+        clearInvocations(signer, pdfStorage);
+        assertEquals(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING, assertThrows(BusinessException.class, this::submitRound).getErrorCode());
+        uploadRoundPdf(draftId, false, new byte[]{9});
+        assertEquals(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING, assertThrows(BusinessException.class, this::submitRound).getErrorCode());
+        verifyNoInteractions(signer, pdfStorage);
+        uploadRoundPdf(draftId, true, v2);
+        submitRound();
+        verify(signer).signBytes(eq(v2), eq(author.getId().toString()), any(), any(), any(), any());
+        verify(signer, never()).signBytes(eq(v1), any(), any(), any(), any(), any());
+        verify(pdfStorage, never()).readPdf(any());
+        assertEquals(DocumentStatus.IN_REVIEW, documents.findById(draftId).orElseThrow().getStatus());
+        assertTrue(attachments.findLatestPdfReturnAt(draftId).isEmpty());
+        verify(legacyStorage, never()).deleteFile(any(), any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
     void returningAndRetiringMainRollBackTogether(boolean revision) {
         Long oldId = uploadRoundPdf(draftId, true, new byte[]{1});
         roundSigning(); submitRound();
@@ -528,6 +556,38 @@ class PhaseAIntegrationTest {
         assertNull(document.getPrimaryFilePath());
         assertTrue(attachments.findLatestPdfReturnAt(draftId).isPresent());
         assertTrue(attachments.findByIdAndDocumentIdAndDeleteFlgFalse(mainId, draftId).isEmpty());
+    }
+
+    @Test void inventorySqlReportsCandidatesAndEvidenceWithoutClassifyingMainAsNew() throws Exception {
+        Long oldId = uploadRoundPdf(draftId, true, new byte[]{1});
+        roundSigning(); submitRound(); returnRound(true);
+        Long newId = uploadRoundPdf(draftId, true, new byte[]{2});
+        var ids = tx.execute(s -> {
+            Long rejected = document(DocumentStatus.REJECTED, author).getId();
+            Long revision = document(DocumentStatus.NEEDS_REVISION, author).getId();
+            Long fresh = document(DocumentStatus.DRAFT, author).getId();
+            var historical = document(DocumentStatus.DRAFT, author);
+            request(historical, author, former, ApprovalRequestStatus.RECALLED, true);
+            var deleted = document(DocumentStatus.NEEDS_REVISION, author);
+            deleted.setDeleteFlg(true); documents.saveAndFlush(deleted);
+            return List.of(rejected, revision, fresh, historical.getId(), deleted.getId());
+        });
+        String sql = java.nio.file.Files.readString(java.nio.file.Path.of("docs/sql/issue4-current-main-inventory.sql"));
+        var rows = jdbc.queryForList(sql);
+        Set<Long> reported = rows.stream().map(r -> ((Number) r.get("document_id")).longValue())
+                .collect(java.util.stream.Collectors.toSet());
+        assertTrue(reported.containsAll(List.of(draftId, ids.get(0), ids.get(1), ids.get(3))));
+        assertFalse(reported.contains(ids.get(2)));
+        assertFalse(reported.contains(ids.get(4)));
+        var oldRow = rows.stream().filter(r -> Objects.equals(r.get("attachment_id"), oldId)).findFirst().orElseThrow();
+        assertEquals(Boolean.TRUE, oldRow.get("attachment_deleted"));
+        assertEquals(Boolean.FALSE, oldRow.get("attachment_is_main"));
+        assertEquals("REQUEST_REVISION", oldRow.get("return_action"));
+        assertNull(oldRow.get("primary_file_path"));
+        var newRow = rows.stream().filter(r -> Objects.equals(r.get("attachment_id"), newId)).findFirst().orElseThrow();
+        assertEquals(Boolean.FALSE, newRow.get("attachment_deleted"));
+        assertEquals(Boolean.TRUE, newRow.get("attachment_is_main"));
+        assertTrue(rows.stream().allMatch(r -> "REQUIRES_VERIFICATION".equals(r.get("assessment"))));
     }
 
     @Test void signedPdfFailureDoesNotPersistRevisionOrSendRequest() {

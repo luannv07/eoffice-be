@@ -319,17 +319,19 @@ class DocumentFirstSubmissionTest {
     }
 
     @ParameterizedTest @ValueSource(strings = {"stale", "equal", "unknownUpload", "unknownReturn"})
-    void recalledLegacyDraftRequiresProvablyNewUploadBeforeReadingStorage(String problem) {
+    void currentMainCanBeSubmittedWithoutTimestampEvidence(String problem) {
         prepare(Role.USER, "STAFF");
         Instant returned = Instant.now().minusSeconds(10);
         document.setSubmittedAt(returned.minusSeconds(10));
-        var main = DocumentAttachment.builder().isMainDocument(true).fileExtension("PDF").build();
+        signing();
+        var main = sourcePdf(new byte[]{2, 3});
         main.setCreatedDate(problem.equals("unknownUpload") ? null : problem.equals("stale") ? returned.minusSeconds(1) : returned);
-        when(attachments.findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(1L)).thenReturn(List.of(main));
-        when(attachments.findLatestPdfReturnAt(1L)).thenReturn(problem.equals("unknownReturn") ? Optional.empty() : Optional.of(returned));
-        assertThrows(BusinessException.class, () -> service.submitForApproval(1L,
-                SubmitApprovalRequest.builder().approverUserId(20L).build(), 10L));
-        verifyNoInteractions(storage, pdfStorage, signer, approvals, workflowLogs, processLogs, events);
+        service.submitForApproval(1L, SubmitApprovalRequest.builder().approverUserId(20L).build(), 10L);
+        verify(attachments, never()).findLatestPdfReturnAt(anyLong());
+        verify(signer).signBytes(eq(new byte[]{2, 3}), eq("10"), any(), any(), any(), any());
+        verify(documents).save(document);
+        verify(approvals).save(any());
+        verify(events).publishEvent(any(DocumentSubmittedEvent.class));
     }
 
     @Test void newMainIsSignedEvenWhenLegacyPrimaryReferenceStillPointsToV1() {
@@ -337,7 +339,6 @@ class DocumentFirstSubmissionTest {
         Instant returned = Instant.now().minusSeconds(10);
         document.setSubmittedAt(returned.minusSeconds(10));
         signing();
-        when(attachments.findLatestPdfReturnAt(1L)).thenReturn(Optional.of(returned));
         service.submitForApproval(1L, SubmitApprovalRequest.builder().approverUserId(20L).build(), 10L);
         verify(signer).signBytes(eq(new byte[]{1, 2}), eq("10"), any(), any(), any(), any());
         verify(pdfStorage, never()).readPdf(any());
@@ -347,6 +348,21 @@ class DocumentFirstSubmissionTest {
         order.verify(pdfStorage).storeSignedPdf(any(), any(), any());
         order.verify(documents).save(document);
         order.verify(approvals).save(any());
+    }
+
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void retiredOrSupplementaryPdfCannotBeUsedAsCurrentMain(boolean deleted) {
+        prepare(Role.USER, "STAFF");
+        document.setSubmittedAt(Instant.now().minusSeconds(60));
+        var old = DocumentAttachment.builder().isMainDocument(deleted).deleteFlg(deleted)
+                .fileExtension("PDF").storagePath("old").storageFileName("v1.pdf").build();
+        when(attachments.findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(1L)).thenReturn(List.of(old));
+        var failure = assertThrows(BusinessException.class, () -> service.submitForApproval(1L,
+                SubmitApprovalRequest.builder().approverUserId(20L).build(), 10L));
+        assertEquals(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING, failure.getErrorCode());
+        assertEquals("Vui lòng tải lên tệp PDF chính mới để gửi duyệt.", failure.getMessage());
+        verify(attachments, never()).findLatestPdfReturnAt(anyLong());
+        verifyNoInteractions(storage, pdfStorage, signer, approvals, processLogs, workflowLogs, events);
     }
 
     @ParameterizedTest @ValueSource(strings = {"missing", "unreadable", "empty", "readFailure", "providerFailure"})

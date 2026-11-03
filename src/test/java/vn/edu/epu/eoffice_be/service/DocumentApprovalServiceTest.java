@@ -121,7 +121,6 @@ class DocumentApprovalServiceTest {
                 .fileExtension("PDF").storagePath("source").storageFileName("main.pdf").build();
         main.setCreatedDate(java.time.Instant.now());
         when(documentAttachmentRepository.findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(id)).thenReturn(List.of(main));
-        when(documentAttachmentRepository.findLatestPdfReturnAt(id)).thenReturn(Optional.of(java.time.Instant.now().minusSeconds(30)));
         when(unifiedStorageService.loadAsResource("source", "main.pdf"))
                 .thenReturn(new org.springframework.core.io.ByteArrayResource(bytes));
         org.mockito.Mockito.lenient().when(pdfSigner.signBytes(any(), any(), any(), any(), any(), any())).thenReturn(

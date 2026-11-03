@@ -113,7 +113,6 @@ class DocumentSubmissionOwnershipTest {
                 .fileExtension("PDF").storagePath("source").storageFileName("new.pdf").build();
         main.setCreatedDate(java.time.Instant.now());
         when(attachments.findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(1L)).thenReturn(List.of(main));
-        when(attachments.findLatestPdfReturnAt(1L)).thenReturn(Optional.of(java.time.Instant.now().minusSeconds(30)));
         var reviewer=UserLogin.builder().id(200L).role(Role.REVIEWER).build();
         when(users.findByIdAndDeleteFlgFalse(200L)).thenReturn(Optional.of(reviewer));
         when(positions.findByUserLoginIdAndDeleteFlgFalse(200L)).thenReturn(List.of(
