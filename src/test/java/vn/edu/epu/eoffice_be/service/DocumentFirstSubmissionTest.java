@@ -55,7 +55,7 @@ class DocumentFirstSubmissionTest {
 
     @BeforeEach void setup() {
         routing = new SubmissionRoutingService(positions, profiles, vn.edu.epu.eoffice_be.service.TestDraftUnits.resolver(positions));
-        engine = new WorkflowEngine(documents, workflowLogs, permissionResolver, routing);
+        engine = new WorkflowEngine(documents, workflowLogs, permissionResolver, routing, mock(ReviewAssignmentPolicy.class));
         service = new DocumentApprovalService(documents, attachments, approvals, processLogs, users, profiles, positions, permissions, events, drafts, pdfStorage, storage, signer, routing, engine, org.mockito.Mockito.mock(vn.edu.epu.eoffice_be.service.DraftUnitResolver.class));
         lenient().when(users.findByIdAndDeleteFlgFalse(anyLong())).thenAnswer(inv -> Optional.ofNullable(accounts.get(inv.getArgument(0))));
         lenient().when(documents.findByIdAndDeleteFlgFalse(1L)).thenAnswer(inv -> Optional.of(document));

@@ -30,7 +30,7 @@ class AdminWorkflowPermissionTest {
             return org.mockito.Answers.RETURNS_DEFAULTS.answer(invocation);
         });
         var routes=mock(SubmissionRoutingService.class);
-        var engine=new WorkflowEngine(documents,logs,permissions,routes);
+        var engine=new WorkflowEngine(documents,logs,permissions,routes,mock(ReviewAssignmentPolicy.class));
         var actor=UserLogin.builder().id(10L).role(role).build();
         var doc=Document.builder().id(1L).status(DocumentStatus.IN_REVIEW)
                 .drafter(UserLogin.builder().id(owner?10L:20L).build()).signer(actor)

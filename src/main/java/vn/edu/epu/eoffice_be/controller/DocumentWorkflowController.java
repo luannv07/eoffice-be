@@ -150,6 +150,14 @@ public class DocumentWorkflowController {
         return BaseResponse.success(page);
     }
 
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Hộp thư thẩm định: văn bản đang giao cho tôi xử lý")
+    @GetMapping("/review-inbox")
+    public BaseResponse<Page<PendingDocumentResponse>> getReviewInbox(
+            @PageableDefault(size = 10) Pageable pageable) {
+        return BaseResponse.success(documentWorkflowService.getReviewInbox(pageable));
+    }
+
     // UC-NEW-1: Danh sách văn bản chờ ký số
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Danh sách văn bản chờ ký số (PENDING_SIGN)")

@@ -137,7 +137,7 @@ class DocumentSubmissionOwnershipTest {
 
     @ParameterizedTest @EnumSource(Role.class)
     void workflowSubmitAlsoUsesDrafterForEveryRole(Role role) {
-        WorkflowEngine engine = new WorkflowEngine(documents, mock(DocumentWorkflowLogRepository.class), mock(PermissionResolver.class), submissionRoutingService);
+        WorkflowEngine engine = new WorkflowEngine(documents, mock(DocumentWorkflowLogRepository.class), mock(PermissionResolver.class), submissionRoutingService, mock(ReviewAssignmentPolicy.class));
         UserLogin actor = sender(role);
         Document document = Document.builder().drafter(actor).build();
         assertDoesNotThrow(() -> engine.validateActorPermission(document, actor, WorkflowAction.SUBMIT));
