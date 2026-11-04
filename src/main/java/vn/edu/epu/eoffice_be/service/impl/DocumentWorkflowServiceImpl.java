@@ -86,29 +86,6 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     private final PdfSignatureVerifier pdfSignatureVerifier;
     private final DocumentPdfStorageService documentPdfStorageService;
 
-    public DocumentWorkflowServiceImpl(DocumentRepository documentRepository,
-                                       DocumentWorkflowLogRepository documentWorkflowLogRepository,
-                                       vn.edu.epu.eoffice_be.service.DocumentReadPolicy readPolicy) {
-        this(
-                documentRepository,
-                null, // reviewRequests (legacy read-only constructor)
-                readPolicy,
-                documentWorkflowLogRepository,
-                null, // userLoginRepository
-                null, // userInfoRepository
-                null, // orgNodeRepository
-                null, // workflowEngine
-                null, // fileStorageService
-                null, // documentBookService
-                null, // documentAttachmentRepository
-                null, // unifiedStorageService
-                null, // pdfSigner
-                null, // positionAssignmentRepository
-                null, // pdfSignatureVerifier
-                null  // documentPdfStorageService
-        );
-    }
-
     private static final ZoneId ZONE_VN = ZoneId.of("Asia/Ho_Chi_Minh");
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER =
