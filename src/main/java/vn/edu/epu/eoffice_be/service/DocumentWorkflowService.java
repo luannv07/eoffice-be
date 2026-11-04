@@ -75,6 +75,8 @@ public interface DocumentWorkflowService {
     Page<PendingDocumentResponse> getPendingDocuments(Pageable pageable);
     List<PendingDocumentResponse> getPendingDocuments();
 
+    Page<PendingDocumentResponse> getReviewInbox(Pageable pageable);
+
     /**
      * UC-NEW-1: Danh sách văn bản chờ ký số (PENDING_SIGN).
      */

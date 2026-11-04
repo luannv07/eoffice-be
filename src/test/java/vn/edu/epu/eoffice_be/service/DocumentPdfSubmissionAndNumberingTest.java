@@ -100,15 +100,18 @@ class DocumentPdfSubmissionAndNumberingTest {
 
     @ParameterizedTest
     @EnumSource(Step.class)
-    void missingSignedVersionDoesNotFallBackToAttachment(Step step) {
+    void missingRequiredPdfDoesNotFallBackToAnotherSource(Step step) {
         Document document = prepare(step);
         BusinessException failure = new BusinessException(ErrorCode.DOCUMENT_PDF_NOT_FOUND);
-        when(storage.readPdf("storage://35001")).thenThrow(failure);
+        if (step == Step.SUBMIT) when(unifiedStorage.loadAsResource("source", "current.pdf")).thenThrow(failure);
+        else when(storage.readPdf("storage://35001")).thenThrow(failure);
 
         assertSame(failure, assertThrows(BusinessException.class, () -> invoke(step, submission, numbering)));
 
         assertEquals("storage://35001", document.getPrimaryFilePath());
-        verifyNoInteractions(signer, unifiedStorage, approvals, processLogs, workflowLogs, events);
+        verifyNoInteractions(signer, approvals, processLogs, workflowLogs, events);
+        if (step == Step.SUBMIT) verify(storage, never()).readPdf(any());
+        else verifyNoInteractions(unifiedStorage);
         verify(attachments, never()).findByDocumentIdAndDeleteFlgFalse(anyLong());
         verify(storage, never()).storeSignedPdf(any(), any(), any());
     }
@@ -140,9 +143,12 @@ class DocumentPdfSubmissionAndNumberingTest {
         invoke(step, submission, numbering);
 
         assertEquals("storage://35002", document.getPrimaryFilePath());
-        verify(storage).readPdf("storage://35001");
+        if (step == Step.SUBMIT) {
+            verify(unifiedStorage).loadAsResource("source", "current.pdf");
+            verify(storage, never()).readPdf(any());
+        } else verify(storage).readPdf("storage://35001");
         verify(storage).storeSignedPdf(eq(SIGNED), eq("initial_signed_5001.pdf"), eq(5001L));
-        verifyNoInteractions(unifiedStorage);
+        if (step != Step.SUBMIT) verifyNoInteractions(unifiedStorage);
         if (step == Step.SUBMIT) verify(approvals).save(any());
         else verify(workflowLogs).save(any());
     }
@@ -155,9 +161,14 @@ class DocumentPdfSubmissionAndNumberingTest {
         StoredFileMetadataRepository metadata = mock(StoredFileMetadataRepository.class);
         FileStorageProvider provider = mock(FileStorageProvider.class);
         when(provider.getName()).thenReturn("telegram");
-        when(metadata.findById(35001L)).thenReturn(Optional.of(StoredFileMetadata.builder()
-                .id(35001L).provider("telegram").fileId("old-file").build()));
-        when(provider.get("old-file")).thenReturn(StoredFile.builder().content(PREVIOUS).build());
+        if (step == Step.SUBMIT) {
+            when(unifiedStorage.loadAsResource("source", "current.pdf"))
+                    .thenReturn(new org.springframework.core.io.ByteArrayResource(PREVIOUS));
+        } else {
+            when(metadata.findById(35001L)).thenReturn(Optional.of(StoredFileMetadata.builder()
+                    .id(35001L).provider("telegram").fileId("old-file").build()));
+            when(provider.get("old-file")).thenReturn(StoredFile.builder().content(PREVIOUS).build());
+        }
         when(provider.saveForDocument(any())).thenReturn(StoredFile.builder().id("new-file")
                 .metadata(Map.of("messageId", "87", "chatId", "test-channel")).build());
         when(metadata.saveAndFlush(any())).thenAnswer(call -> {
@@ -200,7 +211,9 @@ class DocumentPdfSubmissionAndNumberingTest {
             when(documents.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
             when(users.findByIdAndDeleteFlgFalse(200L)).thenReturn(Optional.of(
                     UserLogin.builder().id(200L).username("approver").role(Role.ADMIN).build()));
-            when(attachments.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(5001L)).thenReturn(true);
+            when(attachments.findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(5001L)).thenReturn(List.of(
+                    vn.edu.epu.eoffice_be.entity.DocumentAttachment.builder().isMainDocument(true).fileExtension("PDF")
+                            .storagePath("source").storageFileName("current.pdf").build()));
         } else {
             SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
                     new JwtUserPrincipal(100L, "tester", "CLERK", true, List.of()), null, List.of()));
@@ -212,7 +225,9 @@ class DocumentPdfSubmissionAndNumberingTest {
     }
 
     private void prepareSigning(Step step) {
-        when(storage.readPdf("storage://35001")).thenReturn(PREVIOUS);
+        if (step == Step.SUBMIT) when(unifiedStorage.loadAsResource("source", "current.pdf"))
+                .thenReturn(new org.springframework.core.io.ByteArrayResource(PREVIOUS));
+        else when(storage.readPdf("storage://35001")).thenReturn(PREVIOUS);
         prepareSigner(step);
     }
 

@@ -34,6 +34,7 @@ public class WorkflowEngine {
     private final DocumentWorkflowLogRepository documentWorkflowLogRepository;
     private final PermissionResolver permissionResolver;
     private final SubmissionRoutingService submissionRoutingService;
+    private final vn.edu.epu.eoffice_be.service.ReviewAssignmentPolicy reviewAssignments;
 
     private static final Map<DocumentStatus, Map<WorkflowAction, DocumentStatus>> TRANSITION_MATRIX =
             new EnumMap<>(DocumentStatus.class);
@@ -125,6 +126,10 @@ public class WorkflowEngine {
                 && action != WorkflowAction.SUBMIT && action != WorkflowAction.SUBMIT_TO_LEADER
                 && action != WorkflowAction.WITHDRAW) {
             vn.edu.epu.eoffice_be.service.DocumentAdminPolicy.assertBusinessActor(actor);
+        }
+
+        if (vn.edu.epu.eoffice_be.service.ReviewAssignmentPolicy.applies(document, action)) {
+            actor = reviewAssignments.requireAssignedActor(document, actor);
         }
 
         if (!hasActionPermission(document, actor, action)) {

@@ -55,7 +55,7 @@ class DocumentFirstSubmissionTest {
 
     @BeforeEach void setup() {
         routing = new SubmissionRoutingService(positions, profiles, vn.edu.epu.eoffice_be.service.TestDraftUnits.resolver(positions));
-        engine = new WorkflowEngine(documents, workflowLogs, permissionResolver, routing);
+        engine = new WorkflowEngine(documents, workflowLogs, permissionResolver, routing, mock(ReviewAssignmentPolicy.class));
         service = new DocumentApprovalService(documents, attachments, approvals, processLogs, users, profiles, positions, permissions, events, drafts, pdfStorage, storage, signer, routing, engine, org.mockito.Mockito.mock(vn.edu.epu.eoffice_be.service.DraftUnitResolver.class));
         lenient().when(users.findByIdAndDeleteFlgFalse(anyLong())).thenAnswer(inv -> Optional.ofNullable(accounts.get(inv.getArgument(0))));
         lenient().when(documents.findByIdAndDeleteFlgFalse(1L)).thenAnswer(inv -> Optional.of(document));
@@ -84,9 +84,17 @@ class DocumentFirstSubmissionTest {
         if (!cd.equals("HT")) assign(account(30, Role.LEADER), "HT", school);
         if (!cd.equals("PHT")) assign(account(31, Role.LEADER), "PHT", school);
     }
+    DocumentAttachment sourcePdf(byte[] bytes) {
+        var main = DocumentAttachment.builder().id(101L).document(document).isMainDocument(true)
+                .storagePath("source").storageFileName("main.pdf").fileExtension("PDF").build();
+        main.setCreatedDate(Instant.now());
+        when(attachments.findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(1L)).thenReturn(List.of(main));
+        when(storage.loadAsResource("source", "main.pdf"))
+                .thenReturn(new org.springframework.core.io.ByteArrayResource(bytes));
+        return main;
+    }
     void signing() {
-        when(attachments.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(1L)).thenReturn(true);
-        when(pdfStorage.readPdf("storage://1")).thenReturn(new byte[]{1, 2});
+        sourcePdf(new byte[]{1, 2});
         when(signer.signBytes(any(), eq("10"), any(), any(), any(), any())).thenReturn(
                 new PdfSigner.SignResult("10", "author", "serial", "hash", new Date(), "field", null, new byte[]{3, 4}));
         when(pdfStorage.storeSignedPdf(any(), any(), eq(1L))).thenReturn("storage://2");
@@ -209,8 +217,7 @@ class DocumentFirstSubmissionTest {
     @ParameterizedTest @ValueSource(strings = {"missingPdf", "missingSigner", "signFailure", "emptyResult", "emptyHash", "storeFailure", "emptyReference"})
     void rectorNeverEntersQueueWithoutSuccessfulSigningAndStorage(String failure) {
         prepare(Role.LEADER, "HT");
-        when(attachments.existsByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(1L)).thenReturn(true);
-        when(pdfStorage.readPdf("storage://1")).thenReturn(failure.equals("missingPdf") ? null : new byte[]{1});
+        sourcePdf(failure.equals("missingPdf") ? new byte[0] : new byte[]{1});
         if (failure.equals("missingSigner")) {
             service = new DocumentApprovalService(documents, attachments, approvals, processLogs, users, profiles, positions, permissions, events, drafts, pdfStorage, storage, null, routing, engine, org.mockito.Mockito.mock(vn.edu.epu.eoffice_be.service.DraftUnitResolver.class));
         } else if (!failure.equals("missingPdf")) {
@@ -263,5 +270,142 @@ class DocumentFirstSubmissionTest {
         assertEquals(ErrorCode.BAD_REQUEST, assertThrows(BusinessException.class,
                 () -> service.submitForApproval(1L, new SubmitApprovalRequest(), 10L)).getErrorCode());
         verifyNoInteractions(approvals, processLogs, workflowLogs, attachments, signer, storage, events);
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"textOnly", "supplement", "deleted", "multiple", "notPdf"})
+    void dossierCannotReplaceCurrentMainPdf(String problem) {
+        prepare(Role.USER, "STAFF");
+        document.setContent("Text alone is insufficient");
+        var main = DocumentAttachment.builder().id(101L).isMainDocument(true).fileExtension("PDF").build();
+        var list = switch (problem) {
+            case "textOnly" -> List.<DocumentAttachment>of();
+            case "supplement" -> { main.setMainDocument(false); yield List.of(main); }
+            case "deleted" -> { main.setDeleteFlg(true); yield List.of(main); }
+            case "multiple" -> List.of(main, DocumentAttachment.builder().isMainDocument(true).build());
+            default -> { main.setFileExtension("DOCX"); yield List.of(main); }
+        };
+        when(attachments.findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(1L)).thenReturn(list);
+        assertThrows(BusinessException.class, () -> service.submitForApproval(1L,
+                SubmitApprovalRequest.builder().approverUserId(20L).build(), 10L));
+        verifyNoInteractions(signer, storage, pdfStorage, approvals, processLogs, workflowLogs, events);
+        assertEquals(DocumentStatus.DRAFT, document.getStatus());
+        assertEquals(1, document.getCurrentVersion());
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"nullResult", "nullBytes", "emptyBytes", "nullHash", "blankHash", "nullReference", "blankReference", "signFailure", "storeFailure"})
+    void ordinaryRouteAlsoRequiresSuccessfulSignatureAndStorage(String failure) {
+        prepare(Role.USER, "STAFF");
+        sourcePdf(new byte[]{1, 2});
+        if (failure.equals("signFailure")) {
+            when(signer.signBytes(any(), any(), any(), any(), any(), any()))
+                    .thenThrow(new BusinessException(ErrorCode.PKI_STORAGE_ERROR));
+        } else {
+            var result = failure.equals("nullResult") ? null : new PdfSigner.SignResult("10", "author", "serial",
+                    failure.equals("nullHash") ? null : failure.equals("blankHash") ? " " : "hash",
+                    new Date(), "field", null, failure.equals("nullBytes") ? null : failure.equals("emptyBytes") ? new byte[0] : new byte[]{3});
+            when(signer.signBytes(any(), any(), any(), any(), any(), any())).thenReturn(result);
+            if (failure.equals("storeFailure")) when(pdfStorage.storeSignedPdf(any(), any(), any()))
+                    .thenThrow(new BusinessException(ErrorCode.DOCUMENT_PDF_STORAGE_FAILED));
+            if (failure.equals("nullReference") || failure.equals("blankReference"))
+                when(pdfStorage.storeSignedPdf(any(), any(), any())).thenReturn(failure.equals("nullReference") ? null : " ");
+        }
+        assertThrows(BusinessException.class, () -> service.submitForApproval(1L,
+                SubmitApprovalRequest.builder().approverUserId(20L).build(), 10L));
+        assertEquals(DocumentStatus.DRAFT, document.getStatus());
+        assertNull(document.getSubmittedAt());
+        assertEquals("storage://1", document.getPrimaryFilePath());
+        verify(documents, never()).save(any());
+        verifyNoInteractions(approvals, processLogs, workflowLogs, events, drafts);
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"stale", "equal", "unknownUpload", "unknownReturn"})
+    void currentMainCanBeSubmittedWithoutTimestampEvidence(String problem) {
+        prepare(Role.USER, "STAFF");
+        Instant returned = Instant.now().minusSeconds(10);
+        document.setSubmittedAt(returned.minusSeconds(10));
+        signing();
+        var main = sourcePdf(new byte[]{2, 3});
+        main.setCreatedDate(problem.equals("unknownUpload") ? null : problem.equals("stale") ? returned.minusSeconds(1) : returned);
+        service.submitForApproval(1L, SubmitApprovalRequest.builder().approverUserId(20L).build(), 10L);
+        verify(attachments, never()).findLatestPdfReturnAt(anyLong());
+        verify(signer).signBytes(eq(new byte[]{2, 3}), eq("10"), any(), any(), any(), any());
+        verify(documents).save(document);
+        verify(approvals).save(any());
+        verify(events).publishEvent(any(DocumentSubmittedEvent.class));
+    }
+
+    @Test void newMainIsSignedEvenWhenLegacyPrimaryReferenceStillPointsToV1() {
+        prepare(Role.USER, "STAFF");
+        Instant returned = Instant.now().minusSeconds(10);
+        document.setSubmittedAt(returned.minusSeconds(10));
+        signing();
+        service.submitForApproval(1L, SubmitApprovalRequest.builder().approverUserId(20L).build(), 10L);
+        verify(signer).signBytes(eq(new byte[]{1, 2}), eq("10"), any(), any(), any(), any());
+        verify(pdfStorage, never()).readPdf(any());
+        var order = inOrder(storage, signer, pdfStorage, documents, approvals);
+        order.verify(storage).loadAsResource("source", "main.pdf");
+        order.verify(signer).signBytes(any(), any(), any(), any(), any(), any());
+        order.verify(pdfStorage).storeSignedPdf(any(), any(), any());
+        order.verify(documents).save(document);
+        order.verify(approvals).save(any());
+    }
+
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void retiredOrSupplementaryPdfCannotBeUsedAsCurrentMain(boolean deleted) {
+        prepare(Role.USER, "STAFF");
+        document.setSubmittedAt(Instant.now().minusSeconds(60));
+        var old = DocumentAttachment.builder().isMainDocument(deleted).deleteFlg(deleted)
+                .fileExtension("PDF").storagePath("old").storageFileName("v1.pdf").build();
+        when(attachments.findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(1L)).thenReturn(List.of(old));
+        var failure = assertThrows(BusinessException.class, () -> service.submitForApproval(1L,
+                SubmitApprovalRequest.builder().approverUserId(20L).build(), 10L));
+        assertEquals(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING, failure.getErrorCode());
+        assertEquals("Vui lòng tải lên tệp PDF chính mới để gửi duyệt.", failure.getMessage());
+        verify(attachments, never()).findLatestPdfReturnAt(anyLong());
+        verifyNoInteractions(storage, pdfStorage, signer, approvals, processLogs, workflowLogs, events);
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"missing", "unreadable", "empty", "readFailure", "providerFailure"})
+    void currentPdfReadFailureNeverFallsBackToOldSignedReference(String problem) throws Exception {
+        prepare(Role.USER, "STAFF");
+        var main=DocumentAttachment.builder().isMainDocument(true).fileExtension("PDF")
+                .storagePath("source").storageFileName("v2.pdf").build();
+        when(attachments.findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(1L)).thenReturn(List.of(main));
+        if (problem.equals("providerFailure")) {
+            when(storage.loadAsResource("source","v2.pdf")).thenThrow(new IllegalStateException("provider unavailable"));
+        } else if (!problem.equals("missing")) {
+            org.springframework.core.io.Resource resource;
+            if (problem.equals("empty")) resource=new org.springframework.core.io.ByteArrayResource(new byte[0]);
+            else {
+                resource=mock(org.springframework.core.io.Resource.class);
+                when(resource.exists()).thenReturn(true);
+                when(resource.isReadable()).thenReturn(!problem.equals("unreadable"));
+                if (problem.equals("readFailure")) when(resource.getInputStream()).thenThrow(new java.io.IOException("read failed"));
+            }
+            when(storage.loadAsResource("source","v2.pdf")).thenReturn(resource);
+        }
+        assertThrows(BusinessException.class,()->service.submitForApproval(1L,
+                SubmitApprovalRequest.builder().approverUserId(20L).build(),10L));
+        verifyNoInteractions(signer,pdfStorage,approvals,processLogs,workflowLogs,events);
+        assertEquals(DocumentStatus.DRAFT,document.getStatus());
+        assertNull(document.getSubmittedAt());
+    }
+
+    @ParameterizedTest @EnumSource(Role.class)
+    void disabledDatabaseSenderCannotReadOrSignPdf(Role role) {
+        prepare(role,"NONE");sender.setUserStatusCd("DISABLED");
+        assertEquals(ErrorCode.ACCOUNT_DISABLED,assertThrows(BusinessException.class,
+                ()->service.submitForApproval(1L,SubmitApprovalRequest.builder().approverUserId(20L).build(),10L)).getErrorCode());
+        unchangedAndNoEffects();
+    }
+
+    @Test void resubmissionRejectsDisabledRecipientBeforeAnyPdfOrSigning() {
+        prepare(Role.USER,"STAFF");document.setStatus(DocumentStatus.NEEDS_REVISION);
+        accounts.get(20L).setUserStatusCd("DISABLED");
+        assertEquals(ErrorCode.APPROVER_NOT_ELIGIBLE,assertThrows(BusinessException.class,
+                ()->service.submitForApproval(1L,SubmitApprovalRequest.builder().approverUserId(20L).build(),10L)).getErrorCode());
+        assertEquals(DocumentStatus.NEEDS_REVISION,document.getStatus());
+        assertEquals(1,document.getCurrentVersion());
+        verifyNoInteractions(attachments,storage,pdfStorage,signer,approvals,processLogs,workflowLogs,events);
     }
 }

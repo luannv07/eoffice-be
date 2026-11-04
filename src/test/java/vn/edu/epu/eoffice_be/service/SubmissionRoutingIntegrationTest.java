@@ -53,6 +53,8 @@ class SubmissionRoutingIntegrationTest {
     @Autowired DocumentWorkflowService workflow;
     @Autowired JdbcTemplate jdbc;
     @Autowired CommittedEvents committed;
+    @Autowired DocumentAttachmentRepository attachments;
+    @MockBean vn.edu.epu.eoffice_be.storage.FileStorageService sourceStorage;
     @MockBean PdfSigner signer;
     @MockBean DocumentPdfStorageService pdfStorage;
     @MockBean DocumentDraftService drafts;
@@ -93,7 +95,13 @@ class SubmissionRoutingIntegrationTest {
     @AfterEach void clearSecurity() { SecurityContextHolder.clearContext(); }
 
     void signing() {
-        when(pdfStorage.readPdf("storage://1")).thenReturn(new byte[]{1});
+        tx.executeWithoutResult(status -> attachments.saveAndFlush(DocumentAttachment.builder()
+                .document(documents.getReferenceById(documentId)).uploadedByUser(users.getReferenceById(author))
+                .originalFileName("source.pdf").storagePath("source").storageFileName("source.pdf")
+                .fileExtension("PDF").mimeType("application/pdf").fileSizeBytes(1).sha256Checksum("hash")
+                .isMainDocument(true).build()));
+        when(sourceStorage.loadAsResource("source", "source.pdf"))
+                .thenReturn(new org.springframework.core.io.ByteArrayResource(new byte[]{1}));
         when(signer.signBytes(any(), eq(author.toString()), any(), any(), any(), any())).thenReturn(
                 new PdfSigner.SignResult(author.toString(), "rector", "serial", "hash", new Date(), "field", null, new byte[]{2}));
         when(pdfStorage.storeSignedPdf(any(), any(), eq(documentId))).thenReturn("storage://2");

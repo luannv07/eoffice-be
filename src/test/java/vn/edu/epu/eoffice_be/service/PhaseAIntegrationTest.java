@@ -62,6 +62,7 @@ class PhaseAIntegrationTest {
     @Autowired DocumentProcessLogRepository processLogs;
     @Autowired DocumentWorkflowLogRepository workflowLogs;
     @Autowired PlatformTransactionManager manager;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     @MockBean DocumentPdfStorageService pdfStorage;
     @MockBean vn.edu.epu.eoffice_be.storage.FileStorageService legacyStorage;
     @MockBean FileStorageProviderRegistry registry;
@@ -261,7 +262,12 @@ class PhaseAIntegrationTest {
         tx.executeWithoutResult(s -> {var account=users.findById(admin.getId()).orElseThrow();account.setRole(role);users.saveAndFlush(account);});
         var response=drafts.createDraft(create(faculty.getId()),admin.getId());
         tx.executeWithoutResult(s -> {var doc=documents.findById(response.getId()).orElseThrow();doc.setPrimaryFilePath("storage://501");documents.saveAndFlush(doc);});
-        when(pdfStorage.readPdf("storage://501")).thenReturn(new byte[]{1,2});
+        tx.executeWithoutResult(s -> attachments.saveAndFlush(DocumentAttachment.builder()
+                .document(documents.getReferenceById(response.getId())).uploadedByUser(users.getReferenceById(admin.getId()))
+                .originalFileName("admin.pdf").storagePath("source").storageFileName("admin.pdf")
+                .fileExtension("PDF").mimeType("application/pdf").sha256Checksum("hash").fileSizeBytes(2)
+                .isMainDocument(true).build()));
+        when(legacyStorage.loadAsResource("source", "admin.pdf")).thenReturn(new ByteArrayResource(new byte[]{1,2}));
         when(signer.signBytes(any(),eq(admin.getId().toString()),any(),any(),any(),any())).thenReturn(
                 new PdfSigner.SignResult(admin.getId().toString(),"author","serial","hash",new Date(),"field",null,new byte[]{3,4}));
         when(pdfStorage.storeSignedPdf(any(),any(),eq(response.getId()))).thenReturn("storage://503");
@@ -381,4 +387,248 @@ class PhaseAIntegrationTest {
                 .andExpect(jsonPath("$.data.content[0].id").value(ids.get(1)));
     }
 
+
+    private Long uploadRoundPdf(Long id, boolean main, byte[] bytes) {
+        String storageName = "round-" + UUID.randomUUID() + ".pdf";
+        var file = new org.springframework.mock.web.MockMultipartFile("file", "same-name.pdf", "application/pdf", bytes);
+        when(legacyStorage.storeFile(file, id)).thenReturn(vn.edu.epu.eoffice_be.storage.dto.StoredFileInfo.builder()
+                .originalFileName("same-name.pdf").storageFileName(storageName).storagePath("round-source")
+                .fileExtension("PDF").mimeType("application/pdf").fileSizeBytes(bytes.length).sha256Checksum("sample-hash").build());
+        when(legacyStorage.loadAsResource("round-source", storageName)).thenReturn(new ByteArrayResource(bytes));
+        return attachmentService.uploadAttachment(id, file, main, author.getId()).getId();
+    }
+
+    private void roundSigning() {
+        when(signer.signBytes(any(), eq(author.getId().toString()), any(), any(), any(), any())).thenAnswer(inv ->
+                new PdfSigner.SignResult(author.getId().toString(), "author", "serial", "hash", new Date(), "field", null,
+                        ((byte[]) inv.getArgument(0)).clone()));
+        when(pdfStorage.storeSignedPdf(any(), any(), eq(draftId))).thenAnswer(inv -> "storage://" + Math.abs(UUID.randomUUID().getMostSignificantBits()));
+    }
+
+    private void submitRound() {
+        approval.submitForApproval(draftId, SubmitApprovalRequest.builder().approverUserId(former.getId()).build(), author.getId());
+    }
+
+    private void returnRound(boolean revision) {
+        if (!revision) {
+            approval.recallApproval(draftId, RecallApprovalRequest.builder().recallReason("Replace PDF").build(), author.getId());
+        } else {
+            tx.executeWithoutResult(s -> {
+                var permission = positionPermissions.findByPositionCdAndPermissionCdAndDeleteFlgFalse("TK", "DOCUMENT_APPROVE")
+                        .orElseGet(() -> PositionPermission.builder().positionCd("TK").permissionCd("DOCUMENT_APPROVE").build());
+                permission.setInheritToChildren(false);
+                positionPermissions.saveAndFlush(permission);
+            });
+            var previousContext = SecurityContextHolder.getContext();
+            var revisionContext = SecurityContextHolder.createEmptyContext();
+            revisionContext.setAuthentication(auth(former));
+            try {
+                SecurityContextHolder.setContext(revisionContext);
+                workflow.requestRevision(draftId, DocumentRevisionRequest.builder().comment("Replace PDF").build());
+            } finally {
+                SecurityContextHolder.setContext(previousContext);
+            }
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void returnedMainIsSoftDeletedAndOnlyNewMainIsSigned(boolean revision) {
+        byte[] v1 = {1, 1}, v2 = {2, 2}, v3 = {3, 3};
+        Long oldId = uploadRoundPdf(draftId, true, v1);
+        Long appendix = uploadRoundPdf(draftId, false, new byte[]{9});
+        roundSigning(); submitRound();
+        returnRound(revision);
+        assertEquals(Boolean.TRUE, jdbc.queryForObject("select delete_flg from document_attachments where id=?", Boolean.class, oldId));
+        assertEquals(1, jdbc.queryForObject("select count(*) from document_attachments where id=?", Integer.class, oldId));
+        assertEquals(Boolean.FALSE, jdbc.queryForObject("select delete_flg from document_attachments where id=?", Boolean.class, appendix));
+        assertTrue(attachments.findByIdAndDocumentIdAndDeleteFlgFalse(oldId, draftId).isEmpty());
+        assertNull(documents.findById(draftId).orElseThrow().getPrimaryFilePath());
+        clearInvocations(signer, legacyStorage, pdfStorage);
+        assertEquals(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING, assertThrows(BusinessException.class, this::submitRound).getErrorCode());
+        uploadRoundPdf(draftId, false, new byte[]{8});
+        assertThrows(BusinessException.class, this::submitRound);
+        verifyNoInteractions(signer, pdfStorage);
+        Long secondId = uploadRoundPdf(draftId, true, v2);
+        submitRound();
+        verify(signer).signBytes(eq(v2), eq(author.getId().toString()), any(), any(), any(), any());
+        verify(signer, never()).signBytes(eq(v1), any(), any(), any(), any(), any());
+        verify(pdfStorage, never()).readPdf(any());
+        assertEquals(DocumentStatus.IN_REVIEW, documents.findById(draftId).orElseThrow().getStatus());
+        returnRound(revision);
+        assertEquals(Boolean.TRUE, jdbc.queryForObject("select delete_flg from document_attachments where id=?", Boolean.class, secondId));
+        uploadRoundPdf(draftId, true, v3);
+        clearInvocations(signer);
+        submitRound();
+        verify(signer).signBytes(eq(v3), eq(author.getId().toString()), any(), any(), any(), any());
+        verify(legacyStorage, never()).deleteFile(any(), any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void retiredMainAndNewUploadWorkWithoutReturnHistory(boolean revision) {
+        byte[] v1 = {1, 1}, v2 = {2, 2};
+        Long oldId = uploadRoundPdf(draftId, true, v1);
+        roundSigning(); submitRound(); returnRound(revision);
+        // Simulate missing historical logs only in this isolated test database.
+        tx.executeWithoutResult(s -> {
+            jdbc.update("delete from document_process_logs where document_id=? and action='RECALL_APPROVAL'", draftId);
+            jdbc.update("delete from document_workflow_logs where document_id=? and action='REQUEST_REVISION'", draftId);
+        });
+        assertTrue(attachments.findLatestPdfReturnAt(draftId).isEmpty());
+        assertTrue(attachments.findByIdAndDocumentIdAndDeleteFlgFalse(oldId, draftId).isEmpty());
+        clearInvocations(signer, pdfStorage);
+        assertEquals(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING, assertThrows(BusinessException.class, this::submitRound).getErrorCode());
+        uploadRoundPdf(draftId, false, new byte[]{9});
+        assertEquals(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING, assertThrows(BusinessException.class, this::submitRound).getErrorCode());
+        verifyNoInteractions(signer, pdfStorage);
+        uploadRoundPdf(draftId, true, v2);
+        submitRound();
+        verify(signer).signBytes(eq(v2), eq(author.getId().toString()), any(), any(), any(), any());
+        verify(signer, never()).signBytes(eq(v1), any(), any(), any(), any(), any());
+        verify(pdfStorage, never()).readPdf(any());
+        assertEquals(DocumentStatus.IN_REVIEW, documents.findById(draftId).orElseThrow().getStatus());
+        assertTrue(attachments.findLatestPdfReturnAt(draftId).isEmpty());
+        verify(legacyStorage, never()).deleteFile(any(), any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void returningAndRetiringMainRollBackTogether(boolean revision) {
+        Long oldId = uploadRoundPdf(draftId, true, new byte[]{1});
+        roundSigning(); submitRound();
+        String before = documents.findById(draftId).orElseThrow().getPrimaryFilePath();
+        // Prepare permissions outside the rollback transaction; then returnRound uses them.
+        if (revision) tx.executeWithoutResult(s -> {
+            var p = positionPermissions.findByPositionCdAndPermissionCdAndDeleteFlgFalse("TK", "DOCUMENT_APPROVE")
+                    .orElseGet(() -> PositionPermission.builder().positionCd("TK").permissionCd("DOCUMENT_APPROVE").build());
+            p.setInheritToChildren(false);positionPermissions.saveAndFlush(p);
+        });
+        assertThrows(IllegalStateException.class, () -> tx.executeWithoutResult(s -> {
+            returnRound(revision);
+            throw new IllegalStateException("force rollback after retirement");
+        }));
+        assertEquals(DocumentStatus.IN_REVIEW, documents.findById(draftId).orElseThrow().getStatus());
+        assertEquals(before, documents.findById(draftId).orElseThrow().getPrimaryFilePath());
+        assertEquals(Boolean.FALSE, jdbc.queryForObject("select delete_flg from document_attachments where id=?", Boolean.class, oldId));
+        assertTrue(attachments.findByIdAndDocumentIdAndDeleteFlgFalse(oldId, draftId).isPresent());
+        assertTrue(attachments.findLatestPdfReturnAt(draftId).isEmpty());
+    }
+
+    @Test void retiringMainReloadsCurrentFlagsAndFlushesPendingChanges() {
+        Long mainId = uploadRoundPdf(draftId, true, new byte[]{1});
+        Long appendixId = uploadRoundPdf(draftId, false, new byte[]{2});
+        tx.executeWithoutResult(s -> {
+            var cachedMain = attachments.findById(mainId).orElseThrow();
+            assertFalse(cachedMain.isDeleteFlg());
+            assertTrue(cachedMain.isMainDocument());
+            var appendix = attachments.findById(appendixId).orElseThrow();
+            appendix.setOriginalFileName("pending-change.pdf");
+            var document = documents.findById(draftId).orElseThrow();
+            document.setSummary("Pending change before retirement");
+
+            assertEquals(1, attachments.retireCurrentMain(draftId));
+
+            var reloadedMain = attachments.findById(mainId).orElseThrow();
+            assertTrue(reloadedMain.isDeleteFlg(), "Lookup in the same transaction must not return stale flags");
+            assertFalse(reloadedMain.isMainDocument());
+            assertEquals("Pending change before retirement", documents.findById(draftId).orElseThrow().getSummary());
+            var reloadedAppendix = attachments.findById(appendixId).orElseThrow();
+            assertEquals("pending-change.pdf", reloadedAppendix.getOriginalFileName());
+            assertFalse(reloadedAppendix.isDeleteFlg());
+            assertFalse(reloadedAppendix.isMainDocument());
+        });
+        assertEquals("Pending change before retirement", documents.findById(draftId).orElseThrow().getSummary());
+        assertEquals("pending-change.pdf", attachments.findById(appendixId).orElseThrow().getOriginalFileName());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void returningWithPreloadedAttachmentPersistsDocumentAndReloadsRetiredMain(boolean revision) {
+        Long mainId = uploadRoundPdf(draftId, true, new byte[]{1});
+        roundSigning(); submitRound();
+        tx.executeWithoutResult(s -> {
+            var cachedMain = attachments.findById(mainId).orElseThrow();
+            assertFalse(cachedMain.isDeleteFlg());
+            returnRound(revision);
+            var main = attachments.findById(mainId).orElseThrow();
+            assertTrue(main.isDeleteFlg());
+            assertFalse(main.isMainDocument());
+            var document = documents.findById(draftId).orElseThrow();
+            assertEquals(revision ? DocumentStatus.NEEDS_REVISION : DocumentStatus.DRAFT, document.getStatus());
+            assertNull(document.getPrimaryFilePath());
+        });
+        var document = documents.findById(draftId).orElseThrow();
+        assertEquals(revision ? DocumentStatus.NEEDS_REVISION : DocumentStatus.DRAFT, document.getStatus());
+        assertNull(document.getPrimaryFilePath());
+        assertTrue(attachments.findLatestPdfReturnAt(draftId).isPresent());
+        assertTrue(attachments.findByIdAndDocumentIdAndDeleteFlgFalse(mainId, draftId).isEmpty());
+    }
+
+    @Test void inventorySqlReportsCandidatesAndEvidenceWithoutClassifyingMainAsNew() throws Exception {
+        Long oldId = uploadRoundPdf(draftId, true, new byte[]{1});
+        roundSigning(); submitRound(); returnRound(true);
+        Long newId = uploadRoundPdf(draftId, true, new byte[]{2});
+        var ids = tx.execute(s -> {
+            Long rejected = document(DocumentStatus.REJECTED, author).getId();
+            Long revision = document(DocumentStatus.NEEDS_REVISION, author).getId();
+            Long fresh = document(DocumentStatus.DRAFT, author).getId();
+            var historical = document(DocumentStatus.DRAFT, author);
+            request(historical, author, former, ApprovalRequestStatus.RECALLED, true);
+            var deleted = document(DocumentStatus.NEEDS_REVISION, author);
+            deleted.setDeleteFlg(true); documents.saveAndFlush(deleted);
+            return List.of(rejected, revision, fresh, historical.getId(), deleted.getId());
+        });
+        String sql = java.nio.file.Files.readString(java.nio.file.Path.of("docs/sql/issue4-current-main-inventory.sql"));
+        var rows = jdbc.queryForList(sql);
+        Set<Long> reported = rows.stream().map(r -> ((Number) r.get("document_id")).longValue())
+                .collect(java.util.stream.Collectors.toSet());
+        assertTrue(reported.containsAll(List.of(draftId, ids.get(0), ids.get(1), ids.get(3))));
+        assertFalse(reported.contains(ids.get(2)));
+        assertFalse(reported.contains(ids.get(4)));
+        var oldRow = rows.stream().filter(r -> Objects.equals(r.get("attachment_id"), oldId)).findFirst().orElseThrow();
+        assertEquals(Boolean.TRUE, oldRow.get("attachment_deleted"));
+        assertEquals(Boolean.FALSE, oldRow.get("attachment_is_main"));
+        assertEquals("REQUEST_REVISION", oldRow.get("return_action"));
+        assertNull(oldRow.get("primary_file_path"));
+        var newRow = rows.stream().filter(r -> Objects.equals(r.get("attachment_id"), newId)).findFirst().orElseThrow();
+        assertEquals(Boolean.FALSE, newRow.get("attachment_deleted"));
+        assertEquals(Boolean.TRUE, newRow.get("attachment_is_main"));
+        assertTrue(rows.stream().allMatch(r -> "REQUIRES_VERIFICATION".equals(r.get("assessment"))));
+    }
+
+    @Test void signedPdfFailureDoesNotPersistRevisionOrSendRequest() {
+        uploadRoundPdf(draftId, true, new byte[]{1});roundSigning();submitRound();returnRound(true);
+        uploadRoundPdf(draftId, true, new byte[]{2});
+        int version = documents.findById(draftId).orElseThrow().getCurrentVersion();
+        int requestCount = requests.findByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(draftId).size();
+        when(pdfStorage.storeSignedPdf(any(), any(), eq(draftId))).thenThrow(new BusinessException(ErrorCode.DOCUMENT_PDF_STORAGE_FAILED));
+        clearInvocations(notifications);
+        assertThrows(BusinessException.class, this::submitRound);
+        var doc=documents.findById(draftId).orElseThrow();
+        assertEquals(DocumentStatus.NEEDS_REVISION, doc.getStatus());
+        assertEquals(version, doc.getCurrentVersion());assertNull(doc.getPrimaryFilePath());
+        assertEquals(requestCount, requests.findByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(draftId).size());
+        verifyNoInteractions(notifications);
+    }
+
+    @Test void uploadFailureKeepsCurrentMainAndSignedReference() {
+        Long oldId=uploadRoundPdf(draftId,true,new byte[]{1});roundSigning();submitRound();
+        // A normal editable draft with an existing signed reference: failed replacement must not retire it.
+        tx.executeWithoutResult(s -> {var doc=documents.findById(draftId).orElseThrow();doc.setStatus(DocumentStatus.DRAFT);documents.saveAndFlush(doc);});
+        String before=documents.findById(draftId).orElseThrow().getPrimaryFilePath();
+        var file=new org.springframework.mock.web.MockMultipartFile("file","new.pdf","application/pdf",new byte[]{2});
+        when(legacyStorage.storeFile(file,draftId)).thenThrow(new BusinessException(ErrorCode.FILE_STORAGE_ERROR));
+        assertThrows(BusinessException.class,()->attachmentService.uploadAttachment(draftId,file,true,author.getId()));
+        assertEquals(before,documents.findById(draftId).orElseThrow().getPrimaryFilePath());
+        assertTrue(attachments.findByIdAndDocumentIdAndDeleteFlgFalse(oldId,draftId).orElseThrow().isMainDocument());
+    }
+
+    @Test void missingMainSubmissionReturnsHttp400WithoutSigning() throws Exception {
+        mvc.perform(post("/documents/"+draftId+"/submit-approval").with(authentication(auth(author)))
+                .contentType("application/json").content("{\"approverUserId\":"+former.getId()+"}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errorCode").value("DOCUMENT_PRIMARY_FILE_MISSING"));
+        verifyNoInteractions(signer,pdfStorage);
+        assertEquals(DocumentStatus.DRAFT,documents.findById(draftId).orElseThrow().getStatus());
+    }
 }

@@ -70,6 +70,7 @@ import vn.edu.epu.eoffice_be.service.DocumentBookService;
 public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
     private final DocumentRepository documentRepository;
+    private final vn.edu.epu.eoffice_be.repository.DocumentApprovalRequestRepository reviewRequests;
     private final vn.edu.epu.eoffice_be.service.DocumentReadPolicy readPolicy;
     private final DocumentWorkflowLogRepository documentWorkflowLogRepository;
     private final UserLoginRepository userLoginRepository;
@@ -84,28 +85,6 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     private final PositionAssignmentRepository positionAssignmentRepository;
     private final PdfSignatureVerifier pdfSignatureVerifier;
     private final DocumentPdfStorageService documentPdfStorageService;
-
-    public DocumentWorkflowServiceImpl(DocumentRepository documentRepository,
-                                       DocumentWorkflowLogRepository documentWorkflowLogRepository,
-                                       vn.edu.epu.eoffice_be.service.DocumentReadPolicy readPolicy) {
-        this(
-                documentRepository,
-                readPolicy,
-                documentWorkflowLogRepository,
-                null, // userLoginRepository
-                null, // userInfoRepository
-                null, // orgNodeRepository
-                null, // workflowEngine
-                null, // fileStorageService
-                null, // documentBookService
-                null, // documentAttachmentRepository
-                null, // unifiedStorageService
-                null, // pdfSigner
-                null, // positionAssignmentRepository
-                null, // pdfSignatureVerifier
-                null  // documentPdfStorageService
-        );
-    }
 
     private static final ZoneId ZONE_VN = ZoneId.of("Asia/Ho_Chi_Minh");
 
@@ -125,12 +104,6 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         UserLogin actor = getCurrentActor();
         Document document = findDocumentOrThrow(documentId);
 
-        OrgNode assignedOrg = null;
-        if (request.getAssignedOrgNodeId() != null) {
-            assignedOrg = orgNodeRepository.findByIdAndDeleteFlgFalse(request.getAssignedOrgNodeId())
-                    .orElseThrow(() -> new BusinessException(ErrorCode.ORG_NODE_NOT_FOUND));
-        }
-
         // Quyết định hành động chuyển tiếp phù hợp với trạng thái hiện tại
         WorkflowAction action;
         if (document.getStatus() == DocumentStatus.IN_REVIEW) {
@@ -142,7 +115,14 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         }
 
         // Kiểm tra thẩm quyền người xử lý trước khi thực hiện chuyển đổi
-        validateActorAuthorization(document, actor, action);
+        validateReviewAuthorization(document, actor, action, request.getComment());
+
+        OrgNode assignedOrg = null;
+        if (request.getAssignedOrgNodeId() != null) {
+            assignedOrg = orgNodeRepository.findByIdAndDeleteFlgFalse(request.getAssignedOrgNodeId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.ORG_NODE_NOT_FOUND));
+        }
+
 
         // Tự động ký nháy lần 2 nếu văn bản đang ở IN_REVIEW (Cán bộ thẩm định duyệt chuyển tiếp)
         String signatureHash = null;
@@ -303,7 +283,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         Document document = findDocumentOrThrow(documentId);
 
         // Kiểm tra thẩm quyền người yêu cầu chỉnh sửa
-        validateActorAuthorization(document, actor, WorkflowAction.REQUEST_REVISION);
+        validateReviewAuthorization(document, actor, WorkflowAction.REQUEST_REVISION, request.getComment());
 
         workflowEngine.executeTransition(
                 document,
@@ -314,9 +294,11 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 null,
                 null
         );
-        freezePreviousDocumentFiles(document);
-        documentRepository.save(document);
-        return mapToDetailResponse(document);
+        documentAttachmentRepository.retireCurrentMain(document.getId());
+        document.setPrimaryFilePath(null);
+        // Retirement clears the context; map the managed instance returned by merge/save.
+        Document savedDocument = documentRepository.save(document);
+        return mapToDetailResponse(savedDocument);
     }
 
     @Override
@@ -326,7 +308,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         Document document = findDocumentOrThrow(documentId);
 
         // Kiểm tra thẩm quyền ký nháy TRƯỚC KHI xử lý file PDF nhằm tránh lãng phí tài nguyên CPU/IO
-        validateActorAuthorization(document, actor, WorkflowAction.INITIAL_SIGN);
+        validateReviewAuthorization(document, actor, WorkflowAction.INITIAL_SIGN, request.getComment());
 
         // 1. Kiểm tra file PDF nguồn: nếu chưa có file đính kèm chính thì báo lỗi
         ensureDocumentPdfExists(document);
@@ -543,7 +525,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         Document document = findDocumentOrThrow(documentId);
 
         // Kiểm tra thẩm quyền từ chối văn bản
-        validateActorAuthorization(document, actor, WorkflowAction.REJECT);
+        validateReviewAuthorization(document, actor, WorkflowAction.REJECT, request.getComment());
 
         workflowEngine.executeTransition(
                 document,
@@ -799,6 +781,26 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
      */
     private void validateActorAuthorization(Document document, UserLogin actor, WorkflowAction action) {
         workflowEngine.validateActorPermission(document, actor, action);
+    }
+
+    private void validateReviewAuthorization(Document document, UserLogin actor, WorkflowAction action, String comment) {
+        workflowEngine.validateTransition(document, action, comment);
+        validateActorAuthorization(document, actor, action);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<PendingDocumentResponse> getReviewInbox(Pageable pageable) {
+        UserLogin viewer = readPolicy.currentUser();
+        // Query orders by the current request's submittedAt/id, not document metadata or role.
+        Pageable page = org.springframework.data.domain.PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+        return reviewRequests.findReviewInbox(viewer.getId(), page).map(request -> {
+            Document document = request.getDocument();
+            return PendingDocumentResponse.builder().id(document.getId()).title(document.getTitle())
+                    .status(document.getStatus().name()).currentHolder(resolveCurrentHolder(document.getStatus()))
+                    .updatedAt(document.getUpdatedDate()).pendingDays(computePendingDays(request.getSubmittedAt()))
+                    .isOverdue(computeIsOverdue(request.getSubmittedAt())).build();
+        });
     }
 
     private DocumentDetailResponse mapToDetailResponse(Document doc) {
