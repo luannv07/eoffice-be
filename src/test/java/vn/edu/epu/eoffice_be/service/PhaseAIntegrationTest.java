@@ -419,8 +419,15 @@ class PhaseAIntegrationTest {
                 permission.setInheritToChildren(false);
                 positionPermissions.saveAndFlush(permission);
             });
-            SecurityContextHolder.getContext().setAuthentication(auth(former));
-            workflow.requestRevision(draftId, DocumentRevisionRequest.builder().comment("Replace PDF").build());
+            var previousContext = SecurityContextHolder.getContext();
+            var revisionContext = SecurityContextHolder.createEmptyContext();
+            revisionContext.setAuthentication(auth(former));
+            try {
+                SecurityContextHolder.setContext(revisionContext);
+                workflow.requestRevision(draftId, DocumentRevisionRequest.builder().comment("Replace PDF").build());
+            } finally {
+                SecurityContextHolder.setContext(previousContext);
+            }
         }
     }
 
