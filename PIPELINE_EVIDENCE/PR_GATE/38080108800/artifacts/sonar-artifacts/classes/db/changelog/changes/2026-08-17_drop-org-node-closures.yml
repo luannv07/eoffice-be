@@ -1,0 +1,60 @@
+databaseChangeLog:
+  - changeSet:
+      id: a3b1c0d2-9e4f-4a5b-8c6d-1e2f3a4b5c61
+      author: luannv
+      changes:
+        - dropTable:
+            tableName: org_node_closures
+            cascadeConstraints: true
+      rollback:
+        - createTable:
+            tableName: org_node_closures
+            remarks: Bảng closure phục vụ truy vấn cây tổ chức (kỹ thuật, không phải nghiệp vụ)
+            columns:
+              - column:
+                  name: ancestor_id
+                  type: BIGINT
+                  remarks: Nút tổ tiên (FK org_nodes)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: descendant_id
+                  type: BIGINT
+                  remarks: Nút hậu duệ (FK org_nodes)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: depth
+                  type: INT
+                  defaultValueNumeric: 0
+                  remarks: Độ sâu giữa ancestor và descendant (0 = chính nó)
+                  constraints:
+                    nullable: false
+        - addPrimaryKey:
+            constraintName: pk_org_node_closures
+            tableName: org_node_closures
+            columnNames: ancestor_id, descendant_id
+        - createIndex:
+            indexName: idx_closure_descendant
+            tableName: org_node_closures
+            columns:
+              - column:
+                  name: descendant_id
+        - createIndex:
+            indexName: idx_closure_depth
+            tableName: org_node_closures
+            columns:
+              - column:
+                  name: depth
+        - addForeignKeyConstraint:
+            baseTableName: org_node_closures
+            baseColumnNames: ancestor_id
+            constraintName: fk_closure_ancestor
+            referencedTableName: org_nodes
+            referencedColumnNames: id
+        - addForeignKeyConstraint:
+            baseTableName: org_node_closures
+            baseColumnNames: descendant_id
+            constraintName: fk_closure_descendant
+            referencedTableName: org_nodes
+            referencedColumnNames: id

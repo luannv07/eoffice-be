@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-09-12-add-idx-dwl-actor
+      author: eoffice-dev
+      changes:
+        - createIndex:
+            indexName: idx_dwl_actor
+            tableName: document_workflow_logs
+            columns:
+              - column:
+                  name: actor_id

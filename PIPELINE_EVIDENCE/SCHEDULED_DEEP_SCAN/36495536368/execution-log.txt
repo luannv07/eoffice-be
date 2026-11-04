@@ -1,0 +1,731 @@
+﻿Deep Security Scan	UNKNOWN STEP	∩╗┐2026-09-28T22:59:25.8465332Z Current runner version: '2.337.0'
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8494466Z ##[group]Runner Image Provisioner
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8495583Z Hosted Compute Agent
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8496255Z Version: 20260828.587
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8497044Z Commit: abac92662cab4cc7352de4f9f9d2e2419aad9c29
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8497874Z Build Date: 2026-08-28T16:44:25Z
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8498954Z Worker ID: {e2e7ccec-99b1-4ae7-aa6f-698e2f20659b}
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8499831Z Azure Region: westus3
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8500541Z ##[endgroup]
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8502503Z ##[group]Operating System
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8503273Z Ubuntu
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8503929Z 24.04.5
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8504544Z LTS
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8505144Z ##[endgroup]
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8505957Z ##[group]Runner Image
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8506702Z Image: ubuntu-24.04
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8507486Z Version: 20260920.314.1
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8509420Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260920.314/images/ubuntu/Ubuntu2404-Readme.md
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8511338Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260920.314
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8512518Z ##[endgroup]
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8513888Z ##[group]GITHUB_TOKEN Permissions
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8516502Z Contents: read
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8517326Z Metadata: read
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8518031Z ##[endgroup]
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8520616Z Secret source: Actions
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8522325Z Cache mode: write
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.8523190Z Prepare workflow directory
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.9063702Z Prepare all required actions
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:25.9122805Z Getting action download info
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:26.2516894Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:26.3923443Z Download action repository 'actions/setup-java@v4' (SHA:cf277c60eb25467037889841efdb72551f06f6c3)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:27.3741067Z Download action repository 'actions/cache@v4' (SHA:0057852bfaa89a56745cba8c7296529d2fc39830)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:27.5928152Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:27.9322055Z Complete job name: Deep Security Scan
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:27.9867112Z ##[group]Run actions/checkout@v4
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:27.9867726Z with:
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:27.9868084Z   repository: luannv07/eoffice-be
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:27.9870633Z   token: ***
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:27.9870961Z   ssh-strict: true
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:27.9871271Z   ssh-user: git
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:27.9871632Z   persist-credentials: true
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:27.9871994Z   clean: true
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:27.9872313Z   sparse-checkout-cone-mode: true
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:27.9872709Z   fetch-depth: 1
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:27.9873014Z   fetch-tags: false
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:27.9873374Z   show-progress: true
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:27.9873692Z   lfs: false
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:27.9873998Z   submodules: false
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:27.9874325Z   set-safe-directory: true
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:27.9874689Z   allow-unsafe-pr-checkout: false
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:27.9875263Z ##[endgroup]
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.0847658Z Syncing repository: luannv07/eoffice-be
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.0850107Z ##[group]Getting Git version info
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.0851099Z Working directory is '/home/runner/work/eoffice-be/eoffice-be'
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.0852174Z [command]/usr/bin/git version
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.0888769Z git version 2.55.0
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.0943015Z ##[endgroup]
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.0948810Z Temporarily overriding HOME='/home/runner/work/_temp/ea463f04-cc94-4c66-b6c7-3c636132a5a8' before making global git config changes
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.0950215Z Adding repository directory to the temporary git global config as a safe directory
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.0951216Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/eoffice-be/eoffice-be
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1003522Z Deleting the contents of '/home/runner/work/eoffice-be/eoffice-be'
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1005012Z ##[group]Initializing the repository
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1031579Z [command]/usr/bin/git init /home/runner/work/eoffice-be/eoffice-be
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1084371Z hint: Using 'master' as the name for the initial branch. This default branch name
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1104504Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1111793Z hint: to use in all of your new repositories, which will suppress this warning,
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1112893Z hint: call:
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1113613Z hint:
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1114344Z hint: 	git config --global init.defaultBranch <name>
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1115012Z hint:
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1115771Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1116766Z hint: 'development'. The just-created branch can be renamed via this command:
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1117507Z hint:
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1118043Z hint: 	git branch -m <name>
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1118800Z hint:
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1119717Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1120826Z Initialized empty Git repository in /home/runner/work/eoffice-be/eoffice-be/.git/
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1122980Z [command]/usr/bin/git remote add origin https://github.com/luannv07/eoffice-be
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1181486Z ##[endgroup]
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1182735Z ##[group]Disabling automatic garbage collection
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1187122Z [command]/usr/bin/git config --local gc.auto 0
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1242042Z ##[endgroup]
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1243028Z ##[group]Setting up auth
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1243915Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1298423Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1671009Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.1681859Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.2010326Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.2027186Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.2194820Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.2223340Z ##[endgroup]
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.2224934Z ##[group]Fetching the repository
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:28.2233117Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +715cd00cdec4e2fc06af5e0b6d17c049182f8171:refs/remotes/origin/dev
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.0909533Z From https://github.com/luannv07/eoffice-be
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1029682Z  * [new ref]         715cd00cdec4e2fc06af5e0b6d17c049182f8171 -> origin/dev
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1032995Z ##[endgroup]
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1034067Z ##[group]Determining the checkout info
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1035051Z ##[endgroup]
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1036435Z [command]/usr/bin/git sparse-checkout disable
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1040067Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1045336Z ##[group]Checking out the ref
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1045902Z [command]/usr/bin/git checkout --progress --force -B dev refs/remotes/origin/dev
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1189672Z Switched to a new branch 'dev'
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1202152Z branch 'dev' set up to track 'origin/dev'.
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1209632Z ##[endgroup]
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1242256Z [command]/usr/bin/git log -1 --format=%H
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1262979Z 715cd00cdec4e2fc06af5e0b6d17c049182f8171
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1523842Z ##[group]Run actions/setup-java@v4
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1524258Z with:
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1524622Z   distribution: temurin
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1524939Z   java-version: 21
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1525357Z   cache: maven
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1525692Z   java-package: jdk
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1526018Z   check-latest: false
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1526334Z   server-id: github
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1526689Z   server-username: GITHUB_ACTOR
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1527019Z   server-password: GITHUB_TOKEN
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1527367Z   overwrite-settings: true
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1527707Z   job-status: success
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1529896Z   token: ***
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.1530215Z ##[endgroup]
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.3259553Z ##[warning]setup-java v4 is deprecated and will no longer receive updates. Please migrate to actions/setup-java@v5.
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.3269918Z ##[group]Installed distributions
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.3423604Z Resolved Java 21.0.12+1 from tool-cache
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.3424768Z Setting Java 21.0.12+1 as the default
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.3432453Z (node:1932) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.3433857Z (Use `node --trace-deprecation ...` to show where the warning was created)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.3435057Z Creating toolchains.xml for JDK version 21 from temurin
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.3534579Z Writing to /home/runner/.m2/toolchains.xml
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.3553619Z 
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.3569615Z Java configuration:
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.3570287Z   Distribution: temurin
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.3571444Z   Version: 21.0.12+1
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.3572191Z   Path: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.3572769Z 
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.3573531Z ##[endgroup]
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.3596400Z Creating settings.xml with server-id: github
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.3609614Z Writing to /home/runner/.m2/settings.xml
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.6324959Z Cache hit for: setup-java-Linux-x64-maven-7433f345848eac129cc1f6db70be2089a75ccc0ae2b55a5045d2636e714e952f
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:29.6415602Z (node:1932) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:30.8726184Z Received 29360128 of 113667735 (25.8%), 28.0 MBs/sec
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:31.3892420Z Received 113667735 of 113667735 (100.0%), 71.5 MBs/sec
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:31.3893609Z Cache Size: ~108 MB (113667735 B)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:31.4018105Z [command]/usr/bin/tar -xf /home/runner/work/_temp/ee71702e-81ee-4cf7-ad19-dc6dd4a5a039/cache.tzst -P -C /home/runner/work/eoffice-be/eoffice-be --use-compress-program unzstd
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:31.5752960Z Cache restored successfully
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:31.5800567Z Cache restored from key: setup-java-Linux-x64-maven-7433f345848eac129cc1f6db70be2089a75ccc0ae2b55a5045d2636e714e952f
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:31.8959055Z ##[group]Run actions/cache@v4
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:31.8959359Z with:
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:31.8959658Z   path: ~/.cache/dependency-check
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:31.8960137Z   key: owasp-db-Linux-7433f345848eac129cc1f6db70be2089a75ccc0ae2b55a5045d2636e714e952f
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:31.8960630Z   restore-keys: owasp-db-Linux-
+Deep Security Scan	UNKNOWN STEP	
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:31.8960955Z   enableCrossOsArchive: false
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:31.8961276Z   fail-on-cache-miss: false
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:31.8961564Z   lookup-only: false
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:31.8961825Z   save-always: false
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:31.8962110Z env:
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:31.8962466Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:31.8962932Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:31.8963321Z ##[endgroup]
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:31.9872535Z (node:1960) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:31.9873702Z (Use `node --trace-deprecation ...` to show where the warning was created)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:32.2000701Z Cache hit for restore-key: owasp-db-Linux-8ce36cf4a4c641a4ec331ef874fc5d98a57b3aae4f0a37b1b84e788a6bd11140
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:32.2083940Z (node:1960) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:33.4374871Z Received 33554432 of 120561408 (27.8%), 32.0 MBs/sec
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:34.0585647Z Received 120561408 of 120561408 (100.0%), 70.9 MBs/sec
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:34.0587437Z Cache Size: ~115 MB (120561408 B)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:34.0625299Z [command]/usr/bin/tar -xf /home/runner/work/_temp/3c7d0ee7-9e4d-446e-a7d1-6e5cc0ae0c69/cache.tzst -P -C /home/runner/work/eoffice-be/eoffice-be --use-compress-program unzstd
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:34.4405016Z Cache restored successfully
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:34.4522188Z Cache restored from key: owasp-db-Linux-8ce36cf4a4c641a4ec331ef874fc5d98a57b3aae4f0a37b1b84e788a6bd11140
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:34.5155188Z ##[group]Run mkdir -p security-reports
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:34.5155567Z ^[[36;1mmkdir -p security-reports^[[0m
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:34.5155923Z ^[[36;1mmvn -B org.owasp:dependency-check-maven:check \^[[0m
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:34.5156234Z ^[[36;1m  -Dformat=JSON \^[[0m
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:34.5156498Z ^[[36;1m  -DoutputDirectory=security-reports \^[[0m
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:34.5156813Z ^[[36;1m  -DdataDirectory=$HOME/.cache/dependency-check \^[[0m
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:34.5157268Z ^[[36;1m  -DnvdApiKey=*** \^[[0m
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:34.5157500Z ^[[36;1m  -DfailBuildOnCVSS=9^[[0m
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:34.6096829Z shell: /usr/bin/bash -e {0}
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:34.6097235Z env:
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:34.6097659Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:34.6098275Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:34.6098717Z ##[endgroup]
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:38.8626176Z [INFO] Scanning for projects...
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:39.8395545Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/owasp/dependency-check-maven/maven-metadata.xml
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:40.5126183Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/owasp/dependency-check-maven/maven-metadata.xml (5.6 kB at 8.3 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:40.5790297Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/owasp/dependency-check-maven/13.0.0/dependency-check-maven-13.0.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:40.6131656Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/owasp/dependency-check-maven/13.0.0/dependency-check-maven-13.0.0.pom (13 kB at 371 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:40.6230328Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/owasp/dependency-check-parent/13.0.0/dependency-check-parent-13.0.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:40.6620083Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/owasp/dependency-check-parent/13.0.0/dependency-check-parent-13.0.0.pom (59 kB at 1.6 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:40.6671342Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/jackson-bom/2.22.1/jackson-bom-2.22.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:40.6980840Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/jackson-bom/2.22.1/jackson-bom-2.22.1.pom (20 kB at 613 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:40.7012895Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/jackson-parent/2.22/jackson-parent-2.22.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:40.7313493Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/jackson-parent/2.22/jackson-parent-2.22.pom (6.9 kB at 229 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:40.7334245Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/oss-parent/79/oss-parent-79.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:40.7629901Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/oss-parent/79/oss-parent-79.pom (24 kB at 842 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:40.7675166Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/mockito/mockito-bom/5.23.0/mockito-bom-5.23.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:40.7931328Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/mockito/mockito-bom/5.23.0/mockito-bom-5.23.0.pom (3.0 kB at 114 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:40.7984901Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/junit/junit-bom/5.14.4/junit-bom-5.14.4.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:40.8259735Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/junit/junit-bom/5.14.4/junit-bom-5.14.4.pom (5.7 kB at 210 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:40.8359900Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/owasp/dependency-check-maven/13.0.0/dependency-check-maven-13.0.0.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:40.8799899Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/owasp/dependency-check-maven/13.0.0/dependency-check-maven-13.0.0.jar (128 kB at 2.8 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:40.9119246Z [INFO] 
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:40.9149766Z [INFO] -----------------------< vn.edu.epu:eoffice-be >------------------------
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:40.9184446Z [INFO] Building eoffice-be 0.0.1-SNAPSHOT
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:40.9185132Z [INFO]   from pom.xml
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:40.9209565Z [INFO] --------------------------------[ jar ]---------------------------------
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:41.6339680Z [INFO] 
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:41.6349735Z [INFO] --- dependency-check:13.0.0:check (default-cli) @ eoffice-be ---
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:41.6430075Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/owasp/dependency-check-core/13.0.0/dependency-check-core-13.0.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:41.6796117Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/owasp/dependency-check-core/13.0.0/dependency-check-core-13.0.0.pom (28 kB at 732 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:41.6851647Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/github/jeremylong/open-vulnerability-clients/9.0.6/open-vulnerability-clients-9.0.6.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:41.7230211Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/github/jeremylong/open-vulnerability-clients/9.0.6/open-vulnerability-clients-9.0.6.pom (3.0 kB at 81 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:41.7239613Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/jspecify/jspecify/1.0.1/jspecify-1.0.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:41.7563999Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/jspecify/jspecify/1.0.1/jspecify-1.0.1.pom (1.9 kB at 61 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:41.7592960Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/client5/httpclient5/5.6.3/httpclient5-5.6.3.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:41.7914377Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/client5/httpclient5/5.6.3/httpclient5-5.6.3.pom (6.7 kB at 198 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:41.7946636Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/client5/httpclient5-parent/5.6.3/httpclient5-parent-5.6.3.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:41.8212972Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/client5/httpclient5-parent/5.6.3/httpclient5-parent-5.6.3.pom (20 kB at 684 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:41.8250271Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcomponents-parent/14/httpcomponents-parent-14.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:41.8519946Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcomponents-parent/14/httpcomponents-parent-14.pom (30 kB at 1.1 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:41.8557304Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/junit/junit-bom/5.13.3/junit-bom-5.13.3.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:41.8791546Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/junit/junit-bom/5.13.3/junit-bom-5.13.3.pom (5.7 kB at 236 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:41.8819798Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/opentelemetry/opentelemetry-bom/1.49.0/opentelemetry-bom-1.49.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:41.9138181Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/opentelemetry/opentelemetry-bom/1.49.0/opentelemetry-bom-1.49.0.pom (5.9 kB at 184 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:41.9179944Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/core5/httpcore5/5.4.3/httpcore5-5.4.3.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:41.9485007Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/core5/httpcore5/5.4.3/httpcore5-5.4.3.pom (3.9 kB at 120 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:41.9539058Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/core5/httpcore5-parent/5.4.3/httpcore5-parent-5.4.3.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:41.9805506Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/core5/httpcore5-parent/5.4.3/httpcore5-parent-5.4.3.pom (15 kB at 530 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:41.9836084Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/core5/httpcore5-h2/5.4.3/httpcore5-h2-5.4.3.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.0077956Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/core5/httpcore5-h2/5.4.3/httpcore5-h2-5.4.3.pom (3.6 kB at 151 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.0119144Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/2.0.18/slf4j-api-2.0.18.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.0419833Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/2.0.18/slf4j-api-2.0.18.pom (2.8 kB at 97 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.0444553Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/slf4j/slf4j-parent/2.0.18/slf4j-parent-2.0.18.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.0709857Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/slf4j/slf4j-parent/2.0.18/slf4j-parent-2.0.18.pom (13 kB at 514 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.0719849Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/slf4j/slf4j-bom/2.0.18/slf4j-bom-2.0.18.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.0963687Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/slf4j/slf4j-bom/2.0.18/slf4j-bom-2.0.18.pom (7.9 kB at 303 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.1000173Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/client5/httpclient5-cache/5.6.3/httpclient5-cache-5.6.3.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.1262470Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/client5/httpclient5-cache/5.6.3/httpclient5-cache-5.6.3.pom (4.4 kB at 163 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.1311808Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.22.1/jackson-databind-2.22.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.1630373Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.22.1/jackson-databind-2.22.1.pom (23 kB at 698 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.1662013Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/jackson-base/2.22.1/jackson-base-2.22.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.1946541Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/jackson-base/2.22.1/jackson-base-2.22.1.pom (13 kB at 461 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.2000189Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/junit/junit-bom/5.14.3/junit-bom-5.14.3.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.2338929Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/junit/junit-bom/5.14.3/junit-bom-5.14.3.pom (5.7 kB at 177 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.2354196Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.22/jackson-annotations-2.22.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.2675703Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.22/jackson-annotations-2.22.pom (7.2 kB at 211 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.2699790Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-core/2.22.1/jackson-core-2.22.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.3100771Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-core/2.22.1/jackson-core-2.22.1.pom (9.7 kB at 243 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.3149536Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/datatype/jackson-datatype-jsr310/2.22.1/jackson-datatype-jsr310-2.22.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.3504093Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/datatype/jackson-datatype-jsr310/2.22.1/jackson-datatype-jsr310-2.22.1.pom (5.3 kB at 145 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.3549794Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/module/jackson-modules-java8/2.22.1/jackson-modules-java8-2.22.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.3822359Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/module/jackson-modules-java8/2.22.1/jackson-modules-java8-2.22.1.pom (3.1 kB at 106 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.3859830Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/samskivert/jmustache/1.16/jmustache-1.16.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.4159789Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/samskivert/jmustache/1.16/jmustache-1.16.pom (6.9 kB at 230 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.4179978Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/kichik/pecoff4j/pecoff4j/0.4.1/pecoff4j-0.4.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.4482804Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/kichik/pecoff4j/pecoff4j/0.4.1/pecoff4j-0.4.1.pom (9.1 kB at 305 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.4527168Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/github/jeremylong/jcs3-slf4j/1.0.5/jcs3-slf4j-1.0.5.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.4860013Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/github/jeremylong/jcs3-slf4j/1.0.5/jcs3-slf4j-1.0.5.pom (1.9 kB at 55 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.4880163Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-jcs3-core/3.2.1/commons-jcs3-core-3.2.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.5203680Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-jcs3-core/3.2.1/commons-jcs3-core-3.2.1.pom (8.7 kB at 264 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.5221109Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-jcs3/3.2.1/commons-jcs3-3.2.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.5630192Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-jcs3/3.2.1/commons-jcs3-3.2.1.pom (21 kB at 520 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.5710307Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/github/package-url/packageurl-java/1.5.0/packageurl-java-1.5.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.6060195Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/github/package-url/packageurl-java/1.5.0/packageurl-java-1.5.0.pom (12 kB at 326 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.6079756Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/us/springett/cpe-parser/3.0.1/cpe-parser-3.0.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.6366173Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/us/springett/cpe-parser/3.0.1/cpe-parser-3.0.1.pom (19 kB at 660 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.6422770Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/assertj/assertj-bom/3.27.6/assertj-bom-3.27.6.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.6739815Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/assertj/assertj-bom/3.27.6/assertj-bom-3.27.6.pom (3.3 kB at 104 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.6756005Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/junit/junit-bom/5.14.1/junit-bom-5.14.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.7049885Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/junit/junit-bom/5.14.1/junit-bom-5.14.1.pom (5.7 kB at 189 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.7067360Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/semver4j/semver4j/5.8.0/semver4j-5.8.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.7346951Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/semver4j/semver4j/5.8.0/semver4j-5.8.0.pom (11 kB at 381 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.7387446Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/owasp/dependency-check-utils/13.0.0/dependency-check-utils-13.0.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.7849894Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/owasp/dependency-check-utils/13.0.0/dependency-check-utils-13.0.0.pom (4.4 kB at 98 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.7869710Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/commons-io/commons-io/2.22.0/commons-io-2.22.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.8226289Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/commons-io/commons-io/2.22.0/commons-io-2.22.0.pom (20 kB at 596 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.8249872Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-parent/98/commons-parent-98.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.8669988Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-parent/98/commons-parent-98.pom (80 kB at 2.0 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.8686031Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/apache/37/apache-37.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.8986139Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/apache/37/apache-37.pom (26 kB at 826 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.9019954Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/junit/junit-bom/5.14.2/junit-bom-5.14.2.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.9299892Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/junit/junit-bom/5.14.2/junit-bom-5.14.2.pom (5.7 kB at 202 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.9320466Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-lang3/3.20.0/commons-lang3-3.20.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.9658508Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-lang3/3.20.0/commons-lang3-3.20.0.pom (33 kB at 958 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:42.9686651Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-parent/92/commons-parent-92.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.0048823Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-parent/92/commons-parent-92.pom (80 kB at 2.2 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.0095716Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/junit/junit-bom/5.13.4/junit-bom-5.13.4.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.0549888Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/junit/junit-bom/5.13.4/junit-bom-5.13.4.pom (5.7 kB at 123 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.0611332Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/google/guava/guava/33.6.0-jre/guava-33.6.0-jre.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.1122315Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/google/guava/guava/33.6.0-jre/guava-33.6.0-jre.pom (9.8 kB at 188 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.1138142Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/google/guava/guava-parent/33.6.0-jre/guava-parent-33.6.0-jre.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.1575365Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/google/guava/guava-parent/33.6.0-jre/guava-parent-33.6.0-jre.pom (26 kB at 596 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.1608145Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.3/failureaccess-1.0.3.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.2014000Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.3/failureaccess-1.0.3.pom (5.6 kB at 132 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.2040167Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/google/guava/guava-parent/33.4.0-android/guava-parent-33.4.0-android.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.2445791Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/google/guava/guava-parent/33.4.0-android/guava-parent-33.4.0-android.pom (22 kB at 525 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.2474468Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-collections4/4.5.0/commons-collections4-4.5.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.2868174Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-collections4/4.5.0/commons-collections4-4.5.0.pom (26 kB at 668 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.2883586Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-parent/81/commons-parent-81.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.3207942Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-parent/81/commons-parent-81.pom (78 kB at 2.4 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.3355455Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-compress/1.27.1/commons-compress-1.27.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.3683064Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-compress/1.27.1/commons-compress-1.27.1.pom (23 kB at 743 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.3689681Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-parent/72/commons-parent-72.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.3985560Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-parent/72/commons-parent-72.pom (78 kB at 2.5 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.4040039Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/junit/junit-bom/5.11.0-M2/junit-bom-5.11.0-M2.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.4275949Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/junit/junit-bom/5.11.0-M2/junit-bom-5.11.0-M2.pom (5.7 kB at 238 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.4320014Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.22.1/commons-codec-1.22.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.4644629Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.22.1/commons-codec-1.22.1.pom (19 kB at 572 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.4672287Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-parent/103/commons-parent-103.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.5057006Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-parent/103/commons-parent-103.pom (80 kB at 2.0 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.5079101Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/apache/39/apache-39.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.5390073Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/apache/39/apache-39.pom (27 kB at 873 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.5419536Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-text/1.15.0/commons-text-1.15.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.5719897Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-text/1.15.0/commons-text-1.15.0.pom (24 kB at 790 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.5739904Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-parent/93/commons-parent-93.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.6092845Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-parent/93/commons-parent-93.pom (79 kB at 2.2 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.6139218Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-dbcp2/2.14.0/commons-dbcp2-2.14.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.6499984Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-dbcp2/2.14.0/commons-dbcp2-2.14.0.pom (19 kB at 542 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.6528521Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-pool2/2.13.0/commons-pool2-2.13.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.6852197Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-pool2/2.13.0/commons-pool2-2.13.0.pom (16 kB at 499 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.6900111Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/jakarta/transaction/jakarta.transaction-api/1.3.3/jakarta.transaction-api-1.3.3.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.7195788Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/jakarta/transaction/jakarta.transaction-api/1.3.3/jakarta.transaction-api-1.3.3.pom (13 kB at 433 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.7215792Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/eclipse/ee4j/project/1.0.5/project-1.0.5.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.7509792Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/eclipse/ee4j/project/1.0.5/project-1.0.5.pom (13 kB at 454 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.7529639Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-core/9.12.3/lucene-core-9.12.3.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.7929793Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-core/9.12.3/lucene-core-9.12.3.pom (2.2 kB at 54 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.7950009Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-analysis-common/9.12.3/lucene-analysis-common-9.12.3.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.8214388Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-analysis-common/9.12.3/lucene-analysis-common-9.12.3.pom (2.4 kB at 88 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.8233568Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-queryparser/9.12.3/lucene-queryparser-9.12.3.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.8499307Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-queryparser/9.12.3/lucene-queryparser-9.12.3.pom (2.8 kB at 102 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.8524716Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-queries/9.12.3/lucene-queries-9.12.3.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.8799478Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-queries/9.12.3/lucene-queries-9.12.3.pom (2.4 kB at 85 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.8825355Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-sandbox/9.12.3/lucene-sandbox-9.12.3.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.9081494Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-sandbox/9.12.3/lucene-sandbox-9.12.3.pom (2.7 kB at 106 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.9103026Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-facet/9.12.3/lucene-facet-9.12.3.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.9419951Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-facet/9.12.3/lucene-facet-9.12.3.pom (2.4 kB at 74 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.9439267Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/slf4j/jul-to-slf4j/2.0.18/jul-to-slf4j-2.0.18.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.9719845Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/slf4j/jul-to-slf4j/2.0.18/jul-to-slf4j-2.0.18.pom (1.1 kB at 41 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.9740066Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/slf4j/jcl-over-slf4j/2.0.18/jcl-over-slf4j-2.0.18.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:43.9984044Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/slf4j/jcl-over-slf4j/2.0.18/jcl-over-slf4j-2.0.18.pom (1.7 kB at 69 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.0002430Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/velocity/velocity-engine-core/2.4.1/velocity-engine-core-2.4.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.0299925Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/velocity/velocity-engine-core/2.4.1/velocity-engine-core-2.4.1.pom (12 kB at 444 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.0330041Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/velocity/velocity-engine-parent/2.4.1/velocity-engine-parent-2.4.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.0650013Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/velocity/velocity-engine-parent/2.4.1/velocity-engine-parent-2.4.1.pom (9.5 kB at 272 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.0665274Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/velocity/velocity-master/7/velocity-master-7.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.0969733Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/velocity/velocity-master/7/velocity-master-7.pom (7.9 kB at 248 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.0999084Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/h2database/h2/2.4.240/h2-2.4.240.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.1390387Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/h2database/h2/2.4.240/h2-2.4.240.pom (1.1 kB at 30 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.1404375Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/eclipse/parsson/jakarta.json/1.1.9/jakarta.json-1.1.9.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.1711046Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/eclipse/parsson/jakarta.json/1.1.9/jakarta.json-1.1.9.pom (11 kB at 353 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.1725435Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/eclipse/parsson/parsson-bundles/1.1.9/parsson-bundles-1.1.9.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.1990390Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/eclipse/parsson/parsson-bundles/1.1.9/parsson-bundles-1.1.9.pom (1.5 kB at 56 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.2001461Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/eclipse/parsson/project/1.1.9/project-1.1.9.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.2320077Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/eclipse/parsson/project/1.1.9/project-1.1.9.pom (25 kB at 793 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.2336881Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/jsoup/jsoup/1.23.1/jsoup-1.23.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.2614689Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/jsoup/jsoup/1.23.1/jsoup-1.23.1.pom (24 kB at 834 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.2643515Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/netty/netty-bom/4.2.16.Final/netty-bom-4.2.16.Final.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.2932913Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/netty/netty-bom/4.2.16.Final/netty-bom-4.2.16.Final.pom (19 kB at 640 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.2960084Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/module/jackson-module-blackbird/2.22.1/jackson-module-blackbird-2.22.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.3270227Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/module/jackson-module-blackbird/2.22.1/jackson-module-blackbird-2.22.1.pom (3.6 kB at 121 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.3286883Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/module/jackson-modules-base/2.22.1/jackson-modules-base-2.22.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.3550012Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/module/jackson-modules-base/2.22.1/jackson-modules-base-2.22.1.pom (4.2 kB at 163 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.3580255Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.22.1/jackson-dataformat-yaml-2.22.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.3870318Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.22.1/jackson-dataformat-yaml-2.22.1.pom (3.0 kB at 99 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.3878025Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformats-text/2.22.1/jackson-dataformats-text-2.22.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.4152051Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformats-text/2.22.1/jackson-dataformats-text-2.22.1.pom (3.5 kB at 129 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.4180632Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/yaml/snakeyaml/2.5/snakeyaml-2.5.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.4469877Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/yaml/snakeyaml/2.5/snakeyaml-2.5.pom (21 kB at 751 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.4486315Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/h3xstream/retirejs/retirejs-core/3.0.4/retirejs-core-3.0.4.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.4808182Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/h3xstream/retirejs/retirejs-core/3.0.4/retirejs-core-3.0.4.pom (1.6 kB at 49 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.4818484Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/h3xstream/retirejs/retirejs-root-pom/3.0.4/retirejs-root-pom-3.0.4.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.5156869Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/h3xstream/retirejs/retirejs-root-pom/3.0.4/retirejs-root-pom-3.0.4.pom (12 kB at 361 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.5171741Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/esotericsoftware/minlog/1.3.1/minlog-1.3.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.5469859Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/esotericsoftware/minlog/1.3.1/minlog-1.3.1.pom (3.6 kB at 129 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.5490214Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/github/spullara/mustache/java/compiler/0.9.6/compiler-0.9.6.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.5830922Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/github/spullara/mustache/java/compiler/0.9.6/compiler-0.9.6.pom (3.5 kB at 102 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.5836360Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/github/spullara/mustache/java/mustache.java/0.9.6/mustache.java-0.9.6.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.6106913Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/github/spullara/mustache/java/mustache.java/0.9.6/mustache.java-0.9.6.pom (4.4 kB at 156 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.6123484Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/sonatype/ossindex/ossindex-service-client/1.8.2/ossindex-service-client-1.8.2.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.6645487Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/sonatype/ossindex/ossindex-service-client/1.8.2/ossindex-service-client-1.8.2.pom (6.9 kB at 136 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.6661927Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/sonatype/ossindex/ossindex-service/1.8.2/ossindex-service-1.8.2.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.6999755Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/sonatype/ossindex/ossindex-service/1.8.2/ossindex-service-1.8.2.pom (8.6 kB at 246 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.7015539Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/sonatype/buildsupport/public-parent/28/public-parent-28.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.7293262Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/sonatype/buildsupport/public-parent/28/public-parent-28.pom (1.5 kB at 51 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.7310306Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/sonatype/buildsupport/buildsupport/28/buildsupport-28.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.7610370Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/sonatype/buildsupport/buildsupport/28/buildsupport-28.pom (36 kB at 1.2 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.7640899Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/sonatype/ossindex/ossindex-service-bom/1.8.2/ossindex-service-bom-1.8.2.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.7925168Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/sonatype/ossindex/ossindex-service-bom/1.8.2/ossindex-service-bom-1.8.2.pom (4.6 kB at 159 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.8005279Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/sonatype/ossindex/ossindex-service-api/1.8.2/ossindex-service-api-1.8.2.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.8335599Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/sonatype/ossindex/ossindex-service-api/1.8.2/ossindex-service-api-1.8.2.pom (4.6 kB at 139 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.8399533Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/javax/activation/javax.activation-api/1.2.0/javax.activation-api-1.2.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.8699944Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/javax/activation/javax.activation-api/1.2.0/javax.activation-api-1.2.0.pom (4.9 kB at 159 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.8715777Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/sun/activation/all/1.2.0/all-1.2.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.9029928Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/sun/activation/all/1.2.0/all-1.2.0.pom (18 kB at 561 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.9049902Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/net/java/jvnet-parent/1/jvnet-parent-1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.9319670Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/net/java/jvnet-parent/1/jvnet-parent-1.pom (4.7 kB at 174 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.9339818Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/javax/ws/rs/javax.ws.rs-api/2.0.1/javax.ws.rs-api-2.0.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.9653520Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/javax/ws/rs/javax.ws.rs-api/2.0.1/javax.ws.rs-api-2.0.1.pom (21 kB at 691 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.9667209Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/sonatype/goodies/package-url-java/1.1.1/package-url-java-1.1.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.9955734Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/sonatype/goodies/package-url-java/1.1.1/package-url-java-1.1.1.pom (9.4 kB at 324 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:44.9971061Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/sonatype/buildsupport/public-parent/13/public-parent-13.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.0234398Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/sonatype/buildsupport/public-parent/13/public-parent-13.pom (761 B at 28 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.0243717Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/sonatype/buildsupport/buildsupport/13/buildsupport-13.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.0499081Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/sonatype/buildsupport/buildsupport/13/buildsupport-13.pom (25 kB at 985 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.0525735Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/joda-time/joda-time/2.10.4/joda-time-2.10.4.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.0829601Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/joda-time/joda-time/2.10.4/joda-time-2.10.4.pom (37 kB at 1.2 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.0854642Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.9.0/gson-2.9.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.1121380Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.9.0/gson-2.9.0.pom (8.1 kB at 299 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.1139883Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/google/code/gson/gson-parent/2.9.0/gson-parent-2.9.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.1406085Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/google/code/gson/gson-parent/2.9.0/gson-parent-2.9.0.pom (4.5 kB at 167 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.1430416Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/moandjiezana/toml/toml4j/0.7.2/toml4j-0.7.2.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.1729840Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/moandjiezana/toml/toml4j/0.7.2/toml4j-0.7.2.pom (5.2 kB at 179 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.1739607Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.8.1/gson-2.8.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.1998079Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.8.1/gson-2.8.1.pom (1.9 kB at 73 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.2020050Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/google/code/gson/gson-parent/2.8.1/gson-parent-2.8.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.2323145Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/google/code/gson/gson-parent/2.8.1/gson-parent-2.8.1.pom (3.7 kB at 119 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.2348774Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/hankcs/aho-corasick-double-array-trie/1.2.3/aho-corasick-double-array-trie-1.2.3.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.2679972Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/hankcs/aho-corasick-double-array-trie/1.2.3/aho-corasick-double-array-trie-1.2.3.pom (7.3 kB at 215 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.2704857Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/commons-validator/commons-validator/1.10.1/commons-validator-1.10.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.2979555Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/commons-validator/commons-validator/1.10.1/commons-validator-1.10.1.pom (16 kB at 568 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.3039912Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/eclipse/packager/packager-rpm/0.21.0/packager-rpm-0.21.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.3313974Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/eclipse/packager/packager-rpm/0.21.0/packager-rpm-0.21.0.pom (2.4 kB at 83 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.3349680Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/eclipse/packager/packager/0.21.0/packager-0.21.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.3696831Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/eclipse/packager/packager/0.21.0/packager-0.21.0.pom (22 kB at 623 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.3739897Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/eclipse/packager/packager-core/0.21.0/packager-core-0.21.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.4006287Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/eclipse/packager/packager-core/0.21.0/packager-core-0.21.0.pom (1.1 kB at 41 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.4049926Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/sonatype/goodies/package-url-java/1.2.0/package-url-java-1.2.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.4329000Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/sonatype/goodies/package-url-java/1.2.0/package-url-java-1.2.0.pom (8.5 kB at 302 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.4370098Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/joda-time/joda-time/2.14.2/joda-time-2.14.2.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.4683814Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/joda-time/joda-time/2.14.2/joda-time-2.14.2.pom (39 kB at 1.2 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.4712999Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/json/json/20260522/json-20260522.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.4979324Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/json/json/20260522/json-20260522.pom (11 kB at 406 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.5000008Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/reporting/maven-reporting-api/4.0.0/maven-reporting-api-4.0.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.5402898Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/reporting/maven-reporting-api/4.0.0/maven-reporting-api-4.0.0.pom (2.8 kB at 68 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.5420617Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/shared/maven-shared-components/43/maven-shared-components-43.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.5699842Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/shared/maven-shared-components/43/maven-shared-components-43.pom (3.8 kB at 135 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.5749908Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/doxia/doxia-sink-api/2.1.0/doxia-sink-api-2.1.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.6030043Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/doxia/doxia-sink-api/2.1.0/doxia-sink-api-2.1.0.pom (1.3 kB at 45 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.6043948Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/doxia/doxia/2.1.0/doxia-2.1.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.6306145Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/doxia/doxia/2.1.0/doxia-2.1.0.pom (13 kB at 480 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.6328457Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/maven-parent/47/maven-parent-47.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.6600164Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/maven-parent/47/maven-parent-47.pom (54 kB at 2.1 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.6624582Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/shared/file-management/3.2.0/file-management-3.2.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.6891446Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/shared/file-management/3.2.0/file-management-3.2.0.pom (4.5 kB at 166 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.6921222Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/shared/maven-shared-components/44/maven-shared-components-44.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.7165929Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/shared/maven-shared-components/44/maven-shared-components-44.pom (3.8 kB at 152 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.7230573Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-utils/4.0.3/plexus-utils-4.0.3.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.7537340Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-utils/4.0.3/plexus-utils-4.0.3.pom (6.8 kB at 219 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.7571573Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus/25/plexus-25.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.7830035Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus/25/plexus-25.pom (31 kB at 1.2 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.7861564Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-xml/3.0.1/plexus-xml-3.0.1.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.8110746Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-xml/3.0.1/plexus-xml-3.0.1.pom (3.7 kB at 148 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.8123524Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus/18/plexus-18.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.8390830Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus/18/plexus-18.pom (29 kB at 1.2 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.8409917Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/shared/maven-dependency-tree/3.3.0/maven-dependency-tree-3.3.0.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.8633983Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/shared/maven-dependency-tree/3.3.0/maven-dependency-tree-3.3.0.pom (7.0 kB at 291 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.8747104Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/github/spotbugs/spotbugs-annotations/4.10.3/spotbugs-annotations-4.10.3.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.8975399Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/github/spotbugs/spotbugs-annotations/4.10.3/spotbugs-annotations-4.10.3.pom (3.5 kB at 133 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.8986701Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/junit/junit-bom/6.1.2/junit-bom-6.1.2.pom
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.9257543Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/junit/junit-bom/6.1.2/junit-bom-6.1.2.pom (5.4 kB at 201 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:45.9641703Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/owasp/dependency-check-core/13.0.0/dependency-check-core-13.0.0.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.0354143Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/owasp/dependency-check-core/13.0.0/dependency-check-core-13.0.0.jar (1.1 MB at 15 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.0371343Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/kichik/pecoff4j/pecoff4j/0.4.1/pecoff4j-0.4.1.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.0372848Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/github/jeremylong/jcs3-slf4j/1.0.5/jcs3-slf4j-1.0.5.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.0392709Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-jcs3-core/3.2.1/commons-jcs3-core-3.2.1.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.0403441Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/us/springett/cpe-parser/3.0.1/cpe-parser-3.0.1.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.0404832Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/semver4j/semver4j/5.8.0/semver4j-5.8.0.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.0749786Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/github/jeremylong/jcs3-slf4j/1.0.5/jcs3-slf4j-1.0.5.jar (5.7 kB at 167 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.0751245Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/2.0.18/slf4j-api-2.0.18.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.1012174Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/2.0.18/slf4j-api-2.0.18.jar (70 kB at 1.1 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.1015348Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-collections4/4.5.0/commons-collections4-4.5.0.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.1120255Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/semver4j/semver4j/5.8.0/semver4j-5.8.0.jar (45 kB at 621 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.1121800Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-compress/1.27.1/commons-compress-1.27.1.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.1190366Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/us/springett/cpe-parser/3.0.1/cpe-parser-3.0.1.jar (37 kB at 467 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.1202988Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.22.1/commons-codec-1.22.1.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.1372306Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/kichik/pecoff4j/pecoff4j/0.4.1/pecoff4j-0.4.1.jar (136 kB at 1.3 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.1397554Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/commons-io/commons-io/2.22.0/commons-io-2.22.0.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.1504205Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-jcs3-core/3.2.1/commons-jcs3-core-3.2.1.jar (547 kB at 4.8 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.1510726Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-text/1.15.0/commons-text-1.15.0.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.1513502Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-collections4/4.5.0/commons-collections4-4.5.0.jar (899 kB at 8.1 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.1514972Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-dbcp2/2.14.0/commons-dbcp2-2.14.0.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.1859896Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.22.1/commons-codec-1.22.1.jar (423 kB at 3.0 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.1894633Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-pool2/2.13.0/commons-pool2-2.13.0.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.1930009Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-dbcp2/2.14.0/commons-dbcp2-2.14.0.jar (223 kB at 1.5 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.1953682Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/jakarta/transaction/jakarta.transaction-api/1.3.3/jakarta.transaction-api-1.3.3.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.2115653Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-text/1.15.0/commons-text-1.15.0.jar (265 kB at 1.6 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.2117211Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-core/9.12.3/lucene-core-9.12.3.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.2259671Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/jakarta/transaction/jakarta.transaction-api/1.3.3/jakarta.transaction-api-1.3.3.jar (15 kB at 84 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.2274443Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-analysis-common/9.12.3/lucene-analysis-common-9.12.3.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.2276015Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-pool2/2.13.0/commons-pool2-2.13.0.jar (157 kB at 847 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.2277225Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-queryparser/9.12.3/lucene-queryparser-9.12.3.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.2456019Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/commons-io/commons-io/2.22.0/commons-io-2.22.0.jar (609 kB at 3.0 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.2461815Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-queries/9.12.3/lucene-queries-9.12.3.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.2525068Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-compress/1.27.1/commons-compress-1.27.1.jar (1.1 MB at 5.1 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.2526537Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-sandbox/9.12.3/lucene-sandbox-9.12.3.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.2801842Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-queryparser/9.12.3/lucene-queryparser-9.12.3.jar (422 kB at 1.8 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.2807870Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-facet/9.12.3/lucene-facet-9.12.3.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.2977825Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-sandbox/9.12.3/lucene-sandbox-9.12.3.jar (305 kB at 1.2 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.2979265Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/slf4j/jul-to-slf4j/2.0.18/jul-to-slf4j-2.0.18.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.3008397Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-queries/9.12.3/lucene-queries-9.12.3.jar (513 kB at 2.0 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.3010008Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/slf4j/jcl-over-slf4j/2.0.18/jcl-over-slf4j-2.0.18.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.3339689Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/slf4j/jul-to-slf4j/2.0.18/jul-to-slf4j-2.0.18.jar (6.3 kB at 22 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.3341088Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/velocity/velocity-engine-core/2.4.1/velocity-engine-core-2.4.1.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.3374767Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/slf4j/jcl-over-slf4j/2.0.18/jcl-over-slf4j-2.0.18.jar (18 kB at 62 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.3399456Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/h2database/h2/2.4.240/h2-2.4.240.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.3534245Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-facet/9.12.3/lucene-facet-9.12.3.jar (352 kB at 1.1 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.3535440Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/eclipse/parsson/jakarta.json/1.1.9/jakarta.json-1.1.9.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.3779971Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/velocity/velocity-engine-core/2.4.1/velocity-engine-core-2.4.1.jar (516 kB at 1.5 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.3809501Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/jsoup/jsoup/1.23.1/jsoup-1.23.1.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.4076778Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/eclipse/parsson/jakarta.json/1.1.9/jakarta.json-1.1.9.jar (164 kB at 450 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.4099536Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.22.1/jackson-databind-2.22.1.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.4230576Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/jsoup/jsoup/1.23.1/jsoup-1.23.1.jar (530 kB at 1.4 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.4259853Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/datatype/jackson-datatype-jsr310/2.22.1/jackson-datatype-jsr310-2.22.1.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.4640183Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/datatype/jackson-datatype-jsr310/2.22.1/jackson-datatype-jsr310-2.22.1.jar (137 kB at 328 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.4668034Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/module/jackson-module-blackbird/2.22.1/jackson-module-blackbird-2.22.1.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.4797852Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-analysis-common/9.12.3/lucene-analysis-common-9.12.3.jar (1.7 MB at 3.9 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.4839576Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.22.1/jackson-dataformat-yaml-2.22.1.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.4999901Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/module/jackson-module-blackbird/2.22.1/jackson-module-blackbird-2.22.1.jar (64 kB at 141 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.5029310Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/yaml/snakeyaml/2.5/snakeyaml-2.5.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.5101401Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.22.1/jackson-dataformat-yaml-2.22.1.jar (61 kB at 129 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.5139463Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/h3xstream/retirejs/retirejs-core/3.0.4/retirejs-core-3.0.4.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.5353142Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/yaml/snakeyaml/2.5/snakeyaml-2.5.jar (340 kB at 690 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.5388864Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/github/spullara/mustache/java/compiler/0.9.6/compiler-0.9.6.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.5520110Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/h3xstream/retirejs/retirejs-core/3.0.4/retirejs-core-3.0.4.jar (34 kB at 67 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.5549863Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/sonatype/ossindex/ossindex-service-client/1.8.2/ossindex-service-client-1.8.2.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.5749725Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/github/spullara/mustache/java/compiler/0.9.6/compiler-0.9.6.jar (101 kB at 190 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.5769513Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.9.0/gson-2.9.0.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.5826083Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/sonatype/ossindex/ossindex-service-client/1.8.2/ossindex-service-client-1.8.2.jar (53 kB at 98 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.5869552Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/javax/activation/javax.activation-api/1.2.0/javax.activation-api-1.2.0.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.6159404Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.9.0/gson-2.9.0.jar (249 kB at 440 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.6179566Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/google/guava/guava/33.6.0-jre/guava-33.6.0-jre.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.6249841Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/javax/activation/javax.activation-api/1.2.0/javax.activation-api-1.2.0.jar (57 kB at 99 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.6289704Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.3/failureaccess-1.0.3.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.6649613Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.3/failureaccess-1.0.3.jar (11 kB at 18 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.6689300Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/moandjiezana/toml/toml4j/0.7.2/toml4j-0.7.2.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.6989543Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/moandjiezana/toml/toml4j/0.7.2/toml4j-0.7.2.jar (63 kB at 97 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.7069646Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/hankcs/aho-corasick-double-array-trie/1.2.3/aho-corasick-double-array-trie-1.2.3.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.7249829Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/hankcs/aho-corasick-double-array-trie/1.2.3/aho-corasick-double-array-trie-1.2.3.jar (17 kB at 25 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.7309489Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/commons-validator/commons-validator/1.10.1/commons-validator-1.10.1.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.7489383Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/h2database/h2/2.4.240/h2-2.4.240.jar (2.7 MB at 3.8 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.7549625Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/eclipse/packager/packager-rpm/0.21.0/packager-rpm-0.21.0.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.7589514Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.22.1/jackson-databind-2.22.1.jar (1.7 MB at 2.4 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.7629420Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/eclipse/packager/packager-core/0.21.0/packager-core-0.21.0.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.7879762Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/commons-validator/commons-validator/1.10.1/commons-validator-1.10.1.jar (203 kB at 274 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.7904837Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/core5/httpcore5/5.4.3/httpcore5-5.4.3.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.7955183Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/eclipse/packager/packager-core/0.21.0/packager-core-0.21.0.jar (21 kB at 28 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.7979642Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/client5/httpclient5/5.6.3/httpclient5-5.6.3.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.8075253Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/eclipse/packager/packager-rpm/0.21.0/packager-rpm-0.21.0.jar (184 kB at 240 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.8109616Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/core5/httpcore5-h2/5.4.3/httpcore5-h2-5.4.3.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.8608848Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/core5/httpcore5-h2/5.4.3/httpcore5-h2-5.4.3.jar (264 kB at 323 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.8629734Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-core/2.22.1/jackson-core-2.22.1.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.8709508Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/core5/httpcore5/5.4.3/httpcore5-5.4.3.jar (955 kB at 1.2 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.8769768Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.22/jackson-annotations-2.22.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.8860426Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/client5/httpclient5/5.6.3/httpclient5-5.6.3.jar (1.1 MB at 1.3 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.8867684Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/sonatype/goodies/package-url-java/1.2.0/package-url-java-1.2.0.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.8893493Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.22/jackson-annotations-2.22.jar (84 kB at 100 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.8895583Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/joda-time/joda-time/2.14.2/joda-time-2.14.2.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.8970746Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/google/guava/guava/33.6.0-jre/guava-33.6.0-jre.jar (3.1 MB at 3.6 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.8972557Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/sonatype/ossindex/ossindex-service-api/1.8.2/ossindex-service-api-1.8.2.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.9161524Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/sonatype/goodies/package-url-java/1.2.0/package-url-java-1.2.0.jar (29 kB at 33 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.9166301Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/javax/ws/rs/javax.ws.rs-api/2.0.1/javax.ws.rs-api-2.0.1.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.9242038Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/sonatype/ossindex/ossindex-service-api/1.8.2/ossindex-service-api-1.8.2.jar (31 kB at 35 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.9246084Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/esotericsoftware/minlog/1.3.1/minlog-1.3.1.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.9364907Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/joda-time/joda-time/2.14.2/joda-time-2.14.2.jar (640 kB at 716 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.9409075Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/json/json/20260522/json-20260522.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.9420088Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-core/2.22.1/jackson-core-2.22.1.jar (594 kB at 662 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.9434940Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/owasp/dependency-check-utils/13.0.0/dependency-check-utils-13.0.0.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.9560090Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/javax/ws/rs/javax.ws.rs-api/2.0.1/javax.ws.rs-api-2.0.1.jar (116 kB at 127 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.9584081Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/reporting/maven-reporting-api/4.0.0/maven-reporting-api-4.0.0.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.9585992Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/esotericsoftware/minlog/1.3.1/minlog-1.3.1.jar (5.9 kB at 6.5 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.9589121Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/doxia/doxia-sink-api/2.1.0/doxia-sink-api-2.1.0.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.9675614Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/json/json/20260522/json-20260522.jar (89 kB at 96 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.9711750Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/shared/file-management/3.2.0/file-management-3.2.0.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.9716249Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-core/9.12.3/lucene-core-9.12.3.jar (4.3 MB at 4.6 MB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.9717695Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-utils/4.0.3/plexus-utils-4.0.3.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.9769949Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/owasp/dependency-check-utils/13.0.0/dependency-check-utils-13.0.0.jar (65 kB at 69 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.9774758Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-xml/3.0.1/plexus-xml-3.0.1.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.9859823Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/doxia/doxia-sink-api/2.1.0/doxia-sink-api-2.1.0.jar (12 kB at 13 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.9861785Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/shared/maven-dependency-tree/3.3.0/maven-dependency-tree-3.3.0.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.9880110Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/reporting/maven-reporting-api/4.0.0/maven-reporting-api-4.0.0.jar (9.8 kB at 10 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.9891982Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-lang3/3.20.0/commons-lang3-3.20.0.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.9960023Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/shared/file-management/3.2.0/file-management-3.2.0.jar (26 kB at 27 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:46.9970742Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/github/jeremylong/open-vulnerability-clients/9.0.6/open-vulnerability-clients-9.0.6.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:47.0054698Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-utils/4.0.3/plexus-utils-4.0.3.jar (193 kB at 201 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:47.0062082Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/client5/httpclient5-cache/5.6.3/httpclient5-cache-5.6.3.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:47.0107833Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/codehaus/plexus/plexus-xml/3.0.1/plexus-xml-3.0.1.jar (94 kB at 97 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:47.0109558Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/samskivert/jmustache/1.16/jmustache-1.16.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:47.0142563Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/shared/maven-dependency-tree/3.3.0/maven-dependency-tree-3.3.0.jar (43 kB at 44 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:47.0144378Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/github/package-url/packageurl-java/1.5.0/packageurl-java-1.5.0.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:47.0244064Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/commons/commons-lang3/3.20.0/commons-lang3-3.20.0.jar (714 kB at 728 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:47.0245479Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/jspecify/jspecify/1.0.1/jspecify-1.0.1.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:47.0331359Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/github/jeremylong/open-vulnerability-clients/9.0.6/open-vulnerability-clients-9.0.6.jar (251 kB at 254 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:47.0345799Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/github/spotbugs/spotbugs-annotations/4.10.3/spotbugs-annotations-4.10.3.jar
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:47.0410126Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/github/package-url/packageurl-java/1.5.0/packageurl-java-1.5.0.jar (17 kB at 17 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:47.0412244Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/httpcomponents/client5/httpclient5-cache/5.6.3/httpclient5-cache-5.6.3.jar (253 kB at 253 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:47.0435548Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/samskivert/jmustache/1.16/jmustache-1.16.jar (81 kB at 81 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:47.0538203Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/jspecify/jspecify/1.0.1/jspecify-1.0.1.jar (3.1 kB at 3.0 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:47.0592619Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/github/spotbugs/spotbugs-annotations/4.10.3/spotbugs-annotations-4.10.3.jar (15 kB at 15 kB/s)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:51.8339790Z [INFO] Checking for updates
+Deep Security Scan	UNKNOWN STEP	2026-09-28T22:59:55.0983619Z [INFO] NVD API has 26,366 records in this update
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:00:03.1984983Z [INFO] Downloaded 10,000/26,366 (38%)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:01:35.9481676Z [INFO] Downloaded 20,000/26,366 (76%)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:05.0481748Z [INFO] Downloaded 26,366/26,366 (100%)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:05.0482537Z [INFO] Completed processing batch 1/14 (7%) in 6,787ms
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:05.0499499Z [INFO] Completed processing batch 2/14 (14%) in 4,749ms
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:05.0502017Z [INFO] Completed processing batch 3/14 (21%) in 4,213ms
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:05.0507426Z [INFO] Completed processing batch 4/14 (29%) in 3,617ms
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:05.0521735Z [INFO] Completed processing batch 5/14 (36%) in 1,100ms
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:05.0522382Z [INFO] Completed processing batch 6/14 (43%) in 528ms
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:05.0522980Z [INFO] Completed processing batch 7/14 (50%) in 325ms
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:05.0523563Z [INFO] Completed processing batch 8/14 (57%) in 474ms
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:05.0524127Z [INFO] Completed processing batch 9/14 (64%) in 488ms
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:05.0524694Z [INFO] Completed processing batch 10/14 (71%) in 183ms
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:05.0525265Z [INFO] Completed processing batch 11/14 (79%) in 279ms
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:05.0526016Z [INFO] Completed processing batch 12/14 (86%) in 173ms
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:05.0526592Z [INFO] Completed processing batch 13/14 (93%) in 160ms
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:05.0527152Z [INFO] Completed processing batch 14/14 (100%) in 36ms
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:05.3269897Z [INFO] Updating CISA Known Exploited Vulnerability list: https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:05.7079685Z [INFO] Begin database defrag
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:13.4545817Z [INFO] End database defrag (7749 ms)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:13.4929680Z [INFO] Check for updates complete (141665 ms)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:13.6118049Z [INFO] 
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:13.6129202Z 
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:13.6139514Z Dependency-Check is an open source tool performing a best effort analysis of 3rd party dependencies; false positives and false negatives may exist in the analysis performed by the tool. Use of the tool and the reporting provided constitutes acceptance for use in an AS IS condition, and there are NO warranties, implied or otherwise, with regard to the analysis or its use. Any use of the tool and the reporting provided is at the user's risk. In no event shall the copyright holder or OWASP be held liable for any damages whatsoever arising out of or in connection with the use of this tool, the analysis performed, or the resulting report.
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:13.6159137Z 
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:13.6168942Z 
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:13.6181959Z    About ODC: https://dependency-check.github.io/DependencyCheck/general/internals.html
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:13.6199343Z    False Positives: https://dependency-check.github.io/DependencyCheck/general/suppression.html
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:13.6209043Z 
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:13.6219044Z 
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:13.6239206Z [INFO] Analysis Started
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:15.2453774Z [INFO] Finished Archive Analyzer (1 seconds)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:15.2656557Z [INFO] Finished File Name Analyzer (0 seconds)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:16.5454897Z [INFO] Finished Jar Analyzer (1 seconds)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:16.5545386Z [INFO] Finished Dependency Merging Analyzer (0 seconds)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:16.8124116Z [INFO] Finished Hint Analyzer (0 seconds)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:16.8181689Z [INFO] Finished Version Filter Analyzer (0 seconds)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:19.6880022Z [INFO] Created CPE Index (2 seconds)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:22.6253491Z [INFO] Finished CPE Analyzer (5 seconds)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:22.6305633Z [INFO] Finished False Positive Analyzer (0 seconds)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:23.0049892Z [INFO] Finished NVD CVE Analyzer (0 seconds)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:28.5883975Z [INFO] Finished RetireJS Analyzer (5 seconds)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:28.5900342Z [WARNING] Sonatype OSS Index Analyzer disabled due to missing credentials. Authentication with token is now required, and OSS Index is migrating to Sonatype Guide. See https://dependency-check.github.io/DependencyCheck/analyzers/oss-index-analyzer.html for more information on authentication with Sonatype Guide OSS Index.
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:28.6325352Z [INFO] Finished Vulnerability Suppression Analyzer (0 seconds)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:28.6447731Z [INFO] Finished Known Exploited Vulnerability Analyzer (0 seconds)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:28.6835330Z [INFO] Finished Dependency Bundling Analyzer (0 seconds)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:28.6872067Z [INFO] Finished Unused Suppression Rule Analyzer (0 seconds)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:28.8319487Z [INFO] Analysis Complete (15 seconds)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:28.8929582Z [INFO] Writing JSON report to: /home/runner/work/eoffice-be/eoffice-be/target/dependency-check-report.json
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.3909470Z [WARNING] 
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.3918210Z 
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.3939241Z One or more dependencies were identified with known vulnerabilities in eoffice-be:
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.3949085Z 
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.3969810Z commons-lang3-3.17.0.jar (pkg:maven/org.apache.commons/commons-lang3@3.17.0, cpe:2.3:a:apache:commons_lang:3.17.0:*:*:*:*:*:*:*) : CVE-2025-48924
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.3990578Z jackson-databind-2.18.5.jar (pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.18.5, cpe:2.3:a:fasterxml:jackson-core:2.18.5:*:*:*:*:*:*:*, cpe:2.3:a:fasterxml:jackson-databind:2.18.5:*:*:*:*:*:*:*, cpe:2.3:a:fasterxml:jackson-modules-java8:2.18.5:*:*:*:*:*:*:*) : CVE-2026-54512, CVE-2026-54513, CVE-2026-54514, CVE-2026-54515
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4010066Z log4j-api-2.24.3.jar (pkg:maven/org.apache.logging.log4j/log4j-api@2.24.3, cpe:2.3:a:apache:log4j:2.24.3:*:*:*:*:*:*:*) : CVE-2026-34479, CVE-2026-34477, CVE-2026-49844
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4011480Z pdfbox-3.0.2.jar (pkg:maven/org.apache.pdfbox/pdfbox@3.0.2, cpe:2.3:a:apache:pdfbox:3.0.2:*:*:*:*:*:*:*) : CVE-2026-33929
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4029795Z postgresql-42.7.8.jar (pkg:maven/org.postgresql/postgresql@42.7.8, cpe:2.3:a:postgresql:postgresql_jdbc_driver:42.7.8:*:*:*:*:*:*:*) : CVE-2026-54291, CVE-2026-42198
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4050006Z spring-ai-commons-1.0.9.jar (pkg:maven/org.springframework.ai/spring-ai-commons@1.0.9, cpe:2.3:a:vmware:spring_ai:1.0.9:*:*:*:*:*:*:*) : CVE-2026-59318, CVE-2026-47851, CVE-2026-47852, CVE-2026-59294
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4070005Z spring-boot-3.4.13.jar (pkg:maven/org.springframework.boot/spring-boot@3.4.13, cpe:2.3:a:vmware:spring_boot:3.4.13:*:*:*:*:*:*:*) : CVE-2026-40974, CVE-2026-22731, CVE-2026-22733, CVE-2026-40972, CVE-2026-40975, CVE-2026-40973, CVE-2026-40977, CVE-2026-41001, CVE-2026-40992
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4090596Z spring-boot-starter-data-jpa-3.4.13.jar (pkg:maven/org.springframework.boot/spring-boot-starter-data-jpa@3.4.13, cpe:2.3:a:vmware:spring_boot:3.4.13:*:*:*:*:*:*:*, cpe:2.3:a:vmware:spring_data_jpa:3.4.13:*:*:*:*:*:*:*) : CVE-2026-40974, CVE-2026-22731, CVE-2026-22733, CVE-2026-40972, CVE-2026-40975, CVE-2026-40973, CVE-2026-40977, CVE-2026-47834, CVE-2026-41001, CVE-2026-40992
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4095142Z spring-core-6.2.15.jar (pkg:maven/org.springframework/spring-core@6.2.15, cpe:2.3:a:pivotal_software:spring_framework:6.2.15:*:*:*:*:*:*:*, cpe:2.3:a:springsource:spring_framework:6.2.15:*:*:*:*:*:*:*, cpe:2.3:a:vmware:spring_framework:6.2.15:*:*:*:*:*:*:*) : CVE-2026-41855, CVE-2026-47884, CVE-2026-47890, CVE-2026-47891, CVE-2026-47892, CVE-2026-59313, CVE-2026-59283, CVE-2026-41838, CVE-2026-41842, CVE-2026-41848, CVE-2026-41850, CVE-2026-41851, CVE-2026-47885, CVE-2026-47886, CVE-2026-47888, CVE-2026-47889, CVE-2026-47893, CVE-2026-59282, CVE-2026-22740, CVE-2026-41854, CVE-2026-41844, CVE-2026-41845, CVE-2026-41846, CVE-2026-47883, CVE-2026-47887, CVE-2026-59281, CVE-2026-22737, CVE-2026-41840, CVE-2026-41841, CVE-2026-41843, CVE-2026-22745, CVE-2026-41852, CVE-2026-41853, CVE-2026-59280, CVE-2026-41839, CVE-2026-59314, CVE-2026-22741, CVE-2026-22735
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4110744Z spring-data-jpa-3.4.13.jar (pkg:maven/org.springframework.data/spring-data-jpa@3.4.13, cpe:2.3:a:pivotal_software:spring_data_jpa:3.4.13:*:*:*:*:*:*:*, cpe:2.3:a:vmware:spring_data_jpa:3.4.13:*:*:*:*:*:*:*) : CVE-2026-47834
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4120331Z spring-security-core-6.5.11.jar (pkg:maven/org.springframework.security/spring-security-core@6.5.11, cpe:2.3:a:pivotal_software:spring_security:6.5.11:*:*:*:*:*:*:*, cpe:2.3:a:vmware:spring_security:6.5.11:*:*:*:*:*:*:*) : CVE-2026-59270, CVE-2026-41707, CVE-2026-47841, CVE-2026-47842, CVE-2026-59276
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4123102Z swagger-ui-5.18.3.jar: swagger-ui-bundle.js (pkg:javascript/DOMPurify@3.1.6) : CVE-2026-49978, CVE-2025-26791, CVE-2026-49458, CVE-2026-49459, CVE-2026-41240, CVE-2026-0540, CVE-2026-65902, CVE-2026-65914, CVE-2025-15599, CVE-2026-65898, CVE-2026-65899, CVE-2026-65900, CVE-2026-65901, CVE-2026-65903, CVE-2026-65912, CVE-2026-65913, CVE-2026-66010, CVE-2026-41238, CVE-2026-41239, CVE-2026-75838
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4126327Z swagger-ui-5.18.3.jar: swagger-ui-es-bundle.js (pkg:javascript/DOMPurify@3.1.6) : CVE-2026-49978, CVE-2025-26791, CVE-2026-49458, CVE-2026-49459, CVE-2026-41240, CVE-2026-0540, CVE-2026-65902, CVE-2026-65914, CVE-2025-15599, CVE-2026-65898, CVE-2026-65899, CVE-2026-65900, CVE-2026-65901, CVE-2026-65903, CVE-2026-65912, CVE-2026-65913, CVE-2026-66010, CVE-2026-41238, CVE-2026-41239, CVE-2026-75838
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4127909Z 
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4127976Z 
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4128269Z See the dependency-check report for more details.
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4128773Z 
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4128974Z 
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4162016Z [INFO] ------------------------------------------------------------------------
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4179381Z [INFO] BUILD FAILURE
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4194971Z [INFO] ------------------------------------------------------------------------
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4209253Z [INFO] Total time:  02:50 min
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4216056Z [INFO] Finished at: 2026-09-28T23:02:29Z
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4221539Z [INFO] ------------------------------------------------------------------------
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4222451Z [ERROR] Failed to execute goal org.owasp:dependency-check-maven:13.0.0:check (default-cli) on project eoffice-be: 
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4223118Z [ERROR] 
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4223684Z [ERROR] One or more dependencies were identified with vulnerabilities that have a CVSS score greater than or equal to '9.0': 
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4224253Z [ERROR] 
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4224934Z [ERROR] spring-ai-commons-1.0.9.jar (pkg:maven/org.springframework.ai/spring-ai-commons@1.0.9, cpe:2.3:a:vmware:spring_ai:1.0.9:*:*:*:*:*:*:*): CVE-2026-59318(9.8)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4225857Z [ERROR] spring-boot-3.4.13.jar (pkg:maven/org.springframework.boot/spring-boot@3.4.13, cpe:2.3:a:vmware:spring_boot:3.4.13:*:*:*:*:*:*:*): CVE-2026-40974(9.8)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4226960Z [ERROR] spring-boot-starter-data-jpa-3.4.13.jar (pkg:maven/org.springframework.boot/spring-boot-starter-data-jpa@3.4.13, cpe:2.3:a:vmware:spring_boot:3.4.13:*:*:*:*:*:*:*, cpe:2.3:a:vmware:spring_data_jpa:3.4.13:*:*:*:*:*:*:*): CVE-2026-40974(9.8)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4228529Z [ERROR] spring-core-6.2.15.jar (pkg:maven/org.springframework/spring-core@6.2.15, cpe:2.3:a:pivotal_software:spring_framework:6.2.15:*:*:*:*:*:*:*, cpe:2.3:a:springsource:spring_framework:6.2.15:*:*:*:*:*:*:*, cpe:2.3:a:vmware:spring_framework:6.2.15:*:*:*:*:*:*:*): CVE-2026-47884(9.8), CVE-2026-59313(9.8), CVE-2026-41855(9.8), CVE-2026-47892(9.8), CVE-2026-47891(9.8), CVE-2026-47890(9.8), CVE-2026-59283(9.1)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4230260Z [ERROR] spring-security-core-6.5.11.jar (pkg:maven/org.springframework.security/spring-security-core@6.5.11, cpe:2.3:a:pivotal_software:spring_security:6.5.11:*:*:*:*:*:*:*, cpe:2.3:a:vmware:spring_security:6.5.11:*:*:*:*:*:*:*): CVE-2026-59270(9.1)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4231026Z [ERROR] 
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4231419Z [ERROR] See the dependency-check report for more details.
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4231785Z [ERROR] -> [Help 1]
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4232102Z [ERROR] 
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4232543Z [ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4233077Z [ERROR] Re-run Maven using the -X switch to enable full debug logging.
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4233452Z [ERROR] 
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4233959Z [ERROR] For more information about the errors and possible solutions, please read the following articles:
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4234569Z [ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4448976Z ##[error]Process completed with exit code 1.
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4502638Z ##[group]Run actions/upload-artifact@v4
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4502893Z with:
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4503104Z   name: deep-security-reports-36495536368
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4503371Z   path: security-reports/
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4503702Z   if-no-files-found: warn
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4503920Z   compression-level: 6
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4504124Z   overwrite: false
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4504336Z   include-hidden-files: false
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4504552Z env:
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4504821Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4505215Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.4505525Z ##[endgroup]
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.5933914Z (node:2127) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.5934914Z (Use `node --trace-deprecation ...` to show where the warning was created)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.6005946Z ##[warning]No files were found with the provided path: security-reports/. No artifacts will be uploaded.
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.6194425Z Post job cleanup.
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.7463918Z (node:2139) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.7465050Z (Use `node --trace-deprecation ...` to show where the warning was created)
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.7806144Z Post job cleanup.
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.8999556Z [command]/usr/bin/git version
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.9039169Z git version 2.55.0
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.9086272Z Temporarily overriding HOME='/home/runner/work/_temp/74cd6987-7f32-4f40-9b25-616aae3f143e' before making global git config changes
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.9100877Z Adding repository directory to the temporary git global config as a safe directory
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.9119595Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/eoffice-be/eoffice-be
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.9152285Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.9210758Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.9501976Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.9546648Z http.https://github.com/.extraheader
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.9565063Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.9615019Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.9842517Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:29.9892547Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:30.0274384Z Cleaning up orphan processes
+Deep Security Scan	UNKNOWN STEP	2026-09-28T23:02:30.0443053Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/cache@v4, actions/checkout@v4, actions/setup-java@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

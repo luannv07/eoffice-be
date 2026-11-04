@@ -1,0 +1,35 @@
+databaseChangeLog:
+  # H2 test profile compatibility only.
+  # On PostgreSQL these columns are TEXT/jsonb (see 2026-05-30 changesets).
+  # Liquibase maps type:TEXT to CLOB on H2, but Hibernate with columnDefinition="text"
+  # expects Types#VARCHAR, causing schema-validation mismatch. This changeset runs
+  # only on H2 and converts the JSON/TEXT columns to VARCHAR to satisfy Hibernate.
+  - changeSet:
+      id: 2026-08-23-h2-text-columns-compat
+      author: luannv
+      dbms: h2
+      changes:
+        - modifyDataType:
+            tableName: change_history_logs
+            columnName: before_data
+            newDataType: varchar(10000)
+        - modifyDataType:
+            tableName: change_history_logs
+            columnName: after_data
+            newDataType: varchar(10000)
+        - modifyDataType:
+            tableName: change_history_logs
+            columnName: changed_fields
+            newDataType: varchar(10000)
+        - modifyDataType:
+            tableName: user_audit_logs
+            columnName: user_agent
+            newDataType: varchar(2000)
+        - modifyDataType:
+            tableName: user_audit_logs
+            columnName: param_content
+            newDataType: varchar(10000)
+        - modifyDataType:
+            tableName: position_assignments
+            columnName: dismissal_note
+            newDataType: varchar(10000)

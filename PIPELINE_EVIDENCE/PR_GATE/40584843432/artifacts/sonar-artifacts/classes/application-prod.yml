@@ -1,0 +1,38 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 100
+          time_zone: UTC
+        order_inserts: true
+        order_updates: true
+        jdbc.batch_versioned_data: true
+
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/master.yml
+
+server:
+  port: 8080
+
+eoffice:
+  jwt:
+    issuer: eoffice-be
+    access-token-ttl: ${JWT_ACCESS_TTL:PT15M}
+    refresh-token-ttl: ${JWT_REFRESH_TTL:P30D}
+    cookie-secure: ${COOKIE_SECURE:true}
+    allowed-origins: ${JWT_ALLOWED_ORIGINS:}
+  rate-limit:
+    endpoint-limit: ${RATE_LIMIT_ENDPOINT_LIMIT:10}
+    endpoint-window-seconds: ${RATE_LIMIT_ENDPOINT_WINDOW_SECONDS:300}
+    maximum-size: ${RATE_LIMIT_MAXIMUM_SIZE:10000}

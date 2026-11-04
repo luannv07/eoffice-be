@@ -1,0 +1,631 @@
+<?xml version="1.0"?>
+<OWASPZAPReport programName="ZAP" version="2.17.0" generated="Wed, 21 Oct 2026 15:59:20" created="2026-10-21T15:59:20.456139018Z">
+	
+		<site name="https://eoffice-be-dev.8chickensoffice.me" host="eoffice-be-dev.8chickensoffice.me" port="443" ssl="true">
+			<alerts>
+				
+					<alertitem>
+						<pluginid>90022</pluginid>
+						<alertRef>90022</alertRef>
+						<alert>Application Error Disclosure</alert>
+						<name>Application Error Disclosure</name>
+						<riskcode>1</riskcode>
+						<confidence>2</confidence>
+						<riskdesc>Low (Medium)</riskdesc>
+						<confidencedesc>Medium</confidencedesc>
+						<desc>&lt;p&gt;This page contains an error/warning message that may disclose sensitive information like the location of the file that produced the unhandled exception. This information can be used to launch further attacks against the web application. The alert could be a false positive if the error message is found inside a documentation page.&lt;/p&gt;</desc>
+						<instances>
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/file-storage/batch?provider=provider</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/file-storage/batch (provider)([])</nodeName>
+									<method>DELETE</method>
+									<param></param>
+									<attack></attack>
+									<evidence>HTTP/1.1 500 Internal Server Error</evidence>
+									<otherinfo></otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/file-storage/fileId?provider=provider</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/file-storage/fileId (provider)</nodeName>
+									<method>DELETE</method>
+									<param></param>
+									<attack></attack>
+									<evidence>HTTP/1.1 500 Internal Server Error</evidence>
+									<otherinfo></otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1</nodeName>
+									<method>GET</method>
+									<param></param>
+									<attack></attack>
+									<evidence>HTTP/1.1 500 Internal Server Error</evidence>
+									<otherinfo></otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/admin</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/admin</nodeName>
+									<method>GET</method>
+									<param></param>
+									<attack></attack>
+									<evidence>HTTP/1.1 500 Internal Server Error</evidence>
+									<otherinfo></otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/admin/pki</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/admin/pki</nodeName>
+									<method>GET</method>
+									<param></param>
+									<attack></attack>
+									<evidence>HTTP/1.1 500 Internal Server Error</evidence>
+									<otherinfo></otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/admin/pki/ca</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/admin/pki/ca</nodeName>
+									<method>GET</method>
+									<param></param>
+									<attack></attack>
+									<evidence>HTTP/1.1 500 Internal Server Error</evidence>
+									<otherinfo></otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/admin/pki/ca/initialize</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/admin/pki/ca/initialize</nodeName>
+									<method>GET</method>
+									<param></param>
+									<attack></attack>
+									<evidence>HTTP/1.1 500 Internal Server Error</evidence>
+									<otherinfo></otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/admin/users/10/activate</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/admin/users/10/activate</nodeName>
+									<method>GET</method>
+									<param></param>
+									<attack></attack>
+									<evidence>HTTP/1.1 500 Internal Server Error</evidence>
+									<otherinfo></otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/admin/users/10/ban</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/admin/users/10/ban</nodeName>
+									<method>GET</method>
+									<param></param>
+									<attack></attack>
+									<evidence>HTTP/1.1 500 Internal Server Error</evidence>
+									<otherinfo></otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/admin/users/10/lock</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/admin/users/10/lock</nodeName>
+									<method>GET</method>
+									<param></param>
+									<attack></attack>
+									<evidence>HTTP/1.1 500 Internal Server Error</evidence>
+									<otherinfo></otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/admin/users/10/restore</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/admin/users/10/restore</nodeName>
+									<method>GET</method>
+									<param></param>
+									<attack></attack>
+									<evidence>HTTP/1.1 500 Internal Server Error</evidence>
+									<otherinfo></otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/admin/users/10/role</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/admin/users/10/role</nodeName>
+									<method>GET</method>
+									<param></param>
+									<attack></attack>
+									<evidence>HTTP/1.1 500 Internal Server Error</evidence>
+									<otherinfo></otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/admin/users/10/unlock</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/admin/users/10/unlock</nodeName>
+									<method>GET</method>
+									<param></param>
+									<attack></attack>
+									<evidence>HTTP/1.1 500 Internal Server Error</evidence>
+									<otherinfo></otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/documents/10/verify-integrity</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/documents/10/verify-integrity</nodeName>
+									<method>GET</method>
+									<param></param>
+									<attack></attack>
+									<evidence>HTTP/1.1 500 Internal Server Error</evidence>
+									<otherinfo></otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/file-storage?provider=provider</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/file-storage (provider)</nodeName>
+									<method>GET</method>
+									<param></param>
+									<attack></attack>
+									<evidence>HTTP/1.1 500 Internal Server Error</evidence>
+									<otherinfo></otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/file-storage/fileId?provider=provider</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/file-storage/fileId (provider)</nodeName>
+									<method>GET</method>
+									<param></param>
+									<attack></attack>
+									<evidence>HTTP/1.1 500 Internal Server Error</evidence>
+									<otherinfo></otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/file-storage/fileId/detail?provider=provider</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/file-storage/fileId/detail (provider)</nodeName>
+									<method>GET</method>
+									<param></param>
+									<attack></attack>
+									<evidence>HTTP/1.1 500 Internal Server Error</evidence>
+									<otherinfo></otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/file-storage/fileId/download?provider=provider</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/file-storage/fileId/download (provider)</nodeName>
+									<method>GET</method>
+									<param></param>
+									<attack></attack>
+									<evidence>HTTP/1.1 500 Internal Server Error</evidence>
+									<otherinfo></otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/position-assignments/user/10/active?atTime=atTime&amp;pageable=</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/position-assignments/user/10/active (atTime,pageable)</nodeName>
+									<method>GET</method>
+									<param></param>
+									<attack></attack>
+									<evidence>HTTP/1.1 500 Internal Server Error</evidence>
+									<otherinfo></otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/file-storage/upload?provider=provider</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/file-storage/upload (provider)(multipart:file)</nodeName>
+									<method>POST</method>
+									<param></param>
+									<attack></attack>
+									<evidence>HTTP/1.1 500 Internal Server Error</evidence>
+									<otherinfo></otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/file-storage/fileId?provider=provider</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/file-storage/fileId (provider)(multipart:file)</nodeName>
+									<method>PUT</method>
+									<param></param>
+									<attack></attack>
+									<evidence>HTTP/1.1 500 Internal Server Error</evidence>
+									<otherinfo></otherinfo>
+								</instance>
+							
+						</instances>
+						<count>21</count>
+						<systemic>false</systemic>
+						<solution>&lt;p&gt;Review the source code of this page. Implement custom error pages. Consider implementing a mechanism to provide a unique error reference/identifier to the client (browser) while logging the details on the server side and not exposing them to the user.&lt;/p&gt;</solution>
+						<otherinfo></otherinfo>
+						<reference></reference>
+						<cweid>550</cweid>
+						<wascid>13</wascid>
+						<sourceid>129</sourceid>
+					</alertitem>
+				
+				
+					<alertitem>
+						<pluginid>2</pluginid>
+						<alertRef>2</alertRef>
+						<alert>Private IP Disclosure</alert>
+						<name>Private IP Disclosure</name>
+						<riskcode>1</riskcode>
+						<confidence>2</confidence>
+						<riskdesc>Low (Medium)</riskdesc>
+						<confidencedesc>Medium</confidencedesc>
+						<desc>&lt;p&gt;A private IP (such as 10.x.x.x, 172.x.x.x, 192.168.x.x) or an Amazon EC2 private hostname (for example, ip-10-0-56-78) has been found in the HTTP response body. This information might be helpful for further attacks targeting internal systems.&lt;/p&gt;</desc>
+						<instances>
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/v3/api-docs</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/v3/api-docs</nodeName>
+									<method>GET</method>
+									<param></param>
+									<attack></attack>
+									<evidence>10.10.5.24</evidence>
+									<otherinfo>10.10.5.24
+</otherinfo>
+								</instance>
+							
+						</instances>
+						<count>1</count>
+						<systemic>false</systemic>
+						<solution>&lt;p&gt;Remove the private IP address from the HTTP response body. For comments, use JSP/ASP/PHP comment instead of HTML/JavaScript comment which can be seen by client browsers.&lt;/p&gt;</solution>
+						<otherinfo>&lt;p&gt;10.10.5.24&lt;/p&gt;&lt;p&gt;&lt;/p&gt;</otherinfo>
+						<reference>&lt;p&gt;https://datatracker.ietf.org/doc/html/rfc1918&lt;/p&gt;</reference>
+						<cweid>497</cweid>
+						<wascid>13</wascid>
+						<sourceid>8</sourceid>
+					</alertitem>
+				
+				
+					<alertitem>
+						<pluginid>10035</pluginid>
+						<alertRef>10035-1</alertRef>
+						<alert>Strict-Transport-Security Header Not Set</alert>
+						<name>Strict-Transport-Security Header Not Set</name>
+						<riskcode>1</riskcode>
+						<confidence>3</confidence>
+						<riskdesc>Low (High)</riskdesc>
+						<confidencedesc>High</confidencedesc>
+						<desc>&lt;p&gt;HTTP Strict Transport Security (HSTS) is a web security policy mechanism whereby a web server declares that complying user agents (such as a web browser) are to interact with it using only secure HTTPS connections (i.e. HTTP layered over TLS/SSL). HSTS is an IETF standards track protocol and is specified in RFC 6797.&lt;/p&gt;</desc>
+						<instances>
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1</nodeName>
+									<method>GET</method>
+									<param></param>
+									<attack></attack>
+									<evidence></evidence>
+									<otherinfo></otherinfo>
+								</instance>
+							
+						</instances>
+						<count>1</count>
+						<systemic>false</systemic>
+						<solution>&lt;p&gt;Ensure that your web server, application server, load balancer, etc. is configured to enforce Strict-Transport-Security.&lt;/p&gt;</solution>
+						<otherinfo></otherinfo>
+						<reference>&lt;p&gt;https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Strict_Transport_Security_Cheat_Sheet.html&lt;/p&gt;&lt;p&gt;https://owasp.org/www-community/Security_Headers&lt;/p&gt;&lt;p&gt;https://en.wikipedia.org/wiki/HTTP_Strict_Transport_Security&lt;/p&gt;&lt;p&gt;https://caniuse.com/stricttransportsecurity&lt;/p&gt;&lt;p&gt;https://datatracker.ietf.org/doc/html/rfc6797&lt;/p&gt;</reference>
+						<cweid>319</cweid>
+						<wascid>15</wascid>
+						<sourceid>131</sourceid>
+					</alertitem>
+				
+				
+					<alertitem>
+						<pluginid>10096</pluginid>
+						<alertRef>10096</alertRef>
+						<alert>Timestamp Disclosure - Unix</alert>
+						<name>Timestamp Disclosure - Unix</name>
+						<riskcode>1</riskcode>
+						<confidence>1</confidence>
+						<riskdesc>Low (Low)</riskdesc>
+						<confidencedesc>Low</confidencedesc>
+						<desc>&lt;p&gt;A timestamp was disclosed by the application/web server. - Unix&lt;/p&gt;</desc>
+						<instances>
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/position-assignments/10</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/position-assignments/10</nodeName>
+									<method>GET</method>
+									<param>reporting-endpoints</param>
+									<attack></attack>
+									<evidence>1792596520</evidence>
+									<otherinfo>1792596520, which evaluates to: 2026-10-21 15:28:40.</otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/v3/api-docs</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/v3/api-docs</nodeName>
+									<method>GET</method>
+									<param>reporting-endpoints</param>
+									<attack></attack>
+									<evidence>1792596509</evidence>
+									<otherinfo>1792596509, which evaluates to: 2026-10-21 15:28:29.</otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/auth/login</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/auth/login ()({username,password})</nodeName>
+									<method>POST</method>
+									<param></param>
+									<attack></attack>
+									<evidence>1792596509</evidence>
+									<otherinfo>1792596509, which evaluates to: 2026-10-21 15:28:29.</otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/auth/login</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/auth/login ()({username,password})</nodeName>
+									<method>POST</method>
+									<param>reporting-endpoints</param>
+									<attack></attack>
+									<evidence>1792596509</evidence>
+									<otherinfo>1792596509, which evaluates to: 2026-10-21 15:28:29.</otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/profile/me</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/profile/me ()({fullName,dateOfBirth,gender,nationalIdNumber,avatarUrl,contactEmail,contactPhone,address,employeeCode,academicTitle,academicDegree,partyMembershipDate,employmentStatusCd,joinOrgDate})</nodeName>
+									<method>PUT</method>
+									<param>reporting-endpoints</param>
+									<attack></attack>
+									<evidence>1792596518</evidence>
+									<otherinfo>1792596518, which evaluates to: 2026-10-21 15:28:38.</otherinfo>
+								</instance>
+							
+						</instances>
+						<count>5</count>
+						<systemic>true</systemic>
+						<solution>&lt;p&gt;Manually confirm that the timestamp data is not sensitive, and that the data cannot be aggregated to disclose exploitable patterns.&lt;/p&gt;</solution>
+						<otherinfo>&lt;p&gt;1792596520, which evaluates to: 2026-10-21 15:28:40.&lt;/p&gt;</otherinfo>
+						<reference>&lt;p&gt;https://cwe.mitre.org/data/definitions/200.html&lt;/p&gt;</reference>
+						<cweid>497</cweid>
+						<wascid>13</wascid>
+						<sourceid>12</sourceid>
+					</alertitem>
+				
+				
+					<alertitem>
+						<pluginid>10111</pluginid>
+						<alertRef>10111</alertRef>
+						<alert>Authentication Request Identified</alert>
+						<name>Authentication Request Identified</name>
+						<riskcode>0</riskcode>
+						<confidence>1</confidence>
+						<riskdesc>Informational (Low)</riskdesc>
+						<confidencedesc>Low</confidencedesc>
+						<desc>&lt;p&gt;The given request has been identified as an authentication request. The &apos;Other Info&apos; field contains a set of key=value lines which identify any relevant fields. If the request is in a context which has an Authentication Method set to &quot;Auto-Detect&quot; then this rule will change the authentication to match the request identified.&lt;/p&gt;</desc>
+						<instances>
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/admin/users</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/admin/users ()({username,email,password,role,mustChangePassword})</nodeName>
+									<method>POST</method>
+									<param>email</param>
+									<attack></attack>
+									<evidence>password</evidence>
+									<otherinfo>userParam=email
+userValue=zaproxy@example.com
+passwordParam=password</otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/auth/login</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/auth/login ()({username,password})</nodeName>
+									<method>POST</method>
+									<param>username</param>
+									<attack></attack>
+									<evidence>password</evidence>
+									<otherinfo>userParam=username
+userValue=dast_scan
+passwordParam=password</otherinfo>
+								</instance>
+							
+						</instances>
+						<count>2</count>
+						<systemic>false</systemic>
+						<solution>&lt;p&gt;This is an informational alert rather than a vulnerability and so there is nothing to fix.&lt;/p&gt;</solution>
+						<otherinfo>&lt;p&gt;userParam=email&lt;/p&gt;&lt;p&gt;userValue=zaproxy@example.com&lt;/p&gt;&lt;p&gt;passwordParam=password&lt;/p&gt;</otherinfo>
+						<reference>&lt;p&gt;https://www.zaproxy.org/docs/desktop/addons/authentication-helper/auth-req-id/&lt;/p&gt;</reference>
+						<cweid>-1</cweid>
+						<wascid>-1</wascid>
+						<sourceid>82</sourceid>
+					</alertitem>
+				
+				
+					<alertitem>
+						<pluginid>10112</pluginid>
+						<alertRef>10112</alertRef>
+						<alert>Session Management Response Identified</alert>
+						<name>Session Management Response Identified</name>
+						<riskcode>0</riskcode>
+						<confidence>2</confidence>
+						<riskdesc>Informational (Medium)</riskdesc>
+						<confidencedesc>Medium</confidencedesc>
+						<desc>&lt;p&gt;The given response has been identified as containing a session management token. The &apos;Other Info&apos; field contains a set of header tokens that can be used in the Header Based Session Management Method. If the request is in a context which has a Session Management Method set to &quot;Auto-Detect&quot; then this rule will change the session management to use the tokens identified.&lt;/p&gt;</desc>
+						<instances>
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/auth/login</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/auth/login ()({username,password})</nodeName>
+									<method>POST</method>
+									<param>data.accessToken</param>
+									<attack></attack>
+									<evidence>data.accessToken</evidence>
+									<otherinfo>json:data.accessToken
+cookie:refresh_token</otherinfo>
+								</instance>
+							
+							
+								<instance>
+									<uri>https://eoffice-be-dev.8chickensoffice.me/api/v1/profile/me</uri>
+									<nodeName>https://eoffice-be-dev.8chickensoffice.me/api/v1/profile/me ()({fullName,dateOfBirth,gender,nationalIdNumber,avatarUrl,contactEmail,contactPhone,address,employeeCode,academicTitle,academicDegree,partyMembershipDate,employmentStatusCd,joinOrgDate})</nodeName>
+									<method>PUT</method>
+									<param>data.accessToken</param>
+									<attack></attack>
+									<evidence>data.accessToken</evidence>
+									<otherinfo>json:data.accessToken</otherinfo>
+								</instance>
+							
+						</instances>
+						<count>2</count>
+						<systemic>false</systemic>
+						<solution>&lt;p&gt;This is an informational alert rather than a vulnerability and so there is nothing to fix.&lt;/p&gt;</solution>
+						<otherinfo>&lt;p&gt;json:data.accessToken&lt;/p&gt;&lt;p&gt;cookie:refresh_token&lt;/p&gt;</otherinfo>
+						<reference>&lt;p&gt;https://www.zaproxy.org/docs/desktop/addons/authentication-helper/session-mgmt-id/&lt;/p&gt;</reference>
+						<cweid>-1</cweid>
+						<wascid>-1</wascid>
+						<sourceid>3</sourceid>
+					</alertitem>
+				
+			</alerts>
+		</site>
+	
+	
+		<insights>
+			
+				<insight>
+					<level>Medium</level>
+					<reason>Exceeded High</reason>
+					<site>https://eoffice-be-dev.8chickensoffice.me</site>
+					<key>insight.code.4xx</key>
+					<description>Percentage of responses with status code 4xx</description>
+					<statistic>97</statistic>
+				</insight>
+			
+			
+				<insight>
+					<level>Low</level>
+					<reason>Warning</reason>
+					<site></site>
+					<key>insight.log.error</key>
+					<description>ZAP errors logged - see the zap.log file for details</description>
+					<statistic>1</statistic>
+				</insight>
+			
+			
+				<insight>
+					<level>Low</level>
+					<reason>Warning</reason>
+					<site></site>
+					<key>insight.log.warn</key>
+					<description>ZAP warnings logged - see the zap.log file for details</description>
+					<statistic>1</statistic>
+				</insight>
+			
+			
+				<insight>
+					<level>Info</level>
+					<reason>Informational</reason>
+					<site>https://eoffice-be-dev.8chickensoffice.me</site>
+					<key>insight.code.2xx</key>
+					<description>Percentage of responses with status code 2xx</description>
+					<statistic>1</statistic>
+				</insight>
+			
+			
+				<insight>
+					<level>Info</level>
+					<reason>Informational</reason>
+					<site>https://eoffice-be-dev.8chickensoffice.me</site>
+					<key>insight.code.5xx</key>
+					<description>Percentage of responses with status code 5xx</description>
+					<statistic>1</statistic>
+				</insight>
+			
+			
+				<insight>
+					<level>Info</level>
+					<reason>Informational</reason>
+					<site>https://eoffice-be-dev.8chickensoffice.me</site>
+					<key>insight.endpoint.ctype.application/json</key>
+					<description>Percentage of endpoints with content type application/json</description>
+					<statistic>100</statistic>
+				</insight>
+			
+			
+				<insight>
+					<level>Info</level>
+					<reason>Informational</reason>
+					<site>https://eoffice-be-dev.8chickensoffice.me</site>
+					<key>insight.endpoint.method.DELETE</key>
+					<description>Percentage of endpoints with method DELETE</description>
+					<statistic>6</statistic>
+				</insight>
+			
+			
+				<insight>
+					<level>Info</level>
+					<reason>Informational</reason>
+					<site>https://eoffice-be-dev.8chickensoffice.me</site>
+					<key>insight.endpoint.method.GET</key>
+					<description>Percentage of endpoints with method GET</description>
+					<statistic>63</statistic>
+				</insight>
+			
+			
+				<insight>
+					<level>Info</level>
+					<reason>Informational</reason>
+					<site>https://eoffice-be-dev.8chickensoffice.me</site>
+					<key>insight.endpoint.method.POST</key>
+					<description>Percentage of endpoints with method POST</description>
+					<statistic>23</statistic>
+				</insight>
+			
+			
+				<insight>
+					<level>Info</level>
+					<reason>Informational</reason>
+					<site>https://eoffice-be-dev.8chickensoffice.me</site>
+					<key>insight.endpoint.method.PUT</key>
+					<description>Percentage of endpoints with method PUT</description>
+					<statistic>7</statistic>
+				</insight>
+			
+			
+				<insight>
+					<level>Info</level>
+					<reason>Informational</reason>
+					<site>https://eoffice-be-dev.8chickensoffice.me</site>
+					<key>insight.endpoint.total</key>
+					<description>Count of total endpoints</description>
+					<statistic>142</statistic>
+				</insight>
+			
+			
+				<insight>
+					<level>Info</level>
+					<reason>Exceeded Low</reason>
+					<site>https://eoffice-be-dev.8chickensoffice.me</site>
+					<key>insight.response.slow</key>
+					<description>Percentage of slow responses</description>
+					<statistic>5</statistic>
+				</insight>
+			
+		</insights>
+	
+	
+	
+</OWASPZAPReport>

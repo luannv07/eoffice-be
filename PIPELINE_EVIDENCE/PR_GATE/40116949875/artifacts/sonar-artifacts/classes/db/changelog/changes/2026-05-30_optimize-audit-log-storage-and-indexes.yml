@@ -1,0 +1,51 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-05-30-optimize-audit-log-storage-and-indexes
+      author: luannv
+      dbms: postgresql
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE user_audit_logs
+                ALTER COLUMN param_content TYPE text;
+
+              ALTER TABLE change_history_logs
+                ALTER COLUMN before_data TYPE jsonb USING
+                CASE
+                  WHEN before_data IS NULL OR btrim(before_data) = '' THEN NULL
+                  WHEN before_data IS JSON THEN before_data::jsonb
+                  ELSE jsonb_build_object('raw', before_data)
+                END,
+                ALTER COLUMN after_data TYPE jsonb USING
+                CASE
+                  WHEN after_data IS NULL OR btrim(after_data) = '' THEN NULL
+                  WHEN after_data IS JSON THEN after_data::jsonb
+                  ELSE jsonb_build_object('raw', after_data)
+                END,
+                ALTER COLUMN changed_fields TYPE jsonb USING
+                CASE
+                  WHEN changed_fields IS NULL OR btrim(changed_fields) = '' THEN '[]'::jsonb
+                  WHEN changed_fields IS JSON THEN changed_fields::jsonb
+                  ELSE jsonb_build_object('raw', changed_fields)
+                END;
+
+              CREATE INDEX IF NOT EXISTS idx_user_audit_logs_username_created_date
+                ON user_audit_logs (username, created_date DESC);
+
+              CREATE INDEX IF NOT EXISTS idx_user_audit_logs_request_uri_created_date
+                ON user_audit_logs (request_uri, created_date DESC);
+
+              CREATE INDEX IF NOT EXISTS idx_change_history_object_changed_at
+                ON change_history_logs (table_name, object_id, changed_at DESC);
+
+              CREATE INDEX IF NOT EXISTS idx_change_history_changed_by_changed_at
+                ON change_history_logs (changed_by, changed_at DESC);
+
+              CREATE INDEX IF NOT EXISTS idx_change_history_changed_fields_gin
+                ON change_history_logs USING GIN (changed_fields jsonb_path_ops);
+
+              CREATE INDEX IF NOT EXISTS idx_change_history_before_data_gin
+                ON change_history_logs USING GIN (before_data jsonb_path_ops);
+
+              CREATE INDEX IF NOT EXISTS idx_change_history_after_data_gin
+                ON change_history_logs USING GIN (after_data jsonb_path_ops);

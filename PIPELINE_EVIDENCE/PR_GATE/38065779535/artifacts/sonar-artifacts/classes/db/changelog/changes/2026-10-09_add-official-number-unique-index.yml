@@ -1,0 +1,37 @@
+databaseChangeLog:
+  # Tạo unique partial index trên cột official_number (khi delete_flg = false).
+  # Đây là cơ chế chống race condition ở tầng DB: dù 2 request đồng thời vượt qua
+  # bước kiểm tra existsBy... trong service, DB sẽ từ chối INSERT/UPDATE thứ 2
+  # và ném DataIntegrityViolationException, được bắt và dịch thành BusinessException.
+  #
+  # Lưu ý: Liquibase không hỗ trợ partial index qua DSL chuẩn nên dùng sql/rollback.
+  # Partial index chỉ áp dụng trên PostgreSQL. Trên H2 (test), preConditions sẽ
+  # MARK_RAN và index được tạo không có điều kiện WHERE (H2 không hỗ trợ).
+  - changeSet:
+      id: 2026-10-09-documents-unique-official-number
+      author: luannv
+      validCheckSum:
+        - ANY
+      preConditions:
+        onFail: MARK_RAN
+        onError: MARK_RAN
+        not:
+          indexExists:
+            tableName: documents
+            indexName: uq_documents_official_number_active
+      changes:
+        - sql:
+            dbms: postgresql
+            sql: >
+              CREATE UNIQUE INDEX uq_documents_official_number_active
+              ON documents (official_number)
+              WHERE delete_flg = false;
+        - sql:
+            dbms: h2
+            sql: >
+              CREATE UNIQUE INDEX IF NOT EXISTS uq_documents_official_number_active
+              ON documents (official_number);
+      rollback:
+        - sql:
+            sql: >
+              DROP INDEX IF EXISTS uq_documents_official_number_active;

@@ -1,0 +1,52 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:eoffice-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      # Liquibase owns the schema (master-test.yml runs all migrations), so Hibernate
+      # must not validate/generate DDL. This also avoids the cross-DB json type mismatch:
+      # @JdbcTypeCode(SqlTypes.JSON) expects jsonb (Types#JSON) while H2 reports its
+      # JSON columns as Types#OTHER, which would fail schema validation.
+      ddl-auto: none
+    open-in-view: false
+
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/master-test.yml
+
+server:
+  port: 8888
+
+logging:
+  level:
+    liquibase: DEBUG
+
+eoffice:
+  jwt:
+    issuer: eoffice-be-test
+    secret-key: eoffice-be-jwt-secret-fixed-for-all-environments-2026
+    access-token-ttl: PT15M
+    refresh-token-ttl: P30D
+  upload:
+    dir: /tmp/test-uploads
+    max-file-size-bytes: 26214400
+    allowed-extensions:
+      - docx
+      - pdf
+      - DOCX
+      - PDF
+  rate-limit:
+    endpoint-limit: ${RATE_LIMIT_ENDPOINT_LIMIT:10}
+    endpoint-window-seconds: ${RATE_LIMIT_ENDPOINT_WINDOW_SECONDS:300}
+    maximum-size: ${RATE_LIMIT_MAXIMUM_SIZE:10000}
+

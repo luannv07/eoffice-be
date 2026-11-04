@@ -1,0 +1,92 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-10-26-distributions-created-by
+      author: codex
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - columnExists:
+                tableName: document_distributions
+                columnName: created_by
+      changes:
+        - addColumn:
+            tableName: document_distributions
+            columns:
+              - column:
+                  name: created_by
+                  type: VARCHAR(255)
+
+  - changeSet:
+      id: 2026-10-26-distributions-created-date
+      author: codex
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - columnExists:
+                tableName: document_distributions
+                columnName: created_date
+      changes:
+        - addColumn:
+            tableName: document_distributions
+            columns:
+              - column:
+                  name: created_date
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: 2026-10-26-distributions-updated-by
+      author: codex
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - columnExists:
+                tableName: document_distributions
+                columnName: updated_by
+      changes:
+        - addColumn:
+            tableName: document_distributions
+            columns:
+              - column:
+                  name: updated_by
+                  type: VARCHAR(255)
+
+  - changeSet:
+      id: 2026-10-26-distributions-updated-date
+      author: codex
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - columnExists:
+                tableName: document_distributions
+                columnName: updated_date
+      changes:
+        - addColumn:
+            tableName: document_distributions
+            columns:
+              - column:
+                  name: updated_date
+                  type: TIMESTAMP
+
+  # Seed data inserts explicit IDs, so the identity generator must start after them.
+  - changeSet:
+      id: 2026-10-26-distributions-resync-identity-pg
+      author: codex
+      dbms: postgresql
+      changes:
+        - sql:
+            sql: >-
+              SELECT setval(pg_get_serial_sequence('document_distributions', 'id'),
+              (SELECT COALESCE(MAX(id), 0) + 1 FROM document_distributions), false)
+
+  - changeSet:
+      id: 2026-10-26-distributions-resync-identity-h2
+      author: codex
+      dbms: h2
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE document_distributions ALTER COLUMN id
+              RESTART WITH (SELECT COALESCE(MAX(id), 0) + 1 FROM document_distributions)

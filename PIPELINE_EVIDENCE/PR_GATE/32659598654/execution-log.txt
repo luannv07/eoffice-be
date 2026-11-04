@@ -1,0 +1,292 @@
+﻿PR Gate - Security & Code Review	UNKNOWN STEP	∩╗┐2026-08-23T18:55:47.3669126Z Current runner version: '2.336.0'
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3746113Z ##[group]Runner Image Provisioner
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3747634Z Hosted Compute Agent
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3748927Z Version: 20260729.566
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3750139Z Commit: cf7153fe6e25b664e8693c24944bf2b00355d109
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3751637Z Build Date: 2026-07-29T19:17:02Z
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3752980Z Worker ID: {796fb4de-8140-4c89-a5ab-c9095863672d}
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3774931Z Azure Region: eastus
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3776570Z ##[endgroup]
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3779460Z ##[group]Operating System
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3780764Z Ubuntu
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3781805Z 24.04.4
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3782807Z LTS
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3784025Z ##[endgroup]
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3785398Z ##[group]Runner Image
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3786681Z Image: ubuntu-24.04
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3787727Z Version: 20260816.277.1
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3790191Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260816.277/images/ubuntu/Ubuntu2404-Readme.md
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3793039Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260816.277
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3815305Z ##[endgroup]
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3817749Z ##[group]GITHUB_TOKEN Permissions
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3820769Z Contents: read
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3821914Z Metadata: read
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3823088Z PullRequests: write
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3824176Z ##[endgroup]
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3827820Z Secret source: Actions
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.3830357Z Prepare workflow directory
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.4335227Z Prepare all required actions
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.4404861Z Getting action download info
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.7326815Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:47.8774819Z Download action repository 'actions/setup-java@v4' (SHA:cf277c60eb25467037889841efdb72551f06f6c3)
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:48.1486813Z Download action repository 'trufflesecurity/trufflehog@main' (SHA:3ab759fef4bb5935d4fe9ac68b503d05346b8364)
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.2528306Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.5182567Z Complete job name: PR Gate - Security & Code Review
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.6103482Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.6114041Z ##[group]Run actions/checkout@v4
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.6115694Z with:
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.6116658Z   fetch-depth: 0
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.6117715Z   repository: luannv07/eoffice-be
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.6125767Z   token: ***
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.6126756Z   ssh-strict: true
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.6127758Z   ssh-user: git
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.6128772Z   persist-credentials: true
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.6129861Z   clean: true
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.6130888Z   sparse-checkout-cone-mode: true
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.6132068Z   fetch-tags: false
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.6133083Z   show-progress: true
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.6134109Z   lfs: false
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.6135528Z   submodules: false
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.6136564Z   set-safe-directory: true
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.6137713Z   allow-unsafe-pr-checkout: false
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.6139139Z ##[endgroup]
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7423602Z Syncing repository: luannv07/eoffice-be
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7427955Z ##[group]Getting Git version info
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7430162Z Working directory is '/home/runner/work/eoffice-be/eoffice-be'
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7433636Z [command]/usr/bin/git version
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7436464Z git version 2.55.0
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7451298Z ##[endgroup]
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7493219Z Temporarily overriding HOME='/home/runner/work/_temp/dba05611-f246-4ccf-a132-ca2c873ba301' before making global git config changes
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7497820Z Adding repository directory to the temporary git global config as a safe directory
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7502309Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/eoffice-be/eoffice-be
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7636867Z Deleting the contents of '/home/runner/work/eoffice-be/eoffice-be'
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7640692Z ##[group]Initializing the repository
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7643205Z [command]/usr/bin/git init /home/runner/work/eoffice-be/eoffice-be
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7715987Z hint: Using 'master' as the name for the initial branch. This default branch name
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7736452Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7745154Z hint: to use in all of your new repositories, which will suppress this warning,
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7748039Z hint: call:
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7750088Z hint:
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7752173Z hint: 	git config --global init.defaultBranch <name>
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7754957Z hint:
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7757183Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7760739Z hint: 'development'. The just-created branch can be renamed via this command:
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7766684Z hint:
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7768852Z hint: 	git branch -m <name>
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7770785Z hint:
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7773404Z hint: Disable this message with "git config set advice.defaultBranchName false"
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7778778Z Initialized empty Git repository in /home/runner/work/eoffice-be/eoffice-be/.git/
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7787729Z [command]/usr/bin/git remote add origin https://github.com/luannv07/eoffice-be
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7829139Z ##[endgroup]
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7832090Z ##[group]Disabling automatic garbage collection
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7840711Z [command]/usr/bin/git config --local gc.auto 0
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7937746Z ##[endgroup]
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.7945233Z ##[group]Setting up auth
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.8008214Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.8031983Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.8466799Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.8522206Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.8923905Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.8929845Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.9183926Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.9218917Z ##[endgroup]
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.9222152Z ##[group]Fetching the repository
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:49.9233247Z [command]/usr/bin/git -c protocol.version=2 fetch --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/* +fdd6d6ee65480f0b057e7897d6d80660ba331b96:refs/remotes/pull/15/merge
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4058893Z From https://github.com/luannv07/eoffice-be
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4075886Z  * [new branch]      H╞░ß╗¢ng-dß║½n-chß║íy-dß╗▒-├ín           -> origin/H╞░ß╗¢ng-dß║½n-chß║íy-dß╗▒-├ín
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4077726Z  * [new branch]      dev                                      -> origin/dev
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4079055Z  * [new branch]      feat/base                                -> origin/feat/base
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4080728Z  * [new branch]      feat/dict                                -> origin/feat/dict
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4082172Z  * [new branch]      feat/document                            -> origin/feat/document
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4083847Z  * [new branch]      feat/jwt                                 -> origin/feat/jwt
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4085633Z  * [new branch]      feat/test                                -> origin/feat/test
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4087688Z  * [new branch]      feat/test-ai-bot                         -> origin/feat/test-ai-bot
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4089228Z  * [new branch]      feat/test-ai-bot-v2                      -> origin/feat/test-ai-bot-v2
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4090982Z  * [new branch]      feat/test-ai-bot-v3                      -> origin/feat/test-ai-bot-v3
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4092395Z  * [new branch]      feat/test-ai-bot-v4                      -> origin/feat/test-ai-bot-v4
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4094071Z  * [new branch]      main                                     -> origin/main
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4097285Z  * [new ref]         fdd6d6ee65480f0b057e7897d6d80660ba331b96 -> pull/15/merge
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4127805Z ##[endgroup]
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4129421Z ##[group]Determining the checkout info
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4132694Z ##[endgroup]
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4133252Z [command]/usr/bin/git sparse-checkout disable
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4134919Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4136645Z ##[group]Checking out the ref
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4137429Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/15/merge
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4447523Z Note: switching to 'refs/remotes/pull/15/merge'.
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4449553Z 
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4451178Z You are in 'detached HEAD' state. You can look around, make experimental
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4456133Z changes and commit them, and you can discard any commits you make in this
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4457104Z state without impacting any branches by switching back to a branch.
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4457652Z 
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4458050Z If you want to create a new branch to retain commits you create, you may
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4458990Z do so (now or later) by using -c with the switch command. Example:
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4459459Z 
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4459699Z   git switch -c <new-branch-name>
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4460052Z 
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4460286Z Or undo this operation with:
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4460700Z 
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4460917Z   git switch -
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4461194Z 
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4461958Z Turn off this advice by setting config variable advice.detachedHead to false
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4462565Z 
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4463210Z HEAD is now at fdd6d6e Merge d4884d94fa426cd8714f720de353479e4a7e71ab into 32079f8f8b9d8a968a31c95364714351b2fbf026
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4466244Z ##[endgroup]
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4467873Z [command]/usr/bin/git log -1 --format=%H
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4468521Z fdd6d6ee65480f0b057e7897d6d80660ba331b96
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4778768Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4781845Z ##[group]Run actions/setup-java@v4
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4782460Z with:
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4782922Z   distribution: temurin
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4783469Z   java-version: 21
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4783943Z   cache: maven
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4784401Z   java-package: jdk
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4785096Z   check-latest: false
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4785593Z   server-id: github
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4786091Z   server-username: GITHUB_ACTOR
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4786679Z   server-password: GITHUB_TOKEN
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4787235Z   overwrite-settings: true
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4787781Z   job-status: success
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4792458Z   token: ***
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.4793029Z ##[endgroup]
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.6925251Z ##[warning]setup-java v4 is deprecated and will no longer receive updates. Please migrate to actions/setup-java@v5.
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.6945738Z ##[group]Installed distributions
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.7089649Z Resolved Java 21.0.12+8 from tool-cache
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.7090315Z Setting Java 21.0.12+8 as the default
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.7094804Z Creating toolchains.xml for JDK version 21 from temurin
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.7096491Z (node:2082) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.7099839Z (Use `node --trace-deprecation ...` to show where the warning was created)
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.7170649Z Writing to /home/runner/.m2/toolchains.xml
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.7171635Z 
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.7172628Z Java configuration:
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.7173657Z   Distribution: temurin
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.7175313Z   Version: 21.0.12+8
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.7178398Z   Path: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-8/x64
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.7185133Z 
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.7185791Z ##[endgroup]
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.7241344Z Creating settings.xml with server-id: github
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.7707386Z Writing to /home/runner/.m2/settings.xml
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.8775218Z (node:2082) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:50.8787610Z Cache hit for: setup-java-Linux-x64-maven-8ce36cf4a4c641a4ec331ef874fc5d98a57b3aae4f0a37b1b84e788a6bd11140
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:51.5711322Z Received 107345596 of 107345596 (100.0%), 158.5 MBs/sec
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:51.5713955Z Cache Size: ~102 MB (107345596 B)
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:51.5742699Z [command]/usr/bin/tar -xf /home/runner/work/_temp/dff9643b-53cb-4951-8a37-cb6e95e394c5/cache.tzst -P -C /home/runner/work/eoffice-be/eoffice-be --use-compress-program unzstd
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:51.9533016Z Cache restored successfully
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:51.9617442Z Cache restored from key: setup-java-Linux-x64-maven-8ce36cf4a4c641a4ec331ef874fc5d98a57b3aae4f0a37b1b84e788a6bd11140
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:51.9889967Z ##[group]Run mvn -B clean verify
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:51.9890389Z ^[[36;1mmvn -B clean verify^[[0m
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:51.9936119Z shell: /usr/bin/bash -e {0}
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:51.9936445Z env:
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:51.9936838Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-8/x64
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:51.9937425Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-8/x64
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:55:51.9937857Z ##[endgroup]
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:00.3176427Z [INFO] Scanning for projects...
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:00.6536083Z [INFO] 
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:00.6555709Z [INFO] -----------------------< vn.edu.epu:eoffice-be >------------------------
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:00.6595388Z [INFO] Building  0.0.1-SNAPSHOT
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:00.6606354Z [INFO]   from pom.xml
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:00.6662186Z [INFO] --------------------------------[ jar ]---------------------------------
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:01.6213113Z [INFO] 
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:01.6235816Z [INFO] --- clean:3.5.0:clean (default-clean) @ eoffice-be ---
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:01.7521849Z [INFO] 
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:01.7532591Z [INFO] --- jacoco:0.8.12:prepare-agent (prepare-agent) @ eoffice-be ---
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:01.8719541Z [INFO] argLine set to -javaagent:/home/runner/.m2/repository/org/jacoco/org.jacoco.agent/0.8.12/org.jacoco.agent-0.8.12-runtime.jar=destfile=/home/runner/work/eoffice-be/eoffice-be/target/jacoco.exec
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:01.8735253Z [INFO] 
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:01.8755565Z [INFO] --- resources:3.3.1:resources (default-resources) @ eoffice-be ---
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:01.9747221Z [INFO] Copying 4 resources from src/main/resources to target/classes
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:02.0065957Z [INFO] Copying 15 resources from src/main/resources to target/classes
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:02.0165593Z [INFO] 
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:02.0166580Z [INFO] --- compiler:3.14.1:compile (default-compile) @ eoffice-be ---
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:02.2276295Z [INFO] Recompiling the module because of changed source code.
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:02.2466070Z [INFO] Compiling 86 source files with javac [debug parameters release 21] to target/classes
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:09.2666473Z [INFO] Annotation processing is enabled because one or more processors were found
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:09.2671124Z   on the class path. A future release of javac may disable annotation processing
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:09.2715783Z   unless at least one processor is specified by name (-processor), or a search
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:09.2730714Z   path is specified (--processor-path, --processor-module-path), or annotation
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:09.2759166Z   processing is enabled explicitly (-proc:only, -proc:full).
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:09.2780286Z   Use -Xlint:-options to suppress this message.
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:09.2825090Z   Use -proc:none to disable annotation processing.
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:09.2839575Z [INFO] 
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:09.2855528Z [INFO] --- resources:3.3.1:testResources (default-testResources) @ eoffice-be ---
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:09.2869708Z [INFO] skip non existing resourceDirectory /home/runner/work/eoffice-be/eoffice-be/src/test/resources
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:09.2875269Z [INFO] 
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:09.2894310Z [INFO] --- compiler:3.14.1:testCompile (default-testCompile) @ eoffice-be ---
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:09.3050326Z [INFO] Recompiling the module because of changed dependency.
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:09.3074123Z [INFO] Compiling 30 source files with javac [debug parameters release 21] to target/test-classes
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:11.2996153Z [INFO] Annotation processing is enabled because one or more processors were found
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:11.3015609Z   on the class path. A future release of javac may disable annotation processing
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:11.3035368Z   unless at least one processor is specified by name (-processor), or a search
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:11.3065378Z   path is specified (--processor-path, --processor-module-path), or annotation
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:11.3095266Z   processing is enabled explicitly (-proc:only, -proc:full).
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:11.3115206Z   Use -Xlint:-options to suppress this message.
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:11.3165231Z   Use -proc:none to disable annotation processing.
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:11.3206873Z [INFO] /home/runner/work/eoffice-be/eoffice-be/src/test/java/vn/edu/epu/eoffice_be/service/DictionaryItemServiceImplTest.java: /home/runner/work/eoffice-be/eoffice-be/src/test/java/vn/edu/epu/eoffice_be/service/DictionaryItemServiceImplTest.java uses unchecked or unsafe operations.
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:11.3236240Z [INFO] /home/runner/work/eoffice-be/eoffice-be/src/test/java/vn/edu/epu/eoffice_be/service/DictionaryItemServiceImplTest.java: Recompile with -Xlint:unchecked for details.
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:11.3255081Z [INFO] 
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:11.3281858Z [INFO] --- surefire:3.5.6:test (default-test) @ eoffice-be ---
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:11.5365621Z [INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:12.3394096Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/surefire/surefire-junit-platform/3.5.6/surefire-junit-platform-3.5.6.pom
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.1042288Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/surefire/surefire-junit-platform/3.5.6/surefire-junit-platform-3.5.6.pom (5.2 kB at 6.7 kB/s)
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.1508106Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/surefire/surefire-providers/3.5.6/surefire-providers-3.5.6.pom
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.1867417Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/surefire/surefire-providers/3.5.6/surefire-providers-3.5.6.pom (2.5 kB at 121 kB/s)
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.1869865Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/surefire/common-java5/3.5.6/common-java5-3.5.6.pom
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.2152839Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/surefire/common-java5/3.5.6/common-java5-3.5.6.pom (3.1 kB at 139 kB/s)
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.2155480Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/junit/platform/junit-platform-engine/1.12.2/junit-platform-engine-1.12.2.pom
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.2366250Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/junit/platform/junit-platform-engine/1.12.2/junit-platform-engine-1.12.2.pom (3.2 kB at 160 kB/s)
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.2406125Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/junit/platform/junit-platform-commons/1.12.2/junit-platform-commons-1.12.2.pom
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.2597050Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/junit/platform/junit-platform-commons/1.12.2/junit-platform-commons-1.12.2.pom (2.8 kB at 157 kB/s)
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.2599697Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/junit/platform/junit-platform-launcher/1.12.2/junit-platform-launcher-1.12.2.pom
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.2837239Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/junit/platform/junit-platform-launcher/1.12.2/junit-platform-launcher-1.12.2.pom (3.0 kB at 151 kB/s)
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.2841948Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/surefire/surefire-junit-platform/3.5.6/surefire-junit-platform-3.5.6.jar
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.3141048Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/surefire/surefire-junit-platform/3.5.6/surefire-junit-platform-3.5.6.jar (35 kB at 1.4 MB/s)
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.3185918Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/junit/platform/junit-platform-engine/1.12.2/junit-platform-engine-1.12.2.jar
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.3526982Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/surefire/common-java5/3.5.6/common-java5-3.5.6.jar
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.3563368Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/junit/platform/junit-platform-commons/1.12.2/junit-platform-commons-1.12.2.jar
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.3822811Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/junit/platform/junit-platform-launcher/1.12.2/junit-platform-launcher-1.12.2.jar
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.4116446Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/surefire/common-java5/3.5.6/common-java5-3.5.6.jar (18 kB at 464 kB/s)
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.4671750Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/junit/platform/junit-platform-commons/1.12.2/junit-platform-commons-1.12.2.jar (152 kB at 1.1 MB/s)
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.4674271Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/junit/platform/junit-platform-launcher/1.12.2/junit-platform-launcher-1.12.2.jar (208 kB at 1.3 MB/s)
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.4767810Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/junit/platform/junit-platform-engine/1.12.2/junit-platform-engine-1.12.2.jar (256 kB at 1.6 MB/s)
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.4769538Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/junit/platform/junit-platform-launcher/6.0.3/junit-platform-launcher-6.0.3.pom
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.5007254Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/junit/platform/junit-platform-launcher/6.0.3/junit-platform-launcher-6.0.3.pom (3.2 kB at 189 kB/s)
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.5009651Z [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/junit/platform/junit-platform-launcher/6.0.3/junit-platform-launcher-6.0.3.jar
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.5589869Z [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/junit/platform/junit-platform-launcher/6.0.3/junit-platform-launcher-6.0.3.jar (246 kB at 4.7 MB/s)
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.5752665Z [INFO] 
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.5753188Z [INFO] -------------------------------------------------------
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.5753809Z [INFO]  T E S T S
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:13.5754313Z [INFO] -------------------------------------------------------
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:15.9016045Z [INFO] Running vn.edu.epu.eoffice_be.audit.service.ChangeHistoryLogQueryServiceTest
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:16.1324894Z Mockito is currently self-attaching to enable the inline-mock-maker. This will no longer work in future releases of the JDK. Please add Mockito as an agent to your build as described in Mockito's documentation: https://javadoc.io/doc/org.mockito/mockito-core/latest/org.mockito/org/mockito/Mockito.html#0.3
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:16.3742686Z ##[error]The operation was canceled.
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:16.3828576Z ##[group]Run echo "[DONE] Pipeline 1 (PR Gate) finished."
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:16.3829076Z ^[[36;1mecho "[DONE] Pipeline 1 (PR Gate) finished."^[[0m
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:16.3869257Z shell: /usr/bin/bash -e {0}
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:16.3869561Z env:
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:16.3869929Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-8/x64
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:16.3870482Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-8/x64
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:16.3870915Z ##[endgroup]
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:16.3936679Z [DONE] Pipeline 1 (PR Gate) finished.
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:16.4055574Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:16.4056848Z Post job cleanup.
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:16.6310150Z (node:2218) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:16.6355716Z (Use `node --trace-deprecation ...` to show where the warning was created)
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:16.6870365Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:16.6872572Z Post job cleanup.
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:16.8992544Z [command]/usr/bin/git version
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:16.9126426Z git version 2.55.0
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:16.9316061Z Temporarily overriding HOME='/home/runner/work/_temp/e68b4487-723c-4536-a62a-9486d2565cc0' before making global git config changes
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:16.9335811Z Adding repository directory to the temporary git global config as a safe directory
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:16.9355655Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/eoffice-be/eoffice-be
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:16.9399103Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:16.9546222Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:17.0278888Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:17.0435587Z http.https://github.com/.extraheader
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:17.0486288Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:17.0676551Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:17.1855773Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:17.2010492Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:17.3740540Z Cleaning up orphan processes
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:17.4424217Z Terminate orphan process: pid (2103) (java)
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:17.4517182Z Terminate orphan process: pid (2170) (sh)
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:17.4597064Z Terminate orphan process: pid (2171) (java)
+PR Gate - Security & Code Review	UNKNOWN STEP	2026-08-23T18:56:17.4610512Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-java@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

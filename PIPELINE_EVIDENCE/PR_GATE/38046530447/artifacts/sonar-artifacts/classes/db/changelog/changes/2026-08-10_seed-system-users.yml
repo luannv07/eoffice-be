@@ -1,0 +1,169 @@
+databaseChangeLog:
+  - changeSet:
+      id: 6a0f4e2d-8b3c-4f5a-9d4e-1b2c3d4e5f10
+      author: luannv
+      changes:
+        - insert:
+            tableName: user_logins
+            columns:
+              - column:
+                  name: id
+                  valueNumeric: 1001
+              - column:
+                  name: username
+                  value: systemadmin
+              - column:
+                  name: password_hash
+                  value: $2b$12$jL8kIn/b3c/wjTPQPnK/IuT0J4mXdhFpfqClLv3x2BVizSaGQ/CTG
+              - column:
+                  name: role
+                  value: SYSTEM_ADMIN
+              - column:
+                  name: user_status_cd
+                  value: ACTIVE
+              - column:
+                  name: must_change_password
+                  valueBoolean: false
+              - column:
+                  name: failed_login_attempts
+                  valueNumeric: 0
+              - column:
+                  name: delete_flg
+                  valueBoolean: false
+        - insert:
+            tableName: user_infos
+            columns:
+              - column:
+                  name: id
+                  valueNumeric: 1101
+              - column:
+                  name: user_login_id
+                  valueNumeric: 1001
+              - column:
+                  name: full_name
+                  value: Quản trị hệ thống
+              - column:
+                  name: employment_status_cd
+                  value: ACTIVE
+              - column:
+                  name: delete_flg
+                  valueBoolean: false
+
+        - insert:
+            tableName: user_logins
+            columns:
+              - column:
+                  name: id
+                  valueNumeric: 1002
+              - column:
+                  name: username
+                  value: admin
+              - column:
+                  name: password_hash
+                  value: $2b$12$YdzGXdpuKsrzpVw3PUZoyOSSb66x6/exjjiiaZ2GFgJehI7XkxESS
+              - column:
+                  name: role
+                  value: ADMIN
+              - column:
+                  name: user_status_cd
+                  value: ACTIVE
+              - column:
+                  name: must_change_password
+                  valueBoolean: false
+              - column:
+                  name: failed_login_attempts
+                  valueNumeric: 0
+              - column:
+                  name: delete_flg
+                  valueBoolean: false
+        - insert:
+            tableName: user_infos
+            columns:
+              - column:
+                  name: id
+                  valueNumeric: 1102
+              - column:
+                  name: user_login_id
+                  valueNumeric: 1002
+              - column:
+                  name: full_name
+                  value: Quản trị viên
+              - column:
+                  name: employment_status_cd
+                  value: ACTIVE
+              - column:
+                  name: delete_flg
+                  valueBoolean: false
+
+        - insert:
+            tableName: user_logins
+            columns:
+              - column:
+                  name: id
+                  valueNumeric: 1003
+              - column:
+                  name: username
+                  value: user
+              - column:
+                  name: password_hash
+                  value: $2b$12$NN8kWQbXXIXiXxEfl2i/GuSpaKsU3i9EVl.BPfhl0UMDYFHJlZszO
+              - column:
+                  name: role
+                  value: USER
+              - column:
+                  name: user_status_cd
+                  value: ACTIVE
+              - column:
+                  name: must_change_password
+                  valueBoolean: false
+              - column:
+                  name: failed_login_attempts
+                  valueNumeric: 0
+              - column:
+                  name: delete_flg
+                  valueBoolean: false
+        - insert:
+            tableName: user_infos
+            columns:
+              - column:
+                  name: id
+                  valueNumeric: 1103
+              - column:
+                  name: user_login_id
+                  valueNumeric: 1003
+              - column:
+                  name: full_name
+                  value: Người dùng
+              - column:
+                  name: employment_status_cd
+                  value: ACTIVE
+              - column:
+                  name: delete_flg
+                  valueBoolean: false
+
+  - changeSet:
+      id: 6a0f4e2d-8b3c-4f5a-9d4e-1b2c3d4e5f11
+      author: luannv
+      changes:
+        - sql:
+            sql: >-
+              ALTER SEQUENCE hibernate_sequence RESTART WITH 2001
+            endDelimiter: ;
+
+  - changeSet:
+      id: 6a0f4e2d-8b3c-4f5a-9d4e-1b2c3d4e5f12
+      author: luannv
+      dbms: postgresql
+      changes:
+        - sql:
+            sql: >-
+              SELECT SETVAL((SELECT PG_GET_SERIAL_SEQUENCE('user_logins','id')), COALESCE((SELECT MAX(id)+1 FROM user_logins),1), false)
+
+  - changeSet:
+      id: 6a0f4e2d-8b3c-4f5a-9d4e-1b2c3d4e5f13
+      author: luannv
+      dbms: postgresql
+      changes:
+        - sql:
+            sql: >-
+              SELECT SETVAL((SELECT PG_GET_SERIAL_SEQUENCE('user_infos','id')), COALESCE((SELECT MAX(id)+1 FROM user_infos),1), false)

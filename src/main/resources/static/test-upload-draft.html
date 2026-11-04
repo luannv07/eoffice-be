@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trang Test Thử Nghiệm Tải Dự Thảo | E-Office</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0b0f19;
+      --bg-secondary: #111827;
+      --bg-card: rgba(17, 24, 39, 0.85);
+      --bg-card-hover: rgba(31, 41, 55, 0.85);
+      --border-color: rgba(75, 85, 99, 0.35);
+      --border-focus: #3b82f6;
+      --text-main: #f9fafb;
+      --text-muted: #9ca3af;
+      --accent-blue: #3b82f6;
+      --accent-indigo: #6366f1;
+      --accent-cyan: #06b6d4;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+      --radius: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at 15% 15%, #1e1b4b 0%, #0b0f19 50%, #020617 100%);
+      color: var(--text-main);
+      min-height: 100vh;
+      padding: 24px;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .logo-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-badge {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 700;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
+    }
+
+    .title-group h1 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(to right, #60a5fa, #a5b4fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .title-group p {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .grid-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 1024px) {
+      .grid-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow-lg);
+      transition: border-color 0.2s ease;
+    }
+
+    .card:hover {
+      border-color: rgba(99, 102, 241, 0.45);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .badge-success { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-danger { background: rgba(244, 63, 94, 0.15); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.3); }
+    .badge-info { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    select,
+    textarea {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: var(--text-main);
+      padding: 9px 12px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo));
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
+    }
+
+    .btn-primary:hover {
+      opacity: 0.92;
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .btn-success {
+      background: linear-gradient(135deg, var(--accent-emerald), #059669);
+      color: #fff;
+    }
+
+    .btn-block {
+      width: 100%;
+    }
+
+    /* File dropzone */
+    .dropzone {
+      border: 2px dashed rgba(99, 102, 241, 0.4);
+      background: rgba(30, 27, 75, 0.2);
+      border-radius: 10px;
+      padding: 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--accent-blue);
+      background: rgba(59, 130, 246, 0.1);
+    }
+
+    .dropzone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .file-preview {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      margin-top: 10px;
+    }
+
+    /* Console / Response box */
+    .console-box {
+      background: #050811;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: #a7f3d0;
+      max-height: 240px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* Table */
+    .table-responsive {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    th {
+      text-align: left;
+      padding: 10px;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border-color);
+      font-weight: 500;
+    }
+
+    td {
+      padding: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* Toast */
+    #toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .toast {
+      min-width: 280px;
+      max-width: 400px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: slideIn 0.3s ease;
+    }
+
+    .toast-success { background: #064e3b; color: #a7f3d0; border: 1px solid #059669; }
+    .toast-error { background: #881337; color: #fecdd3; border: 1px solid #e11d48; }
+    .toast-info { background: #1e3a8a; color: #bfdbfe; border: 1px solid #2563eb; }
+
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div id="toast-container"></div>
+
+  <div class="container">
+    <header>
+      <div class="logo-group">
+        <div class="logo-badge">📄</div>
+        <div class="title-group">
+          <h1>E-Office Draft & Attachment Upload Test</h1>
+          <p>Kiểm thử tạo dự thảo văn bản và tải lên tệp đính kèm (DOCX / PDF) qua REST API</p>
+        </div>
+      </div>
+      <div>
+        <span id="conn-badge" class="badge badge-info">Sẵn sàng kết nối</span>
+      </div>
+    </header>
+
+    <div class="grid-layout">
+      <!-- CỘT TRÁI: AUTH & FORM TẠO DỰ THẢO -->
+      <div style="display: flex; flex-direction: column; gap: 20px;">
+        
+        <!-- CARD 1: CẤU HÌNH & XÁC THỰC -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🔑 1. Cấu hình & Đăng nhập</div>
+            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="testConnection()">Ping Health</button>
+          </div>
+
+          <div class="form-group">
+            <label>API Base URL</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="apiUrl" value="https://eoffice-be-dev.8chickensoffice.me/api/v1">
+              <button class="btn btn-secondary" style="white-space: nowrap; font-size: 11px;" onclick="setUrl('https://eoffice-be-dev.8chickensoffice.me/api/v1')">Cloud Dev</button>
+              <button class="btn btn-secondary" style="white-space: nowrap; font-size: 11px;" onclick="setPort(5173)">Port 5173</button>
+              <button class="btn btn-secondary" style="white-space: nowrap; font-size: 11px;" onclick="setPort(8080)">Port 8080</button>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Tài khoản</label>
+              <input type="text" id="loginUsername" value="vanthu">
+            </div>
+            <div class="form-group">
+              <label>Mật khẩu</label>
+              <input type="password" id="loginPassword" value="Vanthu@1234">
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <button class="btn btn-primary" style="flex: 1;" onclick="handleLogin()">Đăng nhập lấy Token</button>
+            <button class="btn btn-secondary" onclick="quickFillUser('admin', 'Admin@1234')">Admin</button>
+            <button class="btn btn-secondary" onclick="quickFillUser('vanthu', 'Vanthu@1234')">Văn thư</button>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0;">
+            <label>Bearer Token (Tự động cập nhật sau đăng nhập)</label>
+            <input type="text" id="bearerToken" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..." style="font-family: 'JetBrains Mono', monospace; font-size: 11px;">
+          </div>
+        </div>
+
+        <!-- CARD 2: FORM SOẠN THẢO VÀ TẢI TỆP -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📝 2. Soạn thảo dự thảo & Tải tệp đính kèm</div>
+            <span class="badge badge-info">DOCX / PDF tối đa 25MB</span>
+          </div>
+
+          <div class="form-group">
+            <label>Tiêu đề dự thảo <span style="color: var(--accent-rose)">*</span></label>
+            <input type="text" id="docTitle" value="Quyết định về việc ban hành quy định thi đua khen thưởng năm 2026">
+          </div>
+
+          <div class="form-group">
+            <label>Trích yếu nội dung <span style="color: var(--accent-rose)">*</span></label>
+            <textarea id="docSummary" rows="2">Ban hành quy định thi đua khen thưởng áp dụng cho cán bộ, giảng viên và sinh viên toàn trường năm học 2026-2027.</textarea>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Loại văn bản (documentTypeCd)</label>
+              <select id="docType">
+                <option value="QD" selected>QD - Quyết định</option>
+                <option value="TB">TB - Thông báo</option>
+                <option value="CV">CV - Công văn</option>
+                <option value="NQ">NQ - Nghị quyết</option>
+                <option value="CT">CT - Chỉ thị</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Đơn vị chủ trì (issuingOrgNodeId)</label>
+              <select id="orgNodeId">
+                <option value="5001">5001 - Trường Đại học Điện Lực (EPU)</option>
+                <option value="5002">5002 - Phòng Công tác Quốc tế (CVQL)</option>
+                <option value="5003" selected>5003 - Khoa Công nghệ Thông tin (CNTT)</option>
+                <option value="5004">5004 - Phòng Hành chính Nhân sự (PHCNS)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Độ mật (securityLevel)</label>
+              <select id="securityLevel">
+                <option value="NORMAL" selected>NORMAL - Bình thường</option>
+                <option value="CONFIDENTIAL">CONFIDENTIAL - Mật</option>
+                <option value="SECRET">SECRET - Tối mật</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Độ khẩn (urgencyLevel)</label>
+              <select id="urgencyLevel">
+                <option value="NORMAL" selected>NORMAL - Bình thường</option>
+                <option value="URGENT">URGENT - Khẩn</option>
+                <option value="TOP_URGENT">TOP_URGENT - Hỏa tốc</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- DROPZONE FILE UPLOAD -->
+          <div class="form-group">
+            <label>Tệp tài liệu đính kèm (DOCX hoặc PDF)</label>
+            <div class="dropzone" id="dropzone">
+              <input type="file" id="fileInput" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+              <div id="dropzoneText">
+                <div style="font-size: 28px; margin-bottom: 6px;">📁</div>
+                <div style="font-weight: 500;">Kéo & Thả tệp DOCX hoặc PDF vào đây</div>
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">hoặc bấm để chọn từ máy tính (Tối đa 25MB)</div>
+              </div>
+            </div>
+            <div id="filePreview" class="file-preview" style="display: none;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span id="fileIcon">📄</span>
+                <div>
+                  <div id="fileName" style="font-weight: 500; font-size: 12px;">tailieu.pdf</div>
+                  <div id="fileSize" style="font-size: 11px; color: var(--text-muted);">0 KB</div>
+                </div>
+              </div>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; margin: 0; cursor: pointer;">
+                <input type="checkbox" id="isMainFile" checked> Tệp chính (isMain)
+              </label>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 10px; margin-top: 16px;">
+            <button class="btn btn-primary" style="flex: 1;" onclick="handleCreateAndUpload()">
+              🚀 Tạo dự thảo & Tải tệp lên
+            </button>
+            <button class="btn btn-secondary" onclick="handleCreateDraftOnly()">
+              Chỉ tạo dự thảo
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- CỘT PHẢI: CONSOLE RESPONSE & DANH SÁCH DỰ THẢO -->
+      <div style="display: flex; flex-direction: column; gap: 20px;">
+        
+        <!-- CARD 3: LOG HOẠT ĐỘNG / PHẢN HỒI API -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📡 3. Phản hồi API (Live Log)</div>
+            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="clearLog()">Xóa Log</button>
+          </div>
+          <div class="console-box" id="consoleOutput">Chờ thao tác...</div>
+        </div>
+
+        <!-- CARD 4: DANH SÁCH DỰ THẢO HIỆN TẠI -->
+        <div class="card" style="flex: 1;">
+          <div class="card-header">
+            <div class="card-title">📚 4. Danh sách Dự thảo hiện có</div>
+            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="loadDraftsList()">
+              🔄 Làm mới
+            </button>
+          </div>
+
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Mã DT</th>
+                  <th>Tiêu đề</th>
+                  <th>Loại</th>
+                  <th>Trạng thái</th>
+                  <th>Tệp</th>
+                </tr>
+              </thead>
+              <tbody id="draftsTableBody">
+                <tr>
+                  <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                    Chưa tải dữ liệu. Bấm "Làm mới" hoặc Đăng nhập để xem danh sách.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // State management
+    const state = {
+      selectedFile: null,
+      createdDocId: null
+    };
+
+    // Load saved settings on startup
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedToken = localStorage.getItem('eoffice_test_token');
+      if (savedToken) {
+        document.getElementById('bearerToken').value = savedToken;
+        updateConnBadge(true, 'Đã lưu Token');
+      }
+      const savedUrl = localStorage.getItem('eoffice_test_url');
+      if (savedUrl) {
+        document.getElementById('apiUrl').value = savedUrl;
+      }
+    });
+
+    function getBaseUrl() {
+      const url = document.getElementById('apiUrl').value.trim().replace(/\/$/, '');
+      localStorage.setItem('eoffice_test_url', url);
+      return url;
+    }
+
+    function getToken() {
+      return document.getElementById('bearerToken').value.trim();
+    }
+
+    function setPort(port) {
+      document.getElementById('apiUrl').value = `http://localhost:${port}/api/v1`;
+      showToast(`Đã chuyển Base URL sang cổng ${port}`, 'info');
+    }
+
+    function setUrl(url) {
+      document.getElementById('apiUrl').value = url;
+      localStorage.setItem('eoffice_test_url', url);
+      showToast(`Đã chuyển Base URL sang ${url}`, 'info');
+    }
+
+    function quickFillUser(u, p) {
+      document.getElementById('loginUsername').value = u;
+      document.getElementById('loginPassword').value = p;
+    }
+
+    function updateConnBadge(ok, text) {
+      const badge = document.getElementById('conn-badge');
+      badge.className = ok ? 'badge badge-success' : 'badge badge-danger';
+      badge.textContent = text;
+    }
+
+    function log(message, data = null) {
+      const consoleBox = document.getElementById('consoleOutput');
+      const time = new Date().toLocaleTimeString();
+      let formatted = `[${time}] ${message}\n`;
+      if (data) {
+        formatted += (typeof data === 'string' ? data : JSON.stringify(data, null, 2)) + '\n';
+      }
+      consoleBox.textContent = formatted + consoleBox.textContent;
+    }
+
+    function clearLog() {
+      document.getElementById('consoleOutput').textContent = 'Đã xóa log.';
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${type}`;
+      toast.innerHTML = `<span>${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span> ${message}`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(100%)';
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    // Ping Backend Health
+    async function testConnection() {
+      const baseUrl = getBaseUrl();
+      log(`Đang kiểm tra kết nối tới: ${baseUrl}/actuator/health hoặc ${baseUrl}/documents/drafts...`);
+      try {
+        const res = await fetch(`${baseUrl}/documents/drafts?page=0&size=1`, {
+          headers: getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {}
+        });
+        log(`Status Code nhận được: ${res.status} ${res.statusText}`);
+        if (res.status === 200 || res.status === 401 || res.status === 403) {
+          updateConnBadge(true, `Kết nối OK (${res.status})`);
+          showToast(`Kết nối Backend thành công (HTTP ${res.status})`, 'success');
+        } else {
+          updateConnBadge(false, `Lỗi HTTP ${res.status}`);
+          showToast(`Backend phản hồi lỗi HTTP ${res.status}`, 'error');
+        }
+      } catch (err) {
+        log(`Lỗi kết nối: ${err.message}`);
+        updateConnBadge(false, 'Mất kết nối');
+        showToast(`Không thể kết nối Backend (${err.message}). Hãy kiểm tra xem backend Spring Boot đã chạy chưa.`, 'error');
+      }
+    }
+
+    // Đăng nhập
+    async function handleLogin() {
+      const baseUrl = getBaseUrl();
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value.trim();
+
+      log(`Gửi request đăng nhập user=${username}...`);
+      try {
+        const res = await fetch(`${baseUrl}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        log(`Kết quả đăng nhập: HTTP ${res.status}`, data);
+
+        if (res.ok && data.data && data.data.accessToken) {
+          const token = data.data.accessToken;
+          document.getElementById('bearerToken').value = token;
+          localStorage.setItem('eoffice_test_token', token);
+          updateConnBadge(true, `Đã đăng nhập (${username})`);
+          showToast(`Đăng nhập thành công! Đã lấy token mới.`, 'success');
+          // Tự động load danh sách dự thảo
+          loadDraftsList();
+        } else {
+          showToast(`Đăng nhập thất bại: ${data.message || 'Sai thông tin'}`, 'error');
+        }
+      } catch (err) {
+        log(`Lỗi gọi API đăng nhập: ${err.message}`);
+        showToast(`Không gọi được API đăng nhập: ${err.message}`, 'error');
+      }
+    }
+
+    // Xử lý kéo thả tệp
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('dragover');
+    });
+
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files.length > 0) {
+        handleFileSelect(e.dataTransfer.files[0]);
+      }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        handleFileSelect(e.target.files[0]);
+      }
+    });
+
+    function handleFileSelect(file) {
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (ext !== 'docx' && ext !== 'pdf') {
+        showToast('Chỉ chấp nhận tệp định dạng DOCX hoặc PDF!', 'error');
+        return;
+      }
+      if (file.size > 25 * 1024 * 1024) {
+        showToast('Dung lượng tệp vượt quá giới hạn 25MB!', 'error');
+        return;
+      }
+
+      state.selectedFile = file;
+      document.getElementById('filePreview').style.display = 'flex';
+      document.getElementById('fileName').textContent = file.name;
+      document.getElementById('fileSize').textContent = `${(file.size / 1024).toFixed(1)} KB`;
+      document.getElementById('fileIcon').textContent = ext === 'pdf' ? '📕' : '📘';
+      showToast(`Đã chọn tệp: ${file.name}`, 'info');
+    }
+
+    // Chỉ tạo dự thảo (Không upload tệp)
+    async function handleCreateDraftOnly() {
+      const doc = await createDraftApi();
+      if (doc) {
+        showToast(`Đã tạo dự thảo ID=${doc.id} (Mã: ${doc.draftCode || 'DRAFT'})`, 'success');
+        loadDraftsList();
+      }
+    }
+
+    // Tạo dự thảo và tải tệp lên luôn
+    async function handleCreateAndUpload() {
+      const token = getToken();
+      if (!token) {
+        showToast('Vui lòng Đăng nhập hoặc nhập Bearer Token trước!', 'error');
+        return;
+      }
+
+      // 1. Tạo dự thảo
+      const doc = await createDraftApi();
+      if (!doc || !doc.id) {
+        return;
+      }
+
+      // 2. Tải tệp nếu có chọn
+      if (!state.selectedFile) {
+        showToast(`Đã tạo dự thảo ID=${doc.id}. Bạn chưa chọn tệp để tải kèm.`, 'info');
+        loadDraftsList();
+        return;
+      }
+
+      await uploadAttachmentApi(doc.id, state.selectedFile);
+      loadDraftsList();
+    }
+
+    // API tạo dự thảo
+    async function createDraftApi() {
+      const baseUrl = getBaseUrl();
+      const token = getToken();
+      if (!token) {
+        showToast('Vui lòng Đăng nhập trước!', 'error');
+        return null;
+      }
+
+      const body = {
+        title: document.getElementById('docTitle').value.trim(),
+        summary: document.getElementById('docSummary').value.trim(),
+        documentTypeCd: document.getElementById('docType').value,
+        issuingOrgNodeId: Number(document.getElementById('orgNodeId').value),
+        securityLevel: document.getElementById('securityLevel').value,
+        urgencyLevel: document.getElementById('urgencyLevel').value,
+      };
+
+      if (!body.title || !body.summary) {
+        showToast('Tiêu đề và trích yếu không được để trống!', 'error');
+        return null;
+      }
+
+      log(`Đang gửi POST /documents/drafts...`, body);
+      try {
+        const res = await fetch(`${baseUrl}/documents/drafts`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(body)
+        });
+
+        const data = await res.json();
+        log(`Kết quả tạo dự thảo: HTTP ${res.status}`, data);
+
+        if (res.ok && data.data) {
+          state.createdDocId = data.data.id;
+          return data.data;
+        } else {
+          showToast(`Lỗi tạo dự thảo (${res.status}): ${data.message || 'Validation error'}`, 'error');
+          return null;
+        }
+      } catch (err) {
+        log(`Lỗi mạng khi tạo dự thảo: ${err.message}`);
+        showToast(`Lỗi mạng: ${err.message}`, 'error');
+        return null;
+      }
+    }
+
+    // API tải tệp đính kèm
+    async function uploadAttachmentApi(docId, file) {
+      const baseUrl = getBaseUrl();
+      const token = getToken();
+      const isMain = document.getElementById('isMainFile').checked;
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('isMain', isMain);
+
+      log(`Đang gửi POST /documents/${docId}/attachments (File: ${file.name}, isMain=${isMain})...`);
+      try {
+        const res = await fetch(`${baseUrl}/documents/${docId}/attachments`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+            // Không set Content-Type để browser tự sinh boundary cho multipart/form-data
+          },
+          body: formData
+        });
+
+        const data = await res.json();
+        log(`Kết quả tải tệp đính kèm: HTTP ${res.status}`, data);
+
+        if (res.ok && data.data) {
+          showToast(`Tải tệp "${file.name}" lên thành công cho dự thảo #${docId}!`, 'success');
+          return data.data;
+        } else {
+          showToast(`Lỗi tải tệp (${res.status}): ${data.message || 'Upload error'}`, 'error');
+          return null;
+        }
+      } catch (err) {
+        log(`Lỗi mạng khi tải tệp: ${err.message}`);
+        showToast(`Lỗi mạng khi tải tệp: ${err.message}`, 'error');
+        return null;
+      }
+    }
+
+    // Lấy danh sách dự thảo
+    async function loadDraftsList() {
+      const baseUrl = getBaseUrl();
+      const token = getToken();
+      if (!token) {
+        showToast('Cần có Bearer Token để tải danh sách dự thảo!', 'info');
+        return;
+      }
+
+      log(`Đang gọi GET /documents/drafts?page=0&size=10...`);
+      try {
+        const res = await fetch(`${baseUrl}/documents/drafts?page=0&size=10`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        log(`Kết quả danh sách dự thảo: HTTP ${res.status}`, data);
+
+        if (res.ok && data.data && data.data.content) {
+          renderDraftsTable(data.data.content);
+          showToast(`Đã tải ${data.data.content.length} dự thảo.`, 'success');
+        } else {
+          showToast(`Không lấy được danh sách: ${data.message || res.statusText}`, 'error');
+        }
+      } catch (err) {
+        log(`Lỗi tải danh sách: ${err.message}`);
+        showToast(`Lỗi tải danh sách: ${err.message}`, 'error');
+      }
+    }
+
+    function renderDraftsTable(drafts) {
+      const tbody = document.getElementById('draftsTableBody');
+      if (!drafts || drafts.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">Không có dự thảo nào.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = drafts.map(d => `
+        <tr>
+          <td><b style="color: #60a5fa">#${d.id}</b></td>
+          <td><code style="background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;">${d.draftCode || 'N/A'}</code></td>
+          <td style="max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${d.title}">${d.title}</td>
+          <td><span class="badge badge-info">${d.documentTypeCd || 'QD'}</span></td>
+          <td><span class="badge badge-success">${d.status || 'DRAFT'}</span></td>
+          <td>
+            <button class="btn btn-secondary" style="padding: 2px 8px; font-size: 11px;" onclick="selectDocForUpload(${d.id})">
+              📎 Gắn tệp
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function selectDocForUpload(docId) {
+      if (!state.selectedFile) {
+        showToast(`Vui lòng chọn 1 tệp DOCX/PDF ở khung bên trái trước khi bấm Gắn tệp!`, 'info');
+        document.getElementById('dropzone').scrollIntoView({ behavior: 'smooth' });
+        return;
+      }
+      uploadAttachmentApi(docId, state.selectedFile).then(() => loadDraftsList());
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,581 @@
+databaseChangeLog:
+  - changeSet:
+      id: b7a34c10-8f2e-4b6d-a1c9-3e5f7d9b2a11
+      author: luannv
+      changes:
+        - createTable:
+            tableName: user_logins
+            remarks: Tài khoản đăng nhập hệ thống (auth credentials)
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  defaultValueComputed: nextval('hibernate_sequence')
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: username
+                  type: VARCHAR(100)
+                  remarks: Tên đăng nhập duy nhất
+                  constraints:
+                    nullable: false
+              - column:
+                  name: email
+                  type: VARCHAR(255)
+                  remarks: Email đăng nhập (auth), unique - tách bạch với contact_email của hồ sơ
+                  constraints:
+                    nullable: true
+              - column:
+                  name: password_hash
+                  type: VARCHAR(255)
+                  remarks: Mật khẩu đã hash (BCrypt)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: role
+                  type: VARCHAR(20)
+                  defaultValue: USER
+                  remarks: Vai trò hệ thống (USER, ADMIN, SYSTEM_ADMIN)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: user_status_cd
+                  type: VARCHAR(20)
+                  defaultValue: ACTIVE
+                  remarks: "Trạng thái tài khoản (dictionary group USER_STATUS_CD: ACTIVE/LOCKED/DISABLED)"
+                  constraints:
+                    nullable: false
+              - column:
+                  name: must_change_password
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  remarks: Bắt đổi mật khẩu ở lần đăng nhập đầu khi ADMIN tạo tài khoản mới
+                  constraints:
+                    nullable: false
+              - column:
+                  name: password_expired_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  remarks: Thời điểm mật khẩu hết hạn
+              - column:
+                  name: failed_login_attempts
+                  type: INT
+                  defaultValueNumeric: 0
+                  remarks: Số lần đăng nhập sai liên tiếp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: lockout_until
+                  type: TIMESTAMP WITH TIME ZONE
+                  remarks: Thời điểm hết khóa tài khoản
+              - column:
+                  name: last_login_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  remarks: Lần đăng nhập thành công gần nhất
+              - column:
+                  name: delete_flg
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  remarks: Cờ xóa mềm
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+                  remarks: Người tạo (audit)
+              - column:
+                  name: created_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  remarks: Thời điểm tạo (audit)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+                  remarks: Người cập nhật (audit)
+              - column:
+                  name: updated_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  remarks: Thời điểm cập nhật (audit)
+
+        - addUniqueConstraint:
+            constraintName: uq_user_logins_username
+            tableName: user_logins
+            columnNames: username
+
+        - addUniqueConstraint:
+            constraintName: uq_user_logins_email
+            tableName: user_logins
+            columnNames: email
+
+        - createIndex:
+            indexName: idx_user_logins_delete_flg
+            tableName: user_logins
+            columns:
+              - column:
+                  name: delete_flg
+
+        - createTable:
+            tableName: user_infos
+            remarks: Hồ sơ thông tin người dùng (profile)
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  defaultValueComputed: nextval('hibernate_sequence')
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: user_login_id
+                  type: BIGINT
+                  remarks: FK tới user_logins, 1 user - 1 profile
+                  constraints:
+                    nullable: false
+              - column:
+                  name: full_name
+                  type: VARCHAR(255)
+                  remarks: Họ và tên đầy đủ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: date_of_birth
+                  type: DATE
+                  remarks: Ngày sinh
+              - column:
+                  name: gender
+                  type: VARCHAR(10)
+                  remarks: Giới tính (MALE/FEMALE/OTHER - dictionary group GENDER_CD)
+              - column:
+                  name: national_id_number
+                  type: VARCHAR(20)
+                  remarks: Số CCCD/CMND
+              - column:
+                  name: avatar_url
+                  type: VARCHAR(500)
+                  remarks: URL ảnh đại diện lưu ở storage thứ 3, không lưu base64
+              - column:
+                  name: contact_email
+                  type: VARCHAR(255)
+                  remarks: Email liên hệ (profile), unique - khác với email đăng nhập
+                  constraints:
+                    nullable: true
+              - column:
+                  name: contact_phone
+                  type: VARCHAR(20)
+                  remarks: Số điện thoại liên hệ (profile)
+              - column:
+                  name: address
+                  type: VARCHAR(500)
+                  remarks: Địa chỉ liên hệ
+              - column:
+                  name: employee_code
+                  type: VARCHAR(50)
+                  remarks: Mã cán bộ/cán bộ giảng viên (nghiệp vụ), unique
+              - column:
+                  name: academic_title
+                  type: VARCHAR(50)
+                  remarks: Học hàm (GS, PGS...)
+              - column:
+                  name: academic_degree
+                  type: VARCHAR(50)
+                  remarks: Học vị (TS, ThS...)
+              - column:
+                  name: party_membership_date
+                  type: DATE
+                  remarks: Ngày vào Đảng
+              - column:
+                  name: employment_status_cd
+                  type: VARCHAR(20)
+                  defaultValue: ACTIVE
+                  remarks: Trạng thái công tác (dictionary group EMPLOYMENT_STATUS_CD)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: join_org_date
+                  type: DATE
+                  remarks: Ngày gia nhập cơ quan
+              - column:
+                  name: delete_flg
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  remarks: Cờ xóa mềm
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+                  remarks: Người tạo (audit)
+              - column:
+                  name: created_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  remarks: Thời điểm tạo (audit)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+                  remarks: Người cập nhật (audit)
+              - column:
+                  name: updated_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  remarks: Thời điểm cập nhật (audit)
+
+        - addUniqueConstraint:
+            constraintName: uq_user_infos_user_login_id
+            tableName: user_infos
+            columnNames: user_login_id
+
+        - addUniqueConstraint:
+            constraintName: uq_user_infos_contact_email
+            tableName: user_infos
+            columnNames: contact_email
+
+        - addUniqueConstraint:
+            constraintName: uq_user_infos_employee_code
+            tableName: user_infos
+            columnNames: employee_code
+
+        - createTable:
+            tableName: dictionary_items
+            remarks: "Từ điển mã dùng chung (đa ngôn ngữ: name_vn, name_en)"
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  defaultValueComputed: nextval('hibernate_sequence')
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: group_cd
+                  type: VARCHAR(50)
+                  remarks: Nhóm từ điển (POSITION_CD, ORG_NODE_TYPE_CD...)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: item_cd
+                  type: VARCHAR(50)
+                  remarks: Mã giá trị trong nhóm
+                  constraints:
+                    nullable: false
+              - column:
+                  name: name_vn
+                  type: VARCHAR(255)
+                  remarks: Tên hiển thị tiếng Việt
+                  constraints:
+                    nullable: false
+              - column:
+                  name: name_en
+                  type: VARCHAR(255)
+                  remarks: Tên hiển thị tiếng Anh
+                  constraints:
+                    nullable: false
+              - column:
+                  name: display_order
+                  type: INT
+                  defaultValueNumeric: 0
+                  remarks: Thứ tự hiển thị trong nhóm
+                  constraints:
+                    nullable: false
+              - column:
+                  name: active_flg
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  remarks: Cờ kích hoạt dùng được
+                  constraints:
+                    nullable: false
+              - column:
+                  name: delete_flg
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  remarks: Cờ xóa mềm
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+                  remarks: Người tạo (audit)
+              - column:
+                  name: created_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  remarks: Thời điểm tạo (audit)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+                  remarks: Người cập nhật (audit)
+              - column:
+                  name: updated_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  remarks: Thời điểm cập nhật (audit)
+
+        - addUniqueConstraint:
+            constraintName: uq_dictionary_items_group_item
+            tableName: dictionary_items
+            columnNames: group_cd, item_cd
+
+        - createIndex:
+            indexName: idx_dictionary_items_group_display
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+              - column:
+                  name: display_order
+
+        - addForeignKeyConstraint:
+            baseTableName: user_infos
+            baseColumnNames: user_login_id
+            constraintName: fk_user_infos_user_login
+            referencedTableName: user_logins
+            referencedColumnNames: id
+
+  - changeSet:
+      id: b7a34c10-8f2e-4b6d-a1c9-3e5f7d9b2a12
+      author: luannv
+      changes:
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: POSITION_CD
+              - column:
+                  name: item_cd
+                  value: HT
+              - column:
+                  name: name_vn
+                  value: Hiệu trưởng
+              - column:
+                  name: name_en
+                  value: Rector
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: POSITION_CD
+              - column:
+                  name: item_cd
+                  value: PHT
+              - column:
+                  name: name_vn
+                  value: Phó Hiệu trưởng
+              - column:
+                  name: name_en
+                  value: Vice Rector
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: POSITION_CD
+              - column:
+                  name: item_cd
+                  value: TK
+              - column:
+                  name: name_vn
+                  value: Trưởng Khoa
+              - column:
+                  name: name_en
+                  value: Dean of Faculty
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: POSITION_CD
+              - column:
+                  name: item_cd
+                  value: PK
+              - column:
+                  name: name_vn
+                  value: Phó Trưởng Khoa
+              - column:
+                  name: name_en
+                  value: Vice Dean of Faculty
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: POSITION_CD
+              - column:
+                  name: item_cd
+                  value: TP
+              - column:
+                  name: name_vn
+                  value: Trưởng Phòng
+              - column:
+                  name: name_en
+                  value: Head of Department
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: POSITION_CD
+              - column:
+                  name: item_cd
+                  value: PP
+              - column:
+                  name: name_vn
+                  value: Phó Trưởng Phòng
+              - column:
+                  name: name_en
+                  value: Deputy Head of Department
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: POSITION_CD
+              - column:
+                  name: item_cd
+                  value: GĐTT
+              - column:
+                  name: name_vn
+                  value: Giám đốc Trung tâm
+              - column:
+                  name: name_en
+                  value: Center Director
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: POSITION_CD
+              - column:
+                  name: item_cd
+                  value: PGDTT
+              - column:
+                  name: name_vn
+                  value: Phó Giám đốc Trung tâm
+              - column:
+                  name: name_en
+                  value: Deputy Center Director
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: POSITION_CD
+              - column:
+                  name: item_cd
+                  value: BT
+              - column:
+                  name: name_vn
+                  value: Bí thư
+              - column:
+                  name: name_en
+                  value: Secretary
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: POSITION_CD
+              - column:
+                  name: item_cd
+                  value: PBT
+              - column:
+                  name: name_vn
+                  value: Phó Bí thư
+              - column:
+                  name: name_en
+                  value: Deputy Secretary
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: POSITION_CD
+              - column:
+                  name: item_cd
+                  value: UV
+              - column:
+                  name: name_vn
+                  value: Ủy viên
+              - column:
+                  name: name_en
+                  value: Member
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: ORG_NODE_TYPE_CD
+              - column:
+                  name: item_cd
+                  value: UNIVERSITY
+              - column:
+                  name: name_vn
+                  value: Trường
+              - column:
+                  name: name_en
+                  value: University
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: ORG_NODE_TYPE_CD
+              - column:
+                  name: item_cd
+                  value: FACULTY
+              - column:
+                  name: name_vn
+                  value: Khoa
+              - column:
+                  name: name_en
+                  value: Faculty
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: ORG_NODE_TYPE_CD
+              - column:
+                  name: item_cd
+                  value: DEPARTMENT
+              - column:
+                  name: name_vn
+                  value: Phòng/Ban
+              - column:
+                  name: name_en
+                  value: Department
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: ORG_NODE_TYPE_CD
+              - column:
+                  name: item_cd
+                  value: CENTER
+              - column:
+                  name: name_vn
+                  value: Trung tâm
+              - column:
+                  name: name_en
+                  value: Center
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: ORG_NODE_TYPE_CD
+              - column:
+                  name: item_cd
+                  value: MAJOR
+              - column:
+                  name: name_vn
+                  value: Ngành/Tổ
+              - column:
+                  name: name_en
+                  value: Major/Division

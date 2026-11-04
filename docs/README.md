@@ -41,6 +41,8 @@ eoffice-be/
 | [**05. Hệ Thống Audit & Lịch Sử**](./05_he-thong-audit-va-lich-su.md)      | Cách sử dụng `@Auditable`, `@TrackChange`, xử lý Async Event không block luồng | Backend Dev            |
 | [**06. Quy Chuẩn Lập Trình Backend**](./06_quy-chuan-lap-trinh-backend.md) | Chuẩn viết API, BaseResponse, Custom Exception, viết Unit Test và DTO          | Backend Dev            |
 | [**07. Các Luồng Nghiệp Vụ Cơ Bản**](./cac-luong-nghiep-vu-co-ban.md)       | Quy trình vòng đời văn bản, thẩm định, duyệt, sổ văn bản, cấp số và phát hành | Tất cả thành viên      |
+| [**Báo Cáo Chuyên Đề (Chương 1)**](./bao-cao-chuyen-de-chuong-1-khao-sat-va-muc-tieu.md) | Khảo sát hiện trạng, phân tích nghiệp vụ EPU, DevSecOps và xác định mục tiêu đề tài | Sinh viên, GVHD, Hội đồng |
+| [**Thiết Kế Biểu Đồ Hệ Thống (UML)**](./thiet-ke-bieu-do-he-thong.md) | Biểu đồ Use Case, Sequence luồng nghiệp vụ & Class Diagram chi tiết | Lập trình viên, Thiết kế hệ thống |
 
 ---
 

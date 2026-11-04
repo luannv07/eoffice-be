@@ -1,0 +1,108 @@
+databaseChangeLog:
+  - changeSet:
+      id: be680f49-21a0-4904-b7ec-47e0939d509f
+      author: luannv
+      changes:
+        - createTable:
+            tableName: user_audit_logs
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: username
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: user_agent
+                  type: TEXT
+              - column:
+                  name: client_ip
+                  type: VARCHAR(45)
+              - column:
+                  name: request_uri
+                  type: VARCHAR(500)
+              - column:
+                  name: method_name
+                  type: VARCHAR(255)
+              - column:
+                  name: execution_time_ms
+                  type: BIGINT
+              - column:
+                  name: param_content
+                  type: TEXT
+              - column:
+                  name: created_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+
+        - createTable:
+            tableName: change_history_logs
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: table_name
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: object_id
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: action
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: changed_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: changed_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: source_service
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: before_data
+                  type: TEXT
+              - column:
+                  name: after_data
+                  type: TEXT
+              - column:
+                  name: changed_fields
+                  type: TEXT
+
+        - createIndex:
+            indexName: idx_user_audit_logs_created_date
+            tableName: user_audit_logs
+            columns:
+              - column:
+                  name: created_date
+
+        - createIndex:
+            indexName: idx_change_history_object
+            tableName: change_history_logs
+            columns:
+              - column:
+                  name: table_name
+              - column:
+                  name: object_id

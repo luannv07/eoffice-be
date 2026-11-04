@@ -1,0 +1,655 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-09-08-000-create-documents-seq
+      author: antigravity
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - sequenceExists:
+                sequenceName: documents_seq
+      changes:
+        - createSequence:
+            sequenceName: documents_seq
+            startValue: 1
+            incrementBy: 50
+
+  - changeSet:
+      id: 2026-09-08-001-create-documents-table
+      author: antigravity
+      validCheckSum:
+        - ANY
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: "SELECT COUNT(*) FROM information_schema.tables WHERE LOWER(table_name) = 'documents'"
+      changes:
+        - createTable:
+            tableName: documents
+            remarks: Bảng quản lý văn bản và dự thảo văn bản
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  defaultValueComputed: nextval('documents_seq')
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: draft_code
+                  type: VARCHAR(50)
+                  remarks: Mã định danh dự thảo văn bản
+                  constraints:
+                    nullable: true
+              - column:
+                  name: title
+                  type: VARCHAR(500)
+                  remarks: Tiêu đề văn bản
+                  constraints:
+                    nullable: false
+              - column:
+                  name: summary
+                  type: TEXT
+                  remarks: Trích yếu / tóm tắt nội dung
+                  constraints:
+                    nullable: true
+              - column:
+                  name: content
+                  type: TEXT
+                  remarks: Nội dung chi tiết văn bản
+              - column:
+                  name: document_type_cd
+                  type: VARCHAR(50)
+                  remarks: Loại văn bản (dictionary group DOCUMENT_TYPE_CD)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: issuing_org_node_id
+                  type: BIGINT
+                  remarks: Đơn vị ban hành / chủ trì soạn thảo (FK org_nodes)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: creator_user_id
+                  type: BIGINT
+                  remarks: Người tạo dự thảo (FK user_logins)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: status
+                  type: VARCHAR(50)
+                  defaultValue: DRAFT
+                  remarks: Trạng thái văn bản (DRAFT, WAITING_APPROVAL, APPROVED, REJECTED, ISSUED, REVOKED)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: current_version
+                  type: INT
+                  defaultValueNumeric: 1
+                  remarks: Phiên bản hiện tại
+                  constraints:
+                    nullable: false
+              - column:
+                  name: security_level
+                  type: VARCHAR(30)
+                  defaultValue: NORMAL
+                  remarks: Độ mật (NORMAL, CONFIDENTIAL, SECRET)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: urgency_level
+                  type: VARCHAR(30)
+                  defaultValue: NORMAL
+                  remarks: Độ khẩn (NORMAL, URGENT, TOP_URGENT)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: submitted_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  remarks: Thời điểm gửi duyệt
+              - column:
+                  name: delete_flg
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  remarks: Cờ xóa mềm
+                  constraints:
+                    nullable: false
+              - column:
+                  name: official_number
+                  type: VARCHAR(100)
+              - column:
+                  name: issue_date
+                  type: DATE
+              - column:
+                  name: effective_date
+                  type: DATE
+              - column:
+                  name: official_file_path
+                  type: VARCHAR(500)
+              - column:
+                  name: official_hash
+                  type: VARCHAR(64)
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+              - column:
+                  name: created_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+              - column:
+                  name: updated_date
+                  type: TIMESTAMP WITH TIME ZONE
+        - addUniqueConstraint:
+            constraintName: uq_documents_draft_code
+            tableName: documents
+            columnNames: draft_code
+        - addForeignKeyConstraint:
+            baseTableName: documents
+            baseColumnNames: issuing_org_node_id
+            constraintName: fk_documents_issuing_org
+            referencedTableName: org_nodes
+            referencedColumnNames: id
+        - addForeignKeyConstraint:
+            baseTableName: documents
+            baseColumnNames: creator_user_id
+            constraintName: fk_documents_creator
+            referencedTableName: user_logins
+            referencedColumnNames: id
+        - createIndex:
+            indexName: idx_documents_status
+            tableName: documents
+            columns:
+              - column:
+                  name: status
+        - createIndex:
+            indexName: idx_documents_creator
+            tableName: documents
+            columns:
+              - column:
+                  name: creator_user_id
+        - createIndex:
+            indexName: idx_documents_org
+            tableName: documents
+            columns:
+              - column:
+                  name: issuing_org_node_id
+
+  - changeSet:
+      id: 2026-09-08-002-create-document-versions-table
+      author: antigravity
+      changes:
+        - createTable:
+            tableName: document_versions
+            remarks: Quản lý lịch sử các phiên bản dự thảo văn bản
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  defaultValueComputed: nextval('hibernate_sequence')
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: document_id
+                  type: BIGINT
+                  remarks: ID văn bản (FK documents)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version_number
+                  type: INT
+                  remarks: Số thứ tự phiên bản (1, 2, 3...)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: title
+                  type: VARCHAR(500)
+                  remarks: Tiêu đề phiên bản
+                  constraints:
+                    nullable: false
+              - column:
+                  name: summary
+                  type: TEXT
+                  remarks: Trích yếu phiên bản
+                  constraints:
+                    nullable: false
+              - column:
+                  name: content
+                  type: TEXT
+                  remarks: Nội dung phiên bản
+              - column:
+                  name: change_summary
+                  type: VARCHAR(500)
+                  remarks: Tóm tắt lý do hoặc nội dung sửa đổi
+              - column:
+                  name: created_by_user_id
+                  type: BIGINT
+                  remarks: Người lưu phiên bản (FK user_logins)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: delete_flg
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  remarks: Cờ xóa mềm
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+              - column:
+                  name: created_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+              - column:
+                  name: updated_date
+                  type: TIMESTAMP WITH TIME ZONE
+        - addUniqueConstraint:
+            constraintName: uq_doc_versions_doc_ver
+            tableName: document_versions
+            columnNames: document_id, version_number
+        - addForeignKeyConstraint:
+            baseTableName: document_versions
+            baseColumnNames: document_id
+            constraintName: fk_doc_versions_document
+            referencedTableName: documents
+            referencedColumnNames: id
+        - addForeignKeyConstraint:
+            baseTableName: document_versions
+            baseColumnNames: created_by_user_id
+            constraintName: fk_doc_versions_user
+            referencedTableName: user_logins
+            referencedColumnNames: id
+        - createIndex:
+            indexName: idx_doc_versions_doc
+            tableName: document_versions
+            columns:
+              - column:
+                  name: document_id
+
+  - changeSet:
+      id: 2026-09-08-003-create-document-attachments-table
+      author: antigravity
+      changes:
+        - createTable:
+            tableName: document_attachments
+            remarks: Quản lý tệp đính kèm DOCX/PDF của văn bản
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  defaultValueComputed: nextval('hibernate_sequence')
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: document_id
+                  type: BIGINT
+                  remarks: ID văn bản (FK documents)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: document_version_id
+                  type: BIGINT
+                  remarks: Phiên bản văn bản gắn kèm (FK document_versions)
+              - column:
+                  name: original_file_name
+                  type: VARCHAR(255)
+                  remarks: Tên tệp gốc người dùng tải lên
+                  constraints:
+                    nullable: false
+              - column:
+                  name: storage_file_name
+                  type: VARCHAR(255)
+                  remarks: Tên tệp ngẫu nhiên lưu trong hệ thống (UUID)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: storage_path
+                  type: VARCHAR(500)
+                  remarks: Đường dẫn lưu trữ tệp trên máy chủ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: file_extension
+                  type: VARCHAR(20)
+                  remarks: Đuôi mở rộng (DOCX, PDF)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: mime_type
+                  type: VARCHAR(100)
+                  remarks: Định dạng MIME
+                  constraints:
+                    nullable: false
+              - column:
+                  name: file_size_bytes
+                  type: BIGINT
+                  remarks: Dung lượng tệp tính theo byte
+                  constraints:
+                    nullable: false
+              - column:
+                  name: sha256_checksum
+                  type: VARCHAR(64)
+                  remarks: Mã băm SHA-256 xác thực toàn vẹn
+                  constraints:
+                    nullable: false
+              - column:
+                  name: is_main_document
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  remarks: Cờ đánh dấu tệp nội dung chính
+                  constraints:
+                    nullable: false
+              - column:
+                  name: uploaded_by_user_id
+                  type: BIGINT
+                  remarks: Người tải tệp lên (FK user_logins)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: delete_flg
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  remarks: Cờ xóa mềm
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+              - column:
+                  name: created_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+              - column:
+                  name: updated_date
+                  type: TIMESTAMP WITH TIME ZONE
+        - addForeignKeyConstraint:
+            baseTableName: document_attachments
+            baseColumnNames: document_id
+            constraintName: fk_doc_attachments_doc
+            referencedTableName: documents
+            referencedColumnNames: id
+        - addForeignKeyConstraint:
+            baseTableName: document_attachments
+            baseColumnNames: document_version_id
+            constraintName: fk_doc_attachments_ver
+            referencedTableName: document_versions
+            referencedColumnNames: id
+        - addForeignKeyConstraint:
+            baseTableName: document_attachments
+            baseColumnNames: uploaded_by_user_id
+            constraintName: fk_doc_attachments_user
+            referencedTableName: user_logins
+            referencedColumnNames: id
+        - createIndex:
+            indexName: idx_doc_attachments_doc
+            tableName: document_attachments
+            columns:
+              - column:
+                  name: document_id
+
+  - changeSet:
+      id: 2026-09-08-004-create-document-approval-requests-table
+      author: antigravity
+      changes:
+        - createTable:
+            tableName: document_approval_requests
+            remarks: Quản lý yêu cầu gửi duyệt và phản hồi duyệt văn bản
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  defaultValueComputed: nextval('hibernate_sequence')
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: document_id
+                  type: BIGINT
+                  remarks: ID văn bản (FK documents)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: sender_user_id
+                  type: BIGINT
+                  remarks: Người gửi duyệt (FK user_logins)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: approver_user_id
+                  type: BIGINT
+                  remarks: Người nhận duyệt (FK user_logins)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(50)
+                  defaultValue: PENDING
+                  remarks: Trạng thái duyệt (PENDING, APPROVED, REJECTED, RECALLED)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: submit_note
+                  type: TEXT
+                  remarks: Ghi chú của người gửi duyệt
+              - column:
+                  name: decision_note
+                  type: TEXT
+                  remarks: Ý kiến phản hồi của người duyệt
+              - column:
+                  name: submitted_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  remarks: Thời điểm gửi duyệt
+                  constraints:
+                    nullable: false
+              - column:
+                  name: processed_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  remarks: Thời điểm xử lý duyệt/từ chối/thu hồi
+              - column:
+                  name: delete_flg
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  remarks: Cờ xóa mềm
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+              - column:
+                  name: created_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+              - column:
+                  name: updated_date
+                  type: TIMESTAMP WITH TIME ZONE
+        - addForeignKeyConstraint:
+            baseTableName: document_approval_requests
+            baseColumnNames: document_id
+            constraintName: fk_approval_req_doc
+            referencedTableName: documents
+            referencedColumnNames: id
+        - addForeignKeyConstraint:
+            baseTableName: document_approval_requests
+            baseColumnNames: sender_user_id
+            constraintName: fk_approval_req_sender
+            referencedTableName: user_logins
+            referencedColumnNames: id
+        - addForeignKeyConstraint:
+            baseTableName: document_approval_requests
+            baseColumnNames: approver_user_id
+            constraintName: fk_approval_req_approver
+            referencedTableName: user_logins
+            referencedColumnNames: id
+        - createIndex:
+            indexName: idx_approval_req_doc
+            tableName: document_approval_requests
+            columns:
+              - column:
+                  name: document_id
+        - createIndex:
+            indexName: idx_approval_req_approver
+            tableName: document_approval_requests
+            columns:
+              - column:
+                  name: approver_user_id
+
+  - changeSet:
+      id: 2026-09-08-005-create-document-process-logs-table
+      author: antigravity
+      changes:
+        - createTable:
+            tableName: document_process_logs
+            remarks: Nhật ký tiến trình xử lý văn bản
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  defaultValueComputed: nextval('hibernate_sequence')
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: document_id
+                  type: BIGINT
+                  remarks: ID văn bản (FK documents)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: actor_user_id
+                  type: BIGINT
+                  remarks: Người thực hiện thao tác (FK user_logins)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: action
+                  type: VARCHAR(50)
+                  remarks: Hành động thực hiện (CREATE_DRAFT, UPDATE_DRAFT, UPLOAD_ATTACHMENT, RESTORE_VERSION, SUBMIT_APPROVAL, RECALL_APPROVAL...)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: from_status
+                  type: VARCHAR(50)
+                  remarks: Trạng thái trước thao tác
+              - column:
+                  name: to_status
+                  type: VARCHAR(50)
+                  remarks: Trạng thái sau thao tác
+              - column:
+                  name: note
+                  type: TEXT
+                  remarks: Ghi chú chi tiết
+              - column:
+                  name: log_time
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  remarks: Thời điểm ghi nhật ký
+                  constraints:
+                    nullable: false
+              - column:
+                  name: delete_flg
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+              - column:
+                  name: created_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+              - column:
+                  name: updated_date
+                  type: TIMESTAMP WITH TIME ZONE
+        - addForeignKeyConstraint:
+            baseTableName: document_process_logs
+            baseColumnNames: document_id
+            constraintName: fk_process_logs_doc
+            referencedTableName: documents
+            referencedColumnNames: id
+        - addForeignKeyConstraint:
+            baseTableName: document_process_logs
+            baseColumnNames: actor_user_id
+            constraintName: fk_process_logs_actor
+            referencedTableName: user_logins
+            referencedColumnNames: id
+        - createIndex:
+            indexName: idx_process_logs_doc
+            tableName: document_process_logs
+            columns:
+              - column:
+                  name: document_id
+
+  - changeSet:
+      id: 2026-09-08-006-seed-document-types
+      author: antigravity
+      changes:
+        - sql:
+            sql: |-
+              INSERT INTO dictionary_items (id, group_cd, item_cd, name_vn, name_en, display_order, active_flg, delete_flg) VALUES
+              (3101, 'DOCUMENT_TYPE_CD', 'QUYET_DINH', 'Quyết định',       'Decision',          0, true, false),
+              (3102, 'DOCUMENT_TYPE_CD', 'TO_TRINH',   'Tờ trình',         'Proposal',          1, true, false),
+              (3103, 'DOCUMENT_TYPE_CD', 'CONG_VAN',   'Công văn',         'Official Dispatch', 2, true, false),
+              (3104, 'DOCUMENT_TYPE_CD', 'THONG_BAO',  'Thông báo',        'Announcement',      3, true, false),
+              (3105, 'DOCUMENT_TYPE_CD', 'KE_HOACH',   'Kế hoạch',         'Plan',              4, true, false),
+              (3106, 'DOCUMENT_TYPE_CD', 'BAO_CAO',    'Báo cáo',          'Report',            5, true, false),
+              (3107, 'DOCUMENT_TYPE_CD', 'BIEN_BAN',   'Biên bản',         'Minutes',           6, true, false)
+      rollback:
+        - sql:
+            sql: DELETE FROM dictionary_items WHERE group_cd = 'DOCUMENT_TYPE_CD'
+
+  - changeSet:
+      id: 2026-09-08-007-h2-text-columns-compat
+      author: antigravity
+      validCheckSum:
+        - ANY
+      dbms: h2
+      changes:
+        - modifyDataType:
+            tableName: document_versions
+            columnName: summary
+            newDataType: varchar(10000)
+        - modifyDataType:
+            tableName: document_versions
+            columnName: content
+            newDataType: varchar(100000)
+        - modifyDataType:
+            tableName: document_approval_requests
+            columnName: submit_note
+            newDataType: varchar(10000)
+        - modifyDataType:
+            tableName: document_approval_requests
+            columnName: decision_note
+            newDataType: varchar(10000)
+        - modifyDataType:
+            tableName: document_process_logs
+            columnName: note
+            newDataType: varchar(10000)

@@ -1,0 +1,212 @@
+databaseChangeLog:
+
+  # ── 1. Drop index cũ giới hạn 1 người / chức vụ / đơn vị ──────────────
+  - changeSet:
+      id: fix-pa-01-drop-old-unique-index
+      author: luannv
+      changes:
+        - sql:
+            dbms: postgresql
+            sql: DROP INDEX IF EXISTS uq_position_assignments_active;
+        - sql:
+            dbms: h2
+            sql: DROP INDEX IF EXISTS uq_position_assignments_active;
+      rollback:
+        - createIndex:
+            indexName: uq_position_assignments_active
+            tableName: position_assignments
+            unique: true
+            columns:
+              - column:
+                  name: org_node_id
+              - column:
+                  name: position_cd
+            where: "delete_flg = false AND actual_dismissal_date IS NULL"
+
+  # ── 2. Tạo unique index cho các chức danh đơn nhất (tất cả trừ GV) ────
+  #    Quy tắc: Mỗi đơn vị chỉ được tối đa 1 người giữ 1 chức vụ (trừ GV)
+  - changeSet:
+      id: fix-pa-02-unique-non-gv
+      author: luannv
+      changes:
+        - sql:
+            dbms: postgresql
+            sql: >-
+              CREATE UNIQUE INDEX uq_position_assignments_active_non_gv
+              ON position_assignments (org_node_id, position_cd)
+              WHERE delete_flg = false AND actual_dismissal_date IS NULL AND position_cd <> 'GV'
+        - sql:
+            dbms: h2
+            sql: >-
+              CREATE INDEX IF NOT EXISTS uq_position_assignments_active_non_gv
+              ON position_assignments (org_node_id, position_cd);
+      rollback:
+        - sql:
+            sql: DROP INDEX IF EXISTS uq_position_assignments_active_non_gv;
+
+  # ── 3. Tạo unique index cho Giảng viên (GV): chống gán trùng 1 người ──
+  #    Cho phép nhiều giảng viên cùng đơn vị, nhưng 1 người không gán 2 lần
+  - changeSet:
+      id: fix-pa-03-unique-gv-per-user
+      author: luannv
+      changes:
+        - sql:
+            dbms: postgresql
+            sql: >-
+              CREATE UNIQUE INDEX uq_position_assignments_gv_user_active
+              ON position_assignments (user_login_id, org_node_id)
+              WHERE delete_flg = false AND actual_dismissal_date IS NULL AND position_cd = 'GV'
+        - sql:
+            dbms: h2
+            sql: >-
+              CREATE INDEX IF NOT EXISTS uq_position_assignments_gv_user_active
+              ON position_assignments (user_login_id, org_node_id);
+      rollback:
+        - sql:
+            sql: DROP INDEX IF EXISTS uq_position_assignments_gv_user_active;
+
+  # ── 4. Seed từ điển POSITION_CD: GV (Giảng viên) và VT (Văn thư) ──────
+  - changeSet:
+      id: fix-pa-04-seed-position-cd-gv-vt
+      author: luannv
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: "SELECT COUNT(*) FROM dictionary_items WHERE group_cd = 'POSITION_CD' AND item_cd IN ('GV', 'VT')"
+      changes:
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: POSITION_CD
+              - column:
+                  name: item_cd
+                  value: GV
+              - column:
+                  name: name_vn
+                  value: Giảng viên
+              - column:
+                  name: name_en
+                  value: Lecturer
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: POSITION_CD
+              - column:
+                  name: item_cd
+                  value: VT
+              - column:
+                  name: name_vn
+                  value: Cán bộ văn thư
+              - column:
+                  name: name_en
+                  value: Clerk
+      rollback:
+        - sql:
+            sql: DELETE FROM dictionary_items WHERE group_cd = 'POSITION_CD' AND item_cd IN ('GV', 'VT')
+
+  # ── 5. Seed user mẫu Văn thư (vanthu / CLERK) ─────────────────────────
+  - changeSet:
+      id: fix-pa-05-seed-user-vanthu
+      author: luannv
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: "SELECT COUNT(*) FROM user_logins WHERE username = 'vanthu'"
+      changes:
+        - insert:
+            tableName: user_logins
+            columns:
+              - column:
+                  name: id
+                  valueNumeric: 1004
+              - column:
+                  name: username
+                  value: vanthu
+              - column:
+                  name: password_hash
+                  value: $2b$12$NN8kWQbXXIXiXxEfl2i/GuSpaKsU3i9EVl.BPfhl0UMDYFHJlZszO
+              - column:
+                  name: role
+                  value: CLERK
+              - column:
+                  name: user_status_cd
+                  value: ACTIVE
+              - column:
+                  name: must_change_password
+                  valueBoolean: false
+              - column:
+                  name: failed_login_attempts
+                  valueNumeric: 0
+              - column:
+                  name: delete_flg
+                  valueBoolean: false
+        - insert:
+            tableName: user_infos
+            columns:
+              - column:
+                  name: id
+                  valueNumeric: 1104
+              - column:
+                  name: user_login_id
+                  valueNumeric: 1004
+              - column:
+                  name: full_name
+                  value: Cán bộ Văn thư
+              - column:
+                  name: employment_status_cd
+                  value: ACTIVE
+              - column:
+                  name: delete_flg
+                  valueBoolean: false
+      rollback:
+        - sql:
+            sql: >-
+              DELETE FROM user_infos WHERE user_login_id = 1004;
+              DELETE FROM user_logins WHERE id = 1004;
+
+  # ── 6. Gán chức danh VT cho user vanthu tại Phòng HCNS ────────────────
+  - changeSet:
+      id: fix-pa-06-assign-vanthu-position
+      author: luannv
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 1
+            sql: "SELECT COUNT(*) FROM org_nodes WHERE code = 'PHCNS'"
+        - sqlCheck:
+            expectedResult: 0
+            sql: "SELECT COUNT(*) FROM position_assignments WHERE user_login_id = 1004 AND position_cd = 'VT'"
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO position_assignments (user_login_id, org_node_id, position_cd, effective_from, delete_flg)
+              VALUES (1004, (SELECT id FROM org_nodes WHERE code = 'PHCNS'), 'VT', NOW(), false)
+      rollback:
+        - sql:
+            sql: DELETE FROM position_assignments WHERE user_login_id = 1004 AND position_cd = 'VT'
+
+  # ── 7. Cấp quyền mặc định cho GV và VT trong position_permissions ─────
+  - changeSet:
+      id: fix-pa-07-seed-position-permissions-gv-vt
+      author: luannv
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: "SELECT COUNT(*) FROM position_permissions WHERE position_cd IN ('GV', 'VT')"
+      changes:
+        - sql:
+            sql: |-
+              INSERT INTO position_permissions (position_cd, permission_cd, inherit_to_children, delete_flg) VALUES
+              ('GV', 'DOCUMENT_CREATE',     false, false),
+              ('VT', 'DOCUMENT_CREATE',     false, false),
+              ('VT', 'DOCUMENT_DISTRIBUTE', false, false)
+      rollback:
+        - sql:
+            sql: DELETE FROM position_permissions WHERE position_cd IN ('GV', 'VT')

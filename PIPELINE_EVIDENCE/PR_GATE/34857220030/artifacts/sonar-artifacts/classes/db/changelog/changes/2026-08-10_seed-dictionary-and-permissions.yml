@@ -1,0 +1,112 @@
+databaseChangeLog:
+  - changeSet:
+      id: 7b1e0f2a-9c3d-4e5f-8a6b-2c3d4e5f7a31
+      author: luannv
+      changes:
+        - sql:
+            sql: |-
+              INSERT INTO dictionary_items (id, group_cd, item_cd, name_vn, name_en, display_order, active_flg, delete_flg) VALUES
+              (1001, 'USER_STATUS_CD', 'ACTIVE',   'Đang hoạt động', 'Active',   0, true, false),
+              (1002, 'USER_STATUS_CD', 'LOCKED',   'Bị khoá tạm',    'Locked',   1, true, false),
+              (1003, 'USER_STATUS_CD', 'DISABLED', 'Vô hiệu hoá',    'Disabled', 2, true, false)
+      rollback:
+        - sql:
+            sql: DELETE FROM dictionary_items WHERE group_cd = 'USER_STATUS_CD'
+
+  - changeSet:
+      id: 7b1e0f2a-9c3d-4e5f-8a6b-2c3d4e5f7a32
+      author: luannv
+      changes:
+        - sql:
+            sql: |-
+              INSERT INTO dictionary_items (id, group_cd, item_cd, name_vn, name_en, display_order, active_flg, delete_flg) VALUES
+              (1051, 'EMPLOYMENT_STATUS_CD', 'ACTIVE',   'Đang công tác',  'Active',    0, true, false),
+              (1052, 'EMPLOYMENT_STATUS_CD', 'RETIRED',  'Đã nghỉ hưu',    'Retired',   1, true, false),
+              (1053, 'EMPLOYMENT_STATUS_CD', 'RESIGNED', 'Đã nghỉ việc',   'Resigned',  2, true, false),
+              (1054, 'EMPLOYMENT_STATUS_CD', 'ON_LEAVE', 'Đang nghỉ phép', 'On Leave',  3, true, false)
+      rollback:
+        - sql:
+            sql: DELETE FROM dictionary_items WHERE group_cd = 'EMPLOYMENT_STATUS_CD'
+
+  - changeSet:
+      id: 7b1e0f2a-9c3d-4e5f-8a6b-2c3d4e5f7a33
+      author: luannv
+      changes:
+        - sql:
+            sql: |-
+              INSERT INTO dictionary_items (id, group_cd, item_cd, name_vn, name_en, display_order, active_flg, delete_flg) VALUES
+              (1101, 'DISMISSAL_REASON_CD', 'RESIGNED',         'Tự nguyện xin thôi giữ chức',         'Resigned',          0, true, false),
+              (1102, 'DISMISSAL_REASON_CD', 'EARLY_REMOVAL',    'Miễn nhiệm trước thời hạn',           'Early removal',     1, true, false),
+              (1103, 'DISMISSAL_REASON_CD', 'TRANSFERRED',      'Điều chuyển sang vị trí/đơn vị khác', 'Transferred',       2, true, false),
+              (1104, 'DISMISSAL_REASON_CD', 'PROMOTED',         'Được bổ nhiệm chức vụ khác cao hơn',  'Promoted',          3, true, false),
+              (1105, 'DISMISSAL_REASON_CD', 'ORG_RESTRUCTURED', 'Vị trí giải thể do tái cơ cấu',        'Org restructured', 4, true, false),
+              (1106, 'DISMISSAL_REASON_CD', 'DECEASED',         'Qua đời',                             'Deceased',          5, true, false),
+              (1107, 'DISMISSAL_REASON_CD', 'OTHER',            'Lý do khác',                          'Other',             6, true, false)
+      rollback:
+        - sql:
+            sql: DELETE FROM dictionary_items WHERE group_cd = 'DISMISSAL_REASON_CD'
+
+  - changeSet:
+      id: 7b1e0f2a-9c3d-4e5f-8a6b-2c3d4e5f7a34
+      author: luannv
+      changes:
+        - sql:
+            sql: |-
+              INSERT INTO dictionary_items (id, group_cd, item_cd, name_vn, name_en, display_order, active_flg, delete_flg) VALUES
+              (2001, 'PERMISSION_CD', 'SYSTEM_CONFIG_MANAGE',   'Cấu hình hệ thống',            'Manage system config',     0, true, false),
+              (2002, 'PERMISSION_CD', 'DICTIONARY_MANAGE',      'Quản lý từ điển danh mục',     'Manage dictionary',        1, true, false),
+              (2051, 'PERMISSION_CD', 'USER_MANAGE',            'Quản lý tài khoản người dùng', 'Manage users',             0, true, false),
+              (2052, 'PERMISSION_CD', 'POSITION_ASSIGN',        'Gán/thu hồi chức vụ',          'Assign positions',         1, true, false),
+              (2053, 'PERMISSION_CD', 'ORG_NODE_MANAGE',        'Quản lý cây tổ chức',          'Manage org structure',     2, true, false),
+              (2054, 'PERMISSION_CD', 'AUDIT_LOG_VIEW',         'Xem nhật ký audit',            'View audit logs',          3, true, false),
+              (2101, 'PERMISSION_CD', 'DOCUMENT_CREATE',        'Soạn thảo văn bản',            'Create document',          0, true, false),
+              (2102, 'PERMISSION_CD', 'DOCUMENT_APPROVE',       'Duyệt văn bản',                'Approve document',         1, true, false),
+              (2103, 'PERMISSION_CD', 'DOCUMENT_SIGN_DRAFT',    'Ký nháy văn bản',              'Sign document (draft)',    2, true, false),
+              (2104, 'PERMISSION_CD', 'DOCUMENT_SIGN_OFFICIAL', 'Ký phát hành văn bản',         'Sign document (official)', 3, true, false),
+              (2105, 'PERMISSION_CD', 'DOCUMENT_DISTRIBUTE',    'Phát hành/phân phối văn bản',  'Distribute document',      4, true, false)
+      rollback:
+        - sql:
+            sql: DELETE FROM dictionary_items WHERE group_cd = 'PERMISSION_CD'
+
+  - changeSet:
+      id: 7b1e0f2a-9c3d-4e5f-8a6b-2c3d4e5f7a35
+      author: luannv
+      changes:
+        - sql:
+            sql: |-
+              INSERT INTO role_permissions (id, role, permission_cd, delete_flg) VALUES
+              (1, 'SYSTEM_ADMIN', 'SYSTEM_CONFIG_MANAGE', false),
+              (2, 'SYSTEM_ADMIN', 'DICTIONARY_MANAGE',    false),
+              (3, 'ADMIN',        'USER_MANAGE',          false),
+              (4, 'ADMIN',        'POSITION_ASSIGN',      false),
+              (5, 'ADMIN',        'ORG_NODE_MANAGE',      false),
+              (6, 'ADMIN',        'AUDIT_LOG_VIEW',       false)
+      rollback:
+        - sql:
+            sql: DELETE FROM role_permissions WHERE id IN (1,2,3,4,5,6)
+
+  - changeSet:
+      id: 7b1e0f2a-9c3d-4e5f-8a6b-2c3d4e5f7a36
+      author: luannv
+      changes:
+        - sql:
+            sql: |-
+              INSERT INTO position_permissions (id, position_cd, permission_cd, inherit_to_children, delete_flg) VALUES
+              (1,  'HT',  'DOCUMENT_APPROVE',       true,  false),
+              (2,  'HT',  'DOCUMENT_SIGN_OFFICIAL', true,  false),
+              (3,  'HT',  'ORG_NODE_MANAGE',        true,  false),
+              (4,  'PHT', 'DOCUMENT_APPROVE',       true,  false),
+              (5,  'PHT', 'DOCUMENT_SIGN_DRAFT',    true,  false),
+              (6,  'TK',  'DOCUMENT_APPROVE',       true,  false),
+              (7,  'TK',  'DOCUMENT_SIGN_DRAFT',    true,  false),
+              (8,  'TK',  'DOCUMENT_CREATE',        false, false),
+              (9,  'PK',  'DOCUMENT_SIGN_DRAFT',    true,  false),
+              (10, 'PK',  'DOCUMENT_CREATE',        false, false),
+              (11, 'TP',  'DOCUMENT_APPROVE',       true,  false),
+              (12, 'TP',  'DOCUMENT_CREATE',        false, false),
+              (13, 'PP',  'DOCUMENT_CREATE',        false, false),
+              (14, 'BT',  'DOCUMENT_CREATE',        false, false),
+              (15, 'PBT', 'DOCUMENT_CREATE',        false, false)
+      rollback:
+        - sql:
+            sql: DELETE FROM position_permissions WHERE id BETWEEN 1 AND 15

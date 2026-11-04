@@ -1,0 +1,35 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-10-15-assign-roles-to-registered-users
+      author: dev
+      validCheckSum:
+        - ANY
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 2
+            sql: "SELECT COUNT(*) FROM user_logins WHERE username IN ('ht.nguyen', 'cb.thamdinh')"
+      changes:
+        - sql:
+            sql: |-
+              -- 1. Cập nhật role
+              UPDATE user_logins SET role = 'LEADER' WHERE username = 'ht.nguyen';
+              UPDATE user_logins SET role = 'REVIEWER' WHERE username = 'cb.thamdinh';
+
+              -- 2. Tạo hoặc cập nhật user_infos
+              INSERT INTO user_infos (user_login_id, full_name, employment_status_cd, delete_flg)
+              SELECT id, 'GS.TS Nguyễn Hiệu Trưởng', 'ACTIVE', false FROM user_logins WHERE username = 'ht.nguyen'
+              ON CONFLICT (user_login_id) DO UPDATE SET full_name = EXCLUDED.full_name;
+
+              INSERT INTO user_infos (user_login_id, full_name, employment_status_cd, delete_flg)
+              SELECT id, 'ThS. Trần Thẩm Định', 'ACTIVE', false FROM user_logins WHERE username = 'cb.thamdinh'
+              ON CONFLICT (user_login_id) DO UPDATE SET full_name = EXCLUDED.full_name;
+
+              -- 3. Tạo hoặc cập nhật position_assignments
+              INSERT INTO position_assignments (user_login_id, org_node_id, position_cd, effective_from, delete_flg)
+              SELECT id, 5001, 'HT', CURRENT_TIMESTAMP, false FROM user_logins WHERE username = 'ht.nguyen'
+              ON CONFLICT (org_node_id, position_cd) DO UPDATE SET user_login_id = EXCLUDED.user_login_id, effective_from = EXCLUDED.effective_from;
+
+              INSERT INTO position_assignments (user_login_id, org_node_id, position_cd, effective_from, delete_flg)
+              SELECT id, 5001, 'TP', CURRENT_TIMESTAMP, false FROM user_logins WHERE username = 'cb.thamdinh'
+              ON CONFLICT (org_node_id, position_cd) DO UPDATE SET user_login_id = EXCLUDED.user_login_id, effective_from = EXCLUDED.effective_from;

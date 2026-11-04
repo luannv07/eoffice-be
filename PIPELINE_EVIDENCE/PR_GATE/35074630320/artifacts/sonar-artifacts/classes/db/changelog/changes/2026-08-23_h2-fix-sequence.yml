@@ -1,0 +1,12 @@
+databaseChangeLog:
+  # H2 test profile compatibility only.
+  # On PostgreSQL the sequence is fixed by 2026-08-10_fix-sequence-after-seed.yml
+  # (SELECT SETVAL, which does not exist on H2). This changeset runs only on H2
+  # and uses the H2-native syntax to advance hibernate_sequence.
+  - changeSet:
+      id: 2026-08-23-h2-fix-sequence
+      author: luannv
+      dbms: h2
+      changes:
+        - sql:
+            sql: ALTER SEQUENCE hibernate_sequence RESTART WITH 10000

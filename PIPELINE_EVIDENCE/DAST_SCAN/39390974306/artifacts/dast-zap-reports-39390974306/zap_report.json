@@ -1,0 +1,833 @@
+{
+	"@programName": "ZAP",
+	"@version": "2.17.0",
+	"@generated": "Tue, 20 Oct 2026 08:07:31",
+	"created": "2026-10-20T08:07:31.819184307Z",
+	"insights":[
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://eoffice-be-dev.8chickensoffice.me",
+			"key": "insight.code.2xx",
+			"description": "Percentage of responses with status code 2xx",
+			"statistic": "10"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://eoffice-be-dev.8chickensoffice.me",
+			"key": "insight.code.3xx",
+			"description": "Percentage of responses with status code 3xx",
+			"statistic": "10"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://eoffice-be-dev.8chickensoffice.me",
+			"key": "insight.code.4xx",
+			"description": "Percentage of responses with status code 4xx",
+			"statistic": "80"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://eoffice-be-dev.8chickensoffice.me",
+			"key": "insight.endpoint.ctype.application/json",
+			"description": "Percentage of endpoints with content type application/json",
+			"statistic": "14"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://eoffice-be-dev.8chickensoffice.me",
+			"key": "insight.endpoint.ctype.text/html",
+			"description": "Percentage of endpoints with content type text/html",
+			"statistic": "71"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://eoffice-be-dev.8chickensoffice.me",
+			"key": "insight.endpoint.ctype.text/plain",
+			"description": "Percentage of endpoints with content type text/plain",
+			"statistic": "14"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://eoffice-be-dev.8chickensoffice.me",
+			"key": "insight.endpoint.method.GET",
+			"description": "Percentage of endpoints with method GET",
+			"statistic": "85"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://eoffice-be-dev.8chickensoffice.me",
+			"key": "insight.endpoint.method.POST",
+			"description": "Percentage of endpoints with method POST",
+			"statistic": "14"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://eoffice-be-dev.8chickensoffice.me",
+			"key": "insight.endpoint.total",
+			"description": "Count of total endpoints",
+			"statistic": "7"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://eoffice-be-dev.8chickensoffice.me",
+			"key": "insight.response.slow",
+			"description": "Percentage of slow responses",
+			"statistic": "50"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://static.cloudflareinsights.com",
+			"key": "insight.endpoint.ctype.text/javascript",
+			"description": "Percentage of endpoints with content type text/javascript",
+			"statistic": "100"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://static.cloudflareinsights.com",
+			"key": "insight.endpoint.method.GET",
+			"description": "Percentage of endpoints with method GET",
+			"statistic": "100"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "https://static.cloudflareinsights.com",
+			"key": "insight.endpoint.total",
+			"description": "Count of total endpoints",
+			"statistic": "1"
+		}
+	],
+	"site":[ 
+		{
+			"@name": "https://static.cloudflareinsights.com",
+			"@host": "static.cloudflareinsights.com",
+			"@port": "443",
+			"@ssl": "true",
+			"alerts": [ 
+			]
+		},
+		{
+			"@name": "https://eoffice-be-dev.8chickensoffice.me",
+			"@host": "eoffice-be-dev.8chickensoffice.me",
+			"@port": "443",
+			"@ssl": "true",
+			"alerts": [ 
+				{
+					"pluginid": "10038",
+					"alertRef": "10038-1",
+					"alert": "Content Security Policy (CSP) Header Not Set",
+					"name": "Content Security Policy (CSP) Header Not Set",
+					"riskcode": "2",
+					"confidence": "3",
+					"riskdesc": "Medium (High)",
+					"desc": "<p>Content Security Policy (CSP) is an added layer of security that helps to detect and mitigate certain types of attacks, including Cross Site Scripting (XSS) and data injection attacks. These attacks are used for everything from data theft to site defacement or distribution of malware. CSP provides a set of standard HTTP headers that allow website owners to declare approved sources of content that browsers should be allowed to load on that page \u2014 covered types are JavaScript, CSS, HTML frames, fonts, images and embeddable objects such as Java applets, ActiveX, audio and video files.</p>",
+					"instances":[ 
+						{
+							"id": "0",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "24",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/api",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/api",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "65",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/favicon.ico",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/favicon.ico",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "38",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/robots.txt",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/robots.txt",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "40",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/sitemap.xml",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/sitemap.xml",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						}
+					],
+					"count": "5",
+					"systemic": false,
+					"solution": "<p>Ensure that your web server, application server, load balancer, etc. is configured to set the Content-Security-Policy header.</p>",
+					"otherinfo": "",
+					"reference": "<p>https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CSP</p><p>https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html</p><p>https://www.w3.org/TR/CSP/</p><p>https://w3c.github.io/webappsec-csp/</p><p>https://web.dev/articles/csp</p><p>https://caniuse.com/#feat=contentsecuritypolicy</p><p>https://content-security-policy.com/</p>",
+					"cweid": "693",
+					"wascid": "15",
+					"sourceid": "4"
+				},
+				{
+					"pluginid": "10063",
+					"alertRef": "10063-1",
+					"alert": "Permissions Policy Header Not Set",
+					"name": "Permissions Policy Header Not Set",
+					"riskcode": "1",
+					"confidence": "2",
+					"riskdesc": "Low (Medium)",
+					"desc": "<p>Permissions Policy Header is an added layer of security that helps to restrict from unauthorized access or usage of browser/client features by web resources. This policy ensures the user privacy by limiting or specifying the features of the browsers can be used by the web resources. Permissions Policy provides a set of standard HTTP headers that allow website owners to limit which features of browsers can be used by the page such as camera, microphone, location, full screen etc.</p>",
+					"instances":[ 
+						{
+							"id": "19",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "37",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/api",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/api",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "70",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/favicon.ico",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/favicon.ico",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "48",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/robots.txt",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/robots.txt",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "51",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/sitemap.xml",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/sitemap.xml",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						}
+					],
+					"count": "5",
+					"systemic": false,
+					"solution": "<p>Ensure that your web server, application server, load balancer, etc. is configured to set the Permissions-Policy header.</p>",
+					"otherinfo": "",
+					"reference": "<p>https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy</p><p>https://developer.chrome.com/blog/feature-policy/</p><p>https://scotthelme.co.uk/a-new-security-header-feature-policy/</p><p>https://w3c.github.io/webappsec-feature-policy/</p><p>https://www.smashingmagazine.com/2018/12/feature-policy/</p>",
+					"cweid": "693",
+					"wascid": "15",
+					"sourceid": "4"
+				},
+				{
+					"pluginid": "10035",
+					"alertRef": "10035-1",
+					"alert": "Strict-Transport-Security Header Not Set",
+					"name": "Strict-Transport-Security Header Not Set",
+					"riskcode": "1",
+					"confidence": "3",
+					"riskdesc": "Low (High)",
+					"desc": "<p>HTTP Strict Transport Security (HSTS) is a web security policy mechanism whereby a web server declares that complying user agents (such as a web browser) are to interact with it using only secure HTTPS connections (i.e. HTTP layered over TLS/SSL). HSTS is an IETF standards track protocol and is specified in RFC 6797.</p>",
+					"instances":[ 
+						{
+							"id": "5",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "32",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/api",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/api",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "1",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/api/v1",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/api\/v1",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "41",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/robots.txt",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/robots.txt",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "45",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/sitemap.xml",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/sitemap.xml",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						}
+					],
+					"count": "5",
+					"systemic": true,
+					"solution": "<p>Ensure that your web server, application server, load balancer, etc. is configured to enforce Strict-Transport-Security.</p>",
+					"otherinfo": "",
+					"reference": "<p>https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Strict_Transport_Security_Cheat_Sheet.html</p><p>https://owasp.org/www-community/Security_Headers</p><p>https://en.wikipedia.org/wiki/HTTP_Strict_Transport_Security</p><p>https://caniuse.com/stricttransportsecurity</p><p>https://datatracker.ietf.org/doc/html/rfc6797</p>",
+					"cweid": "319",
+					"wascid": "15",
+					"sourceid": "4"
+				},
+				{
+					"pluginid": "10096",
+					"alertRef": "10096",
+					"alert": "Timestamp Disclosure - Unix",
+					"name": "Timestamp Disclosure - Unix",
+					"riskcode": "1",
+					"confidence": "1",
+					"riskdesc": "Low (Low)",
+					"desc": "<p>A timestamp was disclosed by the application/web server. - Unix</p>",
+					"instances":[ 
+						{
+							"id": "6",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/",
+							"method": "GET",
+							"param": "reporting-endpoints",
+							"attack": "",
+							"evidence": "1792483633",
+							"otherinfo": "1792483633, which evaluates to: 2026-10-20 08:07:13."
+						},
+						{
+							"id": "34",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/api",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/api",
+							"method": "GET",
+							"param": "reporting-endpoints",
+							"attack": "",
+							"evidence": "1792483633",
+							"otherinfo": "1792483633, which evaluates to: 2026-10-20 08:07:13."
+						},
+						{
+							"id": "4",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/api/v1",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/api\/v1",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "1792483633",
+							"otherinfo": "1792483633, which evaluates to: 2026-10-20 08:07:13."
+						},
+						{
+							"id": "2",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/api/v1",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/api\/v1",
+							"method": "GET",
+							"param": "Reporting-Endpoints",
+							"attack": "",
+							"evidence": "1792483633",
+							"otherinfo": "1792483633, which evaluates to: 2026-10-20 08:07:13."
+						},
+						{
+							"id": "42",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/robots.txt",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/robots.txt",
+							"method": "GET",
+							"param": "reporting-endpoints",
+							"attack": "",
+							"evidence": "1792483633",
+							"otherinfo": "1792483633, which evaluates to: 2026-10-20 08:07:13."
+						}
+					],
+					"count": "5",
+					"systemic": true,
+					"solution": "<p>Manually confirm that the timestamp data is not sensitive, and that the data cannot be aggregated to disclose exploitable patterns.</p>",
+					"otherinfo": "<p>1792483633, which evaluates to: 2026-10-20 08:07:13.</p>",
+					"reference": "<p>https://cwe.mitre.org/data/definitions/200.html</p>",
+					"cweid": "497",
+					"wascid": "13",
+					"sourceid": "4"
+				},
+				{
+					"pluginid": "10094",
+					"alertRef": "10094-3",
+					"alert": "Base64 Disclosure",
+					"name": "Base64 Disclosure",
+					"riskcode": "0",
+					"confidence": "2",
+					"riskdesc": "Informational (Medium)",
+					"desc": "<p>Base64 encoded data was disclosed by the application/web server. Note: in the interests of performance not all base64 strings in the response were analyzed individually, the entire response should be looked at by the analyst/security team/developer(s).</p>",
+					"instances":[ 
+						{
+							"id": "8",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "EmclT6HFkQOb6BNZS8FodhwDfeSJG1",
+							"otherinfo": "\\x0012g%O\uFFFD\u0151\\x0003\uFFFD\uFFFD\\x0013YK\uFFFDhv\\x001c\\x0003}\uFFFD\\x001b"
+						},
+						{
+							"id": "35",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/api",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/api",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "EmclT6HFkQOb6BNZS8FodhwDfeSJG1",
+							"otherinfo": "\\x0012g%O\uFFFD\u0151\\x0003\uFFFD\uFFFD\\x0013YK\uFFFDhv\\x001c\\x0003}\uFFFD\\x001b"
+						},
+						{
+							"id": "7",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/api/v1",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/api\/v1",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "EmclT6HFkQOb6BNZS8FodhwDfeSJG1",
+							"otherinfo": "\\x0012g%O\uFFFD\u0151\\x0003\uFFFD\uFFFD\\x0013YK\uFFFDhv\\x001c\\x0003}\uFFFD\\x001b"
+						},
+						{
+							"id": "68",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/favicon.ico",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/favicon.ico",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "kzyTjoZz4k41wEOQdCcBjytGo3SoLNGt8iTxbtrdLxA",
+							"otherinfo": "\uFFFD<\uFFFD\uFFFD\uFFFDs\uFFFDN5\uFFFDC\uFFFDt'\\x0001\uFFFD+F\uFFFDt\uFFFD,\u046D\uFFFD$\uFFFDn\uFFFD\uFFFD/\\x0010"
+						},
+						{
+							"id": "43",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/robots.txt",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/robots.txt",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "EmclT6HFkQOb6BNZS8FodhwDfeSJG1",
+							"otherinfo": "\\x0012g%O\uFFFD\u0151\\x0003\uFFFD\uFFFD\\x0013YK\uFFFDhv\\x001c\\x0003}\uFFFD\\x001b"
+						},
+						{
+							"id": "49",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/sitemap.xml",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/sitemap.xml",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "EmclT6HFkQOb6BNZS8FodhwDfeSJG1",
+							"otherinfo": "\\x0012g%O\uFFFD\u0151\\x0003\uFFFD\uFFFD\\x0013YK\uFFFDhv\\x001c\\x0003}\uFFFD\\x001b"
+						},
+						{
+							"id": "61",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/cdn-cgi/rum",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/cdn-cgi\/rum ()({startTime,pageloadId,eventType,nt,location,versions:{fl,js,timings},bi:{be,bev,bv},firstPaint,firstContentfulPaint,timingsV2:{nextHopProtocol,domainLookupStart,domainLookupEnd,connectStart,connectEnd,secureConnectionStart,requestStart,responseStart,responseEnd,domInteractive,domComplete,loadEventStart,loadEventEnd,finalResponseHeadersStart,firstInterimResponseStart,transferSize,decodedBodySize},siteToken,st})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "dlTkjbVeSVChZFaSdu7lYCF360ukjt3wNBStDzsQjdH2l1fVhsEIdeUW2QYlJ1Nhg8qn1bC5cRsVW9WGf9S36ln",
+							"otherinfo": "vT\u4375^IP\uFFFDdV\uFFFDv\uFFFD\uFFFD`!w\uFFFDK\uFFFD\uFFFD\uFFFD\uFFFD4\\x0014\uFFFD\\x000f;\\x0010\uFFFD\uFFFD\uFFFD\uFFFDW\u0546\uFFFD\\x0008u\uFFFD\\x0016\uFFFD\\x0006%'Sa\uFFFD\u02A7\u0570\uFFFDq\\x001b\\x0015[\u0546\u0537\uFFFDY"
+						}
+					],
+					"count": "7",
+					"systemic": false,
+					"solution": "<p>Manually confirm that the Base64 data does not leak sensitive information, and that the data cannot be aggregated/used to exploit other vulnerabilities.</p>",
+					"otherinfo": "<p>\\x0012g%O\uFFFD\u0151\\x0003\uFFFD\uFFFD\\x0013YK\uFFFDhv\\x001c\\x0003}\uFFFD\\x001b</p>",
+					"reference": "<p>https://projects.webappsec.org/w/page/13246936/Information%20Leakage</p>",
+					"cweid": "319",
+					"wascid": "13",
+					"sourceid": "4"
+				},
+				{
+					"pluginid": "10109",
+					"alertRef": "10109",
+					"alert": "Modern Web Application",
+					"name": "Modern Web Application",
+					"riskcode": "0",
+					"confidence": "2",
+					"riskdesc": "Informational (Medium)",
+					"desc": "<p>The application appears to be a modern web application. If you need to explore it automatically then the Client Spider may well be more effective than the standard one.</p>",
+					"instances":[ 
+						{
+							"id": "3",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==\" data-cf-beacon='{\"version\":\"2024.11.0\",\"token\":\"84bb2dcde33f4506b078926341d57f15\",\"r\":1,\"spa\":2}' crossorigin=\"anonymous\"></script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "30",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/api",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/api",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==\" data-cf-beacon='{\"version\":\"2024.11.0\",\"token\":\"84bb2dcde33f4506b078926341d57f15\",\"r\":1,\"spa\":2}' crossorigin=\"anonymous\"></script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "39",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/robots.txt",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/robots.txt",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==\" data-cf-beacon='{\"version\":\"2024.11.0\",\"token\":\"84bb2dcde33f4506b078926341d57f15\",\"r\":1,\"spa\":2}' crossorigin=\"anonymous\"></script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						},
+						{
+							"id": "44",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/sitemap.xml",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/sitemap.xml",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "<script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==\" data-cf-beacon='{\"version\":\"2024.11.0\",\"token\":\"84bb2dcde33f4506b078926341d57f15\",\"r\":1,\"spa\":2}' crossorigin=\"anonymous\"></script>",
+							"otherinfo": "No links have been found while there are scripts, which is an indication that this is a modern web application."
+						}
+					],
+					"count": "4",
+					"systemic": false,
+					"solution": "<p>This is an informational alert and so no changes are required.</p>",
+					"otherinfo": "<p>No links have been found while there are scripts, which is an indication that this is a modern web application.</p>",
+					"reference": "",
+					"cweid": "-1",
+					"wascid": "-1",
+					"sourceid": "4"
+				},
+				{
+					"pluginid": "10049",
+					"alertRef": "10049-1",
+					"alert": "Non-Storable Content",
+					"name": "Non-Storable Content",
+					"riskcode": "0",
+					"confidence": "2",
+					"riskdesc": "Informational (Medium)",
+					"desc": "<p>The response contents are not storable by caching components such as proxy servers. If the response does not contain sensitive, personal or user-specific information, it may benefit from being stored and cached, to improve performance.</p>",
+					"instances":[ 
+						{
+							"id": "55",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/api/v1",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/api\/v1",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "302",
+							"otherinfo": ""
+						},
+						{
+							"id": "18",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/api/v1",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/api\/v1",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "no-store",
+							"otherinfo": ""
+						}
+					],
+					"count": "2",
+					"systemic": false,
+					"solution": "<p>The content may be marked as storable by ensuring that the following conditions are satisfied:</p><p>The request method must be understood by the cache and defined as being cacheable (\"GET\", \"HEAD\", and \"POST\" are currently defined as cacheable)</p><p>The response status code must be understood by the cache (one of the 1XX, 2XX, 3XX, 4XX, or 5XX response classes are generally understood)</p><p>The \"no-store\" cache directive must not appear in the request or response header fields</p><p>For caching by \"shared\" caches such as \"proxy\" caches, the \"private\" response directive must not appear in the response</p><p>For caching by \"shared\" caches such as \"proxy\" caches, the \"Authorization\" header field must not appear in the request, unless the response explicitly allows it (using one of the \"must-revalidate\", \"public\", or \"s-maxage\" Cache-Control response directives)</p><p>In addition to the conditions above, at least one of the following conditions must also be satisfied by the response:</p><p>It must contain an \"Expires\" header field</p><p>It must contain a \"max-age\" response directive</p><p>For \"shared\" caches such as \"proxy\" caches, it must contain a \"s-maxage\" response directive</p><p>It must contain a \"Cache Control Extension\" that allows it to be cached</p><p>It must have a status code that is defined as cacheable by default (200, 203, 204, 206, 300, 301, 404, 405, 410, 414, 501).</p>",
+					"otherinfo": "",
+					"reference": "<p>https://datatracker.ietf.org/doc/html/rfc7234</p><p>https://datatracker.ietf.org/doc/html/rfc7231</p><p>https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html</p>",
+					"cweid": "524",
+					"wascid": "13",
+					"sourceid": "14"
+				},
+				{
+					"pluginid": "90005",
+					"alertRef": "90005-3",
+					"alert": "Sec-Fetch-Dest Header is Missing",
+					"name": "Sec-Fetch-Dest Header is Missing",
+					"riskcode": "0",
+					"confidence": "3",
+					"riskdesc": "Informational (High)",
+					"desc": "<p>Specifies how and where the data would be used. For instance, if the value is audio, then the requested resource must be audio data and not any other type of resource.</p>",
+					"instances":[ 
+						{
+							"id": "14",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/",
+							"method": "GET",
+							"param": "Sec-Fetch-Dest",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "13",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/api/v1",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/api\/v1",
+							"method": "GET",
+							"param": "Sec-Fetch-Dest",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						}
+					],
+					"count": "2",
+					"systemic": false,
+					"solution": "<p>Ensure that Sec-Fetch-Dest header is included in request headers.</p>",
+					"otherinfo": "",
+					"reference": "<p>https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Sec-Fetch-Dest</p>",
+					"cweid": "352",
+					"wascid": "9",
+					"sourceid": "4"
+				},
+				{
+					"pluginid": "90005",
+					"alertRef": "90005-2",
+					"alert": "Sec-Fetch-Mode Header is Missing",
+					"name": "Sec-Fetch-Mode Header is Missing",
+					"riskcode": "0",
+					"confidence": "3",
+					"riskdesc": "Informational (High)",
+					"desc": "<p>Allows to differentiate between requests for navigating between HTML pages and requests for loading resources like images, audio etc.</p>",
+					"instances":[ 
+						{
+							"id": "11",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/",
+							"method": "GET",
+							"param": "Sec-Fetch-Mode",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "12",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/api/v1",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/api\/v1",
+							"method": "GET",
+							"param": "Sec-Fetch-Mode",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						}
+					],
+					"count": "2",
+					"systemic": false,
+					"solution": "<p>Ensure that Sec-Fetch-Mode header is included in request headers.</p>",
+					"otherinfo": "",
+					"reference": "<p>https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Sec-Fetch-Mode</p>",
+					"cweid": "352",
+					"wascid": "9",
+					"sourceid": "4"
+				},
+				{
+					"pluginid": "90005",
+					"alertRef": "90005-1",
+					"alert": "Sec-Fetch-Site Header is Missing",
+					"name": "Sec-Fetch-Site Header is Missing",
+					"riskcode": "0",
+					"confidence": "3",
+					"riskdesc": "Informational (High)",
+					"desc": "<p>Specifies the relationship between request initiator's origin and target's origin.</p>",
+					"instances":[ 
+						{
+							"id": "10",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/",
+							"method": "GET",
+							"param": "Sec-Fetch-Site",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "9",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/api/v1",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/api\/v1",
+							"method": "GET",
+							"param": "Sec-Fetch-Site",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						}
+					],
+					"count": "2",
+					"systemic": false,
+					"solution": "<p>Ensure that Sec-Fetch-Site header is included in request headers.</p>",
+					"otherinfo": "",
+					"reference": "<p>https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Sec-Fetch-Site</p>",
+					"cweid": "352",
+					"wascid": "9",
+					"sourceid": "4"
+				},
+				{
+					"pluginid": "90005",
+					"alertRef": "90005-4",
+					"alert": "Sec-Fetch-User Header is Missing",
+					"name": "Sec-Fetch-User Header is Missing",
+					"riskcode": "0",
+					"confidence": "3",
+					"riskdesc": "Informational (High)",
+					"desc": "<p>Specifies if a navigation request was initiated by a user.</p>",
+					"instances":[ 
+						{
+							"id": "16",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/",
+							"method": "GET",
+							"param": "Sec-Fetch-User",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "15",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/api/v1",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/api\/v1",
+							"method": "GET",
+							"param": "Sec-Fetch-User",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						}
+					],
+					"count": "2",
+					"systemic": false,
+					"solution": "<p>Ensure that Sec-Fetch-User header is included in user initiated requests.</p>",
+					"otherinfo": "",
+					"reference": "<p>https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Sec-Fetch-User</p>",
+					"cweid": "352",
+					"wascid": "9",
+					"sourceid": "4"
+				},
+				{
+					"pluginid": "10049",
+					"alertRef": "10049-3",
+					"alert": "Storable and Cacheable Content",
+					"name": "Storable and Cacheable Content",
+					"riskcode": "0",
+					"confidence": "2",
+					"riskdesc": "Informational (Medium)",
+					"desc": "<p>The response contents are storable by caching components such as proxy servers, and may be retrieved directly from the cache, rather than from the origin server by the caching servers, in response to similar requests from other users. If the response data is sensitive, personal or user-specific, this may result in sensitive information being leaked. In some cases, this may even result in a user gaining complete control of the session of another user, depending on the configuration of the caching components in use in their environment. This is primarily an issue where \"shared\" caching servers such as \"proxy\" caches are configured on the local network. This configuration is typically found in corporate or educational environments, for instance.</p>",
+					"instances":[ 
+						{
+							"id": "17",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": "In the absence of an explicitly specified caching lifetime directive in the response, a liberal lifetime heuristic of 1 year was assumed. This is permitted by rfc7234."
+						},
+						{
+							"id": "36",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/api",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/api",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": "In the absence of an explicitly specified caching lifetime directive in the response, a liberal lifetime heuristic of 1 year was assumed. This is permitted by rfc7234."
+						},
+						{
+							"id": "46",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/robots.txt",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/robots.txt",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "max-age=14400",
+							"otherinfo": ""
+						},
+						{
+							"id": "50",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/sitemap.xml",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/sitemap.xml",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": "In the absence of an explicitly specified caching lifetime directive in the response, a liberal lifetime heuristic of 1 year was assumed. This is permitted by rfc7234."
+						},
+						{
+							"id": "63",
+							"uri": "https://eoffice-be-dev.8chickensoffice.me/cdn-cgi/rum",
+							"nodeName": "https:\/\/eoffice-be-dev.8chickensoffice.me\/cdn-cgi\/rum ()({startTime,pageloadId,eventType,nt,location,versions:{fl,js,timings},bi:{be,bev,bv},firstPaint,firstContentfulPaint,timingsV2:{nextHopProtocol,domainLookupStart,domainLookupEnd,connectStart,connectEnd,secureConnectionStart,requestStart,responseStart,responseEnd,domInteractive,domComplete,loadEventStart,loadEventEnd,finalResponseHeadersStart,firstInterimResponseStart,transferSize,decodedBodySize},siteToken,st})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": "In the absence of an explicitly specified caching lifetime directive in the response, a liberal lifetime heuristic of 1 year was assumed. This is permitted by rfc7234."
+						}
+					],
+					"count": "5",
+					"systemic": true,
+					"solution": "<p>Validate that the response does not contain sensitive, personal or user-specific information. If it does, consider the use of the following HTTP response headers, to limit, or prevent the content being stored and retrieved from the cache by another user:</p><p>Cache-Control: no-cache, no-store, must-revalidate, private</p><p>Pragma: no-cache</p><p>Expires: 0</p><p>This configuration directs both HTTP 1.0 and HTTP 1.1 compliant caching servers to not store the response, and to not retrieve the response (without validation) from the cache, in response to a similar request.</p>",
+					"otherinfo": "<p>In the absence of an explicitly specified caching lifetime directive in the response, a liberal lifetime heuristic of 1 year was assumed. This is permitted by rfc7234.</p>",
+					"reference": "<p>https://datatracker.ietf.org/doc/html/rfc7234</p><p>https://datatracker.ietf.org/doc/html/rfc7231</p><p>https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html</p>",
+					"cweid": "524",
+					"wascid": "13",
+					"sourceid": "4"
+				}
+			]
+		}
+	],
+	"sequences":[
+	]
+
+}

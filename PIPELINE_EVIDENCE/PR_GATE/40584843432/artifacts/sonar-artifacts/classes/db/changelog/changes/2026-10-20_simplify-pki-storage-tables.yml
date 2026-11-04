@@ -1,0 +1,32 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2026-10-20-simplify-pki-storage-tables
+      author: eoffice
+      preConditions:
+        - onFail: HALT
+        - sqlCheck:
+            expectedResult: 0
+            sql: SELECT (SELECT COUNT(*) FROM pki_ca) + (SELECT COUNT(*) FROM pki_user_keystores) + (SELECT COUNT(*) FROM pki_revocations)
+      changes:
+        - dropTable:
+            tableName: pki_revocations
+        - sql:
+            sql: |
+              ALTER TABLE pki_ca DROP CONSTRAINT ck_pki_ca_dates;
+              ALTER TABLE pki_ca DROP CONSTRAINT ck_pki_ca_enc_version;
+              ALTER TABLE pki_user_keystores DROP CONSTRAINT ck_pki_user_dates;
+              ALTER TABLE pki_user_keystores DROP CONSTRAINT ck_pki_user_enc_version;
+        - dropColumn:
+            tableName: pki_ca
+            columns:
+              - column: { name: encryption_version }
+              - column: { name: not_before }
+              - column: { name: not_after }
+              - column: { name: updated_at }
+        - dropColumn:
+            tableName: pki_user_keystores
+            columns:
+              - column: { name: encryption_version }
+              - column: { name: not_before }
+              - column: { name: not_after }
+              - column: { name: updated_at }

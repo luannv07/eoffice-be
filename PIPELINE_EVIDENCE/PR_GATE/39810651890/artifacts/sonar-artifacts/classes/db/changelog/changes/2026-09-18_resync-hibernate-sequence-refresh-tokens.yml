@@ -1,0 +1,50 @@
+databaseChangeLog:
+  # Fix login 500: duplicate key refresh_tokens_pkey (id=11651).
+  # hibernate_sequence (allocationSize=50, shared by 16 tables) drifted behind
+  # max(id) after explicit-id seeds and a documents-only realignment, so the
+  # next refresh_tokens insert reused an existing id. Resync to max+100.
+  - changeSet:
+      id: 2026-09-18-resync-hibernate-sequence-pg
+      author: eoffice-dev
+      dbms: postgresql
+      preConditions:
+        - onFail: MARK_RAN
+        - sequenceExists:
+            sequenceName: hibernate_sequence
+      changes:
+        - sql:
+            sql: |-
+              SELECT setval('hibernate_sequence', GREATEST(
+                (SELECT COALESCE(MAX(id), 0) FROM user_logins),
+                (SELECT COALESCE(MAX(id), 0) FROM user_infos),
+                (SELECT COALESCE(MAX(id), 0) FROM refresh_tokens),
+                (SELECT COALESCE(MAX(id), 0) FROM password_reset_tokens),
+                (SELECT COALESCE(MAX(id), 0) FROM org_nodes),
+                (SELECT COALESCE(MAX(id), 0) FROM dictionary_items),
+                (SELECT COALESCE(MAX(id), 0) FROM documents),
+                (SELECT COALESCE(MAX(id), 0) FROM document_versions),
+                (SELECT COALESCE(MAX(id), 0) FROM document_attachments),
+                (SELECT COALESCE(MAX(id), 0) FROM document_approval_requests),
+                (SELECT COALESCE(MAX(id), 0) FROM document_process_logs),
+                (SELECT COALESCE(MAX(id), 0) FROM position_assignments),
+                (SELECT COALESCE(MAX(id), 0) FROM position_degs),
+                (SELECT COALESCE(MAX(id), 0) FROM position_permissions),
+                (SELECT COALESCE(MAX(id), 0) FROM role_permissions),
+                (SELECT COALESCE(MAX(id), 0) FROM file_storage_metadata)
+              ) + 100, false)
+      rollback:
+        # Sequence advance is intentionally not rolled back: restoring the old
+        # value would reintroduce duplicate-key collisions.
+        - sql:
+            sql: SELECT 1
+
+  - changeSet:
+      id: 2026-09-18-resync-hibernate-sequence-h2
+      author: eoffice-dev
+      dbms: h2
+      changes:
+        - sql:
+            sql: ALTER SEQUENCE hibernate_sequence RESTART WITH 20000
+      rollback:
+        - sql:
+            sql: ALTER SEQUENCE hibernate_sequence RESTART WITH 10000

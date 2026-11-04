@@ -1,0 +1,63 @@
+databaseChangeLog:
+  # BE-04: Add document_book_id foreign key column to documents table
+  # Allows direct lookup of assigned documents per document book.
+  - changeSet:
+      id: 2026-10-10-add-document-book-id-to-documents
+      author: eoffice-dev
+      validCheckSum:
+        - ANY
+      changes:
+        - addColumn:
+            tableName: documents
+            columns:
+              - column:
+                  name: document_book_id
+                  type: BIGINT
+                  remarks: Sổ văn bản đã cấp số hiệu cho văn bản này (FK document_books)
+        - createIndex:
+            tableName: documents
+            indexName: idx_documents_document_book_id
+            columns:
+              - column:
+                  name: document_book_id
+
+  - changeSet:
+      id: 2026-10-10-backfill-document-book-id-pg
+      author: eoffice-dev
+      dbms: postgresql
+      validCheckSum:
+        - ANY
+      changes:
+        - sql:
+            sql: |-
+              UPDATE documents d
+              SET document_book_id = b.id
+              FROM document_books b, dictionary_items di
+              WHERE d.official_number IS NOT NULL
+                AND d.document_book_id IS NULL
+                AND di.id = b.document_type_id
+                AND UPPER(d.document_type_cd) = UPPER(di.item_cd)
+                AND (d.issuing_org_node_id = b.org_node_id OR d.issuing_org_id = b.org_node_id);
+      rollback:
+        - sql:
+            sql: SELECT 1
+
+  - changeSet:
+      id: 2026-10-10-backfill-document-book-id-h2
+      author: eoffice-dev
+      dbms: h2
+      changes:
+        - sql:
+            sql: |-
+              UPDATE documents d
+              SET document_book_id = (
+                SELECT b.id FROM document_books b
+                JOIN dictionary_items di ON di.id = b.document_type_id
+                WHERE UPPER(d.document_type_cd) = UPPER(di.item_cd)
+                  AND (d.issuing_org_node_id = b.org_node_id OR d.issuing_org_id = b.org_node_id)
+                LIMIT 1
+              )
+              WHERE d.official_number IS NOT NULL AND d.document_book_id IS NULL;
+      rollback:
+        - sql:
+            sql: SELECT 1

@@ -1,0 +1,114 @@
+spring:
+  config:
+    import:
+      - optional:file:.env.staging[.properties]
+      - optional:file:.env.deploy[.properties]
+  application:
+    name: eoffice-be
+    version: "0.0.1-SNAPSHOT"
+  jackson:
+    time-zone: UTC
+    deserialization:
+      fail-on-unknown-properties: false
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 50
+          time_zone: UTC
+        order_inserts: true
+        order_updates: true
+        jdbc.batch_versioned_data: true
+        generate_statistics: false
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:staging}
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/master.yml
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS_ENABLE:true}
+  logging:
+    level:
+      liquibase: INFO
+      root: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+eoffice:
+  timezone: ${APP_TIMEZONE:Asia/Ho_Chi_Minh}
+  storage:
+    base-path: ${STORAGE_BASE_PATH:./uploads}
+  pki:
+    encryption:
+      key: ${PKI_ENCRYPTION_KEY:}
+      key-id: ${PKI_ENCRYPTION_KEY_ID:}
+    ca-keystore-path: ${PKI_CA_KEYSTORE_PATH:./uploads/keystores/ca/ca.p12}
+    ca-cert-path: ${PKI_CA_CERT_PATH:./uploads/keystores/ca/ca.crt}
+    user-keystores-dir: ${PKI_USER_KEYSTORES_DIR:./uploads/keystores/users}
+    revoked-path: ${PKI_REVOKED_PATH:./uploads/keystores/ca/revoked.json}
+    default-keystore-password: ${DEMO_KS_PASSWORD:changeit}
+  jwt:
+    issuer: eoffice-be
+    secret-key: ${JWT_SECRET}
+    access-token-ttl: ${JWT_ACCESS_TTL:PT15M}
+    refresh-token-ttl: ${JWT_REFRESH_TTL:P30D}
+    cookie-name: refresh_token
+    cookie-path: ${COOKIE_PATH:/auth}
+    cookie-secure: ${COOKIE_SECURE:false}
+    cookie-same-site: Strict
+    allowed-origins: ${JWT_ALLOWED_ORIGINS:}
+  upload:
+    dir: ${UPLOAD_DIR:/var/eoffice/uploads/documents}
+    max-file-size-bytes: 26214400
+    allowed-extensions:
+      - docx
+      - pdf
+      - DOCX
+      - PDF
+  mail:
+    from: ${MAIL_FROM:no-reply@eoffice.local}
+  password-reset:
+    token-ttl-minutes: ${PASSWORD_RESET_TOKEN_TTL_MINUTES:15}
+    reset-password-url: ${FRONTEND_RESET_PASSWORD_URL:http://localhost:5173/reset-password}
+  auth:
+    max-failed-attempts: ${MAX_FAILED_ATTEMPTS:5}
+    lockout-minutes: ${LOCKOUT_MINUTES:30}
+  rate-limit:
+    endpoint-limit: ${RATE_LIMIT_ENDPOINT_LIMIT:10}
+    endpoint-window-seconds: ${RATE_LIMIT_ENDPOINT_WINDOW_SECONDS:300}
+    maximum-size: ${RATE_LIMIT_MAXIMUM_SIZE:10000}
+
+file:
+  storage:
+    provider:
+      active: ${FILE_STORAGE_PROVIDER_ACTIVE:telegram}
+      telegram:
+        chatbot-http-api: ${FILE_STORAGE_PROVIDER_TELEGRAM_CHATBOT_HTTP_API:${TELEGRAM_BOT_TOKEN:}}
+        channel-id: ${FILE_STORAGE_PROVIDER_TELEGRAM_CHANNEL_ID:${TELEGRAM_CHANNEL_ID:}}
+      filesystem:
+        dir: ${FILE_STORAGE_LOCAL_DIR:${eoffice.upload.dir:/var/eoffice/uploads/documents}}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha

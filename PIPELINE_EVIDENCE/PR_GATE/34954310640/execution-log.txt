@@ -1,0 +1,1132 @@
+﻿AI Code Review	UNKNOWN STEP	∩╗┐2026-09-15T09:45:59.1275839Z Current runner version: '2.337.0'
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1306982Z ##[group]Runner Image Provisioner
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1308086Z Hosted Compute Agent
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1308960Z Version: 20260828.587
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1309986Z Commit: abac92662cab4cc7352de4f9f9d2e2419aad9c29
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1311018Z Build Date: 2026-08-28T16:44:25Z
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1311896Z Worker ID: {9e63b478-78ee-49fd-8fe2-04a376450469}
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1312878Z Azure Region: northcentralus
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1313673Z ##[endgroup]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1315439Z ##[group]Operating System
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1316344Z Ubuntu
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1317110Z 24.04.5
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1317777Z LTS
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1318490Z ##[endgroup]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1319228Z ##[group]Runner Image
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1320289Z Image: ubuntu-24.04
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1320993Z Version: 20260907.300.1
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1322515Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260907.300/images/ubuntu/Ubuntu2404-Readme.md
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1324401Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260907.300
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1325574Z ##[endgroup]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1327126Z ##[group]GITHUB_TOKEN Permissions
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1329308Z Contents: read
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1330436Z Metadata: read
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1331174Z PullRequests: write
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1332095Z ##[endgroup]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1334474Z Secret source: Actions
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1335766Z Cache mode: write
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1336660Z Prepare workflow directory
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1784451Z Prepare all required actions
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.1860202Z Getting action download info
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.4579587Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.5862015Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.8131657Z Complete job name: AI Code Review
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.8958439Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.8968107Z ##[group]Run actions/checkout@v4
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.8968993Z with:
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.8969539Z   fetch-depth: 0
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.8970405Z   repository: luannv07/eoffice-be
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.8974391Z   token: ***
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.8974933Z   ssh-strict: true
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.8975480Z   ssh-user: git
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.8976027Z   persist-credentials: true
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.8976618Z   clean: true
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.8977172Z   sparse-checkout-cone-mode: true
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.8977788Z   fetch-tags: false
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.8978332Z   show-progress: true
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.8978882Z   lfs: false
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.8979457Z   submodules: false
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.8980175Z   set-safe-directory: true
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.8980808Z   allow-unsafe-pr-checkout: false
+AI Code Review	UNKNOWN STEP	2026-09-15T09:45:59.8981725Z ##[endgroup]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.0239252Z Syncing repository: luannv07/eoffice-be
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.0242806Z ##[group]Getting Git version info
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.0244136Z Working directory is '/home/runner/work/eoffice-be/eoffice-be'
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.0247945Z [command]/usr/bin/git version
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.0423257Z git version 2.55.0
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.0435895Z ##[endgroup]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.0448747Z Temporarily overriding HOME='/home/runner/work/_temp/64f46c0c-bdfe-4cfe-9478-b8668b007455' before making global git config changes
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.0452635Z Adding repository directory to the temporary git global config as a safe directory
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.0458127Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/eoffice-be/eoffice-be
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.0636664Z Deleting the contents of '/home/runner/work/eoffice-be/eoffice-be'
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.0639180Z ##[group]Initializing the repository
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.0640909Z [command]/usr/bin/git init /home/runner/work/eoffice-be/eoffice-be
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.0802903Z hint: Using 'master' as the name for the initial branch. This default branch name
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.0806803Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.0811447Z hint: to use in all of your new repositories, which will suppress this warning,
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.0815316Z hint: call:
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.0833739Z hint:
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.1027234Z hint: 	git config --global init.defaultBranch <name>
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.1029187Z hint:
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.1032203Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.1034445Z hint: 'development'. The just-created branch can be renamed via this command:
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.1036964Z hint:
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.1038529Z hint: 	git branch -m <name>
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.1041235Z hint:
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.1042954Z hint: Disable this message with "git config set advice.defaultBranchName false"
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.1046331Z Initialized empty Git repository in /home/runner/work/eoffice-be/eoffice-be/.git/
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.1051714Z [command]/usr/bin/git remote add origin https://github.com/luannv07/eoffice-be
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.1057499Z ##[endgroup]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.1059524Z ##[group]Disabling automatic garbage collection
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.1062851Z [command]/usr/bin/git config --local gc.auto 0
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.1069537Z ##[endgroup]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.1072022Z ##[group]Setting up auth
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.1074724Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.1081822Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.2765599Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.2769484Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.2775219Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.2778718Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.2782816Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.2786518Z ##[endgroup]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.2787988Z ##[group]Fetching the repository
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:00.2791002Z [command]/usr/bin/git -c protocol.version=2 fetch --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/* +61ce268805d4e2729c5cfb383e368dcf1511d93f:refs/remotes/pull/35/merge
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0533055Z From https://github.com/luannv07/eoffice-be
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0536095Z  * [new branch]      H╞░ß╗¢ng-dß║½n-chß║íy-dß╗▒-├ín           -> origin/H╞░ß╗¢ng-dß║½n-chß║íy-dß╗▒-├ín
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0549423Z  * [new branch]      chore/test                               -> origin/chore/test
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0552091Z  * [new branch]      dev                                      -> origin/dev
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0554325Z  * [new branch]      feat/auth                                -> origin/feat/auth
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0556607Z  * [new branch]      feat/base                                -> origin/feat/base
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0559086Z  * [new branch]      feat/dict                                -> origin/feat/dict
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0564756Z  * [new branch]      feat/document                            -> origin/feat/document
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0567715Z  * [new branch]      feat/document-uc15-uc16-uc17             -> origin/feat/document-uc15-uc16-uc17
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0571196Z  * [new branch]      feat/document-workflow                   -> origin/feat/document-workflow
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0574146Z  * [new branch]      feat/jwt                                 -> origin/feat/jwt
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0575676Z  * [new branch]      feat/org-node                            -> origin/feat/org-node
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0577773Z  * [new branch]      feat/test                                -> origin/feat/test
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0579470Z  * [new branch]      feat/test-ai-bot                         -> origin/feat/test-ai-bot
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0582488Z  * [new branch]      feat/test-ai-bot-v2                      -> origin/feat/test-ai-bot-v2
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0585620Z  * [new branch]      feat/test-ai-bot-v3                      -> origin/feat/test-ai-bot-v3
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0588790Z  * [new branch]      feat/test-ai-bot-v4                      -> origin/feat/test-ai-bot-v4
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0593038Z  * [new branch]      feat/uc08-uc11-document-management       -> origin/feat/uc08-uc11-document-management
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0602732Z  * [new branch]      feat/users                               -> origin/feat/users
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0606540Z  * [new branch]      hotfix/restore-dev-branch                -> origin/hotfix/restore-dev-branch
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0610650Z  * [new branch]      main                                     -> origin/main
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0613714Z  * [new branch]      so_van_ban                               -> origin/so_van_ban
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0616655Z  * [new ref]         61ce268805d4e2729c5cfb383e368dcf1511d93f -> pull/35/merge
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0624591Z ##[endgroup]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0627727Z ##[group]Determining the checkout info
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0631542Z ##[endgroup]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0634772Z [command]/usr/bin/git sparse-checkout disable
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0643256Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0670703Z ##[group]Checking out the ref
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0674233Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/35/merge
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0955519Z Note: switching to 'refs/remotes/pull/35/merge'.
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0957545Z 
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0959491Z You are in 'detached HEAD' state. You can look around, make experimental
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0965681Z changes and commit them, and you can discard any commits you make in this
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0968463Z state without impacting any branches by switching back to a branch.
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0970372Z 
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0971552Z If you want to create a new branch to retain commits you create, you may
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0974354Z do so (now or later) by using -c with the switch command. Example:
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0975828Z 
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0976664Z   git switch -c <new-branch-name>
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0977770Z 
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0978597Z Or undo this operation with:
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0979651Z 
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0980770Z   git switch -
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0981685Z 
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0983004Z Turn off this advice by setting config variable advice.detachedHead to false
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0984672Z 
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0986227Z HEAD is now at 61ce268 Merge 12e5193f933a111ece1f541665fd3dc5ac40fc1e into a88094da3a8c4067ed0397d52325cc5695383c9f
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.0994917Z ##[endgroup]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.1027829Z [command]/usr/bin/git log -1 --format=%H
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.1060131Z 61ce268805d4e2729c5cfb383e368dcf1511d93f
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.1422872Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.1426809Z ##[group]Run actions/setup-node@v4
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.1427937Z with:
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.1428911Z   node-version: 24
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.1430377Z   always-auth: false
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.1431474Z   check-latest: false
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.1436486Z   token: ***
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.1437501Z ##[endgroup]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.3338234Z Found in cache @ /opt/hostedtoolcache/node/24.20.0/x64
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.3344927Z (node:2030) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.3348774Z ##[group]Environment details
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.3357561Z (Use `node --trace-deprecation ...` to show where the warning was created)
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.9989335Z node: v24.20.0
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.9994020Z npm: 11.19.0
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.9995267Z yarn: 1.22.22
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:01.9997592Z ##[endgroup]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.0302941Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.0310058Z ##[group]Run actions/checkout@v4
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.0310853Z with:
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.0311443Z   repository: luannv07/eoffice-ai-review
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.0312355Z   path: eoffice-ai-review
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.0313559Z   token: ***
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.0314124Z   ssh-strict: true
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.0314723Z   ssh-user: git
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.0315322Z   persist-credentials: true
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.0316036Z   clean: true
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.0316651Z   sparse-checkout-cone-mode: true
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.0317440Z   fetch-depth: 1
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.0318012Z   fetch-tags: false
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.0318625Z   show-progress: true
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.0319284Z   lfs: false
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.0320119Z   submodules: false
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.0320757Z   set-safe-directory: true
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.0321532Z   allow-unsafe-pr-checkout: false
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.0322325Z ##[endgroup]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1372418Z Syncing repository: luannv07/eoffice-ai-review
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1378679Z ##[group]Getting Git version info
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1394255Z Working directory is '/home/runner/work/eoffice-be/eoffice-be/eoffice-ai-review'
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1441105Z [command]/usr/bin/git version
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1487735Z git version 2.55.0
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1544018Z ##[endgroup]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1551442Z Temporarily overriding HOME='/home/runner/work/_temp/05bc52c0-df5f-4949-9677-2b86bcf099a4' before making global git config changes
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1574982Z Adding repository directory to the temporary git global config as a safe directory
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1580588Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/eoffice-be/eoffice-be/eoffice-ai-review
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1651702Z ##[group]Initializing the repository
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1662367Z [command]/usr/bin/git init /home/runner/work/eoffice-be/eoffice-be/eoffice-ai-review
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1716807Z hint: Using 'master' as the name for the initial branch. This default branch name
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1726976Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1730860Z hint: to use in all of your new repositories, which will suppress this warning,
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1733373Z hint: call:
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1734446Z hint:
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1736003Z hint: 	git config --global init.defaultBranch <name>
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1737833Z hint:
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1740110Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1743630Z hint: 'development'. The just-created branch can be renamed via this command:
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1746026Z hint:
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1747196Z hint: 	git branch -m <name>
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1748556Z hint:
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1751047Z hint: Disable this message with "git config set advice.defaultBranchName false"
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1756919Z Initialized empty Git repository in /home/runner/work/eoffice-be/eoffice-be/eoffice-ai-review/.git/
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1763888Z [command]/usr/bin/git remote add origin https://github.com/luannv07/eoffice-ai-review
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1806655Z ##[endgroup]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1809049Z ##[group]Disabling automatic garbage collection
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1832800Z [command]/usr/bin/git config --local gc.auto 0
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1896906Z ##[endgroup]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1900276Z ##[group]Setting up auth
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1903127Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.1960999Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.2377375Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.2449168Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.2905964Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.3005080Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.3447564Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.3501002Z ##[endgroup]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.3502417Z ##[group]Determining the default branch
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.3503697Z Retrieving the default branch name
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.6541474Z Default branch 'main'
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.6561312Z ##[endgroup]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.6562806Z ##[group]Fetching the repository
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:02.6581965Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +refs/heads/main:refs/remotes/origin/main
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:03.1786665Z From https://github.com/luannv07/eoffice-ai-review
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:03.1800753Z  * [new branch]      main       -> origin/main
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:03.1835328Z ##[endgroup]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:03.1860843Z ##[group]Determining the checkout info
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:03.1861840Z ##[endgroup]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:03.1862539Z [command]/usr/bin/git sparse-checkout disable
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:03.1878984Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:03.1922425Z ##[group]Checking out the ref
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:03.1924313Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:03.1987160Z Switched to a new branch 'main'
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:03.1988410Z branch 'main' set up to track 'origin/main'.
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:03.1992595Z ##[endgroup]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:03.2051829Z [command]/usr/bin/git log -1 --format=%H
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:03.2078693Z 4af5f4c1fab66533ff45d376e9ee1043af81371e
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:03.2254797Z ##[group]Run npm --prefix eoffice-ai-review install
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:03.2255350Z ^[[36;1mnpm --prefix eoffice-ai-review install^[[0m
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:03.2306468Z shell: /usr/bin/bash -e {0}
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:03.2306796Z ##[endgroup]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.7971194Z 
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.7972592Z added 37 packages, and audited 38 packages in 2s
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.7979333Z 
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.7981091Z found 0 vulnerabilities
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.8459321Z ##[group]Run node \
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.8459652Z ^[[36;1mnode \^[[0m
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.8460538Z ^[[36;1m  -r ./eoffice-ai-review/node_modules/ts-node/register \^[[0m
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.8460985Z ^[[36;1m  ./eoffice-ai-review/ai_service.ts^[[0m
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.8496842Z shell: /usr/bin/bash -e {0}
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.8497134Z env:
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.8497579Z   GROQ_API_KEYS: ***
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.8497898Z   GROQ_MODELS: ***
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.8498393Z   OPENROUTER_API_KEYS: ***
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.8498698Z   OPENROUTER_MODELS: ***
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.8499109Z   GEMINI_API_KEYS: ***
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.8500674Z   GEMINI_MODELS: ***
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.8501374Z   SEVEN_TEEN_WTF_API_KEYS: ***
+AI Code Review	UNKNOWN STEP	
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.8502324Z   SEVEN_TEEN_WTF_MODELS: ***
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.8503201Z   HY3_API_KEYS: ***
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.8503499Z   HY3_MODELS: ***
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.8503751Z   PR_NUMBER: 35
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.8504018Z   REPO_OWNER: luannv07
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.8504310Z   REPO_NAME: eoffice-be
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.8504618Z   COMMIT_SHA: 12e5193f933a111ece1f541665fd3dc5ac40fc1e
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.8505037Z   GITHUB_BASE_SHA: d9a8237c4fd1c5c0a790fa1e40f4c1fc8aebfac2
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.8505417Z   GITHUB_EVENT_ACTION: synchronize
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.8505727Z   GITHUB_BOT_LOGIN: github-actions[bot]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.8508458Z   GITHUB_TOKEN: ***
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:04.8508719Z ##[endgroup]
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:05.2709405Z [BOOT] Starting AI DevSecOps reviewer...
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:05.6899283Z [GIT] Diff mode=incremental-checkpoint from=8aad729ca5eb64d78f24e237effbb8e44dbdcd50 to=12e5193f933a111ece1f541665fd3dc5ac40fc1e
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:05.7029384Z [SCAN] Reviewing file: src/main/java/vn/edu/epu/eoffice_be/service/impl/DocumentWorkflowServiceImpl.java
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:05.7083905Z [AI] Using Hy3 model=qwen3.8-flash key=sk-4***zdsu for src/main/java/vn/edu/epu/eoffice_be/service/impl/DocumentWorkflowServiceImpl.java
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:05.7097098Z [SCAN] Reviewing file: src/test/java/vn/edu/epu/eoffice_be/service/DocumentWorkflowServiceTest.java
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:05.7129520Z [AI] Using Hy3 model=qwen3.8-flash key=sk-6***quf2 for src/test/java/vn/edu/epu/eoffice_be/service/DocumentWorkflowServiceTest.java
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:28.7692803Z ##[error]The operation was canceled.
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:28.7799905Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:28.7801252Z Post job cleanup.
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:28.8791705Z [command]/usr/bin/git version
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:28.8880372Z git version 2.55.0
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:28.8978027Z Temporarily overriding HOME='/home/runner/work/_temp/0509d578-0f3c-4f8b-ab3f-a11087548827' before making global git config changes
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:28.9003609Z Adding repository directory to the temporary git global config as a safe directory
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:28.9021956Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/eoffice-be/eoffice-be/eoffice-ai-review
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:28.9070888Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:28.9112663Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:28.9414083Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:28.9460499Z http.https://github.com/.extraheader
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:28.9489470Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:28.9563368Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:28.9977154Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:29.0032144Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:29.0617230Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:29.0618566Z Post job cleanup.
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:29.1640670Z [command]/usr/bin/git version
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:29.1693534Z git version 2.55.0
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:29.1752885Z Temporarily overriding HOME='/home/runner/work/_temp/77b73fdb-bd20-44b9-b11d-e9618dbbe44d' before making global git config changes
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:29.1754711Z Adding repository directory to the temporary git global config as a safe directory
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:29.1756299Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/eoffice-be/eoffice-be
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:29.1830900Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:29.1880559Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:29.2262340Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:29.2304409Z http.https://github.com/.extraheader
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:29.2311295Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:29.2385963Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:29.2903165Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:29.3010740Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:29.3775622Z Cleaning up orphan processes
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:29.3999029Z Terminate orphan process: pid (2188) (MainThread)
+AI Code Review	UNKNOWN STEP	2026-09-15T09:46:29.4031292Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	∩╗┐2026-09-15T09:45:59.1427782Z Current runner version: '2.337.0'
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1455855Z ##[group]Runner Image Provisioner
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1456875Z Hosted Compute Agent
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1457510Z Version: 20260828.587
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1458279Z Commit: abac92662cab4cc7352de4f9f9d2e2419aad9c29
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1459176Z Build Date: 2026-08-28T16:44:25Z
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1459928Z Worker ID: {00c441e8-5f53-4a2b-bb44-a61af036e41c}
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1460812Z Azure Region: northcentralus
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1461498Z ##[endgroup]
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1463586Z ##[group]Operating System
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1464412Z Ubuntu
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1465015Z 24.04.5
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1465595Z LTS
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1466151Z ##[endgroup]
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1466756Z ##[group]Runner Image
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1467528Z Image: ubuntu-24.04
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1468139Z Version: 20260907.300.1
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1469539Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260907.300/images/ubuntu/Ubuntu2404-Readme.md
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1471363Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260907.300
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1472852Z ##[endgroup]
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1474107Z ##[group]GITHUB_TOKEN Permissions
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1476301Z Contents: read
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1476951Z Metadata: read
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1477620Z PullRequests: write
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1478304Z ##[endgroup]
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1480511Z Secret source: Actions
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1481850Z Cache mode: write
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1482641Z Prepare workflow directory
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.1970710Z Prepare all required actions
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.2042730Z Getting action download info
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.4773124Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.6166086Z Download action repository 'aquasecurity/trivy-action@v0.25.0' (SHA:f781cce5aab226378ee181d764ab90ea0be3cdd8)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:45:59.9224347Z Download action repository 'trufflesecurity/trufflehog@main' (SHA:5a6944e878348ba138c91a3715477d85341e206d)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:01.4944765Z Complete job name: Security Scan (Trivy + TruffleHog)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:01.5465422Z ##[group]Build container for action use: '/home/runner/work/_actions/aquasecurity/trivy-action/v0.25.0/Dockerfile'.
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:01.5613699Z ##[command]/usr/bin/docker build -t 3fa7b6:519b09bdda464972ace3f4de9aa1aa9c -f "/home/runner/work/_actions/aquasecurity/trivy-action/v0.25.0/Dockerfile" "/home/runner/work/_actions/aquasecurity/trivy-action/v0.25.0"
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.2056258Z #0 building with "default" instance using docker driver
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.2072495Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.2119840Z #1 [internal] load build definition from Dockerfile
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.2132934Z #1 transferring dockerfile: 194B done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.2153385Z #1 DONE 0.0s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.2156178Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.2171397Z #2 [internal] load metadata for ghcr.io/aquasecurity/trivy:0.56.1
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.5237250Z #2 DONE 0.5s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.6444263Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.6463425Z #3 [internal] load .dockerignore
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.6477860Z #3 transferring context: 2B done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.6479989Z #3 DONE 0.0s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.6481041Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.6482142Z #4 [internal] load build context
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.6484296Z #4 transferring context: 5.71kB done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.6486515Z #4 DONE 0.0s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.6487560Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.6489688Z #5 [1/4] FROM ghcr.io/aquasecurity/trivy:0.56.1@sha256:c42bb3221509b0a9fa2291cd79a3a818b30a172ab87e9aac8a43997a5b56f293
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.6494375Z #5 resolve ghcr.io/aquasecurity/trivy:0.56.1@sha256:c42bb3221509b0a9fa2291cd79a3a818b30a172ab87e9aac8a43997a5b56f293 done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.6498564Z #5 extracting sha256:43c4264eed91be63b206e17d93e75256a6097070ce643c5e8f0379998b44f170
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.6505006Z #5 sha256:c42bb3221509b0a9fa2291cd79a3a818b30a172ab87e9aac8a43997a5b56f293 1.36kB / 1.36kB done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.6509607Z #5 sha256:fa9a2d2a839e69bfc0e774e885c526b5db20dc1feba5bcd1bfb59e51e7855ae0 1.16kB / 1.16kB done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.6514749Z #5 sha256:f232754b5abf1c9362c5437493560df8f9e861331443de0f29d683c3bfc6a8c3 1.99kB / 1.99kB done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.6520004Z #5 sha256:43c4264eed91be63b206e17d93e75256a6097070ce643c5e8f0379998b44f170 3.62MB / 3.62MB 0.1s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.6525009Z #5 sha256:958beee14847bc3328b5be6f148d98fb1e43ecff6c7b16268036ddfba5a3a8a2 0B / 6.17MB 0.1s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.6529736Z #5 sha256:adc4069212422cd97f7371b47695154cd50b4833d3550f60ccec8af735819f7f 0B / 40.62MB 0.1s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.6534498Z #5 sha256:e1d9543056a113ade7e89bc432ff429390d92ef533e163410790230a8e6e5889 0B / 4.42kB 0.1s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.7466236Z #5 extracting sha256:43c4264eed91be63b206e17d93e75256a6097070ce643c5e8f0379998b44f170 0.1s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.7475959Z #5 sha256:958beee14847bc3328b5be6f148d98fb1e43ecff6c7b16268036ddfba5a3a8a2 6.17MB / 6.17MB 0.2s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.7485077Z #5 sha256:e1d9543056a113ade7e89bc432ff429390d92ef533e163410790230a8e6e5889 4.42kB / 4.42kB 0.2s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.9521921Z #5 sha256:958beee14847bc3328b5be6f148d98fb1e43ecff6c7b16268036ddfba5a3a8a2 6.17MB / 6.17MB 0.2s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.9526624Z #5 sha256:adc4069212422cd97f7371b47695154cd50b4833d3550f60ccec8af735819f7f 20.97MB / 40.62MB 0.4s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:02.9537115Z #5 extracting sha256:958beee14847bc3328b5be6f148d98fb1e43ecff6c7b16268036ddfba5a3a8a2
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:03.1448500Z #5 sha256:adc4069212422cd97f7371b47695154cd50b4833d3550f60ccec8af735819f7f 31.46MB / 40.62MB 0.6s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:03.1454723Z #5 extracting sha256:958beee14847bc3328b5be6f148d98fb1e43ecff6c7b16268036ddfba5a3a8a2 0.2s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:03.3518988Z #5 sha256:adc4069212422cd97f7371b47695154cd50b4833d3550f60ccec8af735819f7f 40.62MB / 40.62MB 0.8s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:03.5478123Z #5 sha256:adc4069212422cd97f7371b47695154cd50b4833d3550f60ccec8af735819f7f 40.62MB / 40.62MB 1.0s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:05.9753109Z #5 extracting sha256:adc4069212422cd97f7371b47695154cd50b4833d3550f60ccec8af735819f7f
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:06.8374042Z #5 extracting sha256:adc4069212422cd97f7371b47695154cd50b4833d3550f60ccec8af735819f7f 0.7s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:07.1071158Z #5 extracting sha256:e1d9543056a113ade7e89bc432ff429390d92ef533e163410790230a8e6e5889
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:07.3102721Z #5 extracting sha256:e1d9543056a113ade7e89bc432ff429390d92ef533e163410790230a8e6e5889 done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:07.3103757Z #5 DONE 4.6s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:07.3104149Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:07.3107215Z #6 [2/4] COPY entrypoint.sh /
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:07.3108888Z #6 DONE 0.0s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:07.3110961Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:07.3113950Z #7 [3/4] RUN apk --no-cache add bash curl npm
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:07.3315498Z #7 0.172 fetch https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/APKINDEX.tar.gz
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:07.5764392Z #7 0.266 fetch https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/APKINDEX.tar.gz
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:07.7095363Z #7 0.550 (1/14) Installing ncurses-terminfo-base (6.4_p20240420-r2)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:07.8100311Z #7 0.558 (2/14) Installing libncursesw (6.4_p20240420-r2)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:07.8101351Z #7 0.567 (3/14) Installing readline (8.2.10-r0)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:07.8104120Z #7 0.572 (4/14) Installing bash (5.2.26-r0)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:07.8104705Z #7 0.588 Executing bash-5.2.26-r0.post-install
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:07.8105258Z #7 0.591 (5/14) Upgrading libcurl (8.10.1-r0 -> 8.14.1-r2)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:07.8105818Z #7 0.600 (6/14) Installing curl (8.14.1-r2)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:07.8106487Z #7 0.605 (7/14) Installing libgcc (13.2.1_git20240309-r1)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:07.8107066Z #7 0.609 (8/14) Installing libstdc++ (13.2.1_git20240309-r1)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:07.8107639Z #7 0.626 (9/14) Installing ada-libs (2.7.8-r0)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:07.8108162Z #7 0.632 (10/14) Installing icu-data-en (74.2-r1)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:07.8108712Z #7 0.651 Executing icu-data-en-74.2-r1.post-install
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:08.0046132Z #7 0.657 *
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:08.0047531Z #7 0.657 * If you need ICU with non-English locales and legacy charset support, install
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:08.0050693Z #7 0.657 * package icu-data-full.
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:08.0051561Z #7 0.657 *
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:08.0052237Z #7 0.657 (11/14) Installing icu-libs (74.2-r1)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:08.0052838Z #7 0.689 (12/14) Installing libuv (1.48.0-r0)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:08.0053483Z #7 0.694 (13/14) Installing nodejs-current (21.7.3-r0)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:08.1166066Z #7 0.955 (14/14) Installing npm (10.9.1-r0)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:08.3441248Z #7 1.185 Executing busybox-1.36.1-r29.trigger
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:08.5123061Z #7 1.198 OK: 94 MiB in 40 packages
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:08.6088360Z #7 DONE 1.4s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:08.7606766Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:08.7607747Z #8 [4/4] RUN chmod +x /entrypoint.sh
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:08.7711023Z #8 DONE 0.2s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:08.9239015Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:08.9244426Z #9 exporting to image
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:08.9256414Z #9 exporting layers
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.3499756Z #9 exporting layers 0.6s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.3854498Z #9 writing image sha256:8a9cff59743728759f884d01cd7b15fb7e8f880afef64ccb68621cd34faa15b9 done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.3855943Z #9 naming to docker.io/library/3fa7b6:519b09bdda464972ace3f4de9aa1aa9c done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.3856962Z #9 DONE 0.6s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.3909004Z ##[endgroup]
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.4215750Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.4224151Z ##[group]Run actions/checkout@v4
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.4224590Z with:
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.4224809Z   repository: luannv07/eoffice-be
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.4227764Z   token: ***
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.4227980Z   ssh-strict: true
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.4228201Z   ssh-user: git
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.4228432Z   persist-credentials: true
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.4228676Z   clean: true
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.4228893Z   sparse-checkout-cone-mode: true
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.4229152Z   fetch-depth: 1
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.4229375Z   fetch-tags: false
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.4229591Z   show-progress: true
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.4229808Z   lfs: false
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.4230041Z   submodules: false
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.4230260Z   set-safe-directory: true
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.4230521Z   allow-unsafe-pr-checkout: false
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.4230972Z ##[endgroup]
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5386151Z Syncing repository: luannv07/eoffice-be
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5388628Z ##[group]Getting Git version info
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5390010Z Working directory is '/home/runner/work/eoffice-be/eoffice-be'
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5553911Z [command]/usr/bin/git version
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5554820Z git version 2.55.0
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5558206Z ##[endgroup]
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5568196Z Temporarily overriding HOME='/home/runner/work/_temp/f8acc39e-37ae-47f0-9a6a-fd74c4ef7527' before making global git config changes
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5570065Z Adding repository directory to the temporary git global config as a safe directory
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5571372Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/eoffice-be/eoffice-be
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5715784Z Deleting the contents of '/home/runner/work/eoffice-be/eoffice-be'
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5717554Z ##[group]Initializing the repository
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5718855Z [command]/usr/bin/git init /home/runner/work/eoffice-be/eoffice-be
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5890829Z hint: Using 'master' as the name for the initial branch. This default branch name
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5912577Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5930190Z hint: to use in all of your new repositories, which will suppress this warning,
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5933387Z hint: call:
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5933827Z hint:
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5934613Z hint: 	git config --global init.defaultBranch <name>
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5935661Z hint:
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5936664Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5938240Z hint: 'development'. The just-created branch can be renamed via this command:
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5939628Z hint:
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5940475Z hint: 	git branch -m <name>
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5941420Z hint:
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5942903Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5944366Z Initialized empty Git repository in /home/runner/work/eoffice-be/eoffice-be/.git/
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5948126Z [command]/usr/bin/git remote add origin https://github.com/luannv07/eoffice-be
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5980648Z ##[endgroup]
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5982909Z ##[group]Disabling automatic garbage collection
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.5983927Z [command]/usr/bin/git config --local gc.auto 0
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.6022386Z ##[endgroup]
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.6024249Z ##[group]Setting up auth
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.6025527Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.6090116Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.6685601Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.6765892Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.7036120Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.7074249Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.7327481Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.7371909Z ##[endgroup]
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.7373338Z ##[group]Fetching the repository
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:09.7383486Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +61ce268805d4e2729c5cfb383e368dcf1511d93f:refs/remotes/pull/35/merge
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2537494Z From https://github.com/luannv07/eoffice-be
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2538833Z  * [new ref]         61ce268805d4e2729c5cfb383e368dcf1511d93f -> pull/35/merge
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2541172Z ##[endgroup]
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2542164Z ##[group]Determining the checkout info
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2543145Z ##[endgroup]
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2543756Z [command]/usr/bin/git sparse-checkout disable
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2598943Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2652499Z ##[group]Checking out the ref
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2659240Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/35/merge
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2925333Z Note: switching to 'refs/remotes/pull/35/merge'.
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2926093Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2926674Z You are in 'detached HEAD' state. You can look around, make experimental
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2927857Z changes and commit them, and you can discard any commits you make in this
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2929087Z state without impacting any branches by switching back to a branch.
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2929733Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2930219Z If you want to create a new branch to retain commits you create, you may
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2931121Z do so (now or later) by using -c with the switch command. Example:
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2932048Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2932399Z   git switch -c <new-branch-name>
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2932862Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2933175Z Or undo this operation with:
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2952148Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2952941Z   git switch -
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2953445Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2954027Z Turn off this advice by setting config variable advice.detachedHead to false
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2954711Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2955421Z HEAD is now at 61ce268 Merge 12e5193f933a111ece1f541665fd3dc5ac40fc1e into a88094da3a8c4067ed0397d52325cc5695383c9f
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2958092Z ##[endgroup]
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.2998986Z [command]/usr/bin/git log -1 --format=%H
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.3032295Z 61ce268805d4e2729c5cfb383e368dcf1511d93f
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.3327222Z ##[group]Run docker build -t eoffice-be:pr-61ce268805d4e2729c5cfb383e368dcf1511d93f .
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.3327929Z ^[[36;1mdocker build -t eoffice-be:pr-61ce268805d4e2729c5cfb383e368dcf1511d93f .^[[0m
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.3370003Z shell: /usr/bin/bash -e {0}
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.3370286Z ##[endgroup]
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.7117825Z #0 building with "default" instance using docker driver
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.7124179Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.7125606Z #1 [internal] load build definition from Dockerfile
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.7129405Z #1 transferring dockerfile: 317B done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.7131079Z #1 DONE 0.0s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.7132586Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.7136385Z #2 [auth] library/eclipse-temurin:pull token for registry-1.docker.io
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.7137370Z #2 DONE 0.0s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.7137827Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.7138413Z #3 [auth] library/maven:pull token for registry-1.docker.io
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.7139924Z #3 DONE 0.0s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.7141990Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.7144122Z #4 [internal] load metadata for docker.io/library/eclipse-temurin:21-jre
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.9319143Z #4 DONE 0.5s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.9320011Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:10.9320897Z #5 [internal] load metadata for docker.io/library/maven:3.9-eclipse-temurin-21
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.0723701Z #5 DONE 0.5s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.0725016Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.0725422Z #6 [internal] load .dockerignore
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.0725960Z #6 transferring context: 2B done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.0726425Z #6 DONE 0.0s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.0726617Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.0727427Z #7 [stage-1 1/3] FROM docker.io/library/eclipse-temurin:21-jre@sha256:a80c51f2d09a3e7e00d521f1c817bbceb6b3be94109b4a784d46078099882dda
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.0729029Z #7 resolve docker.io/library/eclipse-temurin:21-jre@sha256:a80c51f2d09a3e7e00d521f1c817bbceb6b3be94109b4a784d46078099882dda done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.0730439Z #7 sha256:a80c51f2d09a3e7e00d521f1c817bbceb6b3be94109b4a784d46078099882dda 5.92kB / 5.92kB done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.0732467Z #7 sha256:e5ff175a2fe9e650d8154097bfd887e30789847c0dbc47b0cfc1e69445aec9b5 8.72kB / 8.72kB done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.0733709Z #7 sha256:677919d2f5cfc06a966b17d7b1b06c177fdf31928c60bcf20ac3016bca8a90b8 2.13kB / 2.13kB done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.1718649Z #7 ...
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.1721038Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.1722831Z #8 [internal] load build context
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.1723814Z #8 transferring context: 1.38MB 0.1s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.1724465Z #8 DONE 0.1s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.2849910Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.2852303Z #9 [build 1/5] FROM docker.io/library/maven:3.9-eclipse-temurin-21@sha256:a972570be789ee5c9fa23446a8914ac7327560b5c022f662cfa9452aef829f18
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.2863903Z #9 resolve docker.io/library/maven:3.9-eclipse-temurin-21@sha256:a972570be789ee5c9fa23446a8914ac7327560b5c022f662cfa9452aef829f18 0.0s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.2867638Z #9 sha256:a972570be789ee5c9fa23446a8914ac7327560b5c022f662cfa9452aef829f18 6.65kB / 6.65kB done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.2869445Z #9 sha256:78c15bf72c16a84af6729cde60a2dae707c937a5276cab76592fcfc1e5d3024a 9.24kB / 9.24kB done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.2871092Z #9 sha256:e51aee9c82ec5dd5ba2add49c45c6d85d460512757e2615b69bcdf9469c7cb58 29.76MB / 29.76MB 0.2s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.2873330Z #9 sha256:be0bc3b98d964a0a73883bdb26772306f4711765f361526424e4cc24ba86d1fc 4.19MB / 22.93MB 0.3s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.2874922Z #9 sha256:7b3e31a7051087735ed5b12d702590d8ff6098afdde8bc077169f9e59bada692 2.73kB / 2.73kB done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.2876896Z #9 sha256:b0738282e5e8fcbe20fde1b9dc9d986b1f814ae01fa3e1effb1caad50331d857 55.57MB / 158.12MB 0.3s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.2878810Z #9 extracting sha256:e51aee9c82ec5dd5ba2add49c45c6d85d460512757e2615b69bcdf9469c7cb58
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.2880445Z #9 sha256:51937f76dd8e910e5dd079a48d8f193c01249eb44af7299cfea13aa10e133caf 156B / 156B 0.3s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.2882345Z #9 sha256:e9f7426d5fbdb9614d4b3efb22b2a44a2cde4f2713423a7ebfc26fc006f2ef8c 0B / 2.46kB 0.3s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.4884218Z #9 sha256:be0bc3b98d964a0a73883bdb26772306f4711765f361526424e4cc24ba86d1fc 9.44MB / 22.93MB 0.5s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.4885548Z #9 sha256:b0738282e5e8fcbe20fde1b9dc9d986b1f814ae01fa3e1effb1caad50331d857 106.95MB / 158.12MB 0.5s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.4887067Z #9 sha256:e9f7426d5fbdb9614d4b3efb22b2a44a2cde4f2713423a7ebfc26fc006f2ef8c 2.46kB / 2.46kB 0.3s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.4888577Z #9 sha256:2093c0358e8a6a58f39ff9f5e24a0883e1f785627777482de5526c872c67249d 22.55MB / 22.55MB 0.4s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.4890149Z #9 sha256:8d905b23edd8b01d5ff42ff70824f277cbee44333130e88f95aef89070a6b932 3.15MB / 9.36MB 0.5s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.6176906Z #9 sha256:be0bc3b98d964a0a73883bdb26772306f4711765f361526424e4cc24ba86d1fc 11.53MB / 22.93MB 0.6s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.6179210Z #9 sha256:b0738282e5e8fcbe20fde1b9dc9d986b1f814ae01fa3e1effb1caad50331d857 136.31MB / 158.12MB 0.6s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.6183476Z #9 sha256:8d905b23edd8b01d5ff42ff70824f277cbee44333130e88f95aef89070a6b932 9.36MB / 9.36MB 0.5s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.6184826Z #9 sha256:be9a46a413a5835a2f183753877a3ec6ea63a67591c2d03b4ee976ec299096c1 850B / 850B 0.6s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.6186941Z #9 sha256:f7f3f197ffd9d69593c551de8205e71075be71f528085b0923ae2c2f777c7789 0B / 155B 0.6s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.7187767Z #9 sha256:be0bc3b98d964a0a73883bdb26772306f4711765f361526424e4cc24ba86d1fc 14.68MB / 22.93MB 0.7s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.7189740Z #9 sha256:b0738282e5e8fcbe20fde1b9dc9d986b1f814ae01fa3e1effb1caad50331d857 158.12MB / 158.12MB 0.7s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.7191914Z #9 sha256:f7f3f197ffd9d69593c551de8205e71075be71f528085b0923ae2c2f777c7789 155B / 155B 0.6s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.8302629Z #9 sha256:be0bc3b98d964a0a73883bdb26772306f4711765f361526424e4cc24ba86d1fc 16.78MB / 22.93MB 0.8s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:11.9245136Z #9 sha256:be0bc3b98d964a0a73883bdb26772306f4711765f361526424e4cc24ba86d1fc 18.87MB / 22.93MB 0.9s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:12.0245783Z #9 sha256:be0bc3b98d964a0a73883bdb26772306f4711765f361526424e4cc24ba86d1fc 22.02MB / 22.93MB 1.0s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:12.2716958Z #9 sha256:be0bc3b98d964a0a73883bdb26772306f4711765f361526424e4cc24ba86d1fc 22.93MB / 22.93MB 1.3s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:12.2719249Z #9 sha256:b0738282e5e8fcbe20fde1b9dc9d986b1f814ae01fa3e1effb1caad50331d857 158.12MB / 158.12MB 1.2s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:12.7272960Z #9 extracting sha256:e51aee9c82ec5dd5ba2add49c45c6d85d460512757e2615b69bcdf9469c7cb58 1.5s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:12.8702861Z #9 extracting sha256:be0bc3b98d964a0a73883bdb26772306f4711765f361526424e4cc24ba86d1fc
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:13.9776130Z #9 extracting sha256:be0bc3b98d964a0a73883bdb26772306f4711765f361526424e4cc24ba86d1fc 1.1s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:14.8128248Z #9 extracting sha256:b0738282e5e8fcbe20fde1b9dc9d986b1f814ae01fa3e1effb1caad50331d857
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:18.7561178Z #9 extracting sha256:b0738282e5e8fcbe20fde1b9dc9d986b1f814ae01fa3e1effb1caad50331d857 3.8s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:18.8727915Z #9 extracting sha256:51937f76dd8e910e5dd079a48d8f193c01249eb44af7299cfea13aa10e133caf done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:18.8730842Z #9 extracting sha256:e9f7426d5fbdb9614d4b3efb22b2a44a2cde4f2713423a7ebfc26fc006f2ef8c done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:19.0170704Z #9 extracting sha256:2093c0358e8a6a58f39ff9f5e24a0883e1f785627777482de5526c872c67249d 0.1s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:20.3493120Z #9 extracting sha256:2093c0358e8a6a58f39ff9f5e24a0883e1f785627777482de5526c872c67249d 1.4s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:20.4535501Z #9 extracting sha256:8d905b23edd8b01d5ff42ff70824f277cbee44333130e88f95aef89070a6b932
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:20.6709666Z #9 extracting sha256:8d905b23edd8b01d5ff42ff70824f277cbee44333130e88f95aef89070a6b932 0.2s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:20.6711272Z #9 extracting sha256:be9a46a413a5835a2f183753877a3ec6ea63a67591c2d03b4ee976ec299096c1 done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:20.6713526Z #9 extracting sha256:f7f3f197ffd9d69593c551de8205e71075be71f528085b0923ae2c2f777c7789 done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:20.7711248Z #9 DONE 9.7s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:20.7713100Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:20.7714260Z #10 [build 2/5] WORKDIR /app
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:20.7715127Z #10 DONE 0.0s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:20.7715671Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:20.7715818Z #11 [build 3/5] COPY pom.xml .
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:20.7716226Z #11 DONE 0.0s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:20.7716403Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:20.7716799Z #12 [build 4/5] COPY src ./src
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:20.9976568Z #12 DONE 0.2s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:20.9978134Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:20.9979172Z #13 [build 5/5] RUN mvn -B clean package -DskipTests
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:21.3365530Z #13 ...
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:21.3393350Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:21.3417725Z #7 [stage-1 1/3] FROM docker.io/library/eclipse-temurin:21-jre@sha256:a80c51f2d09a3e7e00d521f1c817bbceb6b3be94109b4a784d46078099882dda
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:21.3462676Z #7 sha256:e9f7426d5fbdb9614d4b3efb22b2a44a2cde4f2713423a7ebfc26fc006f2ef8c 2.46kB / 2.46kB 0.3s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:21.3478011Z #7 sha256:08f5f5b2a2b0d2a960804adef3bd1783c5f2c20f42db5e290dc05d9529d11ae2 41.60MB / 41.60MB 2.3s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:21.3512663Z #7 sha256:6a7c4f6d8c3863707c14af40aad062db2bb477271491c7d3e99e03394dd261e3 394B / 394B 1.3s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:21.3543880Z #7 sha256:57263cd37cf7a6b82cae610fd33cdccc25f8cf634134f3ddb9eeb077d1572b67 26.43MB / 26.43MB 1.5s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:21.3564281Z #7 sha256:29bc158c92a65d8aa39021e60c4a5e190e00e29e5cce513a7ffe5b592305ef8e 53.10MB / 53.10MB 1.7s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:21.3873551Z #7 sha256:65d8aee78b874a55d7c436a9e8fd8c471b683d14698b35e4cc585ccd47cea8c0 159B / 159B 1.5s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:21.3875241Z #7 extracting sha256:08f5f5b2a2b0d2a960804adef3bd1783c5f2c20f42db5e290dc05d9529d11ae2 3.5s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:21.4142607Z #7 extracting sha256:6a7c4f6d8c3863707c14af40aad062db2bb477271491c7d3e99e03394dd261e3 done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:21.4144231Z #7 extracting sha256:57263cd37cf7a6b82cae610fd33cdccc25f8cf634134f3ddb9eeb077d1572b67 2.7s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:21.4363044Z #7 extracting sha256:29bc158c92a65d8aa39021e60c4a5e190e00e29e5cce513a7ffe5b592305ef8e 1.1s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:21.9977227Z #7 extracting sha256:29bc158c92a65d8aa39021e60c4a5e190e00e29e5cce513a7ffe5b592305ef8e 1.6s done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:22.0523302Z #7 extracting sha256:65d8aee78b874a55d7c436a9e8fd8c471b683d14698b35e4cc585ccd47cea8c0
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:22.2863981Z #7 extracting sha256:65d8aee78b874a55d7c436a9e8fd8c471b683d14698b35e4cc585ccd47cea8c0 done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:22.2865444Z #7 extracting sha256:e9f7426d5fbdb9614d4b3efb22b2a44a2cde4f2713423a7ebfc26fc006f2ef8c done
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:22.2866447Z #7 DONE 11.2s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:22.2866748Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:22.2867094Z #14 [stage-1 2/3] WORKDIR /app
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:22.2867904Z #14 DONE 0.0s
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:22.2868342Z 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:22.2868814Z #13 [build 5/5] RUN mvn -B clean package -DskipTests
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:23.7700045Z #13 2.707 [INFO] Scanning for projects...
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:24.0444556Z #13 2.986 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/springframework/boot/spring-boot-starter-parent/3.4.13/spring-boot-starter-parent-3.4.13.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:24.5997459Z #13 3.540 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-starter-parent/3.4.13/spring-boot-starter-parent-3.4.13.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:24.7719963Z #13 3.696 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-starter-parent/3.4.13/spring-boot-starter-parent-3.4.13.pom (13 kB at 86 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:24.7723565Z #13 3.718 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/springframework/boot/spring-boot-dependencies/3.4.13/spring-boot-dependencies-3.4.13.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:24.7726249Z #13 3.756 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-dependencies/3.4.13/spring-boot-dependencies-3.4.13.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:24.7728886Z #13 3.795 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-dependencies/3.4.13/spring-boot-dependencies-3.4.13.pom (98 kB at 2.5 MB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:24.8913558Z #13 3.864 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/springframework/ai/spring-ai-bom/1.0.9/spring-ai-bom-1.0.9.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:24.8916503Z #13 3.898 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/springframework/ai/spring-ai-bom/1.0.9/spring-ai-bom-1.0.9.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:24.8918503Z #13 3.928 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/springframework/ai/spring-ai-bom/1.0.9/spring-ai-bom-1.0.9.pom (33 kB at 1.1 MB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:24.8920550Z #13 3.944 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/apache/activemq/activemq-bom/6.1.8/activemq-bom-6.1.8.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:24.8922645Z #13 3.982 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/activemq/activemq-bom/6.1.8/activemq-bom-6.1.8.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:24.9936597Z #13 4.004 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/activemq/activemq-bom/6.1.8/activemq-bom-6.1.8.pom (7.9 kB at 358 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:24.9938957Z #13 4.014 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/apache/activemq/artemis-bom/2.37.0/artemis-bom-2.37.0.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:24.9940777Z #13 4.057 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/activemq/artemis-bom/2.37.0/artemis-bom-2.37.0.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:24.9942305Z #13 4.082 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/activemq/artemis-bom/2.37.0/artemis-bom-2.37.0.pom (9.6 kB at 385 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.1089317Z #13 4.086 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/apache/activemq/artemis-project/2.37.0/artemis-project-2.37.0.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.1091253Z #13 4.121 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/activemq/artemis-project/2.37.0/artemis-project-2.37.0.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.1102221Z #13 4.149 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/activemq/artemis-project/2.37.0/artemis-project-2.37.0.pom (57 kB at 2.0 MB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.1104147Z #13 4.168 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/apache/apache/33/apache-33.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.1105618Z #13 4.202 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/apache/33/apache-33.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.2333627Z #13 4.222 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/apache/33/apache-33.pom (24 kB at 1.2 MB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.2335422Z #13 4.232 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/assertj/assertj-bom/3.26.3/assertj-bom-3.26.3.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.2337336Z #13 4.266 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/assertj/assertj-bom/3.26.3/assertj-bom-3.26.3.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.2339796Z #13 4.288 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/assertj/assertj-bom/3.26.3/assertj-bom-3.26.3.pom (3.7 kB at 168 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.2342078Z #13 4.293 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/io/zipkin/reporter2/zipkin-reporter-bom/3.4.3/zipkin-reporter-bom-3.4.3.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.3521006Z #13 4.326 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/zipkin/reporter2/zipkin-reporter-bom/3.4.3/zipkin-reporter-bom-3.4.3.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.3524087Z #13 4.346 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/zipkin/reporter2/zipkin-reporter-bom/3.4.3/zipkin-reporter-bom-3.4.3.pom (6.4 kB at 337 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.3526493Z #13 4.351 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/io/zipkin/brave/brave-bom/6.0.3/brave-bom-6.0.3.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.3528418Z #13 4.384 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/zipkin/brave/brave-bom/6.0.3/brave-bom-6.0.3.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.3530334Z #13 4.407 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/zipkin/brave/brave-bom/6.0.3/brave-bom-6.0.3.pom (11 kB at 477 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.3533274Z #13 4.411 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/apache/cassandra/java-driver-bom/4.18.1/java-driver-bom-4.18.1.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.3535514Z #13 4.445 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/cassandra/java-driver-bom/4.18.1/java-driver-bom-4.18.1.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.4776636Z #13 4.467 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/cassandra/java-driver-bom/4.18.1/java-driver-bom-4.18.1.pom (5.5 kB at 237 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.4779856Z #13 4.471 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/glassfish/jaxb/jaxb-bom/4.0.6/jaxb-bom-4.0.6.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.4782268Z #13 4.507 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/glassfish/jaxb/jaxb-bom/4.0.6/jaxb-bom-4.0.6.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.4784430Z #13 4.527 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/glassfish/jaxb/jaxb-bom/4.0.6/jaxb-bom-4.0.6.pom (12 kB at 555 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.4786562Z #13 4.532 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/eclipse/ee4j/project/1.0.9/project-1.0.9.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.4787679Z #13 4.570 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/eclipse/ee4j/project/1.0.9/project-1.0.9.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.6065330Z #13 4.596 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/eclipse/ee4j/project/1.0.9/project-1.0.9.pom (16 kB at 598 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.6067830Z #13 4.602 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/apache/groovy/groovy-bom/4.0.29/groovy-bom-4.0.29.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.6069839Z #13 4.634 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/groovy/groovy-bom/4.0.29/groovy-bom-4.0.29.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.6072128Z #13 4.658 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/groovy/groovy-bom/4.0.29/groovy-bom-4.0.29.pom (27 kB at 1.1 MB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.6074389Z #13 4.665 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/infinispan/infinispan-bom/15.0.21.Final/infinispan-bom-15.0.21.Final.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.7339183Z #13 4.699 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/infinispan/infinispan-bom/15.0.21.Final/infinispan-bom-15.0.21.Final.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.7340817Z #13 4.729 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/infinispan/infinispan-bom/15.0.21.Final/infinispan-bom-15.0.21.Final.pom (17 kB at 565 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.7343863Z #13 4.733 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/infinispan/infinispan-build-configuration-parent/15.0.21.Final/infinispan-build-configuration-parent-15.0.21.Final.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.7346841Z #13 4.764 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/infinispan/infinispan-build-configuration-parent/15.0.21.Final/infinispan-build-configuration-parent-15.0.21.Final.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.7348701Z #13 4.787 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/infinispan/infinispan-build-configuration-parent/15.0.21.Final/infinispan-build-configuration-parent-15.0.21.Final.pom (17 kB at 784 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.7350159Z #13 4.791 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/jboss/jboss-parent/43/jboss-parent-43.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.7351182Z #13 4.826 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/jboss/jboss-parent/43/jboss-parent-43.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.8364784Z #13 4.847 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/jboss/jboss-parent/43/jboss-parent-43.pom (75 kB at 3.6 MB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.8367499Z #13 4.875 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/com/fasterxml/jackson/jackson-bom/2.18.5/jackson-bom-2.18.5.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.8370604Z #13 4.907 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/jackson-bom/2.18.5/jackson-bom-2.18.5.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.8383108Z #13 4.929 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/jackson-bom/2.18.5/jackson-bom-2.18.5.pom (19 kB at 870 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.9473145Z #13 4.933 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/com/fasterxml/jackson/jackson-parent/2.18.4/jackson-parent-2.18.4.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.9475223Z #13 4.965 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/jackson-parent/2.18.4/jackson-parent-2.18.4.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.9477148Z #13 4.984 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/jackson/jackson-parent/2.18.4/jackson-parent-2.18.4.pom (7.2 kB at 378 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.9479020Z #13 4.988 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/com/fasterxml/oss-parent/69/oss-parent-69.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.9480647Z #13 5.019 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/fasterxml/oss-parent/69/oss-parent-69.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:25.9502847Z #13 5.039 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/fasterxml/oss-parent/69/oss-parent-69.pom (24 kB at 1.2 MB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.0498763Z #13 5.046 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/glassfish/jersey/jersey-bom/3.1.11/jersey-bom-3.1.11.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.0500118Z #13 5.080 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/glassfish/jersey/jersey-bom/3.1.11/jersey-bom-3.1.11.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.0502136Z #13 5.102 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/glassfish/jersey/jersey-bom/3.1.11/jersey-bom-3.1.11.pom (21 kB at 945 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.0504403Z #13 5.109 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/eclipse/jetty/ee10/jetty-ee10-bom/12.0.31/jetty-ee10-bom-12.0.31.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.0506691Z #13 5.143 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/eclipse/jetty/ee10/jetty-ee10-bom/12.0.31/jetty-ee10-bom-12.0.31.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.1759666Z #13 5.169 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/eclipse/jetty/ee10/jetty-ee10-bom/12.0.31/jetty-ee10-bom-12.0.31.pom (9.6 kB at 383 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.1762029Z #13 5.173 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/eclipse/jetty/jetty-bom/12.0.31/jetty-bom-12.0.31.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.1763758Z #13 5.206 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/eclipse/jetty/jetty-bom/12.0.31/jetty-bom-12.0.31.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.1765543Z #13 5.231 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/eclipse/jetty/jetty-bom/12.0.31/jetty-bom-12.0.31.pom (15 kB at 610 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.1766870Z #13 5.237 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/junit/junit-bom/5.11.4/junit-bom-5.11.4.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.2984504Z #13 5.269 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/junit/junit-bom/5.11.4/junit-bom-5.11.4.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.2997938Z #13 5.288 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/junit/junit-bom/5.11.4/junit-bom-5.11.4.pom (5.6 kB at 297 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.3001092Z #13 5.292 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/jetbrains/kotlin/kotlin-bom/1.9.25/kotlin-bom-1.9.25.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.3003866Z #13 5.325 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-bom/1.9.25/kotlin-bom-1.9.25.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.3005672Z #13 5.354 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-bom/1.9.25/kotlin-bom-1.9.25.pom (9.1 kB at 314 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.3008100Z #13 5.359 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/jetbrains/kotlinx/kotlinx-coroutines-bom/1.8.1/kotlinx-coroutines-bom-1.8.1.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.4132815Z #13 5.391 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-bom/1.8.1/kotlinx-coroutines-bom-1.8.1.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.4136076Z #13 5.412 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-bom/1.8.1/kotlinx-coroutines-bom-1.8.1.pom (4.3 kB at 215 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.4138825Z #13 5.416 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/jetbrains/kotlinx/kotlinx-serialization-bom/1.6.3/kotlinx-serialization-bom-1.6.3.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.4140805Z #13 5.447 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-serialization-bom/1.6.3/kotlinx-serialization-bom-1.6.3.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.4143504Z #13 5.469 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-serialization-bom/1.6.3/kotlinx-serialization-bom-1.6.3.pom (3.7 kB at 167 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.4146643Z #13 5.474 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/apache/logging/log4j/log4j-bom/2.24.3/log4j-bom-2.24.3.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.4148625Z #13 5.506 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/logging/log4j/log4j-bom/2.24.3/log4j-bom-2.24.3.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.5369520Z #13 5.529 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/logging/log4j/log4j-bom/2.24.3/log4j-bom-2.24.3.pom (12 kB at 584 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.5371850Z #13 5.531 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/apache/logging/logging-parent/11.3.0/logging-parent-11.3.0.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.5375107Z #13 5.563 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/logging/logging-parent/11.3.0/logging-parent-11.3.0.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.5377330Z #13 5.590 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/logging/logging-parent/11.3.0/logging-parent-11.3.0.pom (53 kB at 2.0 MB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.5379675Z #13 5.600 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/io/micrometer/micrometer-bom/1.14.14/micrometer-bom-1.14.14.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.5382124Z #13 5.630 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/micrometer/micrometer-bom/1.14.14/micrometer-bom-1.14.14.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.6495791Z #13 5.650 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/micrometer/micrometer-bom/1.14.14/micrometer-bom-1.14.14.pom (8.6 kB at 431 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.6498007Z #13 5.655 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/io/micrometer/micrometer-tracing-bom/1.4.13/micrometer-tracing-bom-1.4.13.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.6500238Z #13 5.685 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/micrometer/micrometer-tracing-bom/1.4.13/micrometer-tracing-bom-1.4.13.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.6502740Z #13 5.705 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/micrometer/micrometer-tracing-bom/1.4.13/micrometer-tracing-bom-1.4.13.pom (4.5 kB at 227 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.6503934Z #13 5.710 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/mockito/mockito-bom/5.14.2/mockito-bom-5.14.2.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.6504906Z #13 5.742 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/mockito/mockito-bom/5.14.2/mockito-bom-5.14.2.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.7601034Z #13 5.761 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/mockito/mockito-bom/5.14.2/mockito-bom-5.14.2.pom (3.0 kB at 148 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.7602927Z #13 5.765 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/io/netty/netty-bom/4.1.130.Final/netty-bom-4.1.130.Final.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.7604354Z #13 5.801 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/netty/netty-bom/4.1.130.Final/netty-bom-4.1.130.Final.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.7605373Z #13 5.817 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/netty/netty-bom/4.1.130.Final/netty-bom-4.1.130.Final.pom (15 kB at 922 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.7606383Z #13 5.820 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/sonatype/oss/oss-parent/7/oss-parent-7.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.7607278Z #13 5.852 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/sonatype/oss/oss-parent/7/oss-parent-7.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.8799230Z #13 5.879 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/sonatype/oss/oss-parent/7/oss-parent-7.pom (4.8 kB at 179 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.8802198Z #13 5.883 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/io/opentelemetry/opentelemetry-bom/1.43.0/opentelemetry-bom-1.43.0.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.8803420Z #13 5.916 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/opentelemetry/opentelemetry-bom/1.43.0/opentelemetry-bom-1.43.0.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.8804587Z #13 5.936 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/opentelemetry/opentelemetry-bom/1.43.0/opentelemetry-bom-1.43.0.pom (5.9 kB at 294 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.8805750Z #13 5.940 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/io/prometheus/prometheus-metrics-bom/1.3.10/prometheus-metrics-bom-1.3.10.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:26.8807596Z #13 5.972 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-bom/1.3.10/prometheus-metrics-bom-1.3.10.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.0001455Z #13 5.994 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-bom/1.3.10/prometheus-metrics-bom-1.3.10.pom (5.8 kB at 265 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.0005222Z #13 5.998 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/io/prometheus/client_java_parent/1.3.10/client_java_parent-1.3.10.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.0007581Z #13 6.032 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/prometheus/client_java_parent/1.3.10/client_java_parent-1.3.10.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.0010187Z #13 6.053 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/prometheus/client_java_parent/1.3.10/client_java_parent-1.3.10.pom (4.4 kB at 198 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.0012909Z #13 6.057 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/io/prometheus/simpleclient_bom/0.16.0/simpleclient_bom-0.16.0.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.0015414Z #13 6.093 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/prometheus/simpleclient_bom/0.16.0/simpleclient_bom-0.16.0.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.1138893Z #13 6.111 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/prometheus/simpleclient_bom/0.16.0/simpleclient_bom-0.16.0.pom (6.0 kB at 317 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.1141294Z #13 6.115 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/io/prometheus/parent/0.16.0/parent-0.16.0.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.1145566Z #13 6.148 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/prometheus/parent/0.16.0/parent-0.16.0.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.1147319Z #13 6.168 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/prometheus/parent/0.16.0/parent-0.16.0.pom (13 kB at 626 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.1149167Z #13 6.172 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/apache/pulsar/pulsar-bom/3.3.9/pulsar-bom-3.3.9.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.1150919Z #13 6.205 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/pulsar/pulsar-bom/3.3.9/pulsar-bom-3.3.9.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.2318792Z #13 6.229 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/pulsar/pulsar-bom/3.3.9/pulsar-bom-3.3.9.pom (26 kB at 1.1 MB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.2321473Z #13 6.232 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/apache/apache/35/apache-35.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.2324166Z #13 6.265 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/apache/35/apache-35.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.2326161Z #13 6.284 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/apache/35/apache-35.pom (24 kB at 1.2 MB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.2328648Z #13 6.292 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/com/querydsl/querydsl-bom/5.1.0/querydsl-bom-5.1.0.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.2330892Z #13 6.325 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/com/querydsl/querydsl-bom/5.1.0/querydsl-bom-5.1.0.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.3472407Z #13 6.344 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/com/querydsl/querydsl-bom/5.1.0/querydsl-bom-5.1.0.pom (7.2 kB at 376 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.3475240Z #13 6.348 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/io/projectreactor/reactor-bom/2024.0.13/reactor-bom-2024.0.13.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.3476975Z #13 6.383 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/projectreactor/reactor-bom/2024.0.13/reactor-bom-2024.0.13.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.3478663Z #13 6.405 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/projectreactor/reactor-bom/2024.0.13/reactor-bom-2024.0.13.pom (4.8 kB at 217 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.3480357Z #13 6.409 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/io/rest-assured/rest-assured-bom/5.5.6/rest-assured-bom-5.5.6.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.3482185Z #13 6.440 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/rest-assured/rest-assured-bom/5.5.6/rest-assured-bom-5.5.6.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.4675055Z #13 6.464 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/rest-assured/rest-assured-bom/5.5.6/rest-assured-bom-5.5.6.pom (4.7 kB at 195 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.4677466Z #13 6.467 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/io/rsocket/rsocket-bom/1.1.5/rsocket-bom-1.1.5.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.4681210Z #13 6.498 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/rsocket/rsocket-bom/1.1.5/rsocket-bom-1.1.5.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.4683262Z #13 6.518 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/rsocket/rsocket-bom/1.1.5/rsocket-bom-1.1.5.pom (2.4 kB at 119 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.4685203Z #13 6.520 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/seleniumhq/selenium/selenium-bom/4.25.0/selenium-bom-4.25.0.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.4687093Z #13 6.559 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/seleniumhq/selenium/selenium-bom/4.25.0/selenium-bom-4.25.0.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.5923161Z #13 6.590 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/seleniumhq/selenium/selenium-bom/4.25.0/selenium-bom-4.25.0.pom (6.0 kB at 194 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.5926802Z #13 6.593 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/springframework/amqp/spring-amqp-bom/3.2.8/spring-amqp-bom-3.2.8.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.5930198Z #13 6.623 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/springframework/amqp/spring-amqp-bom/3.2.8/spring-amqp-bom-3.2.8.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.5932744Z #13 6.653 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/springframework/amqp/spring-amqp-bom/3.2.8/spring-amqp-bom-3.2.8.pom (3.9 kB at 133 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.5934831Z #13 6.655 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/springframework/batch/spring-batch-bom/5.2.4/spring-batch-bom-5.2.4.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.5936392Z #13 6.685 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/springframework/batch/spring-batch-bom/5.2.4/spring-batch-bom-5.2.4.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.7056241Z #13 6.711 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/springframework/batch/spring-batch-bom/5.2.4/spring-batch-bom-5.2.4.pom (3.2 kB at 130 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.7058695Z #13 6.713 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/springframework/data/spring-data-bom/2024.1.13/spring-data-bom-2024.1.13.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.7060903Z #13 6.745 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/springframework/data/spring-data-bom/2024.1.13/spring-data-bom-2024.1.13.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.7064997Z #13 6.766 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/springframework/data/spring-data-bom/2024.1.13/spring-data-bom-2024.1.13.pom (5.5 kB at 276 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.7066276Z #13 6.768 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/springframework/spring-framework-bom/6.2.15/spring-framework-bom-6.2.15.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.7067470Z #13 6.798 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/springframework/spring-framework-bom/6.2.15/spring-framework-bom-6.2.15.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.8208522Z #13 6.819 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/springframework/spring-framework-bom/6.2.15/spring-framework-bom-6.2.15.pom (5.8 kB at 278 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.8214081Z #13 6.826 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/springframework/integration/spring-integration-bom/6.4.10/spring-integration-bom-6.4.10.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.8216378Z #13 6.856 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/springframework/integration/spring-integration-bom/6.4.10/spring-integration-bom-6.4.10.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.8218887Z #13 6.879 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/springframework/integration/spring-integration-bom/6.4.10/spring-integration-bom-6.4.10.pom (10 kB at 449 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.8220768Z #13 6.883 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/springframework/pulsar/spring-pulsar-bom/1.2.13/spring-pulsar-bom-1.2.13.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.8222448Z #13 6.913 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/springframework/pulsar/spring-pulsar-bom/1.2.13/spring-pulsar-bom-1.2.13.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.9336790Z #13 6.940 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/springframework/pulsar/spring-pulsar-bom/1.2.13/spring-pulsar-bom-1.2.13.pom (2.9 kB at 117 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.9339492Z #13 6.941 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/springframework/restdocs/spring-restdocs-bom/3.0.5/spring-restdocs-bom-3.0.5.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.9342223Z #13 6.972 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/springframework/restdocs/spring-restdocs-bom/3.0.5/spring-restdocs-bom-3.0.5.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.9344845Z #13 6.993 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/springframework/restdocs/spring-restdocs-bom/3.0.5/spring-restdocs-bom-3.0.5.pom (2.6 kB at 123 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:27.9347416Z #13 6.997 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/springframework/security/spring-security-bom/6.5.11/spring-security-bom-6.5.11.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.0435057Z #13 7.026 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/springframework/security/spring-security-bom/6.5.11/spring-security-bom-6.5.11.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.0438134Z #13 7.046 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/springframework/security/spring-security-bom/6.5.11/spring-security-bom-6.5.11.pom (5.3 kB at 268 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.0440887Z #13 7.050 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/springframework/session/spring-session-bom/3.4.7/spring-session-bom-3.4.7.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.0444250Z #13 7.081 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/springframework/session/spring-session-bom/3.4.7/spring-session-bom-3.4.7.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.0448493Z #13 7.104 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/springframework/session/spring-session-bom/3.4.7/spring-session-bom-3.4.7.pom (2.9 kB at 131 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.0450639Z #13 7.106 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/springframework/ws/spring-ws-bom/4.0.17/spring-ws-bom-4.0.17.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.0452966Z #13 7.136 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/springframework/ws/spring-ws-bom/4.0.17/spring-ws-bom-4.0.17.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.1572413Z #13 7.155 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/springframework/ws/spring-ws-bom/4.0.17/spring-ws-bom-4.0.17.pom (2.3 kB at 122 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.1575323Z #13 7.158 [INFO] Downloading from spring-milestones: https://repo.spring.io/milestone/org/testcontainers/testcontainers-bom/1.20.6/testcontainers-bom-1.20.6.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.1578351Z #13 7.188 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/testcontainers/testcontainers-bom/1.20.6/testcontainers-bom-1.20.6.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.1586491Z #13 7.211 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/testcontainers/testcontainers-bom/1.20.6/testcontainers-bom-1.20.6.pom (12 kB at 481 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.1590111Z #13 7.228 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/springframework/security/spring-security-bom/6.4.13/spring-security-bom-6.4.13.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.2668920Z #13 7.250 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/springframework/security/spring-security-bom/6.4.13/spring-security-bom-6.4.13.pom (5.3 kB at 233 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.2670926Z #13 7.285 [INFO] 
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.2672515Z #13 7.285 [INFO] -----------------------< vn.edu.epu:eoffice-be >------------------------
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.2673704Z #13 7.285 [INFO] Building eoffice-be 0.0.1-SNAPSHOT
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.2674891Z #13 7.285 [INFO]   from pom.xml
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.2675858Z #13 7.285 [INFO] --------------------------------[ jar ]---------------------------------
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.2678085Z #13 7.289 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-maven-plugin/3.4.13/spring-boot-maven-plugin-3.4.13.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.2682823Z #13 7.313 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-maven-plugin/3.4.13/spring-boot-maven-plugin-3.4.13.pom (4.0 kB at 167 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.2685181Z #13 7.330 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-maven-plugin/3.4.13/spring-boot-maven-plugin-3.4.13.jar
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.2687559Z #13 7.360 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-maven-plugin/3.4.13/spring-boot-maven-plugin-3.4.13.jar (136 kB at 4.8 MB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.3841325Z #13 7.379 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/jacoco/jacoco-maven-plugin/0.8.12/jacoco-maven-plugin-0.8.12.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.3843977Z #13 7.407 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/jacoco/jacoco-maven-plugin/0.8.12/jacoco-maven-plugin-0.8.12.pom (4.2 kB at 151 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.3860682Z #13 7.414 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/jacoco/org.jacoco.build/0.8.12/org.jacoco.build-0.8.12.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.3863232Z #13 7.439 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/jacoco/org.jacoco.build/0.8.12/org.jacoco.build-0.8.12.pom (43 kB at 1.7 MB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.3865591Z #13 7.450 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/ow2/asm/asm-bom/9.7/asm-bom-9.7.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.4992200Z #13 7.477 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/ow2/asm/asm-bom/9.7/asm-bom-9.7.pom (3.3 kB at 121 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.4998175Z #13 7.485 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/ow2/ow2/1.5.1/ow2-1.5.1.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.5026118Z #13 7.507 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/ow2/ow2/1.5.1/ow2-1.5.1.pom (11 kB at 513 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.5027666Z #13 7.512 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/jacoco/jacoco-maven-plugin/0.8.12/jacoco-maven-plugin-0.8.12.jar
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.5029233Z #13 7.535 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/jacoco/jacoco-maven-plugin/0.8.12/jacoco-maven-plugin-0.8.12.jar (57 kB at 2.5 MB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.5030816Z #13 7.545 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-clean-plugin/3.4.1/maven-clean-plugin-3.4.1.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.5032771Z #13 7.566 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-clean-plugin/3.4.1/maven-clean-plugin-3.4.1.pom (5.6 kB at 268 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.5034369Z #13 7.570 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-plugins/43/maven-plugins-43.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.5035778Z #13 7.591 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-plugins/43/maven-plugins-43.pom (7.5 kB at 356 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.6067628Z #13 7.595 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/maven-parent/43/maven-parent-43.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.6069822Z #13 7.615 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/maven-parent/43/maven-parent-43.pom (50 kB at 2.4 MB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.6073993Z #13 7.623 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/junit/junit-bom/5.10.3/junit-bom-5.10.3.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.6075669Z #13 7.642 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/junit/junit-bom/5.10.3/junit-bom-5.10.3.pom (5.6 kB at 297 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.6077540Z #13 7.650 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-clean-plugin/3.4.1/maven-clean-plugin-3.4.1.jar
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.6079734Z #13 7.672 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-clean-plugin/3.4.1/maven-clean-plugin-3.4.1.jar (36 kB at 1.7 MB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.6082291Z #13 7.676 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-resources-plugin/3.3.1/maven-resources-plugin-3.3.1.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.6084721Z #13 7.699 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-resources-plugin/3.3.1/maven-resources-plugin-3.3.1.pom (8.2 kB at 355 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.7068516Z #13 7.706 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-plugins/39/maven-plugins-39.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.7071134Z #13 7.726 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-plugins/39/maven-plugins-39.pom (8.1 kB at 405 kB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.7073874Z #13 7.728 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/maven-parent/39/maven-parent-39.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.7076051Z #13 7.749 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/maven-parent/39/maven-parent-39.pom (48 kB at 2.3 MB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.7078256Z #13 7.754 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/apache/29/apache-29.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.7080056Z #13 7.774 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/apache/29/apache-29.pom (21 kB at 1.0 MB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.7083341Z #13 7.780 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-resources-plugin/3.3.1/maven-resources-plugin-3.3.1.jar
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.7085977Z #13 7.800 [INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-resources-plugin/3.3.1/maven-resources-plugin-3.3.1.jar (31 kB at 1.5 MB/s)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.8134080Z #13 7.810 [INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-compiler-plugin/3.13.0/maven-compiler-plugin-3.13.0.pom
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.8309303Z ##[error]The operation was canceled.
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.8578191Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:28.8581458Z Post job cleanup.
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:29.0359610Z [command]/usr/bin/git version
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:29.0360391Z git version 2.55.0
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:29.0364602Z Temporarily overriding HOME='/home/runner/work/_temp/75d96817-917a-4410-a6bf-785fd29647be' before making global git config changes
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:29.0366071Z Adding repository directory to the temporary git global config as a safe directory
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:29.0367318Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/eoffice-be/eoffice-be
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:29.0369353Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:29.0372201Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:29.1566388Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:29.1606625Z http.https://github.com/.extraheader
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:29.1654178Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:29.1713181Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:29.2067571Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:29.2127656Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:29.3197361Z Cleaning up orphan processes
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:29.4700331Z Terminate orphan process: pid (2366) (docker)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:29.4770728Z Terminate orphan process: pid (2383) (docker-buildx)
+Security Scan (Trivy + TruffleHog)	UNKNOWN STEP	2026-09-15T09:46:29.4873861Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+Build & Test	UNKNOWN STEP	∩╗┐2026-09-15T09:45:58.7533308Z Current runner version: '2.337.0'
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7571908Z ##[group]Runner Image Provisioner
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7574348Z Hosted Compute Agent
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7575285Z Version: 20260828.587
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7576503Z Commit: abac92662cab4cc7352de4f9f9d2e2419aad9c29
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7578052Z Build Date: 2026-08-28T16:44:25Z
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7579409Z Worker ID: {59cbdac3-f50e-4667-a4ce-4c4dc8135574}
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7580647Z Azure Region: eastus2
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7581567Z ##[endgroup]
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7583796Z ##[group]Operating System
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7584830Z Ubuntu
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7585813Z 24.04.5
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7586648Z LTS
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7587823Z ##[endgroup]
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7588943Z ##[group]Runner Image
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7590077Z Image: ubuntu-24.04
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7591157Z Version: 20260907.300.1
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7593363Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260907.300/images/ubuntu/Ubuntu2404-Readme.md
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7596180Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260907.300
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7598058Z ##[endgroup]
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7600155Z ##[group]GITHUB_TOKEN Permissions
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7603622Z Contents: read
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7604667Z Metadata: read
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7605613Z PullRequests: write
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7606564Z ##[endgroup]
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7609941Z Secret source: Actions
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7611481Z Cache mode: write
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.7613363Z Prepare workflow directory
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.8103642Z Prepare all required actions
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:58.8175968Z Getting action download info
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.0369666Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.1604905Z Download action repository 'actions/setup-java@v4' (SHA:cf277c60eb25467037889841efdb72551f06f6c3)
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.4952809Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.7225478Z Complete job name: Build & Test
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.8032624Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.8042114Z ##[group]Run actions/checkout@v4
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.8042833Z with:
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.8043285Z   fetch-depth: 0
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.8043776Z   repository: luannv07/eoffice-be
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.8048364Z   token: ***
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.8048819Z   ssh-strict: true
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.8049283Z   ssh-user: git
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.8049746Z   persist-credentials: true
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.8050256Z   clean: true
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.8050751Z   sparse-checkout-cone-mode: true
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.8051291Z   fetch-tags: false
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.8051744Z   show-progress: true
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.8052244Z   lfs: false
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.8052726Z   submodules: false
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.8053189Z   set-safe-directory: true
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.8053707Z   allow-unsafe-pr-checkout: false
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.8054467Z ##[endgroup]
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9295525Z Syncing repository: luannv07/eoffice-be
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9300363Z ##[group]Getting Git version info
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9302696Z Working directory is '/home/runner/work/eoffice-be/eoffice-be'
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9305962Z [command]/usr/bin/git version
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9543047Z git version 2.55.0
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9547895Z ##[endgroup]
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9558458Z Temporarily overriding HOME='/home/runner/work/_temp/9eb26459-e318-448b-9b9e-cea349aaff42' before making global git config changes
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9560520Z Adding repository directory to the temporary git global config as a safe directory
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9562273Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/eoffice-be/eoffice-be
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9709235Z Deleting the contents of '/home/runner/work/eoffice-be/eoffice-be'
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9713350Z ##[group]Initializing the repository
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9716566Z [command]/usr/bin/git init /home/runner/work/eoffice-be/eoffice-be
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9782404Z hint: Using 'master' as the name for the initial branch. This default branch name
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9814589Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9816621Z hint: to use in all of your new repositories, which will suppress this warning,
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9818398Z hint: call:
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9819308Z hint:
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9820280Z hint: 	git config --global init.defaultBranch <name>
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9821462Z hint:
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9822569Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9824233Z hint: 'development'. The just-created branch can be renamed via this command:
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9825721Z hint:
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9826556Z hint: 	git branch -m <name>
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9847861Z hint:
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9849408Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9851202Z Initialized empty Git repository in /home/runner/work/eoffice-be/eoffice-be/.git/
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9854512Z [command]/usr/bin/git remote add origin https://github.com/luannv07/eoffice-be
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9907113Z ##[endgroup]
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9909426Z ##[group]Disabling automatic garbage collection
+Build & Test	UNKNOWN STEP	2026-09-15T09:45:59.9911742Z [command]/usr/bin/git config --local gc.auto 0
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.0023902Z ##[endgroup]
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.0039067Z ##[group]Setting up auth
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.0040865Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.0072255Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.0743494Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.0752026Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.0962035Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.1011327Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.1288190Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.1340377Z ##[endgroup]
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.1342972Z ##[group]Fetching the repository
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.1462472Z [command]/usr/bin/git -c protocol.version=2 fetch --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/* +61ce268805d4e2729c5cfb383e368dcf1511d93f:refs/remotes/pull/35/merge
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8312445Z From https://github.com/luannv07/eoffice-be
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8482805Z  * [new branch]      H╞░ß╗¢ng-dß║½n-chß║íy-dß╗▒-├ín           -> origin/H╞░ß╗¢ng-dß║½n-chß║íy-dß╗▒-├ín
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8485399Z  * [new branch]      chore/test                               -> origin/chore/test
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8487672Z  * [new branch]      dev                                      -> origin/dev
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8489542Z  * [new branch]      feat/auth                                -> origin/feat/auth
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8491684Z  * [new branch]      feat/base                                -> origin/feat/base
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8493628Z  * [new branch]      feat/dict                                -> origin/feat/dict
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8495530Z  * [new branch]      feat/document                            -> origin/feat/document
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8498344Z  * [new branch]      feat/document-uc15-uc16-uc17             -> origin/feat/document-uc15-uc16-uc17
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8501299Z  * [new branch]      feat/document-workflow                   -> origin/feat/document-workflow
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8503741Z  * [new branch]      feat/jwt                                 -> origin/feat/jwt
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8506044Z  * [new branch]      feat/org-node                            -> origin/feat/org-node
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8508638Z  * [new branch]      feat/test                                -> origin/feat/test
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8510797Z  * [new branch]      feat/test-ai-bot                         -> origin/feat/test-ai-bot
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8512921Z  * [new branch]      feat/test-ai-bot-v2                      -> origin/feat/test-ai-bot-v2
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8515136Z  * [new branch]      feat/test-ai-bot-v3                      -> origin/feat/test-ai-bot-v3
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8516995Z  * [new branch]      feat/test-ai-bot-v4                      -> origin/feat/test-ai-bot-v4
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8519659Z  * [new branch]      feat/uc08-uc11-document-management       -> origin/feat/uc08-uc11-document-management
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8522141Z  * [new branch]      feat/users                               -> origin/feat/users
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8524619Z  * [new branch]      hotfix/restore-dev-branch                -> origin/hotfix/restore-dev-branch
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8527132Z  * [new branch]      main                                     -> origin/main
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8529622Z  * [new branch]      so_van_ban                               -> origin/so_van_ban
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8531941Z  * [new ref]         61ce268805d4e2729c5cfb383e368dcf1511d93f -> pull/35/merge
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8539109Z ##[endgroup]
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8542262Z ##[group]Determining the checkout info
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8545557Z ##[endgroup]
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8547577Z [command]/usr/bin/git sparse-checkout disable
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8552479Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8559286Z ##[group]Checking out the ref
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.8562006Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/35/merge
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9092823Z Note: switching to 'refs/remotes/pull/35/merge'.
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9096299Z 
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9114837Z You are in 'detached HEAD' state. You can look around, make experimental
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9119281Z changes and commit them, and you can discard any commits you make in this
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9122482Z state without impacting any branches by switching back to a branch.
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9124235Z 
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9125352Z If you want to create a new branch to retain commits you create, you may
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9128621Z do so (now or later) by using -c with the switch command. Example:
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9130155Z 
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9131091Z   git switch -c <new-branch-name>
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9132468Z 
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9133432Z Or undo this operation with:
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9134814Z 
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9135664Z   git switch -
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9136839Z 
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9139497Z Turn off this advice by setting config variable advice.detachedHead to false
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9141281Z 
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9143017Z HEAD is now at 61ce268 Merge 12e5193f933a111ece1f541665fd3dc5ac40fc1e into a88094da3a8c4067ed0397d52325cc5695383c9f
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9149559Z ##[endgroup]
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9154242Z [command]/usr/bin/git log -1 --format=%H
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9156179Z 61ce268805d4e2729c5cfb383e368dcf1511d93f
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9678426Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9684244Z ##[group]Run actions/setup-java@v4
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9685570Z with:
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9686712Z   distribution: temurin
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9688424Z   java-version: 21
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9689534Z   cache: maven
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9690634Z   java-package: jdk
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9691768Z   check-latest: false
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9692877Z   server-id: github
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9693699Z   server-username: GITHUB_ACTOR
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9694596Z   server-password: GITHUB_TOKEN
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9695475Z   overwrite-settings: true
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9696313Z   job-status: success
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9701596Z   token: ***
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:00.9702466Z ##[endgroup]
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:01.1705161Z ##[warning]setup-java v4 is deprecated and will no longer receive updates. Please migrate to actions/setup-java@v5.
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:01.1719872Z ##[group]Installed distributions
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:01.1909852Z Resolved Java 21.0.12+1 from tool-cache
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:01.1912066Z Setting Java 21.0.12+1 as the default
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:01.1922705Z (node:2012) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:01.1925818Z (Use `node --trace-deprecation ...` to show where the warning was created)
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:01.1928414Z Creating toolchains.xml for JDK version 21 from temurin
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:01.2036120Z Writing to /home/runner/.m2/toolchains.xml
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:01.2057787Z 
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:01.2059060Z Java configuration:
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:01.2060576Z   Distribution: temurin
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:01.2061984Z   Version: 21.0.12+1
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:01.2063918Z   Path: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:01.2080577Z 
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:01.2082545Z ##[endgroup]
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:01.2130023Z Creating settings.xml with server-id: github
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:01.2139322Z Writing to /home/runner/.m2/settings.xml
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:01.3981558Z Cache hit for: setup-java-Linux-x64-maven-7433f345848eac129cc1f6db70be2089a75ccc0ae2b55a5045d2636e714e952f
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:01.4101179Z (node:2012) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:02.1420331Z Received 114089207 of 114089207 (100.0%), 161.2 MBs/sec
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:02.1422264Z Cache Size: ~109 MB (114089207 B)
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:02.1453661Z [command]/usr/bin/tar -xf /home/runner/work/_temp/14bc958f-bba0-45f9-a933-f02ff597d93c/cache.tzst -P -C /home/runner/work/eoffice-be/eoffice-be --use-compress-program unzstd
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:02.5868870Z Cache restored successfully
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:02.5970432Z Cache restored from key: setup-java-Linux-x64-maven-7433f345848eac129cc1f6db70be2089a75ccc0ae2b55a5045d2636e714e952f
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:02.6402605Z ##[group]Run mvn -B clean verify
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:02.6403265Z ^[[36;1mmvn -B clean verify^[[0m
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:02.6452555Z shell: /usr/bin/bash -e {0}
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:02.6453076Z env:
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:02.6453639Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:02.6454522Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:02.6455162Z ##[endgroup]
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:08.4149386Z [INFO] Scanning for projects...
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:08.8744104Z [INFO] 
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:08.8756338Z [INFO] -----------------------< vn.edu.epu:eoffice-be >------------------------
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:08.8757561Z [INFO] Building eoffice-be 0.0.1-SNAPSHOT
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:08.8758703Z [INFO]   from pom.xml
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:08.8759365Z [INFO] --------------------------------[ jar ]---------------------------------
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:09.9916443Z [INFO] 
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:09.9939034Z [INFO] --- clean:3.4.1:clean (default-clean) @ eoffice-be ---
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:10.6378886Z [INFO] 
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:10.6398609Z [INFO] --- jacoco:0.8.12:prepare-agent (prepare-agent) @ eoffice-be ---
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:10.7579921Z [INFO] argLine set to -javaagent:/home/runner/.m2/repository/org/jacoco/org.jacoco.agent/0.8.12/org.jacoco.agent-0.8.12-runtime.jar=destfile=/home/runner/work/eoffice-be/eoffice-be/target/jacoco.exec
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:10.7582878Z [INFO] 
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:10.7618493Z [INFO] --- resources:3.3.1:resources (default-resources) @ eoffice-be ---
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:10.8945663Z [INFO] Copying 4 resources from src/main/resources to target/classes
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:11.0595389Z [INFO] Copying 31 resources from src/main/resources to target/classes
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:11.1088684Z [INFO] 
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:11.1108350Z [INFO] --- compiler:3.13.0:compile (default-compile) @ eoffice-be ---
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:11.3536488Z [INFO] Recompiling the module because of changed source code.
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:11.3663333Z [INFO] Compiling 192 source files with javac [debug parameters release 21] to target/classes
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:23.5505336Z [WARNING] /home/runner/work/eoffice-be/eoffice-be/src/main/java/vn/edu/epu/eoffice_be/entity/DocumentDistribution.java:[34,13] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:23.5529778Z [INFO] /home/runner/work/eoffice-be/eoffice-be/src/main/java/vn/edu/epu/eoffice_be/config/BusinessTimeZoneConfig.java: Some input files use or override a deprecated API.
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:23.5730295Z [INFO] /home/runner/work/eoffice-be/eoffice-be/src/main/java/vn/edu/epu/eoffice_be/config/BusinessTimeZoneConfig.java: Recompile with -Xlint:deprecation for details.
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:23.5732199Z [INFO] 
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:23.5939737Z [INFO] --- resources:3.3.1:testResources (default-testResources) @ eoffice-be ---
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:23.5958836Z [INFO] skip non existing resourceDirectory /home/runner/work/eoffice-be/eoffice-be/src/test/resources
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:23.6139500Z [INFO] 
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:23.6158755Z [INFO] --- compiler:3.13.0:testCompile (default-testCompile) @ eoffice-be ---
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:23.6349632Z [INFO] Recompiling the module because of changed dependency.
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:23.6358571Z [INFO] Compiling 69 source files with javac [debug parameters release 21] to target/test-classes
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:27.7995864Z [INFO] /home/runner/work/eoffice-be/eoffice-be/src/test/java/vn/edu/epu/eoffice_be/common/enums/ErrorCodeTest.java: Some input files use or override a deprecated API.
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:27.8018813Z [INFO] /home/runner/work/eoffice-be/eoffice-be/src/test/java/vn/edu/epu/eoffice_be/common/enums/ErrorCodeTest.java: Recompile with -Xlint:deprecation for details.
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:27.8021917Z [INFO] /home/runner/work/eoffice-be/eoffice-be/src/test/java/vn/edu/epu/eoffice_be/service/UserManagementServiceTest.java: /home/runner/work/eoffice-be/eoffice-be/src/test/java/vn/edu/epu/eoffice_be/service/UserManagementServiceTest.java uses unchecked or unsafe operations.
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:27.8049005Z [INFO] /home/runner/work/eoffice-be/eoffice-be/src/test/java/vn/edu/epu/eoffice_be/service/UserManagementServiceTest.java: Recompile with -Xlint:unchecked for details.
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:27.8062026Z [INFO] 
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:27.8088051Z [INFO] --- surefire:3.5.4:test (default-test) @ eoffice-be ---
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:28.0446000Z [INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:28.1132403Z [INFO] 
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:28.1133295Z [INFO] -------------------------------------------------------
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:28.1148351Z [INFO]  T E S T S
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:28.1166331Z [INFO] -------------------------------------------------------
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:28.5738340Z ##[error]The operation was canceled.
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:28.6035502Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:28.6037621Z Post job cleanup.
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:28.9124231Z (node:2119) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:28.9148979Z (Use `node --trace-deprecation ...` to show where the warning was created)
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:29.0064639Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:29.0066827Z Post job cleanup.
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:29.2358337Z [command]/usr/bin/git version
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:29.2488379Z git version 2.55.0
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:29.2679221Z Temporarily overriding HOME='/home/runner/work/_temp/141d6174-87ab-47cd-bfcc-71a470915be0' before making global git config changes
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:29.2708691Z Adding repository directory to the temporary git global config as a safe directory
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:29.2728704Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/eoffice-be/eoffice-be
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:29.2788573Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:29.2889105Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:29.3657756Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:29.3708762Z http.https://github.com/.extraheader
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:29.3797685Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:29.3919251Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:29.4718558Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:29.4869157Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:29.6177727Z Cleaning up orphan processes
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:29.6743908Z Terminate orphan process: pid (2034) (java)
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:29.6782829Z Terminate orphan process: pid (2096) (sh)
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:29.6817755Z Terminate orphan process: pid (2097) (java)
+Build & Test	UNKNOWN STEP	2026-09-15T09:46:29.6833018Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-java@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+gh : log not found: 104332715222
+At line:61 char:9
++         gh run view $RunID --log 2>&1 |
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (log not found: 104332715222:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
