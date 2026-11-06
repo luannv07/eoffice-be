@@ -60,6 +60,13 @@
             <version>${springdoc.version}</version>
         </dependency>
 
+        <!-- Override transitive swagger-ui to a version whose bundled DOMPurify is not affected by CVE-2026-116803/CVE-2026-116804 (CVSS 10.0) -->
+        <dependency>
+            <groupId>org.webjars</groupId>
+            <artifactId>swagger-ui</artifactId>
+            <version>5.32.11</version>
+        </dependency>
+
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
