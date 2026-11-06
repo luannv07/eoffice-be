@@ -117,102 +117,103 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         // Kiểm tra thẩm quyền người xử lý trước khi thực hiện chuyển đổi
         validateReviewAuthorization(document, actor, action, request.getComment());
 
+        // Fix B1: Bắt buộc PDF và bộ ký phải sẵn sàng trước khi phê duyệt
+        ensureDocumentPdfExists(document);
+        if (pdfSigner == null) {
+            throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR, "Bộ ký xác nhận chưa khả dụng");
+        }
+
         OrgNode assignedOrg = null;
         if (request.getAssignedOrgNodeId() != null) {
             assignedOrg = orgNodeRepository.findByIdAndDeleteFlgFalse(request.getAssignedOrgNodeId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.ORG_NODE_NOT_FOUND));
         }
 
+        byte[] currentPdfBytes = loadDocumentPdfBytes(document);
+        if (currentPdfBytes == null || currentPdfBytes.length == 0) {
+            throw new BusinessException(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING, "Tệp PDF của văn bản rỗng");
+        }
 
-        // Tự động ký nháy lần 2 nếu văn bản đang ở IN_REVIEW (Cán bộ thẩm định duyệt chuyển tiếp)
-        String signatureHash = null;
+        String signerFullName = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(actor.getId())
+                .map(UserInfo::getFullName)
+                .orElse(actor.getUsername());
+        SignerTitleInfo titleInfo = resolveSignerTitleInfo(actor);
+        String signerDisplayName = (titleInfo.title() != null && !titleInfo.title().isBlank())
+                ? signerFullName + " - " + titleInfo.title()
+                : signerFullName;
+
+        String signatureHash;
         if (action == WorkflowAction.REVIEW_APPROVE) {
-            byte[] currentPdfBytes = loadDocumentPdfBytesSafely(document);
-            if (currentPdfBytes != null && currentPdfBytes.length > 0 && pdfSigner != null) {
-                String signerFullName = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(actor.getId())
-                        .map(UserInfo::getFullName)
-                        .orElse(actor.getUsername());
-                SignerTitleInfo titleInfo = resolveSignerTitleInfo(actor);
-                String signerDisplayName = (titleInfo.title() != null && !titleInfo.title().isBlank())
-                        ? signerFullName + " - " + titleInfo.title()
-                        : signerFullName;
+            String signReason = (request.getComment() != null && !request.getComment().isBlank())
+                    ? request.getComment()
+                    : "Ký nháy thẩm định văn bản";
 
-                String signReason = (request.getComment() != null && !request.getComment().isBlank())
-                        ? request.getComment()
-                        : "Ký nháy thẩm định văn bản";
-
-                PdfSigner.SignResult signResult;
-                try {
-                    signResult = pdfSigner.signBytes(
-                            currentPdfBytes,
-                            String.valueOf(actor.getId()),
-                            signerDisplayName,
-                            signReason
-                    );
-                } catch (IllegalStateException ex) {
-                    if (ex.getMessage() != null && ex.getMessage().contains("User đã ký")) {
-                        throw new BusinessException(ErrorCode.BAD_REQUEST,
-                                "Người dùng [ID=" + actor.getId() + "] đã thực hiện ký trên tài liệu này rồi, không được phép ký đè lần 2!");
-                    }
-                    throw ex;
-                }
-                byte[] stampedPdfBytes = signResult.signedPdfBytes();
-                String newPdfReference = documentPdfStorageService.storeSignedPdf(
-                        stampedPdfBytes,
-                        "initial_signed_" + document.getId() + ".pdf",
-                        document.getId()
+            PdfSigner.SignResult signResult;
+            try {
+                signResult = pdfSigner.signBytes(
+                        currentPdfBytes,
+                        String.valueOf(actor.getId()),
+                        signerDisplayName,
+                        signReason
                 );
-                document.setPrimaryFilePath(newPdfReference);
-                signatureHash = signResult.outPdfSha256();
-                log.info("Đã tự động ký nháy lần 2 (thẩm định) cho văn bản id={}, người ký={}, hash={}",
-                        document.getId(), actor.getUsername(), signatureHash);
-            }
-        } else if (action == WorkflowAction.LEADER_APPROVE) {
-            byte[] currentPdfBytes = loadDocumentPdfBytesSafely(document);
-            if (currentPdfBytes != null && currentPdfBytes.length > 0 && pdfSigner != null) {
-                String signerFullName = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(actor.getId())
-                        .map(UserInfo::getFullName)
-                        .orElse(actor.getUsername());
-                SignerTitleInfo titleInfo = resolveSignerTitleInfo(actor);
-                String signerDisplayName = (titleInfo.title() != null && !titleInfo.title().isBlank())
-                        ? signerFullName + " - " + titleInfo.title()
-                        : signerFullName;
-
-                String signReason = (request.getComment() != null && !request.getComment().isBlank())
-                        ? request.getComment()
-                        : "Hiệu trưởng phê duyệt văn bản";
-
-                SignaturePosition pos = resolveApproveSignaturePosition(request);
-
-                PdfSigner.SignResult signResult;
-                try {
-                    signResult = pdfSigner.signVisibleBytes(
-                            currentPdfBytes,
-                            String.valueOf(actor.getId()),
-                            signerDisplayName,
-                            titleInfo.title(),
-                            titleInfo.orgUnit(),
-                            signReason,
-                            pos
-                    );
-                } catch (IllegalStateException ex) {
-                    if (ex.getMessage() != null && ex.getMessage().contains("User đã ký")) {
-                        throw new BusinessException(ErrorCode.BAD_REQUEST,
-                                "Người dùng [ID=" + actor.getId() + "] đã thực hiện ký trên tài liệu này rồi, không được phép ký đè lần 2!");
-                    }
-                    throw ex;
+            } catch (IllegalStateException ex) {
+                if (ex.getMessage() != null && ex.getMessage().contains("User đã ký")) {
+                    throw new BusinessException(ErrorCode.BAD_REQUEST,
+                            "Người dùng [ID=" + actor.getId() + "] đã thực hiện ký trên tài liệu này rồi, không được phép ký đè lần 2!");
                 }
-                byte[] stampedPdfBytes = signResult.signedPdfBytes();
-                String newPdfReference = documentPdfStorageService.storeSignedPdf(
-                        stampedPdfBytes,
-                        "leader_signed_" + document.getId() + ".pdf",
-                        document.getId()
-                );
-                document.setPrimaryFilePath(newPdfReference);
-                signatureHash = signResult.outPdfSha256();
-                log.info("Đã tự động ký số hiển thị (Hiệu trưởng duyệt) cho văn bản id={}, người ký={}, hash={}",
-                        document.getId(), actor.getUsername(), signatureHash);
+                throw ex;
             }
+            if (signResult == null || signResult.signedPdfBytes() == null || signResult.signedPdfBytes().length == 0) {
+                throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR, "Không thể tạo chữ ký số khi thẩm định phê duyệt");
+            }
+            byte[] stampedPdfBytes = signResult.signedPdfBytes();
+            String newPdfReference = documentPdfStorageService.storeSignedPdf(
+                    stampedPdfBytes,
+                    "initial_signed_" + document.getId() + ".pdf",
+                    document.getId()
+            );
+            document.setPrimaryFilePath(newPdfReference);
+            signatureHash = signResult.outPdfSha256();
+            log.info("Đã tự động ký nháy lần 2 (thẩm định) cho văn bản id={}, người ký={}, hash={}",
+                    document.getId(), actor.getUsername(), signatureHash);
+        } else {
+            String signReason = (request.getComment() != null && !request.getComment().isBlank())
+                    ? request.getComment()
+                    : "Hiệu trưởng phê duyệt văn bản";
+
+            SignaturePosition pos = resolveApproveSignaturePosition(request);
+
+            PdfSigner.SignResult signResult;
+            try {
+                signResult = pdfSigner.signVisibleBytes(
+                        currentPdfBytes,
+                        String.valueOf(actor.getId()),
+                        signerDisplayName,
+                        titleInfo.title(),
+                        titleInfo.orgUnit(),
+                        signReason,
+                        pos
+                );
+            } catch (IllegalStateException ex) {
+                if (ex.getMessage() != null && ex.getMessage().contains("User đã ký")) {
+                    throw new BusinessException(ErrorCode.BAD_REQUEST,
+                            "Người dùng [ID=" + actor.getId() + "] đã thực hiện ký trên tài liệu này rồi, không được phép ký đè lần 2!");
+                }
+                throw ex;
+            }
+            if (signResult == null || signResult.signedPdfBytes() == null || signResult.signedPdfBytes().length == 0) {
+                throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR, "Không thể tạo chữ ký số khi lãnh đạo phê duyệt");
+            }
+            byte[] stampedPdfBytes = signResult.signedPdfBytes();
+            String newPdfReference = documentPdfStorageService.storeSignedPdf(
+                    stampedPdfBytes,
+                    "leader_signed_" + document.getId() + ".pdf",
+                    document.getId()
+            );
+            document.setPrimaryFilePath(newPdfReference);
+            signatureHash = signResult.outPdfSha256();
+            log.info("Đã tự động ký số hiển thị (Hiệu trưởng duyệt) cho văn bản id={}, người ký={}, hash={}",
+                    document.getId(), actor.getUsername(), signatureHash);
         }
 
         // Storage registers cleanup for transaction rollback.
@@ -245,17 +246,6 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 ? request.getSignatureHeight()
                 : 80f;
         return new SignaturePosition(page, x, y, width, height);
-    }
-
-    private byte[] loadDocumentPdfBytesSafely(Document document) {
-        try {
-            return loadDocumentPdfBytes(document);
-        } catch (BusinessException e) {
-            if (e.getErrorCode() == ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING) {
-                return null;
-            }
-            throw e;
-        }
     }
 
     private SignaturePosition resolveSignaturePosition(DocumentPublishRequest request) {
