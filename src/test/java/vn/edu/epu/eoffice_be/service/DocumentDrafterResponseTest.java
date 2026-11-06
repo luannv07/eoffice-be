@@ -70,6 +70,7 @@ class DocumentDrafterResponseTest {
         DocumentPublishService publishing = new DocumentPublishService(documents, distributions, null, storage, profiles, publishPolicy);
         when(documents.findById(10L)).thenReturn(Optional.of(document));
         when(documents.save(document)).thenReturn(document);
+        document.setStatus(vn.edu.epu.eoffice_be.common.enums.DocumentStatus.APPROVED);
         document.setOfficialFilePath("test.pdf");
         when(storage.readPdf("test.pdf")).thenReturn(new byte[]{1, 2, 3});
         assertContract(new DocumentPublishController(publishing).publishDocument(10L, null).getBody());

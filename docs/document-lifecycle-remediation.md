@@ -26,7 +26,7 @@ Luồng chính đi từ `DRAFT → IN_REVIEW → PENDING_APPROVAL → APPROVED �
 
 ### Thẩm định và phê duyệt lãnh đạo
 
-- [ ] **B1 — Bắt buộc PDF và chữ ký ở bước duyệt (F04).** `approve` có nhánh bỏ qua ký khi thiếu PDF/signer và vẫn gọi chuyển trạng thái. Kiểm tra trước ký về quyền, trạng thái, người nhận tiếp theo và nguồn PDF. Khi thiếu tham chiếu bản đang xử lý, kiểm tra việc chọn main một cách tường minh. Helper hiện có nhánh lấy PDF đầu tiên, có thể chọn phụ lục. Chỉ chuyển khi đã có chữ ký hợp lệ trên đúng bản hoặc ký/lưu mới thành công.
+- [x] **B1 — Bắt buộc PDF và chữ ký ở bước duyệt (F04).** *(Đã sửa 2026-11-05)* Đã bổ sung `ensureDocumentPdfExists(document)` và `pdfSigner` guard ngay đầu `approve()`, loại bỏ `loadDocumentPdfBytesSafely` để bắt buộc phải có chữ ký hợp lệ khi chuyển trạng thái duyệt.
 - [ ] **B2 — Ký nháy rồi chuyển tiếp (R1).** `initial-sign` giữ `IN_REVIEW`, sau đó `approve` gọi ký lại cho cùng người. Kiểm chứng chuỗi trên cùng PDF với signer thật. Chốt một trong hai trải nghiệm: gộp ký và chuyển tiếp, hoặc xác minh chữ ký thẩm định hiện có rồi chuyển tiếp. Phân biệt người ký, mục đích ký và phiên bản PDF.
 - [ ] **B3 — Hoàn tất yêu cầu và bàn giao (R2, F06).** Khi duyệt, yêu cầu sửa hoặc từ chối, cập nhật yêu cầu hiện hành và lý do/thời điểm xử lý. Khi chuyển lãnh đạo, tạo yêu cầu mới đúng HT/PHT trong cùng giao dịch với trạng thái và audit log. Kiểm tra lãnh đạo thấy hồ sơ trong danh sách phù hợp và mở được PDF. `assignedOrgNodeId` là đơn vị chủ trì, cần trường hoặc quy tắc riêng cho người nhận kế tiếp.
 - [ ] **B4 — Guard cấp lãnh đạo và chống tự duyệt (F07).** Guard đích danh hiện giới hạn ở `IN_REVIEW`. Bổ sung kiểm tra đúng người nhận/vòng ở `PENDING_APPROVAL`, cả tuyến chuyển tiếp và tuyến gửi thẳng. Chặn tự duyệt theo ma trận. Đối chiếu role gate, phân nhiệm và permission để người được giao có thể thực thi đúng action, bao gồm quyền ký khi thao tác duyệt có ký.
@@ -34,9 +34,9 @@ Luồng chính đi từ `DRAFT → IN_REVIEW → PENDING_APPROVAL → APPROVED �
 ### Văn thư, cấp số và ban hành
 
 - [ ] **C1 — Văn thư tiếp nhận và cấp số.** Hàng chờ dùng chung đang dựa trên `APPROVED`. Chốt thời điểm nhận việc và người chịu trách nhiệm phát hành, cách đổi người và cách xử lý hồ sơ do văn thư tự soạn. Rà tài khoản active, quyền lấy từ DB, sổ còn mở, loại/đơn vị/năm, số trùng và tái cấp. Lock sổ hiện có bảo vệ bộ đếm của sổ. Cần test cùng một văn bản được cấp số từ hai sổ và tranh chấp giữa cấp số với phát hành.
-- [ ] **C2 — Thống nhất hai API phát hành (F08).** `/documents/{id}/publish` còn chấp nhận `DRAFT` nếu đi qua được các điều kiện còn lại, và có nhánh tạo số từ ID. `/workflow/sign-and-publish` có đường ký và niêm phong nhưng role gate hiện thiếu `CLERK`. Chọn đường nghiệp vụ chuẩn, rà caller FE và tích hợp, rồi chuyển API cũ về cùng guard hoặc ngừng dùng theo hợp đồng đã duyệt. Kiểm tra trực tiếp service lẫn HTTP để phát hiện đường đi tắt.
+- [ ] **C2 — Thống nhất hai API phát hành (F08).** *(Đã xử lý nhánh DRAFT 2026-11-05)* Đã chặn hoàn toàn trạng thái `DRAFT` trong `DocumentPublishService.publishDocument()`, chỉ cho phép `APPROVED`. Việc còn lại: rà soát role gate `CLERK` cho `/workflow/sign-and-publish` và thống nhất hợp đồng gọi từ FE.
 - [ ] **C3 — Chốt thời điểm ký, niêm phong và commit.** Xác nhận việc cấp số, cập nhật ngày và đóng dấu trên PDF diễn ra ở bước nào. `PUBLISHED` phải đi kèm số hợp lệ, PDF chính thức đã lưu, hash của đúng bytes được lưu và audit log. Kiểm tra chuỗi chữ ký qua các lần ghi PDF và DocMDP ở bước cuối. Tệp ghi trước commit cần được dọn khi rollback. Kiểm thử lỗi storage, lỗi DB sau ghi tệp, retry và tình huống tiến trình dừng giữa chừng.
-- [ ] **C4 — Phân phối và quyền đọc sau phát hành.** DTO cũ khai báo `recipientOrgIds` nhưng helper phân phối dò `getTargetIds`/`getOrgIds` bằng reflection. Kiểm tra trường hợp chọn đơn vị mà danh sách phân phối bị rỗng. Chuẩn hóa hợp đồng nơi nhận, khử trùng và đồng bộ bản ghi phân phối với giao dịch phát hành. Áp chính sách đã chốt cho danh sách, chi tiết, phiên bản, tải PDF và đường đọc tệp trực tiếp. Kiểm chứng người ngoài phạm vi và văn bản hạn chế đọc.
+- [ ] **C4 — Phân phối và quyền đọc sau phát hành.** *(Đã sửa lỗi phân phối rỗng 2026-11-05)* Đã loại bỏ reflection sai tên trường trong `DocumentPublishService.extractTargetIds()`, chuyển sang đọc trực tiếp `PublishRequest.getRecipientOrgIds()`. Việc còn lại: rà soát chính sách phân quyền đọc/tải PDF sau phát hành.
 
 **Đối chiếu code.** Các điểm A/B nằm trong `DocumentApprovalService`, `ReviewAssignmentPolicy`, `DocumentWorkflowServiceImpl` và `WorkflowEngine`. Các điểm C nằm trong `DocumentBookServiceImpl`, `DocumentPublishService`, `DocumentWorkflowController` và `PublishRequest`. Đối chiếu lại theo tên lớp/phương thức khi dòng mã thay đổi. [Audit thẩm định](reports/document-review-workflow-audit-2026-10-28.md) · [Audit vòng đời ban đầu](../../docs/reports/document-lifecycle-audit-2026-10-31.md)
 
@@ -50,13 +50,13 @@ Luồng chính đi từ `DRAFT → IN_REVIEW → PENDING_APPROVAL → APPROVED �
 
 ## 4. Các quyết định cần chốt trước khi triển khai từng đợt
 
-| Quyết định | Phạm vi cần làm rõ |
-|---|---|
-| Tuyến lãnh đạo | Người thẩm định chuyển cố định lên HT hay chọn HT/PHT. Đối chiếu các ghi chú cũ và tuyến gửi đầu hiện chạy, tránh lấy quy tắc của tuyến đầu áp sang bàn giao. |
-| Vòng sửa và thu hồi | Gửi lại cho người yêu cầu sửa hay cho chọn trong phạm vi hợp lệ. Xử lý khi người đó nghỉ hoặc hết quyền. Ký nháy riêng có được tính là đã bắt đầu xử lý để chặn thu hồi không. |
-| Cấp nào được từ chối hoặc yêu cầu sửa | Quyền theo trạng thái và vòng. Chốt việc trả về sau cấp số và cách xử lý số đã cấp nếu nghiệp vụ cho phép. |
-| Văn thư nhận và ký | Cơ chế nhận độc quyền, chuyển người, quy tắc tự xử lý, thời điểm cấp số và có cần dùng `PENDING_SIGN` hay không. |
-| Nơi nhận và độ mật | Quyền tra cứu/tải theo người nhận, đơn vị, mức độ mật và admin. Hành vi của các đường đọc cũ khi chuyển sang chính sách mới. |
+| Quyết định                            | Phạm vi cần làm rõ                                                                                                                                                             |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Tuyến lãnh đạo                        | Người thẩm định chuyển cố định lên HT hay chọn HT/PHT. Đối chiếu các ghi chú cũ và tuyến gửi đầu hiện chạy, tránh lấy quy tắc của tuyến đầu áp sang bàn giao.                  |
+| Vòng sửa và thu hồi                   | Gửi lại cho người yêu cầu sửa hay cho chọn trong phạm vi hợp lệ. Xử lý khi người đó nghỉ hoặc hết quyền. Ký nháy riêng có được tính là đã bắt đầu xử lý để chặn thu hồi không. |
+| Cấp nào được từ chối hoặc yêu cầu sửa | Quyền theo trạng thái và vòng. Chốt việc trả về sau cấp số và cách xử lý số đã cấp nếu nghiệp vụ cho phép.                                                                     |
+| Văn thư nhận và ký                    | Cơ chế nhận độc quyền, chuyển người, quy tắc tự xử lý, thời điểm cấp số và có cần dùng `PENDING_SIGN` hay không.                                                               |
+| Nơi nhận và độ mật                    | Quyền tra cứu/tải theo người nhận, đơn vị, mức độ mật và admin. Hành vi của các đường đọc cũ khi chuyển sang chính sách mới.                                                   |
 
 Khi ma trận thiếu hoặc mâu thuẫn, ghi `NEED_HUMAN` cho đúng mục và đưa tình huống cụ thể để chốt. Nguồn quy tắc trong workspace là `D:/code/e-office/docs/permission-matrix.md` và `D:/code/e-office/AGENTS.md`. Các báo cáo ngày cũ dùng để truy nguyên phát hiện, cần đối chiếu lại với code mới trước khi mở issue.
 

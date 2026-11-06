@@ -91,13 +91,11 @@ public class DocumentPublishService {
         if(Boolean.TRUE.equals(doc.isDeleteFlg())){
             throw new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND, "Văn bản đã bị xoá");
         }
-        Set<DocumentStatus> validStatuses = Set.of(
-            DocumentStatus.APPROVED, 
-            DocumentStatus.DRAFT
-        );
-        if (doc.getStatus() != null && !validStatuses.contains(doc.getStatus())) {
+        // Fix C2: chỉ cho phép APPROVED — loại bỏ đường tắt từ DRAFT bỏ qua workflow.
+        if (doc.getStatus() != DocumentStatus.APPROVED) {
             throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATUS, 
-                    "Chỉ có thể ban hành văn bản đã được phê duyệt");
+                    "Chỉ có thể ban hành văn bản đã được phê duyệt (trạng thái APPROVED). "
+                    + "Trạng thái hiện tại: " + (doc.getStatus() != null ? doc.getStatus().name() : "null"));
         }
         String computedHash = calculateSha256(doc.getOfficialFilePath());
         applyDocumentMetadata(doc, request,computedHash);
@@ -169,29 +167,11 @@ public class DocumentPublishService {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private List<Long> extractTargetIds(PublishRequest request) {
-        try {
-            var method = request.getClass().getMethod("getTargetIds");
-            Object result = method.invoke(request);
-            if (result instanceof List<?>) {
-                return (List<Long>) result;
-            }
-        } catch (ReflectiveOperationException ignored) {
-            // Fallback sang getOrgIds nếu DTO sử dụng tên cũ
+        if (request == null || request.getRecipientOrgIds() == null) {
+            return Collections.emptyList();
         }
-
-        try {
-            var method = request.getClass().getMethod("getOrgIds");
-            Object result = method.invoke(request);
-            if (result instanceof List<?>) {
-                return (List<Long>) result;
-            }
-        } catch (ReflectiveOperationException ignored) {
-            // Trường hợp DTO không khai báo trường targets
-        }
-
-        return Collections.emptyList();
+        return request.getRecipientOrgIds();
     }
 
     /**

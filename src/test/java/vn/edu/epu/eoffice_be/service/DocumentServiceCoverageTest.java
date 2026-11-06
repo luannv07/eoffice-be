@@ -301,6 +301,7 @@ class DocumentServiceCoverageTest {
     void testPublishDocument() {
         Document doc = new Document();
         doc.setId(1L);
+        doc.setStatus(DocumentStatus.APPROVED);
 
         when(documentRepository.findById(1L)).thenReturn(Optional.of(doc));
         when(documentRepository.save(any(Document.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -446,7 +447,7 @@ class DocumentServiceCoverageTest {
     void testDocumentPublishService_NullEdgeCases() {
         Document doc = new Document();
         doc.setId(10L);
-        doc.setStatus(DocumentStatus.DRAFT);
+        doc.setStatus(DocumentStatus.APPROVED);
 
         when(documentRepository.findById(10L)).thenReturn(Optional.of(doc));
         when(documentRepository.save(any(Document.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -487,6 +488,7 @@ class DocumentServiceCoverageTest {
 
         Document docWithRealFile = new Document();
         docWithRealFile.setId(77L);
+        docWithRealFile.setStatus(DocumentStatus.APPROVED);
         docWithRealFile.setOfficialFilePath(realTempFile.getAbsolutePath());
         when(documentPdfStorageService.readPdf(realTempFile.getAbsolutePath())).thenReturn(Files.readAllBytes(realTempFile.toPath()));
 
@@ -707,24 +709,14 @@ class DocumentServiceCoverageTest {
     void testPublishDocument_WithOrgTargetsBranch() {
         Document doc = new Document();
         doc.setId(25L);
-        doc.setStatus(DocumentStatus.DRAFT);
+        doc.setStatus(DocumentStatus.APPROVED);
 
         when(documentRepository.findById(25L)).thenReturn(Optional.of(doc));
         when(documentRepository.save(any(Document.class))).thenAnswer(i -> i.getArgument(0));
 
         PublishRequest req = new PublishRequest();
         req.setIsPublicToAll(false);
-        try {
-            var setTargets = req.getClass().getMethod("setTargetIds", List.class);
-            setTargets.invoke(req, List.of(101L, 102L));
-        } catch (ReflectiveOperationException ignored) {
-            try {
-                var setOrg = req.getClass().getMethod("setOrgIds", List.class);
-                setOrg.invoke(req, List.of(101L, 102L));
-            } catch (ReflectiveOperationException ignored2) {
-                // PublishRequest không có danh sách targets
-            }
-        }
+        req.setRecipientOrgIds(List.of(101L, 102L));
 
         stubOfficialPdf(doc);
         when(draftReadPolicy.currentUser()).thenReturn(UserLogin.builder().id(9001L).role(vn.edu.epu.eoffice_be.common.enums.Role.CLERK).build());
@@ -796,6 +788,7 @@ class DocumentServiceCoverageTest {
     void testPublishDocument_NullDatesFallback() {
         Document doc = new Document();
         doc.setId(90L);
+        doc.setStatus(DocumentStatus.APPROVED);
         when(documentRepository.findById(90L)).thenReturn(Optional.of(doc));
         when(documentRepository.save(any(Document.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -823,6 +816,7 @@ class DocumentServiceCoverageTest {
 
         Document doc = new Document();
         doc.setId(999L);
+        doc.setStatus(DocumentStatus.APPROVED);
         doc.setOfficialFilePath(tempFile.getAbsolutePath());
         when(documentPdfStorageService.readPdf(tempFile.getAbsolutePath())).thenReturn(Files.readAllBytes(tempFile.toPath()));
 
@@ -846,6 +840,7 @@ class DocumentServiceCoverageTest {
     void testCalculateSha256_MissingFileStopsPublication() {
         Document doc = new Document();
         doc.setId(301L);
+        doc.setStatus(DocumentStatus.APPROVED);
         doc.setOfficialFilePath(null);
 
         when(documentRepository.findById(301L)).thenReturn(Optional.of(doc));
@@ -910,6 +905,7 @@ class DocumentServiceCoverageTest {
         java.io.File tempDir = new java.io.File(System.getProperty("java.io.tmpdir"));
         Document doc = new Document();
         doc.setId(888L);
+        doc.setStatus(DocumentStatus.APPROVED);
         doc.setOfficialFilePath(tempDir.getAbsolutePath());
 
         when(documentRepository.findById(888L)).thenReturn(Optional.of(doc));
@@ -963,6 +959,7 @@ class DocumentServiceCoverageTest {
 
         Document doc = new Document();
         doc.setId(606L);
+        doc.setStatus(DocumentStatus.APPROVED);
         doc.setOfficialFilePath(tempFile.getAbsolutePath());
         when(documentPdfStorageService.readPdf(tempFile.getAbsolutePath())).thenReturn(Files.readAllBytes(tempFile.toPath()));
 
@@ -982,6 +979,20 @@ class DocumentServiceCoverageTest {
         assertFalse(documentPublishService.verifyIntegrity(606L, auth));
 
         assertThrows(AccessDeniedException.class, () -> documentPublishService.verifyIntegrity(606L, null));
+    }
+
+    @Test
+    void testPublishDocument_ThrowsWhenStatusIsDraft() {
+        Document doc = new Document();
+        doc.setId(1001L);
+        doc.setStatus(DocumentStatus.DRAFT);
+        when(documentRepository.findById(1001L)).thenReturn(Optional.of(doc));
+        PublishRequest req = new PublishRequest();
+        when(draftReadPolicy.currentUser()).thenReturn(UserLogin.builder().id(9001L).role(vn.edu.epu.eoffice_be.common.enums.Role.CLERK).build());
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentPublishService.publishDocument(1001L, req));
+        assertEquals(vn.edu.epu.eoffice_be.common.enums.ErrorCode.INVALID_DOCUMENT_STATUS, ex.getErrorCode());
     }
 
     @Test

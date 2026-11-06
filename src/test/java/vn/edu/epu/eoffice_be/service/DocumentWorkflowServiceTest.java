@@ -495,9 +495,18 @@ class DocumentWorkflowServiceTest {
     @Test
     @DisplayName("UC12: Duyệt văn bản với Bút phê lãnh đạo và đơn vị chủ trì")
     void approve_success() {
+        document.setPrimaryFilePath("drafts/doc_5001.pdf");
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
         when(orgNodeRepository.findByIdAndDeleteFlgFalse(2001L)).thenReturn(Optional.of(orgNode));
+
+        when(documentPdfStorageService.readPdf("drafts/doc_5001.pdf")).thenReturn("%PDF-1.5 test".getBytes());
+        PdfSigner.SignResult mockSignResult = new PdfSigner.SignResult(
+                "1002", "leader", "123456", "hash_sig_review_success", new java.util.Date(),
+                "sig_user_1002", null, "%PDF-1.5 signed".getBytes()
+        );
+        when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString())).thenReturn(mockSignResult);
+        when(documentPdfStorageService.storeSignedPdf(any(byte[].class), anyString(), eq(5001L))).thenReturn("storage://35001");
 
         DocumentApproveRequest request = DocumentApproveRequest.builder()
                 .comment("Dong y thong qua")
@@ -515,7 +524,7 @@ class DocumentWorkflowServiceTest {
                 "Dong y thong qua",
                 "Giao Khoa CNTT chu tri",
                 orgNode,
-                null
+                "hash_sig_review_success"
         );
     }
 
@@ -568,8 +577,17 @@ class DocumentWorkflowServiceTest {
     @DisplayName("UC12: Duyệt văn bản ở trạng thái LEADER_REVIEW thì action là LEADER_APPROVE")
     void approve_whenLeaderReview_shouldUseLeaderApprove() {
         document.setStatus(DocumentStatus.PENDING_APPROVAL);
+        document.setPrimaryFilePath("drafts/doc_5001.pdf");
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        when(documentPdfStorageService.readPdf("drafts/doc_5001.pdf")).thenReturn("%PDF-1.5 test".getBytes());
+        PdfSigner.SignResult mockSignResult = new PdfSigner.SignResult(
+                "1002", "leader", "123456", "hash_sig_leader_review", new java.util.Date(),
+                "sig_user_1002", null, "%PDF-1.5 signed".getBytes()
+        );
+        when(pdfSigner.signVisibleBytes(any(byte[].class), anyString(), anyString(), any(), any(), anyString(), any())).thenReturn(mockSignResult);
+        when(documentPdfStorageService.storeSignedPdf(any(byte[].class), anyString(), eq(5001L))).thenReturn("storage://35002");
 
         DocumentApproveRequest request = DocumentApproveRequest.builder()
                 .comment("Lanh dao dong y")
@@ -585,7 +603,7 @@ class DocumentWorkflowServiceTest {
                 "Lanh dao dong y",
                 null,
                 null,
-                null
+                "hash_sig_leader_review"
         );
     }
 
@@ -593,8 +611,17 @@ class DocumentWorkflowServiceTest {
     @DisplayName("UC12: Duyệt văn bản ở trạng thái PENDING_APPROVAL thì action là LEADER_APPROVE")
     void approve_whenPendingApproval_shouldUseLeaderApprove() {
         document.setStatus(DocumentStatus.PENDING_APPROVAL);
+        document.setPrimaryFilePath("drafts/doc_5001.pdf");
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        when(documentPdfStorageService.readPdf("drafts/doc_5001.pdf")).thenReturn("%PDF-1.5 test".getBytes());
+        PdfSigner.SignResult mockSignResult = new PdfSigner.SignResult(
+                "1002", "leader", "123456", "hash_sig_pending_approval", new java.util.Date(),
+                "sig_user_1002", null, "%PDF-1.5 signed".getBytes()
+        );
+        when(pdfSigner.signVisibleBytes(any(byte[].class), anyString(), anyString(), any(), any(), anyString(), any())).thenReturn(mockSignResult);
+        when(documentPdfStorageService.storeSignedPdf(any(byte[].class), anyString(), eq(5001L))).thenReturn("storage://35003");
 
         DocumentApproveRequest request = DocumentApproveRequest.builder()
                 .comment("Lanh dao dong y phe duyet")
@@ -610,7 +637,7 @@ class DocumentWorkflowServiceTest {
                 "Lanh dao dong y phe duyet",
                 null,
                 null,
-                null
+                "hash_sig_pending_approval"
         );
     }
 
@@ -671,8 +698,17 @@ class DocumentWorkflowServiceTest {
     @DisplayName("UC12: Duyệt văn bản ở trạng thái WAITING_APPROVAL thì action là LEADER_APPROVE")
     void approve_whenWaitingApproval_shouldUseLeaderApprove() {
         document.setStatus(DocumentStatus.PENDING_APPROVAL);
+        document.setPrimaryFilePath("drafts/doc_5001.pdf");
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        when(documentPdfStorageService.readPdf("drafts/doc_5001.pdf")).thenReturn("%PDF-1.5 test".getBytes());
+        PdfSigner.SignResult mockSignResult = new PdfSigner.SignResult(
+                "1002", "leader", "123456", "hash_sig_waiting_approval", new java.util.Date(),
+                "sig_user_1002", null, "%PDF-1.5 signed".getBytes()
+        );
+        when(pdfSigner.signVisibleBytes(any(byte[].class), anyString(), anyString(), any(), any(), anyString(), any())).thenReturn(mockSignResult);
+        when(documentPdfStorageService.storeSignedPdf(any(byte[].class), eq("leader_signed_5001.pdf"), eq(5001L))).thenReturn("storage://35004");
 
         DocumentApproveRequest request = DocumentApproveRequest.builder()
                 .comment("Lanh dao dong y phe duyet truc tiep")
@@ -688,8 +724,24 @@ class DocumentWorkflowServiceTest {
                 "Lanh dao dong y phe duyet truc tiep",
                 null,
                 null,
-                null
+                "hash_sig_waiting_approval"
         );
+    }
+
+    @Test
+    @DisplayName("Fix B1: approve ném DOCUMENT_PRIMARY_FILE_MISSING khi văn bản không có tệp PDF")
+    void approve_whenPdfMissing_shouldThrowDocumentPrimaryFileMissing() {
+        document.setPrimaryFilePath(null);
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        DocumentApproveRequest request = DocumentApproveRequest.builder()
+                .comment("Duyet")
+                .build();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentWorkflowService.approve(5001L, request));
+        assertEquals(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING, ex.getErrorCode());
     }
 
     @Test
