@@ -117,16 +117,16 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         // Kiểm tra thẩm quyền người xử lý trước khi thực hiện chuyển đổi
         validateReviewAuthorization(document, actor, action, request.getComment());
 
-        // Fix B1: Bắt buộc PDF và bộ ký phải sẵn sàng trước khi phê duyệt
-        ensureDocumentPdfExists(document);
-        if (pdfSigner == null) {
-            throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR, "Bộ ký xác nhận chưa khả dụng");
-        }
-
         OrgNode assignedOrg = null;
         if (request.getAssignedOrgNodeId() != null) {
             assignedOrg = orgNodeRepository.findByIdAndDeleteFlgFalse(request.getAssignedOrgNodeId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.ORG_NODE_NOT_FOUND));
+        }
+
+        // Fix B1: Bắt buộc PDF và bộ ký phải sẵn sàng trước khi phê duyệt
+        ensureDocumentPdfExists(document);
+        if (pdfSigner == null) {
+            throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR, "Bộ ký xác nhận chưa khả dụng");
         }
 
         byte[] currentPdfBytes = loadDocumentPdfBytes(document);
