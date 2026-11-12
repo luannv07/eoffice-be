@@ -38,20 +38,21 @@ class ApiCacheControlFilterTest {
 	}
 
 	@Test
-	void shouldNotFilterSwaggerUiAndStaticAssets() {
-		MockHttpServletRequest swaggerRequest = new MockHttpServletRequest("GET", "/swagger-ui/index.html");
-		assertTrue(filter.shouldNotFilter(swaggerRequest));
+	void shouldNotFilterSwaggerUiAndDocAssets() {
+		assertTrue(filter.shouldNotFilter(new MockHttpServletRequest("GET", "/swagger-ui/index.html")));
+		assertTrue(filter.shouldNotFilter(new MockHttpServletRequest("GET", "/swagger-ui/swagger-ui.css")));
+		assertTrue(filter.shouldNotFilter(new MockHttpServletRequest("GET", "/v3/api-docs")));
+		assertTrue(filter.shouldNotFilter(new MockHttpServletRequest("GET", "/v3/api-docs/swagger-config")));
+		assertTrue(filter.shouldNotFilter(new MockHttpServletRequest("GET", "/webjars/swagger-ui/bundle.js")));
+		assertTrue(filter.shouldNotFilter(new MockHttpServletRequest("GET", "/favicon.ico")));
+	}
 
-		MockHttpServletRequest apiDocsRequest = new MockHttpServletRequest("GET", "/v3/api-docs/swagger-config");
-		assertTrue(filter.shouldNotFilter(apiDocsRequest));
-
-		MockHttpServletRequest cssRequest = new MockHttpServletRequest("GET", "/static/app.css");
-		assertTrue(filter.shouldNotFilter(cssRequest));
-
-		MockHttpServletRequest jsRequest = new MockHttpServletRequest("GET", "/static/bundle.js");
-		assertTrue(filter.shouldNotFilter(jsRequest));
-
-		MockHttpServletRequest apiRequest = new MockHttpServletRequest("GET", "/api/v1/users");
-		assertFalse(filter.shouldNotFilter(apiRequest));
+	@Test
+	void shouldFilterBusinessApiEvenWithFileExtensions() {
+		// Business API endpoints returning files must still get Cache-Control headers
+		assertFalse(filter.shouldNotFilter(new MockHttpServletRequest("GET", "/api/v1/documents/export.html")));
+		assertFalse(filter.shouldNotFilter(new MockHttpServletRequest("GET", "/api/v1/documents/123/preview.png")));
+		assertFalse(filter.shouldNotFilter(new MockHttpServletRequest("GET", "/api/v1/reports/annual.css")));
+		assertFalse(filter.shouldNotFilter(new MockHttpServletRequest("GET", "/api/v1/users")));
 	}
 }

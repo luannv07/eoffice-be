@@ -26,15 +26,12 @@ public class ApiCacheControlFilter extends OncePerRequestFilter {
 		if (uri == null) {
 			return false;
 		}
-		// Allow caching for Swagger UI and static documentation assets
-		return uri.contains("/swagger-ui")
-				|| uri.contains("/v3/api-docs")
-				|| uri.endsWith(".html")
-				|| uri.endsWith(".css")
-				|| uri.endsWith(".js")
-				|| uri.endsWith(".ico")
-				|| uri.endsWith(".png")
-				|| uri.endsWith(".svg");
+		// Only exclude well-known documentation and static asset path prefixes.
+		// Business API endpoints (even those returning .html/.png files) remain protected.
+		return uri.startsWith("/swagger-ui/")
+				|| uri.startsWith("/v3/api-docs")
+				|| uri.startsWith("/webjars/")
+				|| uri.equals("/favicon.ico");
 	}
 
 	@Override

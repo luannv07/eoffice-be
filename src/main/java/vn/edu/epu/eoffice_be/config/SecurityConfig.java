@@ -78,8 +78,7 @@ public class SecurityConfig {
 											// Permissions-Policy, Cache-Control).
 											.httpStrictTransportSecurity(hsts -> hsts
 															.maxAgeInSeconds(31536000)
-															.includeSubDomains(true)
-															.requestMatcher(request -> true))
+															.includeSubDomains(true))
 											.contentSecurityPolicy(csp -> csp.policyDirectives(
 															"default-src 'self'; "
 																			+ "object-src 'none'; "
