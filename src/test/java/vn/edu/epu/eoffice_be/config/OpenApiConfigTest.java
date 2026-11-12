@@ -36,4 +36,13 @@ class OpenApiConfigTest {
 		assertNotNull(openAPI.getInfo().getContact());
 		assertNotNull(openAPI.getInfo().getLicense());
 	}
+
+	@Test
+	void eofficeOpenApiShouldConfigureExplicitServersWithoutPrivateIp() {
+		OpenApiConfig config = new OpenApiConfig();
+		OpenAPI openAPI = config.eofficeOpenApi();
+		assertNotNull(openAPI.getServers());
+		assertFalse(openAPI.getServers().isEmpty());
+		assertEquals("/api/v1", openAPI.getServers().get(0).getUrl());
+	}
 }

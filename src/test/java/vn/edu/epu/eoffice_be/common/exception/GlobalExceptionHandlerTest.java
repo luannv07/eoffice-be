@@ -221,4 +221,27 @@ class GlobalExceptionHandlerTest {
 		assertEquals("Lỗi lưu trữ tệp. Vui lòng thử lại sau", response.getBody().getMessage());
 		assertFalse(response.getBody().getMessage().contains("/var/eoffice/secret_path"));
 	}
+
+	@Test
+	void handleMethodNotSupportedShouldReturn405MethodNotAllowed() {
+		org.springframework.web.HttpRequestMethodNotSupportedException ex =
+				new org.springframework.web.HttpRequestMethodNotSupportedException("GET", java.util.List.of("POST", "PUT"));
+		ResponseEntity<BaseResponse<Void>> response = handler.handleMethodNotSupported(ex);
+
+		assertEquals(HttpStatus.METHOD_NOT_ALLOWED, response.getStatusCode());
+		assertFalse(response.getBody().isSuccess());
+		assertEquals("METHOD_NOT_ALLOWED", response.getBody().getErrorCode());
+		assertTrue(response.getBody().getMessage().contains("GET"));
+	}
+
+	@Test
+	void handleNotFoundShouldReturn404NotFound() {
+		org.springframework.web.servlet.resource.NoResourceFoundException ex =
+				new org.springframework.web.servlet.resource.NoResourceFoundException(org.springframework.http.HttpMethod.GET, "/api/v1/unknown");
+		ResponseEntity<BaseResponse<Void>> response = handler.handleNotFound(ex);
+
+		assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+		assertFalse(response.getBody().isSuccess());
+		assertEquals("NOT_FOUND", response.getBody().getErrorCode());
+	}
 }

@@ -7,8 +7,11 @@ import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import io.swagger.v3.oas.models.servers.Server;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.List;
 
 @Configuration
 public class OpenApiConfig {
@@ -17,6 +20,9 @@ public class OpenApiConfig {
 	@Bean
 	public OpenAPI eofficeOpenApi() {
 		return new OpenAPI()
+						.servers(List.of(
+										new Server().url("/api/v1").description("Default Server")
+						))
 						.info(new Info()
 										.title("eOffice Backend API")
 										.description("API documentation for eOffice DevSecOps staging environment")

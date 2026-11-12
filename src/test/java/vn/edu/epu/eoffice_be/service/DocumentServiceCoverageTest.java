@@ -294,7 +294,7 @@ class DocumentServiceCoverageTest {
         assertFalse(documentPublishService.verifyIntegrity(1L, auth));
 
         when(documentRepository.findById(99L)).thenReturn(Optional.empty());
-        assertThrows(IllegalArgumentException.class, () -> documentPublishService.verifyIntegrity(99L, auth));
+        assertThrows(BusinessException.class, () -> documentPublishService.verifyIntegrity(99L, auth));
     }
 
     @Test
@@ -857,7 +857,7 @@ class DocumentServiceCoverageTest {
     @Test
     void testVerifyIntegrity_WhenDocumentNotFound() {
         when(documentRepository.findById(99999L)).thenReturn(Optional.empty());
-        assertThrows(IllegalArgumentException.class, () -> documentPublishService.verifyIntegrity(99999L, null));
+        assertThrows(BusinessException.class, () -> documentPublishService.verifyIntegrity(99999L, null));
     }
 
     @Test

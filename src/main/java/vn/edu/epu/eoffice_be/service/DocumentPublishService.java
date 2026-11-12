@@ -191,7 +191,7 @@ public class DocumentPublishService {
             authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         }
         Document doc = documentRepository.findById(documentId)
-                .orElseThrow(() -> new IllegalArgumentException("Document not found: " + documentId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND, "Không tìm thấy văn bản ID: " + documentId));
 
         assertCanVerifyIntegrity(doc, authentication);
 
