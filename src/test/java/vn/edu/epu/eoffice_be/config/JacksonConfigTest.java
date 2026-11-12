@@ -29,6 +29,15 @@ class JacksonConfigTest {
 	}
 
 	@Test
+	void objectMapperShouldSerializeInstantAsIso8601String() throws Exception {
+		JacksonConfig config = new JacksonConfig();
+		ObjectMapper mapper = config.objectMapper();
+		Instant now = Instant.parse("2026-11-12T09:00:00Z");
+		String json = mapper.writeValueAsString(now);
+		assertEquals("\"2026-11-12T09:00:00Z\"", json);
+	}
+
+	@Test
 	void objectMapperFactoryShouldReturnDifferentInstancesPerCall() {
 		JacksonConfig config = new JacksonConfig();
 		ObjectMapper mapper1 = config.objectMapper();

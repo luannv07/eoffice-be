@@ -2,12 +2,16 @@ package vn.edu.epu.eoffice_be.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.DefaultSecurityFilterChain;
 import org.springframework.security.web.SecurityFilterChain;
+import vn.edu.epu.eoffice_be.security.ApiCacheControlFilter;
 import vn.edu.epu.eoffice_be.security.JwtAuthenticationFilter;
 import vn.edu.epu.eoffice_be.security.ProfileCompletedFilter;
 import vn.edu.epu.eoffice_be.security.RateLimitFilter;
+
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
@@ -18,10 +22,12 @@ class SecurityConfigTest {
 	private final JwtAuthenticationFilter jwtAuthenticationFilter = mock(JwtAuthenticationFilter.class);
 	private final RateLimitFilter rateLimitFilter = mock(RateLimitFilter.class);
 	private final ProfileCompletedFilter profileCompletedFilter = mock(ProfileCompletedFilter.class);
+	private final ApiCacheControlFilter apiCacheControlFilter = new ApiCacheControlFilter();
 
 	@Test
+	@Timeout(value = 5, unit = TimeUnit.SECONDS)
 	void securityFilterChainShouldWrapExceptionAsIllegalStateException() throws Exception {
-		SecurityConfig config = new SecurityConfig(jwtAuthenticationFilter, rateLimitFilter, profileCompletedFilter, new ObjectMapper());
+		SecurityConfig config = new SecurityConfig(jwtAuthenticationFilter, rateLimitFilter, profileCompletedFilter, apiCacheControlFilter, new ObjectMapper());
 		HttpSecurity httpSecurity = mock(HttpSecurity.class);
 		when(httpSecurity.csrf(org.mockito.ArgumentMatchers.any())).thenThrow(new RuntimeException("boom"));
 
@@ -29,15 +35,18 @@ class SecurityConfigTest {
 	}
 
 	@Test
+	@Timeout(value = 5, unit = TimeUnit.SECONDS)
 	void securityFilterChainShouldReturnBuiltChainWhenHttpSecurityBuilds() throws Exception {
-		SecurityConfig config = new SecurityConfig(jwtAuthenticationFilter, rateLimitFilter, profileCompletedFilter, new ObjectMapper());
+		SecurityConfig config = new SecurityConfig(jwtAuthenticationFilter, rateLimitFilter, profileCompletedFilter, apiCacheControlFilter, new ObjectMapper());
 		HttpSecurity httpSecurity = mock(HttpSecurity.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
 		DefaultSecurityFilterChain chain = mock(DefaultSecurityFilterChain.class);
 
 		when(httpSecurity.csrf(org.mockito.ArgumentMatchers.any())).thenReturn(httpSecurity);
 		when(httpSecurity.cors(org.mockito.ArgumentMatchers.any())).thenReturn(httpSecurity);
 		when(httpSecurity.sessionManagement(org.mockito.ArgumentMatchers.any())).thenReturn(httpSecurity);
+		when(httpSecurity.headers(org.mockito.ArgumentMatchers.any())).thenReturn(httpSecurity);
 		when(httpSecurity.authorizeHttpRequests(org.mockito.ArgumentMatchers.any())).thenReturn(httpSecurity);
+		when(httpSecurity.exceptionHandling(org.mockito.ArgumentMatchers.any())).thenReturn(httpSecurity);
 		when(httpSecurity.httpBasic(org.mockito.ArgumentMatchers.any())).thenReturn(httpSecurity);
 		when(httpSecurity.formLogin(org.mockito.ArgumentMatchers.any())).thenReturn(httpSecurity);
 		when(httpSecurity.addFilterBefore(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))

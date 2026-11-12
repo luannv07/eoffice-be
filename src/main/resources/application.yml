@@ -8,6 +8,8 @@ spring:
     version: "@project.version@"
   jackson:
     time-zone: UTC
+    serialization:
+      write-dates-as-timestamps: false
     deserialization:
       fail-on-unknown-properties: false
   jpa:
@@ -41,6 +43,10 @@ spring:
     level:
       liquibase: INFO
       root: INFO
+
+server:
+  port: ${PORT:8080}
+  forward-headers-strategy: framework
 
 management:
   endpoints:

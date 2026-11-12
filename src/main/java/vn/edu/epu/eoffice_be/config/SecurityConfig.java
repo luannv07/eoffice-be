@@ -19,6 +19,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import vn.edu.epu.eoffice_be.common.dto.BaseResponse;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
+import vn.edu.epu.eoffice_be.security.ApiCacheControlFilter;
 import vn.edu.epu.eoffice_be.security.JwtAuthenticationFilter;
 import vn.edu.epu.eoffice_be.security.ProfileCompletedFilter;
 import vn.edu.epu.eoffice_be.security.RateLimitFilter;
@@ -36,15 +37,18 @@ public class SecurityConfig {
 	private final JwtAuthenticationFilter jwtAuthenticationFilter;
 	private final RateLimitFilter rateLimitFilter;
 	private final ProfileCompletedFilter profileCompletedFilter;
+	private final ApiCacheControlFilter apiCacheControlFilter;
 	private final ObjectMapper objectMapper;
 
 	public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
 	                      RateLimitFilter rateLimitFilter,
 	                      ProfileCompletedFilter profileCompletedFilter,
+	                      ApiCacheControlFilter apiCacheControlFilter,
 	                      ObjectMapper objectMapper) {
 		this.jwtAuthenticationFilter = jwtAuthenticationFilter;
 		this.rateLimitFilter = rateLimitFilter;
 		this.profileCompletedFilter = profileCompletedFilter;
+		this.apiCacheControlFilter = apiCacheControlFilter;
 		this.objectMapper = objectMapper;
 	}
 
@@ -70,16 +74,20 @@ public class SecurityConfig {
 							.cors(Customizer.withDefaults())
 							.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 							.headers(headers -> headers
-											// Security headers (resolve 3 of the 7 ZAP baseline WARN: CSP, HSTS,
-											// Permissions-Policy). HSTS is ignored by browsers over plain HTTP,
-											// so it is safe to keep enabled for local dev; the max-age is the
-											// standard 1 year with includeSubDomains.
+											// Security headers (resolve ZAP baseline WARN: CSP, HSTS,
+											// Permissions-Policy, Cache-Control).
 											.httpStrictTransportSecurity(hsts -> hsts
 															.maxAgeInSeconds(31536000)
-															.includeSubDomains(true))
+															.includeSubDomains(true)
+															.requestMatcher(request -> true))
 											.contentSecurityPolicy(csp -> csp.policyDirectives(
-															"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-																			+ "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+															"default-src 'self'; "
+																			+ "object-src 'none'; "
+																			+ "base-uri 'self'; "
+																			+ "frame-ancestors 'none'; "
+																			+ "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+																			+ "style-src 'self' 'unsafe-inline'; "
+																			+ "img-src 'self' data:; "
 																			+ "font-src 'self' data:"))
 											.permissionsPolicy(permissions -> permissions.policy(
 															"camera=(), microphone=(), geolocation=()")))
@@ -98,6 +106,7 @@ public class SecurityConfig {
 							)
 							.httpBasic(AbstractHttpConfigurer::disable)
 							.formLogin(AbstractHttpConfigurer::disable)
+							.addFilterBefore(apiCacheControlFilter, UsernamePasswordAuthenticationFilter.class)
 							.addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
 							.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
 							.addFilterBefore(profileCompletedFilter, UsernamePasswordAuthenticationFilter.class);
@@ -112,6 +121,8 @@ public class SecurityConfig {
 		response.setStatus(status.value());
 		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 		response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+		response.setHeader("Cache-Control", "no-store, max-age=0, private");
+		response.setHeader("Pragma", "no-cache");
 		objectMapper.writeValue(response.getWriter(),
 						BaseResponse.error(errorCode.getMessage(), errorCode.getCode()));
 	}
