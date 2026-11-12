@@ -175,7 +175,7 @@ public class FileStorageController {
         try {
             return registry.getProvider(provider);
         } catch (IllegalStateException e) {
-            String sanitizedProvider = provider.replaceAll("[\\r\\n]", "_").trim();
+            String sanitizedProvider = provider != null ? provider.replaceAll("[\\r\\n]", "_").trim() : "null";
             throw new BusinessException(ErrorCode.BAD_REQUEST, "Provider lưu trữ không hợp lệ: " + sanitizedProvider, e);
         }
     }
