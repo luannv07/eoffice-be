@@ -169,9 +169,14 @@ public class FileStorageController {
     }
 
     private FileStorageProvider resolve(String provider) {
-        return (provider == null || provider.isBlank())
-                ? registry.getActiveProvider()
-                : registry.getProvider(provider);
+        if (provider == null || provider.isBlank()) {
+            return registry.getActiveProvider();
+        }
+        try {
+            return registry.getProvider(provider);
+        } catch (IllegalStateException e) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "Provider lưu trữ không hợp lệ: " + provider);
+        }
     }
 
     private StoredFile toStoredFile(MultipartFile file) {

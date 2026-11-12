@@ -7,6 +7,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -124,6 +127,20 @@ public class GlobalExceptionHandler {
         }
         return ResponseEntity.status(ErrorCode.BAD_REQUEST.getStatus())
                 .body(BaseResponse.error(message, ErrorCode.BAD_REQUEST.getCode()));
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<BaseResponse<Void>> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
+        log.warn("Method not supported: {}", ex.getMessage());
+        return ResponseEntity.status(ErrorCode.METHOD_NOT_ALLOWED.getStatus())
+                .body(BaseResponse.error("Phương thức HTTP '" + ex.getMethod() + "' không được hỗ trợ cho endpoint này", ErrorCode.METHOD_NOT_ALLOWED.getCode()));
+    }
+
+    @ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})
+    public ResponseEntity<BaseResponse<Void>> handleNotFound(Exception ex) {
+        log.warn("Resource not found: {}", ex.getMessage());
+        return ResponseEntity.status(ErrorCode.NOT_FOUND.getStatus())
+                .body(BaseResponse.error("Không tìm thấy tài nguyên yêu cầu", ErrorCode.NOT_FOUND.getCode()));
     }
 
     @ExceptionHandler(Exception.class)
