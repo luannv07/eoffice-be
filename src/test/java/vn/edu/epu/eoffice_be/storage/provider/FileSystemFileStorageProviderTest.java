@@ -98,9 +98,9 @@ class FileSystemFileStorageProviderTest {
     }
 
     @Test
-    @DisplayName("Lay tep khong ton tai nem ngoai le FileStorageException")
+    @DisplayName("Lay tep khong ton tai nem ngoai le FileNotFoundStorageException")
     void get_NonExistentFile_ThrowsException() {
-        assertThrows(FileStorageException.class, () -> provider.get("unknown-id-123.pdf"));
+        assertThrows(FileNotFoundStorageException.class, () -> provider.get("unknown-id-123.pdf"));
     }
 
     @Test

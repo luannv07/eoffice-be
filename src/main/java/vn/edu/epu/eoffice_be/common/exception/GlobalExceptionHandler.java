@@ -20,7 +20,9 @@ import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import vn.edu.epu.eoffice_be.common.dto.BaseResponse;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
+import vn.edu.epu.eoffice_be.storage.provider.FileNotFoundStorageException;
 import vn.edu.epu.eoffice_be.storage.provider.FileStorageException;
+import vn.edu.epu.eoffice_be.storage.provider.InvalidFileStorageException;
 
 import java.util.stream.Collectors;
 
@@ -99,11 +101,32 @@ public class GlobalExceptionHandler {
                 .body(BaseResponse.error("Tham số '" + ex.getName() + "' không hợp lệ", ErrorCode.BAD_REQUEST.getCode()));
     }
 
+    @ExceptionHandler(FileNotFoundStorageException.class)
+    public ResponseEntity<BaseResponse<Void>> handleFileNotFoundStorageException(FileNotFoundStorageException ex) {
+        log.warn("File not found in storage: {}", ex.getMessage());
+        return ResponseEntity.status(ErrorCode.NOT_FOUND.getStatus())
+                .body(BaseResponse.error("Không tìm thấy tệp tin yêu cầu", ErrorCode.NOT_FOUND.getCode()));
+    }
+
+    @ExceptionHandler(InvalidFileStorageException.class)
+    public ResponseEntity<BaseResponse<Void>> handleInvalidFileStorageException(InvalidFileStorageException ex) {
+        log.warn("Invalid file storage request: {}", ex.getMessage());
+        return ResponseEntity.status(ErrorCode.BAD_REQUEST.getStatus())
+                .body(BaseResponse.error(ex.getMessage() != null ? ex.getMessage() : "Yêu cầu tệp không hợp lệ",
+                        ErrorCode.BAD_REQUEST.getCode()));
+    }
+
     @ExceptionHandler(FileStorageException.class)
     public ResponseEntity<BaseResponse<Void>> handleFileStorageException(FileStorageException ex) {
         log.error("File storage error: ", ex);
-        return ResponseEntity.status(ErrorCode.STORAGE_ERROR.getStatus())
-                .body(BaseResponse.error("Lỗi lưu trữ tệp. Vui lòng thử lại sau", ErrorCode.STORAGE_ERROR.getCode()));
+        ErrorCode code = ex.getErrorCode() != null ? ex.getErrorCode() : ErrorCode.STORAGE_ERROR;
+        String message = switch (code) {
+            case NOT_FOUND -> ex.getMessage() != null ? ex.getMessage() : "Không tìm thấy tệp tin yêu cầu";
+            case BAD_REQUEST -> ex.getMessage() != null ? ex.getMessage() : "Yêu cầu tệp không hợp lệ";
+            default -> "Lỗi lưu trữ tệp. Vui lòng thử lại sau";
+        };
+        return ResponseEntity.status(code.getStatus())
+                .body(BaseResponse.error(message, code.getCode()));
     }
 
     @ExceptionHandler(IllegalStateException.class)
