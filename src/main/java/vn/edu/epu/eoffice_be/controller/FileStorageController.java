@@ -57,7 +57,12 @@ public class FileStorageController {
             @RequestParam("file") MultipartFile file,
             @RequestParam(required = false) String provider) {
         FileStorageProvider p = resolve(provider);
-        StoredFile saved = p.save(toStoredFile(file));
+        StoredFile saved;
+        try {
+            saved = p.save(toStoredFile(file));
+        } catch (FileStorageException ex) {
+            throw mapStorageException(file != null ? file.getOriginalFilename() : "upload", ex);
+        }
         try {
             StoredFileMetadata meta = metadataRepository.findByProviderAndFileId(p.getName(), saved.getId())
                     .orElseGet(() -> StoredFileMetadata.builder()
@@ -81,7 +86,7 @@ public class FileStorageController {
             } catch (Exception deleteEx) {
                 log.warn("Failed to rollback uploaded file for fileId: {}", saved.getId(), deleteEx);
             }
-            throw new FileStorageException("Lưu siêu dữ liệu tệp thất bại", e);
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "Lưu siêu dữ liệu tệp thất bại", e);
         }
         return BaseResponse.success(toResponse(saved));
     }
@@ -96,11 +101,7 @@ public class FileStorageController {
         try {
             sf = resolve(provider).get(fileId);
         } catch (FileStorageException ex) {
-            BusinessException be = mapStorageException(fileId, ex);
-            if (be != null) {
-                throw be;
-            }
-            throw ex;
+            throw mapStorageException(fileId, ex);
         }
         ByteArrayResource resource = new ByteArrayResource(sf.getContent());
         String name = sf.getOriginalFileName() != null ? sf.getOriginalFileName() : "file";
@@ -120,11 +121,7 @@ public class FileStorageController {
         try {
             return BaseResponse.success(toResponse(resolve(provider).get(fileId)));
         } catch (FileStorageException ex) {
-            BusinessException be = mapStorageException(fileId, ex);
-            if (be != null) {
-                throw be;
-            }
-            throw ex;
+            throw mapStorageException(fileId, ex);
         }
     }
 
@@ -135,7 +132,12 @@ public class FileStorageController {
             @RequestParam("file") MultipartFile file,
             @RequestParam(required = false) String provider) {
         documentFiles.assertUnboundWrite(resolve(provider).getName(), fileId);
-        StoredFile updated = resolve(provider).update(fileId, toStoredFile(file));
+        StoredFile updated;
+        try {
+            updated = resolve(provider).update(fileId, toStoredFile(file));
+        } catch (FileStorageException ex) {
+            throw mapStorageException(fileId, ex);
+        }
         return BaseResponse.success(toResponse(updated));
     }
 
@@ -148,11 +150,7 @@ public class FileStorageController {
         try {
             resolve(provider).delete(fileId);
         } catch (FileStorageException ex) {
-            BusinessException be = mapDeleteStorageException(fileId, ex);
-            if (be != null) {
-                throw be;
-            }
-            throw ex;
+            throw mapDeleteStorageException(fileId, ex);
         }
         return BaseResponse.success(null, "Xóa tệp thành công");
     }
@@ -162,7 +160,12 @@ public class FileStorageController {
     public BaseResponse<List<StoredFileResponse>> getAll(
             @RequestParam(required = false) String provider) {
         var storage = resolve(provider);
-        var files = storage.getAll();
+        List<StoredFile> files;
+        try {
+            files = storage.getAll();
+        } catch (FileStorageException ex) {
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "Lỗi khi truy vấn danh sách tệp tin", ex);
+        }
         var visible = documentFiles.visibleFileIds(storage.getName(), files.stream().map(StoredFile::getId).toList());
         List<StoredFileResponse> list = files.stream()
                 .filter(file -> visible.contains(file.getId()))
@@ -180,11 +183,7 @@ public class FileStorageController {
         try {
             return BaseResponse.success(toResponse(resolve(provider).getDetail(fileId)));
         } catch (FileStorageException ex) {
-            BusinessException be = mapStorageException(fileId, ex);
-            if (be != null) {
-                throw be;
-            }
-            throw ex;
+            throw mapStorageException(fileId, ex);
         } catch (UnsupportedOperationException ex) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "Backend lưu trữ không hỗ trợ lấy chi tiết tệp", ex);
         }
@@ -201,7 +200,11 @@ public class FileStorageController {
         var storage = resolve(provider);
         var providerName = storage.getName();
         for (String fileId : fileIds) documentFiles.assertUnboundWrite(providerName, fileId);
-        storage.deleteMany(fileIds);
+        try {
+            storage.deleteMany(fileIds);
+        } catch (FileStorageException ex) {
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "Lỗi khi xóa nhiều tệp tin", ex);
+        }
         return BaseResponse.success(null, "Xóa nhiều tệp thành công");
     }
 
@@ -218,6 +221,9 @@ public class FileStorageController {
     }
 
     private StoredFile toStoredFile(MultipartFile file) {
+        if (file == null) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "Tệp tin không được để null");
+        }
         try {
             return StoredFile.builder()
                     .originalFileName(file.getOriginalFilename())
@@ -226,7 +232,7 @@ public class FileStorageController {
                     .content(file.getBytes())
                     .build();
         } catch (IOException e) {
-            throw new FileStorageException("Không thể đọc nội dung tệp tải lên", e);
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "Không thể đọc nội dung tệp tải lên", e);
         }
     }
 
@@ -251,7 +257,7 @@ public class FileStorageController {
         if (ex instanceof InvalidFileStorageException || ex.getErrorCode() == ErrorCode.BAD_REQUEST) {
             return new BusinessException(ErrorCode.BAD_REQUEST, "Yêu cầu tệp không hợp lệ: " + sanitizeId(fileId), ex);
         }
-        return null;
+        return new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "Lỗi hệ thống lưu trữ tệp tin: " + sanitizeId(fileId), ex);
     }
 
     private BusinessException mapDeleteStorageException(String fileId, FileStorageException ex) {
@@ -261,6 +267,6 @@ public class FileStorageController {
         if (ex instanceof InvalidFileStorageException || ex.getErrorCode() == ErrorCode.BAD_REQUEST) {
             return new BusinessException(ErrorCode.BAD_REQUEST, "Yêu cầu tệp không hợp lệ: " + sanitizeId(fileId), ex);
         }
-        return null;
+        return new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "Lỗi hệ thống khi xóa tệp tin: " + sanitizeId(fileId), ex);
     }
 }

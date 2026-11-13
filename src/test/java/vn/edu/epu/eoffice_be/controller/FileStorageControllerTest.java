@@ -29,6 +29,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -107,7 +108,8 @@ class FileStorageControllerTest {
         when(metadataRepository.save(any(StoredFileMetadata.class)))
                 .thenThrow(new RuntimeException("Database down"));
 
-        FileStorageException ex = assertThrows(FileStorageException.class, () -> controller.upload(file, null));
+        BusinessException ex = assertThrows(BusinessException.class, () -> controller.upload(file, null));
+        assertEquals(ErrorCode.INTERNAL_SERVER_ERROR, ex.getErrorCode());
         assertEquals("Lưu siêu dữ liệu tệp thất bại", ex.getMessage());
 
         verify(provider).delete("file-orphan");
@@ -144,14 +146,26 @@ class FileStorageControllerTest {
     }
 
     @Test
-    @DisplayName("Download gap loi storage IO rethrows FileStorageException khong mask thanh 404")
-    void download_StorageIOError_RethrowsFileStorageException() {
+    @DisplayName("Download gap loi storage IO nem BusinessException 500 chuan BaseResponse")
+    void download_StorageIOError_ThrowsBusinessException500() {
         when(registry.getActiveProvider()).thenReturn(provider);
         when(provider.get("error-file")).thenThrow(new FileStorageException("Lỗi I/O đọc đĩa"));
 
-        FileStorageException ex = org.junit.jupiter.api.Assertions.assertThrows(
-                FileStorageException.class, () -> controller.download("error-file", null));
-        assertEquals("Lỗi I/O đọc đĩa", ex.getMessage());
+        BusinessException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                BusinessException.class, () -> controller.download("error-file", null));
+        assertEquals(ErrorCode.INTERNAL_SERVER_ERROR, ex.getErrorCode());
+        assertTrue(ex.getMessage().contains("Lỗi hệ thống lưu trữ tệp tin"));
+    }
+
+    @Test
+    @DisplayName("Delete gap loi storage IO nem BusinessException 500")
+    void delete_StorageIOError_ThrowsBusinessException500() {
+        when(registry.getActiveProvider()).thenReturn(provider);
+        doThrow(new FileStorageException("Lỗi I/O")).when(provider).delete("file-err");
+
+        BusinessException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                BusinessException.class, () -> controller.delete("file-err", null));
+        assertEquals(ErrorCode.INTERNAL_SERVER_ERROR, ex.getErrorCode());
     }
 
     @Test
