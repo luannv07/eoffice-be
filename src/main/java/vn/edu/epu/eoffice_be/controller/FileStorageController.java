@@ -24,9 +24,11 @@ import vn.edu.epu.eoffice_be.common.dto.BaseResponse;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.dto.response.StoredFileResponse;
+import vn.edu.epu.eoffice_be.storage.provider.FileNotFoundStorageException;
 import vn.edu.epu.eoffice_be.storage.provider.FileStorageException;
 import vn.edu.epu.eoffice_be.storage.provider.FileStorageProvider;
 import vn.edu.epu.eoffice_be.storage.provider.FileStorageProviderRegistry;
+import vn.edu.epu.eoffice_be.storage.provider.InvalidFileStorageException;
 import vn.edu.epu.eoffice_be.storage.provider.StoredFile;
 
 import java.io.IOException;
@@ -94,7 +96,11 @@ public class FileStorageController {
         try {
             sf = resolve(provider).get(fileId);
         } catch (FileStorageException ex) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "Không tìm thấy tệp tin: " + sanitizeId(fileId), ex);
+            BusinessException be = mapStorageException(fileId, ex);
+            if (be != null) {
+                throw be;
+            }
+            throw ex;
         }
         ByteArrayResource resource = new ByteArrayResource(sf.getContent());
         String name = sf.getOriginalFileName() != null ? sf.getOriginalFileName() : "file";
@@ -114,7 +120,11 @@ public class FileStorageController {
         try {
             return BaseResponse.success(toResponse(resolve(provider).get(fileId)));
         } catch (FileStorageException ex) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "Không tìm thấy tệp tin: " + sanitizeId(fileId), ex);
+            BusinessException be = mapStorageException(fileId, ex);
+            if (be != null) {
+                throw be;
+            }
+            throw ex;
         }
     }
 
@@ -138,7 +148,11 @@ public class FileStorageController {
         try {
             resolve(provider).delete(fileId);
         } catch (FileStorageException ex) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "Không tìm thấy tệp tin để xóa: " + sanitizeId(fileId), ex);
+            BusinessException be = mapDeleteStorageException(fileId, ex);
+            if (be != null) {
+                throw be;
+            }
+            throw ex;
         }
         return BaseResponse.success(null, "Xóa tệp thành công");
     }
@@ -166,7 +180,11 @@ public class FileStorageController {
         try {
             return BaseResponse.success(toResponse(resolve(provider).getDetail(fileId)));
         } catch (FileStorageException ex) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "Không tìm thấy tệp tin: " + sanitizeId(fileId), ex);
+            BusinessException be = mapStorageException(fileId, ex);
+            if (be != null) {
+                throw be;
+            }
+            throw ex;
         } catch (UnsupportedOperationException ex) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "Backend lưu trữ không hỗ trợ lấy chi tiết tệp", ex);
         }
@@ -224,5 +242,25 @@ public class FileStorageController {
 
     private String sanitizeId(String id) {
         return id != null ? id.replaceAll("[\\r\\n]", "_").trim() : "null";
+    }
+
+    private BusinessException mapStorageException(String fileId, FileStorageException ex) {
+        if (ex instanceof FileNotFoundStorageException || ex.getErrorCode() == ErrorCode.NOT_FOUND) {
+            return new BusinessException(ErrorCode.NOT_FOUND, "Không tìm thấy tệp tin: " + sanitizeId(fileId), ex);
+        }
+        if (ex instanceof InvalidFileStorageException || ex.getErrorCode() == ErrorCode.BAD_REQUEST) {
+            return new BusinessException(ErrorCode.BAD_REQUEST, "Yêu cầu tệp không hợp lệ: " + sanitizeId(fileId), ex);
+        }
+        return null;
+    }
+
+    private BusinessException mapDeleteStorageException(String fileId, FileStorageException ex) {
+        if (ex instanceof FileNotFoundStorageException || ex.getErrorCode() == ErrorCode.NOT_FOUND) {
+            return new BusinessException(ErrorCode.NOT_FOUND, "Không tìm thấy tệp tin để xóa: " + sanitizeId(fileId), ex);
+        }
+        if (ex instanceof InvalidFileStorageException || ex.getErrorCode() == ErrorCode.BAD_REQUEST) {
+            return new BusinessException(ErrorCode.BAD_REQUEST, "Yêu cầu tệp không hợp lệ: " + sanitizeId(fileId), ex);
+        }
+        return null;
     }
 }

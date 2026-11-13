@@ -136,7 +136,7 @@ class FileStorageControllerTest {
     @DisplayName("Download file khong ton tai nem BusinessException 404")
     void download_FileNotFound_ThrowsBusinessException() {
         when(registry.getActiveProvider()).thenReturn(provider);
-        when(provider.get("missing")).thenThrow(new FileStorageException("Không tìm thấy"));
+        when(provider.get("missing")).thenThrow(new vn.edu.epu.eoffice_be.storage.provider.FileNotFoundStorageException("Không tìm thấy"));
 
         BusinessException ex = org.junit.jupiter.api.Assertions.assertThrows(
                 BusinessException.class, () -> controller.download("missing", null));
@@ -144,14 +144,36 @@ class FileStorageControllerTest {
     }
 
     @Test
+    @DisplayName("Download gap loi storage IO rethrows FileStorageException khong mask thanh 404")
+    void download_StorageIOError_RethrowsFileStorageException() {
+        when(registry.getActiveProvider()).thenReturn(provider);
+        when(provider.get("error-file")).thenThrow(new FileStorageException("Lỗi I/O đọc đĩa"));
+
+        FileStorageException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                FileStorageException.class, () -> controller.download("error-file", null));
+        assertEquals("Lỗi I/O đọc đĩa", ex.getMessage());
+    }
+
+    @Test
     @DisplayName("GetMetadata file khong ton tai nem BusinessException 404")
     void getMetadata_FileNotFound_ThrowsBusinessException() {
         when(registry.getActiveProvider()).thenReturn(provider);
-        when(provider.get("missing")).thenThrow(new FileStorageException("Không tìm thấy"));
+        when(provider.get("missing")).thenThrow(new vn.edu.epu.eoffice_be.storage.provider.FileNotFoundStorageException("Không tìm thấy"));
 
         BusinessException ex = org.junit.jupiter.api.Assertions.assertThrows(
                 BusinessException.class, () -> controller.getMetadata("missing", null));
         assertEquals(ErrorCode.NOT_FOUND, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("GetMetadata duong dan khong hop le nem BusinessException 400")
+    void getMetadata_InvalidFile_ThrowsBusinessException() {
+        when(registry.getActiveProvider()).thenReturn(provider);
+        when(provider.get("invalid")).thenThrow(new vn.edu.epu.eoffice_be.storage.provider.InvalidFileStorageException("Đường dẫn không hợp lệ"));
+
+        BusinessException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                BusinessException.class, () -> controller.getMetadata("invalid", null));
+        assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
     }
 
     @Test

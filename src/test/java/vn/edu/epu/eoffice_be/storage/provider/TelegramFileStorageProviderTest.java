@@ -122,6 +122,24 @@ class TelegramFileStorageProviderTest {
         server.verify();
     }
 
+    @Test
+    void getWrongFileIdentifierThrowsFileNotFoundStorageException() {
+        server.expect(requestTo("https://api.telegram.org/botsynthetic-test-token/getFile?file_id=invalid-file-id"))
+                .andRespond(withBadRequest().body("""
+                        {"ok":false,"error_code":400,"description":"Bad Request: wrong file identifier/HTTP URL specified"}
+                        """).contentType(MediaType.APPLICATION_JSON));
+
+        assertThrows(FileNotFoundStorageException.class, () -> provider.get("invalid-file-id"));
+        server.verify();
+    }
+
+    @Test
+    void getDetailMissingMetadataThrowsFileNotFoundStorageException() {
+        when(repository.findByProviderAndFileId("telegram", "missing-id")).thenReturn(Optional.empty());
+
+        assertThrows(FileNotFoundStorageException.class, () -> provider.getDetail("missing-id"));
+    }
+
     private void expectUpload(String fileId, long messageId) {
         server.expect(requestTo("https://api.telegram.org/botsynthetic-test-token/sendDocument"))
                 .andExpect(method(HttpMethod.POST))

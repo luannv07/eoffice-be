@@ -224,14 +224,39 @@ class GlobalExceptionHandlerTest {
 
 	@Test
 	void handleFileStorageExceptionFileNotFoundShouldReturn404() {
-		vn.edu.epu.eoffice_be.storage.provider.FileStorageException ex =
-				new vn.edu.epu.eoffice_be.storage.provider.FileStorageException("Không tìm thấy tệp cục bộ với id: missing-123");
-		ResponseEntity<BaseResponse<Void>> response = handler.handleFileStorageException(ex);
+		vn.edu.epu.eoffice_be.storage.provider.FileNotFoundStorageException ex =
+				new vn.edu.epu.eoffice_be.storage.provider.FileNotFoundStorageException("Không tìm thấy tệp cục bộ với id: missing-123");
+		ResponseEntity<BaseResponse<Void>> response = handler.handleFileNotFoundStorageException(ex);
 
 		assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
 		assertFalse(response.getBody().isSuccess());
 		assertEquals("NOT_FOUND", response.getBody().getErrorCode());
 		assertEquals("Không tìm thấy tệp tin yêu cầu", response.getBody().getMessage());
+	}
+
+	@Test
+	void handleInvalidFileStorageExceptionShouldReturn400() {
+		vn.edu.epu.eoffice_be.storage.provider.InvalidFileStorageException ex =
+				new vn.edu.epu.eoffice_be.storage.provider.InvalidFileStorageException("Nội dung tệp không được để trống");
+		ResponseEntity<BaseResponse<Void>> response = handler.handleInvalidFileStorageException(ex);
+
+		assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+		assertFalse(response.getBody().isSuccess());
+		assertEquals("BAD_REQUEST", response.getBody().getErrorCode());
+		assertEquals("Nội dung tệp không được để trống", response.getBody().getMessage());
+	}
+
+	@Test
+	void handleFileStorageExceptionWithErrorCodeShouldRespectCode() {
+		vn.edu.epu.eoffice_be.storage.provider.FileStorageException exNotFound =
+				new vn.edu.epu.eoffice_be.storage.provider.FileStorageException("Missing file", vn.edu.epu.eoffice_be.common.enums.ErrorCode.NOT_FOUND);
+		ResponseEntity<BaseResponse<Void>> resNotFound = handler.handleFileStorageException(exNotFound);
+		assertEquals(HttpStatus.NOT_FOUND, resNotFound.getStatusCode());
+
+		vn.edu.epu.eoffice_be.storage.provider.FileStorageException exBadRequest =
+				new vn.edu.epu.eoffice_be.storage.provider.FileStorageException("Invalid syntax", vn.edu.epu.eoffice_be.common.enums.ErrorCode.BAD_REQUEST);
+		ResponseEntity<BaseResponse<Void>> resBadRequest = handler.handleFileStorageException(exBadRequest);
+		assertEquals(HttpStatus.BAD_REQUEST, resBadRequest.getStatusCode());
 	}
 
 	@Test
