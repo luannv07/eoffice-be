@@ -90,7 +90,12 @@ public class FileStorageController {
             @PathVariable String fileId,
             @RequestParam(required = false) String provider) {
         documentFiles.assertRead(resolve(provider).getName(), fileId);
-        StoredFile sf = resolve(provider).get(fileId);
+        StoredFile sf;
+        try {
+            sf = resolve(provider).get(fileId);
+        } catch (FileStorageException ex) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "Không tìm thấy tệp tin: " + sanitizeId(fileId), ex);
+        }
         ByteArrayResource resource = new ByteArrayResource(sf.getContent());
         String name = sf.getOriginalFileName() != null ? sf.getOriginalFileName() : "file";
         return ResponseEntity.ok()
@@ -106,7 +111,11 @@ public class FileStorageController {
             @PathVariable String fileId,
             @RequestParam(required = false) String provider) {
         documentFiles.assertRead(resolve(provider).getName(), fileId);
-        return BaseResponse.success(toResponse(resolve(provider).get(fileId)));
+        try {
+            return BaseResponse.success(toResponse(resolve(provider).get(fileId)));
+        } catch (FileStorageException ex) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "Không tìm thấy tệp tin: " + sanitizeId(fileId), ex);
+        }
     }
 
     @Operation(summary = "Cập nhật nội dung tệp (Update)")
@@ -126,7 +135,11 @@ public class FileStorageController {
             @PathVariable String fileId,
             @RequestParam(required = false) String provider) {
         documentFiles.assertUnboundWrite(resolve(provider).getName(), fileId);
-        resolve(provider).delete(fileId);
+        try {
+            resolve(provider).delete(fileId);
+        } catch (FileStorageException ex) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "Không tìm thấy tệp tin để xóa: " + sanitizeId(fileId), ex);
+        }
         return BaseResponse.success(null, "Xóa tệp thành công");
     }
 
@@ -150,7 +163,13 @@ public class FileStorageController {
             @PathVariable String fileId,
             @RequestParam(required = false) String provider) {
         documentFiles.assertRead(resolve(provider).getName(), fileId);
-        return BaseResponse.success(toResponse(resolve(provider).getDetail(fileId)));
+        try {
+            return BaseResponse.success(toResponse(resolve(provider).getDetail(fileId)));
+        } catch (FileStorageException ex) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "Không tìm thấy tệp tin: " + sanitizeId(fileId), ex);
+        } catch (UnsupportedOperationException ex) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "Backend lưu trữ không hỗ trợ lấy chi tiết tệp", ex);
+        }
     }
 
     @Operation(summary = "Xóa nhiều tệp (DeleteMany)")
@@ -201,5 +220,9 @@ public class FileStorageController {
                 .sizeBytes(sf.getSizeBytes())
                 .metadata(sf.getMetadata())
                 .build();
+    }
+
+    private String sanitizeId(String id) {
+        return id != null ? id.replaceAll("[\\r\\n]", "_").trim() : "null";
     }
 }

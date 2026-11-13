@@ -223,6 +223,18 @@ class GlobalExceptionHandlerTest {
 	}
 
 	@Test
+	void handleFileStorageExceptionFileNotFoundShouldReturn404() {
+		vn.edu.epu.eoffice_be.storage.provider.FileStorageException ex =
+				new vn.edu.epu.eoffice_be.storage.provider.FileStorageException("Không tìm thấy tệp cục bộ với id: missing-123");
+		ResponseEntity<BaseResponse<Void>> response = handler.handleFileStorageException(ex);
+
+		assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+		assertFalse(response.getBody().isSuccess());
+		assertEquals("NOT_FOUND", response.getBody().getErrorCode());
+		assertEquals("Không tìm thấy tệp tin yêu cầu", response.getBody().getMessage());
+	}
+
+	@Test
 	void handleMethodNotSupportedShouldReturn405MethodNotAllowed() {
 		org.springframework.web.HttpRequestMethodNotSupportedException ex =
 				new org.springframework.web.HttpRequestMethodNotSupportedException("GET", java.util.List.of("POST", "PUT"));

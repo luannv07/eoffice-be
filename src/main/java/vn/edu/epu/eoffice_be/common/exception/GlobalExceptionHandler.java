@@ -102,6 +102,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(FileStorageException.class)
     public ResponseEntity<BaseResponse<Void>> handleFileStorageException(FileStorageException ex) {
         log.error("File storage error: ", ex);
+        if (ex.getMessage() != null && (
+                ex.getMessage().contains("Không tìm thấy")
+                || ex.getMessage().contains("không tìm thấy")
+                || ex.getMessage().contains("not found")
+                || ex.getMessage().contains("Not Found")
+                || ex.getMessage().contains("wrong file identifier")
+                || ex.getMessage().contains("thất bại: Bad Request")
+        )) {
+            return ResponseEntity.status(ErrorCode.NOT_FOUND.getStatus())
+                    .body(BaseResponse.error("Không tìm thấy tệp tin yêu cầu", ErrorCode.NOT_FOUND.getCode()));
+        }
         return ResponseEntity.status(ErrorCode.STORAGE_ERROR.getStatus())
                 .body(BaseResponse.error("Lỗi lưu trữ tệp. Vui lòng thử lại sau", ErrorCode.STORAGE_ERROR.getCode()));
     }

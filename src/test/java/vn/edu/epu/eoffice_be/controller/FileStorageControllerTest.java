@@ -133,6 +133,28 @@ class FileStorageControllerTest {
     }
 
     @Test
+    @DisplayName("Download file khong ton tai nem BusinessException 404")
+    void download_FileNotFound_ThrowsBusinessException() {
+        when(registry.getActiveProvider()).thenReturn(provider);
+        when(provider.get("missing")).thenThrow(new FileStorageException("Không tìm thấy"));
+
+        BusinessException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                BusinessException.class, () -> controller.download("missing", null));
+        assertEquals(ErrorCode.NOT_FOUND, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("GetMetadata file khong ton tai nem BusinessException 404")
+    void getMetadata_FileNotFound_ThrowsBusinessException() {
+        when(registry.getActiveProvider()).thenReturn(provider);
+        when(provider.get("missing")).thenThrow(new FileStorageException("Không tìm thấy"));
+
+        BusinessException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                BusinessException.class, () -> controller.getMetadata("missing", null));
+        assertEquals(ErrorCode.NOT_FOUND, ex.getErrorCode());
+    }
+
+    @Test
     @DisplayName("Delete file goi provider delete")
     void delete_Success() {
         when(registry.getActiveProvider()).thenReturn(provider);
