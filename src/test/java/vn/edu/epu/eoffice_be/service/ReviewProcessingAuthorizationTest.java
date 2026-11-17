@@ -41,7 +41,9 @@ class ReviewProcessingAuthorizationTest {
     @Mock OrgNodeRepository orgNodeRepository;
     @Mock PermissionResolver permissions;
     @Mock PdfSigner pdfSigner;
+    @Mock FileStorageService fileStorageService;
     @Mock ApplicationEventPublisher events;
+    @Mock SubmissionRoutingService submissionRoutingService;
     @InjectMocks DocumentWorkflowServiceImpl service;
     UserLogin actor,receiver;
     Document document;
@@ -62,6 +64,7 @@ class ReviewProcessingAuthorizationTest {
         lenient().when(requests.findFirstByDocumentIdOrderBySubmittedAtDescIdDesc(1L)).thenAnswer(i->Optional.ofNullable(latest));
         engine=new WorkflowEngine(documentRepository,logs,permissions,mock(SubmissionRoutingService.class),
                 new ReviewAssignmentPolicy(new DocumentReadPolicy(userLoginRepository,requests),requests));
+        lenient().when(submissionRoutingService.resolveHandoverLeader(any(), any(), any(), any())).thenReturn(UserLogin.builder().id(99L).role(Role.LEADER).username("rector").build());
         ReflectionTestUtils.setField(service,"workflowEngine",engine);
         authenticate(actor);
     }
@@ -111,6 +114,14 @@ class ReviewProcessingAuthorizationTest {
         when(documentRepository.save(any())).thenAnswer(i->i.getArgument(0));
         if(action==WorkflowAction.INITIAL_SIGN || action==WorkflowAction.REVIEW_APPROVE) {
             when(documentPdfStorageService.readPdf("storage://1")).thenReturn(new byte[]{1,2});
+        }
+        if(action==WorkflowAction.REVIEW_APPROVE) {
+            when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("a".repeat(64));
+            when(logs.existsReviewSignature(1L,5L,20L,"a".repeat(64))).thenReturn(true);
+        }
+        if(action==WorkflowAction.INITIAL_SIGN) {
+            when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("a".repeat(64));
+            when(logs.save(any())).thenAnswer(call -> call.getArgument(0));
             when(pdfSigner.signBytes(any(),eq("20"),anyString(),anyString())).thenReturn(
                     new PdfSigner.SignResult("20","dean","serial","hash",new Date(),"field",null,new byte[]{3,4}));
             when(documentPdfStorageService.storeSignedPdf(any(),anyString(),eq(1L))).thenReturn("storage://2");
@@ -118,7 +129,19 @@ class ReviewProcessingAuthorizationTest {
         assertNotNull(act(action));
         assertEquals(switch(action){case INITIAL_SIGN->DocumentStatus.IN_REVIEW;case REVIEW_APPROVE->DocumentStatus.PENDING_APPROVAL;
             case REQUEST_REVISION->DocumentStatus.NEEDS_REVISION;default->DocumentStatus.REJECTED;},document.getStatus());
-        verify(logs).save(any());verify(requests,never()).save(any());
+        verify(logs).save(any());
+        if (action == WorkflowAction.REVIEW_APPROVE) {
+            verify(requests, org.mockito.Mockito.times(2)).save(any());
+            assertEquals(ApprovalRequestStatus.APPROVED, latest.getStatus());
+        } else if (action == WorkflowAction.REQUEST_REVISION) {
+            verify(requests, org.mockito.Mockito.times(1)).save(latest);
+            assertEquals(ApprovalRequestStatus.NEEDS_REVISION, latest.getStatus());
+        } else if (action == WorkflowAction.REJECT) {
+            verify(requests, org.mockito.Mockito.times(1)).save(latest);
+            assertEquals(ApprovalRequestStatus.REJECTED, latest.getStatus());
+        } else {
+            verify(requests, never()).save(any());
+        }
     }
     @ParameterizedTest @EnumSource(value=WorkflowAction.class,names={"INITIAL_SIGN","REVIEW_APPROVE","REQUEST_REVISION","REJECT"})
     void assignmentDoesNotGrantBusinessPermission(WorkflowAction action) {

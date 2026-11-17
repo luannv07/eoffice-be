@@ -52,8 +52,11 @@ class ReviewInboxIntegrationTest {
     TransactionTemplate tx;
     UserLogin author,dean,vice,outsider,admin;
     OrgNode faculty;
+    static UserLogin rector;
+    static OrgNode school;
     Long id;
     final Instant time=Instant.parse("2026-11-01T00:00:00Z");
+    // Thiet lap du lieu co ban cho moi ca kiem thu
     @BeforeEach void setup() {
         tx=new TransactionTemplate(manager);
         tx.executeWithoutResult(s->{
@@ -68,6 +71,22 @@ class ReviewInboxIntegrationTest {
                     p.setInheritToChildren(false);permissions.saveAndFlush(p);
                 }
             }
+            // Khoi tao lanh dao HT duy nhat 1 lan cho database H2 dung chung
+            if (rector == null) {
+                var existingHt = positions.findAll().stream()
+                        .filter(p -> "HT".equals(p.getPositionCd()) && !p.isDeleteFlg())
+                        .findFirst();
+                if (existingHt.isPresent()) {
+                    rector = existingHt.get().getUserLogin();
+                    school = existingHt.get().getOrgNode();
+                } else {
+                    school = orgs.saveAndFlush(OrgNode.builder().code("S-" + UUID.randomUUID())
+                            .nameVn("University").nameEn("University").typeCd("UNIVERSITY").build());
+                    rector = user(Role.LEADER);
+                    positions.saveAndFlush(PositionAssignment.builder().userLogin(rector).orgNode(school)
+                            .positionCd("HT").effectiveFrom(Instant.now().minusSeconds(60)).build());
+                }
+            }
             id=document(DocumentStatus.IN_REVIEW,false).getId();
         });
     }
@@ -80,12 +99,22 @@ class ReviewInboxIntegrationTest {
         return tx.execute(s->requests.saveAndFlush(DocumentApprovalRequest.builder().document(documents.getReferenceById(documentId))
                 .senderUser(author).approverUser(receiver).status(status).deleteFlg(deleted).submittedAt(at).build()));
     }
+    // Tao token xac thuc cho nguoi dung voi quyen mac dinh REVIEWER
     UsernamePasswordAuthenticationToken auth(UserLogin user){return new UsernamePasswordAuthenticationToken(
             new JwtUserPrincipal(user.getId(),user.getUsername(),"REVIEWER",true,List.of()),null,List.of(new SimpleGrantedAuthority("ROLE_REVIEWER")));}
+    // Tao token xac thuc cho nguoi dung voi vai tro cu the
+    UsernamePasswordAuthenticationToken authWithRole(UserLogin user, Role role){
+        String r = role != null ? role.name() : "REVIEWER";
+        return new UsernamePasswordAuthenticationToken(
+                new JwtUserPrincipal(user.getId(), user.getUsername(), r, true, List.of()), null, List.of(new SimpleGrantedAuthority("ROLE_" + r)));
+    }
+    // Gia lap doc va ky so PDF phuc vu kiem thu
     void signs(UserLogin user){
+        byte[] signedPdf = new byte[]{3,4};
         when(pdfStorage.readPdf("storage://101")).thenReturn(new byte[]{1,2});
+        when(pdfStorage.readPdf("storage://102")).thenReturn(signedPdf);
         when(signer.signBytes(any(),eq(user.getId().toString()),anyString(),anyString())).thenReturn(
-                new PdfSigner.SignResult(user.getId().toString(),"reviewer","serial","hash",new Date(),"field",null,new byte[]{3,4}));
+                new PdfSigner.SignResult(user.getId().toString(),"reviewer","serial","hash",new Date(),"field",null,signedPdf));
         when(pdfStorage.storeSignedPdf(any(),anyString(),eq(id))).thenReturn("storage://102");
     }
     @ParameterizedTest @ValueSource(strings={"initial-sign","approve","request-revision","reject"})
@@ -101,6 +130,7 @@ class ReviewInboxIntegrationTest {
         assertTrue(logs.findByDocumentIdOrderByCreatedDateAsc(id).isEmpty());
         verifyNoInteractions(signer,pdfStorage);
     }
+    // Chi nguoi duoc phan cong moi co quyen xu ly van ban
     @ParameterizedTest @CsvSource({"false,initial-sign,IN_REVIEW","true,initial-sign,IN_REVIEW",
             "false,approve,PENDING_APPROVAL","true,approve,PENDING_APPROVAL",
             "false,request-revision,NEEDS_REVISION","true,request-revision,NEEDS_REVISION",
@@ -109,11 +139,18 @@ class ReviewInboxIntegrationTest {
         UserLogin selected=selectVice?vice:dean;
         request(id,selected,ApprovalRequestStatus.PENDING,false,time);
         if(action.equals("initial-sign")||action.equals("approve")) signs(selected);
+        // Ky nhay truoc khi phe duyet de thoa man dieu kien kiem tra chu ky nhay
+        if(action.equals("approve")) {
+            mvc.perform(post("/documents/"+id+"/workflow/initial-sign").with(authentication(auth(selected)))
+                    .contentType("application/json").content("{\"comment\":\"initial sign\"}"))
+                    .andExpect(status().isOk());
+        }
         mvc.perform(post("/documents/"+id+"/workflow/"+action).with(authentication(auth(selected)))
                 .contentType("application/json").content("{\"comment\":\"review\"}"))
                 .andExpect(status().isOk());
         assertEquals(expected,documents.findById(id).orElseThrow().getStatus());
-        assertEquals(1,requests.findByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(id).size());
+        // Phe duyet ban giao se tao them 1 yeu cau cho lanh dao, cac hanh dong khac giu nguyen 1
+        assertEquals(action.equals("approve") ? 2 : 1, requests.findByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(id).size());
     }
     @Test void currentInboxIsSeparateFromHistoricalReadAndAdminReadAll() throws Exception {
         request(id,vice,ApprovalRequestStatus.APPROVED,false,time.minusSeconds(1));
@@ -222,6 +259,86 @@ class ReviewInboxIntegrationTest {
                 .contentType("application/json").content("{}"))
                 .andExpect(status().isUnauthorized());
         verifyNoInteractions(signer,pdfStorage);
+    }
+
+    // Tham dinh vien lay danh sach ban giao khi chi co 1 HT (che do AUTO)
+    @Test void handoverOptions_returnsSingleRectorInAutoMode() throws Exception {
+        request(id, dean, ApprovalRequestStatus.PENDING, false, time);
+        mvc.perform(get("/documents/" + id + "/handover-options").with(authentication(auth(dean))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.selectionMode").value("AUTO"))
+                .andExpect(jsonPath("$.data.approvers[0].userId").value(rector.getId()))
+                .andExpect(jsonPath("$.data.approvers[0].positionCd").value("HT"));
+    }
+
+    // Nguoi soan thao (ROLE_USER) khong duoc phep goi API ban giao
+    @Test void handoverOptions_forbiddenForDrafter() throws Exception {
+        request(id, dean, ApprovalRequestStatus.PENDING, false, time);
+        mvc.perform(get("/documents/" + id + "/handover-options").with(authentication(authWithRole(author, Role.USER))))
+                .andExpect(status().isForbidden());
+    }
+
+    // Sau khi ban giao, lanh dao nhan doc duoc van ban, nguoi ngoai don vi bi chan
+    @Test void handoverToLeaderAllowsLeaderToReadDocumentAndPdf() throws Exception {
+        request(id, dean, ApprovalRequestStatus.PENDING, false, time);
+        signs(dean);
+        mvc.perform(post("/documents/" + id + "/workflow/initial-sign").with(authentication(auth(dean)))
+                .contentType("application/json").content("{\"comment\":\"initial\"}"))
+                .andExpect(status().isOk());
+        mvc.perform(post("/documents/" + id + "/workflow/approve").with(authentication(auth(dean)))
+                .contentType("application/json").content("{\"comment\":\"approve to rector\"}"))
+                .andExpect(status().isOk());
+
+        // Lanh dao nhan ban giao doc van ban thanh cong
+        mvc.perform(get("/documents/" + id).with(authentication(authWithRole(rector, Role.LEADER))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("PENDING_APPROVAL"));
+
+        // Nguoi ngoai don vi khong co quyen xem
+        mvc.perform(get("/documents/" + id).with(authentication(auth(outsider))))
+                .andExpect(status().isForbidden());
+    }
+
+    // Khi co nhieu lanh dao (HT + PHT), chuyen sang SELECT va bat buoc chon nguoi nhan
+    @Test void handoverWithMultipleLeadersRequiresSelection() throws Exception {
+        request(id, dean, ApprovalRequestStatus.PENDING, false, time);
+        UserLogin vicePresident = user(Role.LEADER);
+        PositionAssignment pht = positions.saveAndFlush(PositionAssignment.builder()
+                .userLogin(vicePresident).orgNode(school).positionCd("PHT")
+                .effectiveFrom(Instant.now().minusSeconds(60)).build());
+        try {
+            // Che do SELECT va tra ve 2 lanh dao
+            mvc.perform(get("/documents/" + id + "/handover-options").with(authentication(auth(dean))))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.selectionMode").value("SELECT"))
+                    .andExpect(jsonPath("$.data.approvers.length()").value(2));
+
+            signs(dean);
+            mvc.perform(post("/documents/" + id + "/workflow/initial-sign").with(authentication(auth(dean)))
+                    .contentType("application/json").content("{\"comment\":\"initial\"}"))
+                    .andExpect(status().isOk());
+
+            // Khong chon nguoi nhan bao loi BAD_REQUEST
+            mvc.perform(post("/documents/" + id + "/workflow/approve").with(authentication(auth(dean)))
+                    .contentType("application/json").content("{\"comment\":\"missing selection\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode").value("BAD_REQUEST"));
+
+            // Chon dich danh PHT thi thanh cong
+            mvc.perform(post("/documents/" + id + "/workflow/approve").with(authentication(auth(dean)))
+                    .contentType("application/json").content("{\"comment\":\"approved to PHT\",\"nextApproverUserId\":" + vicePresident.getId() + "}"))
+                    .andExpect(status().isOk());
+
+            assertEquals(DocumentStatus.PENDING_APPROVAL, documents.findById(id).orElseThrow().getStatus());
+            var latest = requests.findFirstByDocumentIdOrderBySubmittedAtDescIdDesc(id).orElseThrow();
+            assertEquals(vicePresident.getId(), latest.getApproverUser().getId());
+            assertEquals(ApprovalRequestStatus.PENDING, latest.getStatus());
+        } finally {
+            tx.executeWithoutResult(s -> {
+                positions.delete(pht);
+                positions.flush();
+            });
+        }
     }
 
 }

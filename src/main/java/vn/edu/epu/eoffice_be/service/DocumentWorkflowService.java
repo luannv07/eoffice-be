@@ -12,6 +12,7 @@ import vn.edu.epu.eoffice_be.dto.request.DocumentRevisionRequest;
 import vn.edu.epu.eoffice_be.dto.response.DocumentDetailResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentSignatureVerifyResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentWorkflowLogResponse;
+import vn.edu.epu.eoffice_be.dto.response.HandoverOptionsResponse;
 
 import java.util.List;
 
@@ -29,6 +30,11 @@ public interface DocumentWorkflowService {
      * UC12: Phê duyệt văn bản, ghi nhận bút phê lãnh đạo và đơn vị chủ trì.
      */
     DocumentDetailResponse approve(Long documentId, DocumentApproveRequest request);
+
+    /**
+     * Lấy danh sách lãnh đạo (HT/PHT) khả dụng để bàn giao duyệt tiếp khi chuyển cấp.
+     */
+    HandoverOptionsResponse getHandoverOptions(Long documentId);
 
     /**
      * UC12: Yêu cầu chỉnh sửa văn bản, chuyển trạng thái về NEEDS_REVISION.

@@ -31,6 +31,10 @@ public class DocumentApproveRequest {
     @Schema(description = "ID phòng ban / đơn vị được chỉ định chủ trì thực hiện", example = "1002")
     private Long assignedOrgNodeId;
 
+    @Positive(message = "ID lãnh đạo nhận bàn giao phải là số dương")
+    @Schema(description = "ID lãnh đạo (Hiệu trưởng hoặc Phó Hiệu trưởng) được chỉ định nhận bàn giao duyệt tiếp", example = "1002")
+    private Long nextApproverUserId;
+
     @Positive(message = "Số trang đặt chữ ký phải là số nguyên dương")
     @Schema(description = "Số trang đặt chữ ký / con dấu phê duyệt (1-based, nếu để trống mặc định là trang cuối)", example = "1")
     private Integer signaturePage;

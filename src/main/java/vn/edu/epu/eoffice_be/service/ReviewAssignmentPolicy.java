@@ -9,6 +9,7 @@ import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.entity.Document;
+import vn.edu.epu.eoffice_be.entity.DocumentApprovalRequest;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
 import vn.edu.epu.eoffice_be.repository.DocumentApprovalRequestRepository;
 
@@ -28,7 +29,11 @@ public class ReviewAssignmentPolicy {
         return document != null && document.getStatus() == DocumentStatus.IN_REVIEW && ACTIONS.contains(action);
     }
 
-    public UserLogin requireAssignedActor(Document document, UserLogin actor) {
+    // Trả về tài khoản và yêu cầu đã qua kiểm tra quyền.
+    public record Assignment(UserLogin actor, DocumentApprovalRequest request) {}
+
+    // Kiểm tra người xử lý và xác định lượt thẩm định.
+    public Assignment requireAssignment(Document document, UserLogin actor) {
         UserLogin verified = readers.requireUser(actor == null ? null : actor.getId());
         DocumentAdminPolicy.assertBusinessActor(verified);
         if (document == null || document.getId() == null) {
@@ -45,7 +50,7 @@ public class ReviewAssignmentPolicy {
         if (!verified.getId().equals(request.getApproverUser().getId())) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Văn bản không được giao cho bạn xử lý.");
         }
-        return verified;
+        return new Assignment(verified, request);
     }
 
     private static BusinessException invalidRequest() {

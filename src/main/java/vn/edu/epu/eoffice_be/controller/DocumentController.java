@@ -332,7 +332,7 @@ public class DocumentController {
     }
 
     @Operation(summary = "Thông tin gửi lần đầu: chọn người nhận, tự gán hoặc hàng chờ văn thư")
-    @GetMapping("/{id}/submission-options")
+    @GetMapping("/{id}/submission-options")   
     public BaseResponse<vn.edu.epu.eoffice_be.dto.response.SubmissionOptionsResponse> getSubmissionOptions(
             @PathVariable Long id, Authentication authentication) {
         return BaseResponse.success(documentApprovalService.getSubmissionOptions(id, extractUserId(authentication)));

@@ -43,6 +43,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import vn.edu.epu.eoffice_be.common.enums.ApprovalRequestStatus;
 import vn.edu.epu.eoffice_be.common.enums.DocumentStatus;
 import vn.edu.epu.eoffice_be.common.enums.ErrorCode;
 import vn.edu.epu.eoffice_be.common.enums.Role;
@@ -63,6 +64,7 @@ import vn.edu.epu.eoffice_be.dto.response.DocumentSignatureVerifyResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentWorkflowLogResponse;
 import vn.edu.epu.eoffice_be.dto.response.SignatureItemResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
+import vn.edu.epu.eoffice_be.entity.DocumentApprovalRequest;
 import vn.edu.epu.eoffice_be.entity.DocumentAttachment;
 import vn.edu.epu.eoffice_be.entity.DocumentWorkflowLog;
 import vn.edu.epu.eoffice_be.entity.OrgNode;
@@ -115,6 +117,12 @@ class DocumentWorkflowServiceTest {
     private vn.edu.epu.eoffice_be.service.DraftUnitResolver draftUnitResolver;
     @org.mockito.Mock
     private vn.edu.epu.eoffice_be.service.DocumentFileReadGuard documentFiles;
+    @Mock
+    private vn.edu.epu.eoffice_be.repository.DocumentApprovalRequestRepository reviewRequests;
+    @Mock
+    private SubmissionRoutingService submissionRoutingService;
+    @Mock
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private DocumentWorkflowServiceImpl documentWorkflowService;
@@ -125,6 +133,7 @@ class DocumentWorkflowServiceTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("a".repeat(64));
         leader = UserLogin.builder().id(1002L).username("leader").role(Role.LEADER).build();
         orgNode = OrgNode.builder().id(2001L).nameVn("Khoa CNTT").build();
 
@@ -259,15 +268,15 @@ class DocumentWorkflowServiceTest {
     @Test
     void approve_missingCaKeepsErrorAndDoesNotChangeDocument() {
         preparePublishDocument();
-        document.setStatus(DocumentStatus.IN_REVIEW);
+        document.setStatus(DocumentStatus.PENDING_APPROVAL);
         BusinessException failure = new BusinessException(ErrorCode.PKI_CA_NOT_INITIALIZED);
-        when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString())).thenThrow(failure);
+        when(pdfSigner.signVisibleBytes(any(byte[].class), anyString(), anyString(), any(), any(), anyString(), any())).thenThrow(failure);
 
         BusinessException actual = assertThrows(BusinessException.class,
                 () -> documentWorkflowService.approve(5001L, DocumentApproveRequest.builder().build()));
 
         assertSame(failure, actual);
-        assertEquals(DocumentStatus.IN_REVIEW, document.getStatus());
+        assertEquals(DocumentStatus.PENDING_APPROVAL, document.getStatus());
         verify(workflowEngine, never()).executeTransition(any(), any(), any(), any(), any(), any(), any());
         verify(fileStorageService, never()).storeFile(any(), any(), any());
     }
@@ -329,7 +338,7 @@ class DocumentWorkflowServiceTest {
         assertEquals("storage://35001", document.getPrimaryFilePath());
         assertEquals(status, document.getStatus());
         verify(workflowEngine, never()).executeTransition(any(), any(), any(), any(), any(), any(), any());
-        verifyNoInteractions(fileStorageService);
+        verify(fileStorageService, never()).storeFile(any(), any(), any());
     }
 
     @Test
@@ -344,7 +353,7 @@ class DocumentWorkflowServiceTest {
                 .thenReturn(testSignature(reviewed));
         when(documentPdfStorageService.storeSignedPdf(eq(reviewed), eq("initial_signed_5001.pdf"), eq(5001L)))
                 .thenReturn("storage://35002");
-        documentWorkflowService.approve(5001L, DocumentApproveRequest.builder().build());
+        documentWorkflowService.initialSign(5001L, DocumentInitialSignRequest.builder().build());
 
         document.setStatus(DocumentStatus.PENDING_APPROVAL);
         when(documentPdfStorageService.readPdf("storage://35002")).thenReturn(reviewed);
@@ -356,11 +365,11 @@ class DocumentWorkflowServiceTest {
 
         assertEquals("storage://35003", document.getPrimaryFilePath());
         verify(pdfSigner).signVisibleBytes(eq(reviewed), anyString(), anyString(), any(), any(), anyString(), any());
-        verifyNoInteractions(fileStorageService, unifiedStorageService, documentAttachmentRepository);
+        verifyNoInteractions(unifiedStorageService, documentAttachmentRepository);
     }
 
     private void signForStatus(DocumentStatus status) {
-        if (status == DocumentStatus.DRAFT) {
+        if (status == DocumentStatus.DRAFT || status == DocumentStatus.IN_REVIEW) {
             documentWorkflowService.initialSign(5001L, DocumentInitialSignRequest.builder().build());
         } else if (status == DocumentStatus.APPROVED) {
             documentWorkflowService.signAndPublish(5001L, DocumentPublishRequest.builder().build());
@@ -421,7 +430,7 @@ class DocumentWorkflowServiceTest {
                 new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()));
         DocumentWorkflowService proxy = (DocumentWorkflowService) factory.getProxy();
         assertSame(failure, assertThrows(BusinessException.class, () -> {
-            if (status == DocumentStatus.DRAFT) proxy.initialSign(5001L, DocumentInitialSignRequest.builder().build());
+            if (status == DocumentStatus.DRAFT || status == DocumentStatus.IN_REVIEW) proxy.initialSign(5001L, DocumentInitialSignRequest.builder().build());
             else if (status == DocumentStatus.APPROVED) proxy.signAndPublish(5001L, DocumentPublishRequest.builder().build());
             else proxy.approve(5001L, DocumentApproveRequest.builder().build());
         }));
@@ -492,6 +501,17 @@ class DocumentWorkflowServiceTest {
         verify(fileStorageService, never()).storeFile(any(), any(), any());
     }
 
+    // Mô phỏng bằng chứng ký nháy đã lưu của lượt hiện hành.
+    private void stubReviewEvidence() {
+        var approvalRequest = vn.edu.epu.eoffice_be.entity.DocumentApprovalRequest.builder().id(7001L).build();
+        when(workflowEngine.validateActorPermission(document, leader, WorkflowAction.REVIEW_APPROVE))
+                .thenReturn(approvalRequest);
+        when(documentWorkflowLogRepository.existsReviewSignature(5001L, 7001L, 1002L, "a".repeat(64)))
+                .thenReturn(true);
+        when(submissionRoutingService.resolveHandoverLeader(eq(document), any(), any(), any()))
+                .thenReturn(leader);
+    }
+
     @Test
     @DisplayName("UC12: Duyệt văn bản với Bút phê lãnh đạo và đơn vị chủ trì")
     void approve_success() {
@@ -501,12 +521,7 @@ class DocumentWorkflowServiceTest {
         when(orgNodeRepository.findByIdAndDeleteFlgFalse(2001L)).thenReturn(Optional.of(orgNode));
 
         when(documentPdfStorageService.readPdf("drafts/doc_5001.pdf")).thenReturn("%PDF-1.5 test".getBytes());
-        PdfSigner.SignResult mockSignResult = new PdfSigner.SignResult(
-                "1002", "leader", "123456", "hash_sig_review_success", new java.util.Date(),
-                "sig_user_1002", null, "%PDF-1.5 signed".getBytes()
-        );
-        when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString())).thenReturn(mockSignResult);
-        when(documentPdfStorageService.storeSignedPdf(any(byte[].class), anyString(), eq(5001L))).thenReturn("storage://35001");
+        stubReviewEvidence();
 
         DocumentApproveRequest request = DocumentApproveRequest.builder()
                 .comment("Dong y thong qua")
@@ -524,34 +539,22 @@ class DocumentWorkflowServiceTest {
                 "Dong y thong qua",
                 "Giao Khoa CNTT chu tri",
                 orgNode,
-                "hash_sig_review_success"
+                "a".repeat(64)
         );
     }
 
     @Test
-    @DisplayName("UC12: Duyệt chuyển tiếp ở trạng thái IN_REVIEW tự động ký nháy thẩm định khi có tệp PDF")
-    void approve_whenInReviewWithPdf_shouldAutoInitialSign() {
+    @DisplayName("UC12: Duyệt chuyển tiếp ở trạng thái IN_REVIEW dùng bằng chứng ký nháy hiện hành")
+    void approve_whenInReviewWithPdf_shouldReuseInitialSignature() {
         document.setStatus(DocumentStatus.IN_REVIEW);
         document.setPrimaryFilePath("drafts/doc_5001.pdf");
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
         byte[] rawPdfBytes = "%PDF-1.5 test".getBytes();
-        byte[] signedPdfBytes = "%PDF-1.5 signed".getBytes();
         when(documentPdfStorageService.readPdf("drafts/doc_5001.pdf")).thenReturn(rawPdfBytes);
 
-        PdfSigner.SignResult mockSignResult = new PdfSigner.SignResult(
-                "1002",
-                "leader",
-                "123456",
-                "hash_sig_reviewer_2",
-                new java.util.Date(),
-                "sig_user_1002",
-                null,
-                signedPdfBytes
-        );
-        when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString())).thenReturn(mockSignResult);
-        when(documentPdfStorageService.storeSignedPdf(any(byte[].class), anyString(), eq(5001L))).thenReturn("storage://35001");
+        stubReviewEvidence();
 
         DocumentApproveRequest request = DocumentApproveRequest.builder()
                 .comment("Dong y thong qua")
@@ -560,8 +563,8 @@ class DocumentWorkflowServiceTest {
         DocumentDetailResponse response = documentWorkflowService.approve(5001L, request);
 
         assertNotNull(response);
-        assertEquals("storage://35001", document.getPrimaryFilePath());
-        verify(pdfSigner).signBytes(any(byte[].class), anyString(), anyString(), anyString());
+        assertEquals("drafts/doc_5001.pdf", document.getPrimaryFilePath());
+        verifyNoInteractions(pdfSigner);
         verify(workflowEngine).executeTransition(
                 document,
                 WorkflowAction.REVIEW_APPROVE,
@@ -569,8 +572,29 @@ class DocumentWorkflowServiceTest {
                 "Dong y thong qua",
                 null,
                 null,
-                "hash_sig_reviewer_2"
+                "a".repeat(64)
         );
+        verify(reviewRequests, org.mockito.Mockito.times(2)).save(any());
+        verify(eventPublisher).publishEvent(any(vn.edu.epu.eoffice_be.event.DocumentSubmittedEvent.class));
+    }
+
+    @Test
+    @DisplayName("Bàn giao: Lấy thông tin lựa chọn lãnh đạo chuyển tiếp")
+    void getHandoverOptions_success() {
+        document.setStatus(DocumentStatus.IN_REVIEW);
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+
+        var expectedResponse = new vn.edu.epu.eoffice_be.dto.response.HandoverOptionsResponse(
+                vn.edu.epu.eoffice_be.dto.response.SubmissionOptionsResponse.SelectionMode.AUTO,
+                List.of()
+        );
+        when(submissionRoutingService.handoverOptions(eq(document), eq(leader), any()))
+                .thenReturn(expectedResponse);
+
+        var result = documentWorkflowService.getHandoverOptions(5001L);
+        assertNotNull(result);
+        assertEquals(vn.edu.epu.eoffice_be.dto.response.SubmissionOptionsResponse.SelectionMode.AUTO, result.selectionMode());
     }
 
     @Test
@@ -730,7 +754,7 @@ class DocumentWorkflowServiceTest {
 
     @Test
     @DisplayName("Fix B1: approve ném DOCUMENT_PRIMARY_FILE_MISSING khi văn bản không có tệp PDF")
-    void approve_whenPdfMissing_shouldThrowDocumentPrimaryFileMissing() {
+    void approve_whenReviewPdfMissing_shouldRequireSignature() {
         document.setPrimaryFilePath(null);
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
@@ -741,7 +765,7 @@ class DocumentWorkflowServiceTest {
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentWorkflowService.approve(5001L, request));
-        assertEquals(ErrorCode.DOCUMENT_PRIMARY_FILE_MISSING, ex.getErrorCode());
+        assertEquals(ErrorCode.INVALID_WORKFLOW_STATE, ex.getErrorCode());
     }
 
     @Test
@@ -780,8 +804,17 @@ class DocumentWorkflowServiceTest {
     @Test
     @DisplayName("UC12: Yêu cầu chỉnh sửa văn bản")
     void requestRevision_success() {
+        DocumentApprovalRequest reviewRequest = DocumentApprovalRequest.builder()
+                .id(888L)
+                .document(document)
+                .status(ApprovalRequestStatus.PENDING)
+                .build();
+
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+        when(workflowEngine.validateActorPermission(eq(document), eq(leader), eq(WorkflowAction.REQUEST_REVISION)))
+                .thenReturn(reviewRequest);
+
         Document savedDocument = Document.builder().id(5001L).title("Managed document after retirement")
                 .status(DocumentStatus.NEEDS_REVISION).build();
         when(documentRepository.save(document)).thenReturn(savedDocument);
@@ -795,6 +828,10 @@ class DocumentWorkflowServiceTest {
         assertNotNull(response);
         assertEquals(savedDocument.getTitle(), response.getTitle());
         assertEquals(DocumentStatus.NEEDS_REVISION, response.getStatus());
+        assertEquals(ApprovalRequestStatus.NEEDS_REVISION, reviewRequest.getStatus());
+        assertEquals("Can bo sung phan phan cong nhiem vu", reviewRequest.getDecisionNote());
+        assertNotNull(reviewRequest.getProcessedAt());
+        verify(reviewRequests).save(reviewRequest);
         verify(workflowEngine).executeTransition(
                 document,
                 WorkflowAction.REQUEST_REVISION,
@@ -867,7 +904,7 @@ class DocumentWorkflowServiceTest {
                 "Da ra soat the thuc",
                 null,
                 null,
-                "mock_sha256_hash"
+                "a".repeat(64)
         );
     }
 
@@ -1126,7 +1163,7 @@ class DocumentWorkflowServiceTest {
                 "Ký nháy từ file đính kèm",
                 null,
                 null,
-                "mock_sha256_hash"
+                "a".repeat(64)
         );
     }
 
@@ -1257,7 +1294,7 @@ class DocumentWorkflowServiceTest {
                 "Ký nháy tệp PDF khi không có tệp chính",
                 null,
                 null,
-                "mock_sha256_hash"
+                "a".repeat(64)
         );
     }
 
@@ -1430,7 +1467,7 @@ class DocumentWorkflowServiceTest {
     }
 
     @Test
-    @DisplayName("reject: Đóng băng tệp cũ (primaryFilePath = null, isMainDocument = false)")
+    @DisplayName("reject: Bảo toàn nguyên vẹn tệp PDF chính và chữ ký số ở trạng thái chỉ đọc")
     void reject_freezesPreviousDocumentFiles() {
         document.setPrimaryFilePath("drafts/old_initial_signed.pdf");
         DocumentAttachment mainAttachment = DocumentAttachment.builder()
@@ -1440,10 +1477,16 @@ class DocumentWorkflowServiceTest {
                 .isMainDocument(true)
                 .build();
 
+        DocumentApprovalRequest reviewRequest = DocumentApprovalRequest.builder()
+                .id(777L)
+                .document(document)
+                .status(ApprovalRequestStatus.PENDING)
+                .build();
+
         when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
-        when(documentAttachmentRepository.findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(5001L))
-                .thenReturn(List.of(mainAttachment));
+        when(workflowEngine.validateActorPermission(eq(document), eq(leader), eq(WorkflowAction.REJECT)))
+                .thenReturn(reviewRequest);
 
         DocumentRejectRequest request = DocumentRejectRequest.builder()
                 .comment("Khong phu hop voi chu truong")
@@ -1452,9 +1495,11 @@ class DocumentWorkflowServiceTest {
         DocumentDetailResponse response = documentWorkflowService.reject(5001L, request);
 
         assertNotNull(response);
-        assertNull(document.getPrimaryFilePath());
-        assertFalse(mainAttachment.isMainDocument());
-        verify(documentAttachmentRepository).save(mainAttachment);
+        assertEquals("drafts/old_initial_signed.pdf", document.getPrimaryFilePath());
+        assertEquals(ApprovalRequestStatus.REJECTED, reviewRequest.getStatus());
+        assertEquals("Khong phu hop voi chu truong", reviewRequest.getDecisionNote());
+        assertNotNull(reviewRequest.getProcessedAt());
+        verify(reviewRequests).save(reviewRequest);
         verify(documentRepository).save(document);
     }
 

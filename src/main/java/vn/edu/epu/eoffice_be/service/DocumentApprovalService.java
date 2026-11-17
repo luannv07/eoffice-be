@@ -194,7 +194,8 @@ public class DocumentApprovalService {
         UserLogin sender = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
 
-        Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
+        // Khoa bi quan de ngan chan gui trung hoac race condition khi gui duyet
+        Document document = documentRepository.findByIdForUpdate(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
         // Người soạn tự ký và gửi; role quản trị không cho phép gửi thay.
@@ -207,10 +208,8 @@ public class DocumentApprovalService {
             throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
         }
 
-        // Preserve existing allowed statuses; terminal REJECTED policy is a separate change.
-        
+        // Chan gui lai van ban da bi REJECTED; chi chap nhan DRAFT hoac NEEDS_REVISION
         if (document.getStatus() != DocumentStatus.DRAFT 
-            && document.getStatus() != DocumentStatus.REJECTED 
             && document.getStatus() != DocumentStatus.NEEDS_REVISION) {
             throw new BusinessException(ErrorCode.DOCUMENT_INVALID_STATUS,
                     "Chỉ có thể gửi duyệt văn bản đang ở trạng thái Dự thảo hoặc Cần chỉnh sửa");
@@ -394,7 +393,8 @@ public class DocumentApprovalService {
         UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
 
-        Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
+        // Khoa bi quan de ngan chan tranh chap dong thoi voi hanh dong duyet/tra sua cua tham dinh vien
+        Document document = documentRepository.findByIdForUpdate(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
         // Kiểm tra quyền: chỉ người soạn được thu hồi yêu cầu duyệt
@@ -412,22 +412,25 @@ public class DocumentApprovalService {
                     "Chỉ có thể thu hồi văn bản đang ở trạng thái Chờ duyệt");
         }
 
-        // Kiểm tra người duyệt đã xử lý chưa (PDF bước 2, 3)
+        // Dong bo cach xac dinh request hien hanh voi ReviewAssignmentPolicy (sap xep submittedAt DESC, id DESC tren ca ban xoa mem)
         Optional<DocumentApprovalRequest> latestRequestOpt = documentApprovalRequestRepository
-                .findTopByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(documentId);
+                .findFirstByDocumentIdOrderBySubmittedAtDescIdDesc(documentId);
 
-        if (latestRequestOpt.isPresent()) {
-            DocumentApprovalRequest latestRequest = latestRequestOpt.get();
-            if (latestRequest.getStatus() != ApprovalRequestStatus.PENDING) {
-                throw new BusinessException(ErrorCode.DOCUMENT_CANNOT_RECALL,
-                        "Không thể thu hồi văn bản do người duyệt đã xử lý yêu cầu (" + latestRequest.getStatus().getDescription() + ")");
-            }
-
-            // Đánh dấu yêu cầu duyệt đã bị thu hồi
-            latestRequest.setStatus(ApprovalRequestStatus.RECALLED);
-            latestRequest.setProcessedAt(Instant.now());
-            documentApprovalRequestRepository.save(latestRequest);
+        if (latestRequestOpt.isEmpty() || latestRequestOpt.get().isDeleteFlg()) {
+            throw new BusinessException(ErrorCode.DOCUMENT_CANNOT_RECALL,
+                    "Không thể thu hồi do không tìm thấy yêu cầu duyệt hợp lệ");
         }
+
+        DocumentApprovalRequest latestRequest = latestRequestOpt.get();
+        if (latestRequest.getStatus() != ApprovalRequestStatus.PENDING) {
+            throw new BusinessException(ErrorCode.DOCUMENT_CANNOT_RECALL,
+                    "Không thể thu hồi văn bản do người duyệt đã xử lý yêu cầu (" + latestRequest.getStatus().getDescription() + ")");
+        }
+
+        // Đánh dấu yêu cầu duyệt đã bị thu hồi
+        latestRequest.setStatus(ApprovalRequestStatus.RECALLED);
+        latestRequest.setProcessedAt(Instant.now());
+        documentApprovalRequestRepository.save(latestRequest);
 
         // Chuyển trạng thái văn bản về lại DRAFT (PDF bước 4)
         documentAttachmentRepository.retireCurrentMain(documentId);

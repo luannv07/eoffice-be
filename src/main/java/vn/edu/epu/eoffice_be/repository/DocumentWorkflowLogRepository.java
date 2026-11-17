@@ -16,6 +16,18 @@ public interface DocumentWorkflowLogRepository extends JpaRepository<DocumentWor
     @Query("SELECT l FROM DocumentWorkflowLog l WHERE l.document.id = :documentId AND (l.deleteFlg = false OR l.deleteFlg IS NULL) ORDER BY l.createdDate ASC, l.id ASC")
     List<DocumentWorkflowLog> findByDocumentIdOrderByCreatedDateAsc(@Param("documentId") Long documentId);
 
+    // Đối chiếu hash với log ký nháy của đúng hồ sơ, người ký và lượt thẩm định.
+    @Query("""
+            SELECT COUNT(l) > 0 FROM DocumentWorkflowLog l
+            WHERE l.document.id = :documentId AND l.approvalRequest.id = :requestId
+              AND l.actor.id = :actorId AND l.signatureHash = :hash AND l.deleteFlg = false
+              AND l.action = vn.edu.epu.eoffice_be.common.enums.WorkflowAction.INITIAL_SIGN
+              AND l.fromStatus = vn.edu.epu.eoffice_be.common.enums.DocumentStatus.IN_REVIEW
+              AND l.toStatus = vn.edu.epu.eoffice_be.common.enums.DocumentStatus.IN_REVIEW
+            """)
+    boolean existsReviewSignature(@Param("documentId") Long documentId, @Param("requestId") Long requestId,
+                                  @Param("actorId") Long actorId, @Param("hash") String hash);
+
     @Deprecated(since = "1.0.0", forRemoval = true)
     @Query("SELECT l FROM DocumentWorkflowLog l WHERE l.document.id = :documentId AND (l.deleteFlg = false OR l.deleteFlg IS NULL) ORDER BY l.createdDate ASC, l.id ASC")
     List<DocumentWorkflowLog> findByDocumentIdOrderByCreatedAtAsc(@Param("documentId") Long documentId);

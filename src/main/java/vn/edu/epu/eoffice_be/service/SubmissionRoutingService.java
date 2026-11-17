@@ -7,6 +7,7 @@ import vn.edu.epu.eoffice_be.common.enums.*;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.dto.request.SubmitApprovalRequest;
 import vn.edu.epu.eoffice_be.dto.response.EligibleApproverResponse;
+import vn.edu.epu.eoffice_be.dto.response.HandoverOptionsResponse;
 import vn.edu.epu.eoffice_be.dto.response.SubmissionOptionsResponse;
 import vn.edu.epu.eoffice_be.dto.response.SubmissionOptionsResponse.RouteOption;
 import vn.edu.epu.eoffice_be.dto.response.SubmissionOptionsResponse.SelectionMode;
@@ -155,8 +156,61 @@ public class SubmissionRoutingService {
         }
     }
 
-    private void addRoute(List<RouteOption> routes, SubmissionRoute route, List<PositionAssignment> candidates) {
-        if (candidates.isEmpty()) return;
+    // Lấy thông tin lựa chọn lãnh đạo nhận bàn giao duyệt tiếp từ cấp thẩm định
+    public HandoverOptionsResponse handoverOptions(Document document, UserLogin actor, Instant at) {
+        if (document == null) {
+            throw new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND);
+        }
+        if (document.getStatus() != DocumentStatus.IN_REVIEW) {
+            throw new BusinessException(ErrorCode.DOCUMENT_INVALID_STATUS,
+                    "Chỉ có thể lấy thông tin bàn giao lãnh đạo khi văn bản ở trạng thái Đang thẩm định (IN_REVIEW)");
+        }
+        List<PositionAssignment> leaders = candidates(LEADERS, null, at);
+        validateLeadershipCounts(leaders, true);
+
+        // Chống tự duyệt: loại bỏ chính actor nếu actor trùng tài khoản với lãnh đạo
+        List<PositionAssignment> available = leaders.stream()
+                .filter(p -> actor == null || !actor.getId().equals(p.getUserLogin().getId()))
+                .toList();
+
+        if (available.isEmpty()) {
+            throw bad("Không có Hiệu trưởng/Phó Hiệu trưởng hợp lệ để nhận văn bản");
+        }
+
+        List<EligibleApproverResponse> approvers = mapApprovers(available);
+        SelectionMode mode = approvers.size() > 1 ? SelectionMode.SELECT : SelectionMode.AUTO;
+        return new HandoverOptionsResponse(mode, approvers);
+    }
+
+    // Phân giải lãnh đạo nhận bàn giao: tự gán nếu AUTO, bắt buộc chọn nếu SELECT
+    public UserLogin resolveHandoverLeader(Document document, UserLogin actor, Long requestedNextApproverId, Instant at) {
+        HandoverOptionsResponse options = handoverOptions(document, actor, at);
+        Long selectedId = requestedNextApproverId;
+        if (selectedId == null) {
+            if (options.selectionMode() == SelectionMode.AUTO) {
+                selectedId = options.approvers().getFirst().getUserId();
+            } else {
+                throw new BusinessException(ErrorCode.BAD_REQUEST,
+                        "Vui lòng chọn lãnh đạo phê duyệt (Hiệu trưởng hoặc Phó Hiệu trưởng)");
+            }
+        }
+        Long approverId = selectedId;
+        boolean matches = options.approvers().stream().anyMatch(a -> approverId.equals(a.getUserId()));
+        if (!matches) {
+            throw new BusinessException(ErrorCode.APPROVER_NOT_ELIGIBLE,
+                    "Lãnh đạo được chọn không thuộc danh sách phê duyệt hợp lệ");
+        }
+        List<PositionAssignment> leaders = candidates(LEADERS, null, at);
+        return leaders.stream()
+                .map(PositionAssignment::getUserLogin)
+                .filter(u -> approverId.equals(u.getId()))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(ErrorCode.APPROVER_NOT_ELIGIBLE,
+                        "Lãnh đạo được chọn không thuộc danh sách phê duyệt hợp lệ"));
+    }
+
+    private List<EligibleApproverResponse> mapApprovers(List<PositionAssignment> candidates) {
+        if (candidates.isEmpty()) return List.of();
         Comparator<PositionAssignment> order = Comparator.comparing(PositionAssignment::getPositionCd)
                 .thenComparing(p -> p.getOrgNode().getId())
                 .thenComparing(PositionAssignment::getId, Comparator.nullsLast(Comparator.naturalOrder()));
@@ -164,7 +218,7 @@ public class SubmissionRoutingService {
         candidates.stream().sorted(order).forEach(p -> unique.putIfAbsent(p.getUserLogin().getId(), p));
         Map<Long, UserInfoRepository.DrafterName> names = profiles.findDrafterNamesByUserIds(unique.keySet()).stream()
                 .collect(Collectors.toMap(UserInfoRepository.DrafterName::getUserId, p -> p));
-        List<EligibleApproverResponse> approvers = unique.values().stream().map(p -> {
+        return unique.values().stream().map(p -> {
             UserLogin u = p.getUserLogin();
             var name = names.get(u.getId());
             String username = name == null ? u.getUsername() : name.getUsername();
@@ -174,6 +228,11 @@ public class SubmissionRoutingService {
                     .orgNodeId(p.getOrgNode().getId()).orgNodeName(p.getOrgNode().getNameVn()).build();
         }).sorted(Comparator.comparing(EligibleApproverResponse::getUsername, Comparator.nullsLast(Comparator.naturalOrder()))
                 .thenComparing(EligibleApproverResponse::getUserId)).toList();
+    }
+
+    private void addRoute(List<RouteOption> routes, SubmissionRoute route, List<PositionAssignment> candidates) {
+        if (candidates.isEmpty()) return;
+        List<EligibleApproverResponse> approvers = mapApprovers(candidates);
         routes.add(new RouteOption(route, route.getNextStatus(), approvers));
     }
 
