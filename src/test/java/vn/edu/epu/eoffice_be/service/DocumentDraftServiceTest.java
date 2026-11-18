@@ -103,7 +103,7 @@ class DocumentDraftServiceTest {
                 .title("Old title").summary("Old summary").content("Old content").currentVersion(3)
                 .issuingOrgNode(OrgNode.builder().id(10L).build()).build();
         when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(actor));
-        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(document));
         return document;
     }
 
@@ -145,7 +145,7 @@ class DocumentDraftServiceTest {
 
     static Stream<Arguments> drafterRolesAndEditableStatuses() {
         return Arrays.stream(Role.values()).flatMap(role -> Stream.of(DocumentStatus.DRAFT,
-                DocumentStatus.REJECTED, DocumentStatus.NEEDS_REVISION).map(status -> Arguments.of(role, status)));
+                DocumentStatus.NEEDS_REVISION).map(status -> Arguments.of(role, status)));
     }
 
     @ParameterizedTest
@@ -153,6 +153,20 @@ class DocumentDraftServiceTest {
     void updateDraft_DrafterStillAllowedForEveryRoleAndEditableStatus(Role role, DocumentStatus status) {
         UserLogin actor = UserLogin.builder().id(100L).username("author").role(role).build();
         assertUpdateSucceeds(actor, actor, status);
+    }
+
+    // Chặn sửa hồ sơ kết thúc với mọi vai trò của người soạn.
+    @ParameterizedTest
+    @EnumSource(Role.class)
+    void updateDraft_RejectedIsReadOnlyForEveryDrafterRole(Role role) {
+        UserLogin actor = UserLogin.builder().id(100L).role(role).build();
+        Document document = prepareUpdate(actor, actor, DocumentStatus.REJECTED);
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> documentDraftService.updateDraft(1L, updateRequest(), 100L));
+
+        assertEquals(ErrorCode.DOCUMENT_INVALID_STATUS, error.getErrorCode());
+        assertDraftUnchanged(document, DocumentStatus.REJECTED);
+        verifyNoInteractions(orgNodeRepository);
     }
 
     static Stream<Arguments> adminUpdateDrafters() {
@@ -309,7 +323,7 @@ class DocumentDraftServiceTest {
                 .build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentRepository.findByIdForUpdate(docId)).thenReturn(Optional.of(doc));
         when(orgNodeRepository.findByIdAndDeleteFlgFalse(orgId)).thenReturn(Optional.of(orgNode));
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -355,7 +369,7 @@ class DocumentDraftServiceTest {
                 .build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentRepository.findByIdForUpdate(docId)).thenReturn(Optional.of(doc));
         when(orgNodeRepository.findByIdAndDeleteFlgFalse(orgId)).thenReturn(Optional.of(orgNode));
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -393,7 +407,7 @@ class DocumentDraftServiceTest {
                 .build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(otherUserId)).thenReturn(Optional.of(otherUser));
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentRepository.findByIdForUpdate(docId)).thenReturn(Optional.of(doc));
 
         DocumentUpdateRequest request = DocumentUpdateRequest.builder()
                 .title("Sửa lén")
@@ -421,7 +435,7 @@ class DocumentDraftServiceTest {
                 .build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentRepository.findByIdForUpdate(docId)).thenReturn(Optional.of(doc));
 
         DocumentUpdateRequest request = DocumentUpdateRequest.builder()
                 .title("Tiêu đề mới")
@@ -511,7 +525,7 @@ class DocumentDraftServiceTest {
                 .build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentRepository.findByIdForUpdate(docId)).thenReturn(Optional.of(doc));
         when(orgNodeRepository.findByIdAndDeleteFlgFalse(orgNodeId)).thenReturn(Optional.of(orgNode));
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -549,7 +563,7 @@ class DocumentDraftServiceTest {
                 .build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(adminId)).thenReturn(Optional.of(admin));
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentRepository.findByIdForUpdate(docId)).thenReturn(Optional.of(doc));
         when(orgNodeRepository.findByIdAndDeleteFlgFalse(orgNodeId)).thenReturn(Optional.of(orgNode));
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -729,7 +743,7 @@ class DocumentDraftServiceTest {
                 .build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentRepository.findByIdForUpdate(docId)).thenReturn(Optional.of(doc));
         when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(docId)).thenReturn(List.of(attachment));
         when(documentVersionRepository.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(docId)).thenReturn(List.of(version));
 
@@ -778,7 +792,7 @@ class DocumentDraftServiceTest {
                 .build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(adminId)).thenReturn(Optional.of(admin));
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentRepository.findByIdForUpdate(docId)).thenReturn(Optional.of(doc));
         when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(docId)).thenReturn(List.of(attachment));
         when(documentVersionRepository.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(docId)).thenReturn(List.of(version));
 
@@ -814,7 +828,7 @@ class DocumentDraftServiceTest {
                 .build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(adminId)).thenReturn(Optional.of(admin));
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentRepository.findByIdForUpdate(docId)).thenReturn(Optional.of(doc));
         when(documentAttachmentRepository.findByDocumentIdAndDeleteFlgFalse(docId)).thenReturn(List.of());
         when(documentVersionRepository.findByDocumentIdAndDeleteFlgFalseOrderByVersionNumberDesc(docId)).thenReturn(List.of());
 
@@ -854,7 +868,7 @@ class DocumentDraftServiceTest {
 
         UserLogin user = UserLogin.builder().id(userId).username("author").role(Role.USER).build();
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(user));
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.empty());
+        when(documentRepository.findByIdForUpdate(docId)).thenReturn(Optional.empty());
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentDraftService.deleteDraft(docId, userId));
@@ -883,7 +897,7 @@ class DocumentDraftServiceTest {
                 .build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(otherUserId)).thenReturn(Optional.of(otherUser));
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentRepository.findByIdForUpdate(docId)).thenReturn(Optional.of(doc));
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentDraftService.deleteDraft(docId, otherUserId));
@@ -910,7 +924,7 @@ class DocumentDraftServiceTest {
                 .build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentRepository.findByIdForUpdate(docId)).thenReturn(Optional.of(doc));
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentDraftService.deleteDraft(docId, userId));

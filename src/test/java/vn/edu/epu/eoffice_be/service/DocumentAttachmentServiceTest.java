@@ -68,7 +68,7 @@ class DocumentAttachmentServiceTest {
         UserLogin drafter = UserLogin.builder().id(100L).role(Role.USER).build();
         Document document = Document.builder().id(1L).drafter(drafter).status(DocumentStatus.DRAFT).build();
         when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(drafter));
-        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(document));
         MockMultipartFile file = new MockMultipartFile("file", filename, "application/pdf", "%PDF-1.4".getBytes());
 
         BusinessException error = assertThrows(BusinessException.class,
@@ -93,7 +93,7 @@ class DocumentAttachmentServiceTest {
         UserLogin drafter = UserLogin.builder().id(100L).role(Role.USER).build();
         Document document = Document.builder().id(1L).drafter(drafter).status(DocumentStatus.DRAFT).build();
         when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(drafter));
-        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(document));
         MockMultipartFile file = new MockMultipartFile("file", filename, mime, "%PDF-1.4".getBytes());
         when(fileStorageService.storeFile(file, 1L)).thenReturn(StoredFileInfo.builder()
                 .originalFileName(filename).fileExtension("PDF").build());
@@ -135,7 +135,7 @@ class DocumentAttachmentServiceTest {
             ErrorCode expected, boolean isMain, Path directory) throws Exception {
         UserLogin drafter = UserLogin.builder().id(100L).role(Role.USER).build();
         when(userLoginRepository.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(drafter));
-        when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(
+        when(documentRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(
                 Document.builder().id(1L).drafter(drafter).status(DocumentStatus.DRAFT).build()));
         var properties = new UploadProperties();
         properties.setDir(directory.toString());
@@ -200,7 +200,7 @@ class DocumentAttachmentServiceTest {
                 .build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentRepository.findByIdForUpdate(docId)).thenReturn(Optional.of(doc));
         when(fileStorageService.storeFile(file, docId)).thenReturn(storedInfo);
         when(documentAttachmentRepository.save(any(DocumentAttachment.class))).thenAnswer(inv -> {
             DocumentAttachment att = inv.getArgument(0);
@@ -230,7 +230,7 @@ class DocumentAttachmentServiceTest {
         MockMultipartFile file = new MockMultipartFile("file", "doc.pdf", "application/pdf", "dummy".getBytes());
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentRepository.findByIdForUpdate(docId)).thenReturn(Optional.of(doc));
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentAttachmentService.uploadAttachment(docId, file, false, userId));
@@ -254,7 +254,7 @@ class DocumentAttachmentServiceTest {
                 .build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentRepository.findByIdForUpdate(docId)).thenReturn(Optional.of(doc));
         when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId, docId))
                 .thenReturn(Optional.of(att));
 
@@ -395,7 +395,7 @@ class DocumentAttachmentServiceTest {
         var admin=UserLogin.builder().id(adminId).role(Role.ADMIN).build();
         var doc=Document.builder().id(docId).drafter(UserLogin.builder().id(100L).build()).status(DocumentStatus.DRAFT).build();
         when(userLoginRepository.findByIdAndDeleteFlgFalse(adminId)).thenReturn(Optional.of(admin));
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentRepository.findByIdForUpdate(docId)).thenReturn(Optional.of(doc));
         assertEquals(ErrorCode.FORBIDDEN,assertThrows(BusinessException.class,
                 () -> documentAttachmentService.deleteAttachment(docId,attId,adminId)).getErrorCode());
         verifyNoInteractions(documentAttachmentRepository, documentVersionRepository,
@@ -437,7 +437,7 @@ class DocumentAttachmentServiceTest {
         MockMultipartFile file = new MockMultipartFile("file", "doc.pdf", "application/pdf", "dummy".getBytes());
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(otherUser));
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentRepository.findByIdForUpdate(docId)).thenReturn(Optional.of(doc));
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentAttachmentService.uploadAttachment(docId, file, false, userId));
@@ -456,7 +456,7 @@ class DocumentAttachmentServiceTest {
         Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(otherUser));
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentRepository.findByIdForUpdate(docId)).thenReturn(Optional.of(doc));
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentAttachmentService.deleteAttachment(docId, attId, userId));

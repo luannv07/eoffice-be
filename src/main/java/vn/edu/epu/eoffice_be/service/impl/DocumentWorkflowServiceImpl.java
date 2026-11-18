@@ -110,7 +110,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     @Transactional
     public DocumentDetailResponse approve(Long documentId, DocumentApproveRequest request) {
         UserLogin actor = getCurrentActor();
-        Document document = findDocumentOrThrow(documentId);
+        Document document = lockDocumentOrThrow(documentId);
 
         // Quyết định hành động chuyển tiếp phù hợp với trạng thái hiện tại
         WorkflowAction action;
@@ -124,6 +124,9 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
         // Kiểm tra thẩm quyền người xử lý trước khi thực hiện chuyển đổi
         DocumentApprovalRequest reviewRequest = validateReviewAuthorization(document, actor, action, request.getComment());
+        if (action == WorkflowAction.LEADER_APPROVE) {
+            rejectRepeatedReviewHandover(documentId, actor.getId());
+        }
 
         OrgNode assignedOrg = null;
         if (request.getAssignedOrgNodeId() != null) {
@@ -254,6 +257,25 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         return submissionRoutingService.handoverOptions(document, actor, Instant.now());
     }
 
+    // Chặn người vừa bàn giao gọi lại duyệt và bị chuyển sang nhánh ký của lãnh đạo.
+    private void rejectRepeatedReviewHandover(Long documentId, Long actorId) {
+        var currentRequest = reviewRequests.findFirstByDocumentIdOrderBySubmittedAtDescIdDesc(documentId);
+        if (currentRequest.isEmpty()) {
+            return;
+        }
+        DocumentApprovalRequest request = currentRequest.get();
+        if (request.isDeleteFlg() || request.getStatus() != ApprovalRequestStatus.PENDING
+                || request.getSenderUser() == null || !actorId.equals(request.getSenderUser().getId())) {
+            return;
+        }
+        boolean alreadyHandedOver = documentWorkflowLogRepository.existsLinkedDecision(
+                documentId, WorkflowAction.REVIEW_APPROVE, actorId, request.getSubmittedAt());
+        if (alreadyHandedOver) {
+            throw new BusinessException(ErrorCode.INVALID_WORKFLOW_STATE,
+                    "Bạn đã duyệt chuyển tiếp văn bản này cho lãnh đạo.");
+        }
+    }
+
     // Kiểm tra bằng chứng ký nháy trước khi chuyển cấp.
     private String requireReviewSignature(Document document, UserLogin actor, DocumentApprovalRequest reviewRequest) {
         String pdfReference = document.getPrimaryFilePath();
@@ -318,7 +340,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     @Transactional
     public DocumentDetailResponse requestRevision(Long documentId, DocumentRevisionRequest request) {
         UserLogin actor = getCurrentActor();
-        Document document = findDocumentOrThrow(documentId);
+        Document document = lockDocumentOrThrow(documentId);
 
         // Kiểm tra thẩm quyền người yêu cầu chỉnh sửa
         DocumentApprovalRequest reviewRequest =
@@ -354,7 +376,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     @Transactional(rollbackFor = Exception.class)
     public DocumentDetailResponse initialSign(Long documentId, DocumentInitialSignRequest request) {
         UserLogin actor = getCurrentActor();
-        Document document = findDocumentOrThrow(documentId);
+        Document document = lockDocumentOrThrow(documentId);
 
         // Kiểm tra thẩm quyền ký nháy TRƯỚC KHI xử lý file PDF nhằm tránh lãng phí tài nguyên CPU/IO
         DocumentApprovalRequest reviewRequest =
@@ -589,7 +611,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     @Transactional
     public DocumentDetailResponse reject(Long documentId, DocumentRejectRequest request) {
         UserLogin actor = getCurrentActor();
-        Document document = findDocumentOrThrow(documentId);
+        Document document = lockDocumentOrThrow(documentId);
 
         // Kiểm tra thẩm quyền từ chối văn bản
         DocumentApprovalRequest reviewRequest =
@@ -697,6 +719,12 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
     private Document findDocumentOrThrow(Long id) {
         return documentRepository.findByIdAndDeleteFlgFalse(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
+    }
+
+    // Khóa cùng bản ghi với thao tác thu hồi trước khi kiểm tra trạng thái.
+    private Document lockDocumentOrThrow(Long id) {
+        return documentRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
     }
 

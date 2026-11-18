@@ -182,7 +182,7 @@ class DocumentVersionServiceTest {
                 .build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentRepository.findByIdForUpdate(docId)).thenReturn(Optional.of(doc));
         when(documentVersionRepository.findByDocumentIdAndVersionNumberAndDeleteFlgFalse(docId, targetVer)).thenReturn(Optional.of(v1));
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
         when(documentDraftService.mapToDocumentResponse(any())).thenReturn(DocumentResponse.builder().id(docId).currentVersion(3).build());
@@ -208,7 +208,7 @@ class DocumentVersionServiceTest {
         Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.DRAFT).currentVersion(2).build();
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentRepository.findByIdForUpdate(docId)).thenReturn(Optional.of(doc));
         when(documentVersionRepository.findByDocumentIdAndVersionNumberAndDeleteFlgFalse(docId, targetVer)).thenReturn(Optional.empty());
 
         BusinessException ex = assertThrows(BusinessException.class,
@@ -230,7 +230,7 @@ class DocumentVersionServiceTest {
                 .thenReturn(Optional.of(v1));
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(otherUser));
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentRepository.findByIdForUpdate(docId)).thenReturn(Optional.of(doc));
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentVersionService.restoreVersion(docId, 1, userId));
@@ -250,7 +250,7 @@ class DocumentVersionServiceTest {
                 .thenReturn(Optional.of(v1));
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(userId)).thenReturn(Optional.of(drafter));
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentRepository.findByIdForUpdate(docId)).thenReturn(Optional.of(doc));
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> documentVersionService.restoreVersion(docId, 1, userId));
@@ -264,7 +264,7 @@ class DocumentVersionServiceTest {
         var admin=UserLogin.builder().id(adminId).role(Role.ADMIN).build();
         var doc=Document.builder().id(docId).drafter(UserLogin.builder().id(100L).build()).status(DocumentStatus.DRAFT).currentVersion(2).build();
         when(userLoginRepository.findByIdAndDeleteFlgFalse(adminId)).thenReturn(Optional.of(admin));
-        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentRepository.findByIdForUpdate(docId)).thenReturn(Optional.of(doc));
         assertEquals(ErrorCode.FORBIDDEN,assertThrows(BusinessException.class,
                 () -> documentVersionService.restoreVersion(docId,1,adminId)).getErrorCode());
         assertEquals(2,doc.getCurrentVersion());

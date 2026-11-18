@@ -58,7 +58,7 @@ class ReviewProcessingAuthorizationTest {
                 .currentVersion(1).issuingOrgNode(OrgNode.builder().id(100L).build()).build();
         lenient().when(userLoginRepository.findByIdAndDeleteFlgFalse(anyLong())).thenAnswer(i->
                 Optional.of(i.getArgument(0).equals(20L)?receiver:actor));
-        lenient().when(documentRepository.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
+        lenient().when(documentRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(document));
         latest=DocumentApprovalRequest.builder().id(5L).document(document).approverUser(receiver)
                 .status(ApprovalRequestStatus.PENDING).submittedAt(Instant.now()).build();
         lenient().when(requests.findFirstByDocumentIdOrderBySubmittedAtDescIdDesc(1L)).thenAnswer(i->Optional.ofNullable(latest));

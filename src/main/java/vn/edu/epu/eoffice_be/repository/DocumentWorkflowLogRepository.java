@@ -6,8 +6,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
 import vn.edu.epu.eoffice_be.entity.DocumentWorkflowLog;
 
+import java.time.Instant;
 import java.util.List;
 
 @Repository
@@ -27,6 +29,15 @@ public interface DocumentWorkflowLogRepository extends JpaRepository<DocumentWor
             """)
     boolean existsReviewSignature(@Param("documentId") Long documentId, @Param("requestId") Long requestId,
                                   @Param("actorId") Long actorId, @Param("hash") String hash);
+
+    // Tìm lần bàn giao đã đóng lượt thẩm định tại thời điểm mở yêu cầu lãnh đạo.
+    @Query("""
+            SELECT COUNT(l) > 0 FROM DocumentWorkflowLog l
+            WHERE l.document.id = :documentId AND l.actor.id = :actorId AND l.deleteFlg = false
+              AND l.action = :action AND l.approvalRequest.processedAt = :processedAt
+            """)
+    boolean existsLinkedDecision(@Param("documentId") Long documentId, @Param("action") WorkflowAction action,
+                                 @Param("actorId") Long actorId, @Param("processedAt") Instant processedAt);
 
     @Deprecated(since = "1.0.0", forRemoval = true)
     @Query("SELECT l FROM DocumentWorkflowLog l WHERE l.document.id = :documentId AND (l.deleteFlg = false OR l.deleteFlg IS NULL) ORDER BY l.createdDate ASC, l.id ASC")

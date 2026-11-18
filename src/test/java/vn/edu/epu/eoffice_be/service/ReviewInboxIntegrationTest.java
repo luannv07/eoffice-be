@@ -1,27 +1,44 @@
 package vn.edu.epu.eoffice_be.service;
 
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.*;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import vn.edu.epu.eoffice_be.common.enums.*;
+import vn.edu.epu.eoffice_be.config.UploadProperties;
 import vn.edu.epu.eoffice_be.entity.*;
 import vn.edu.epu.eoffice_be.repository.*;
 import vn.edu.epu.eoffice_be.security.JwtUserPrincipal;
 import vn.edu.epu.eoffice_be.security.pki.PdfSigner;
+import vn.edu.epu.eoffice_be.storage.DocumentPdfReference;
 import vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService;
+import vn.edu.epu.eoffice_be.storage.provider.FileStorageProviderRegistry;
+import vn.edu.epu.eoffice_be.storage.provider.FileSystemFileStorageProvider;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -29,13 +46,31 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-/** Isolated H2, real security/service/repository, no outer transaction or real cryptography. */
+// Kiểm thử API thẩm định với DB riêng và bộ ký giả lập.
 @SpringBootTest(properties="spring.jpa.open-in-view=false")
 @ActiveProfiles("test")
 @AutoConfigureMockMvc
 class ReviewInboxIntegrationTest {
-    static final String DB="jdbc:h2:mem:review-inbox-"+UUID.randomUUID()+";MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DEFAULT_NULL_ORDERING=HIGH";
-    @DynamicPropertySource static void database(DynamicPropertyRegistry registry){registry.add("spring.datasource.url",()->DB);}
+    static final String DB="jdbc:h2:mem:review-inbox-"+UUID.randomUUID()+";MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DEFAULT_NULL_ORDERING=HIGH;LOCK_TIMEOUT=8000";
+
+    // Dùng H2 mặc định hoặc database PostgreSQL cục bộ dành riêng cho kiểm thử.
+    @DynamicPropertySource
+    static void database(DynamicPropertyRegistry registry) {
+        String url = System.getenv("EOFFICE_TASK3_TEST_JDBC_URL");
+        if (url == null || url.isBlank()) {
+            registry.add("spring.datasource.url", () -> DB);
+            return;
+        }
+        if (!url.matches("jdbc:postgresql://127\\.0\\.0\\.1:[0-9]+/eoffice_task3_test")) {
+            throw new IllegalArgumentException("Chỉ dùng PostgreSQL cục bộ với database eoffice_task3_test");
+        }
+        registry.add("spring.datasource.url", () -> url);
+        registry.add("spring.datasource.username", () -> System.getenv("EOFFICE_TASK3_TEST_DB_USER"));
+        registry.add("spring.datasource.password", () -> System.getenv("EOFFICE_TASK3_TEST_DB_PASSWORD"));
+        registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
+        registry.add("spring.jpa.database-platform", () -> "org.hibernate.dialect.PostgreSQLDialect");
+        registry.add("spring.liquibase.change-log", () -> "classpath:db/changelog/master.yml");
+    }
     @Autowired UserLoginRepository users;
     @Autowired OrgNodeRepository orgs;
     @Autowired PositionAssignmentRepository positions;
@@ -44,8 +79,14 @@ class ReviewInboxIntegrationTest {
     @Autowired PermissionResolver resolver;
     @Autowired DocumentRepository documents;
     @Autowired DocumentApprovalRequestRepository requests;
-    @Autowired DocumentWorkflowLogRepository logs;
+    @SpyBean DocumentWorkflowLogRepository logs;
+    @Autowired DocumentAttachmentRepository attachments;
+    @Autowired DocumentProcessLogRepository processLogs;
+    @Autowired StoredFileMetadataRepository storageMetadata;
+    @Autowired FileStorageService legacyStorage;
+    @Autowired UploadProperties uploadProperties;
     @Autowired PlatformTransactionManager manager;
+    @Autowired JdbcTemplate jdbc;
     @Autowired MockMvc mvc;
     @MockBean PdfSigner signer;
     @MockBean DocumentPdfStorageService pdfStorage;
@@ -339,6 +380,270 @@ class ReviewInboxIntegrationTest {
                 positions.flush();
             });
         }
+    }
+
+    // Thử thu hồi với từng thao tác thẩm định theo cả hai thứ tự giữ khóa.
+    @ParameterizedTest
+    @CsvSource({"initial-sign,true", "initial-sign,false", "approve,true", "approve,false",
+            "request-revision,true", "request-revision,false", "reject,true", "reject,false"})
+    void recallAndReviewUseTheSameDocumentLock(String reviewAction, boolean recallFirst) throws Exception {
+        var original = prepareReviewRound();
+        if (reviewAction.equals("approve")) {
+            assertEquals(200, applyReviewAction("initial-sign").getResponse().getStatus());
+        }
+        clearInvocations(signer, pdfStorage);
+        List<MvcResult> results = recallFirst ? race("recall", reviewAction) : race(reviewAction, "recall");
+        assertEquals(200, results.getFirst().getResponse().getStatus());
+
+        // Đọc lại yêu cầu, PDF, tệp chính và log sau khi hai giao dịch đã kết thúc.
+        boolean recalled = recallFirst || reviewAction.equals("initial-sign");
+        if (recalled) {
+            assertStatusAndFiles(DocumentStatus.DRAFT, null, false);
+            assertEquals(ApprovalRequestStatus.RECALLED, requests.findById(original.getId()).orElseThrow().getStatus());
+            assertEquals(1, processLogs.findByDocumentIdAndDeleteFlgFalseOrderByLogTimeDesc(id).size());
+            long expectedSignCount = reviewAction.equals("approve") || !recallFirst ? 1 : 0;
+            assertEquals(expectedSignCount, logs.findByDocumentIdOrderByCreatedDateAsc(id).size());
+        } else {
+            assertEquals(400, results.getLast().getResponse().getStatus());
+            assertTrue(processLogs.findByDocumentIdAndDeleteFlgFalseOrderByLogTimeDesc(id).isEmpty());
+        }
+        if (recallFirst) {
+            assertEquals(400, results.getLast().getResponse().getStatus());
+            verifyNoInteractions(signer, pdfStorage);
+        } else if (reviewAction.equals("initial-sign")) {
+            assertEquals(200, results.getLast().getResponse().getStatus());
+        } else if (reviewAction.equals("approve")) {
+            assertHandover(original);
+            verifyNoInteractions(signer);
+        } else if (reviewAction.equals("request-revision")) {
+            assertStatusAndFiles(DocumentStatus.NEEDS_REVISION, null, false);
+            assertEquals(ApprovalRequestStatus.NEEDS_REVISION, requests.findById(original.getId()).orElseThrow().getStatus());
+            assertEquals(WorkflowAction.REQUEST_REVISION, logs.findByDocumentIdOrderByCreatedDateAsc(id).getFirst().getAction());
+        } else {
+            assertStatusAndFiles(DocumentStatus.REJECTED, "storage://101", true);
+            assertEquals(ApprovalRequestStatus.REJECTED, requests.findById(original.getId()).orElseThrow().getStatus());
+            assertEquals(WorkflowAction.REJECT, logs.findByDocumentIdOrderByCreatedDateAsc(id).getFirst().getAction());
+        }
+    }
+
+    // Duyệt chỉ chuyển cấp sau khi giao dịch ký ghi thành công bằng chứng.
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void signingAndHandoverUseCommittedPdf(boolean signingFirst) throws Exception {
+        var original = prepareReviewRound();
+        var results = signingFirst ? race("initial-sign", "approve") : race("approve", "initial-sign");
+        assertEquals(signingFirst ? 200 : 400, results.getFirst().getResponse().getStatus());
+        assertEquals(200, results.getLast().getResponse().getStatus());
+        verify(signer).signBytes(any(), anyString(), anyString(), anyString());
+        if (signingFirst) {
+            assertHandover(original);
+        } else {
+            assertStatusAndFiles(DocumentStatus.IN_REVIEW, "storage://102", true);
+            assertEquals(ApprovalRequestStatus.PENDING, requests.findById(original.getId()).orElseThrow().getStatus());
+            assertEquals(1, logs.findByDocumentIdOrderByCreatedDateAsc(id).size());
+        }
+    }
+
+    // Hai lần bấm duyệt của người thẩm định chỉ tạo một yêu cầu lãnh đạo.
+    @Test
+    void duplicateHandoverDoesNotRunLeadershipSigner() throws Exception {
+        var original = prepareReviewRound();
+        assertEquals(200, applyReviewAction("initial-sign").getResponse().getStatus());
+        clearInvocations(signer);
+
+        var results = race("approve", "approve");
+
+        assertEquals(200, results.getFirst().getResponse().getStatus());
+        assertEquals(400, results.getLast().getResponse().getStatus());
+        assertHandover(original);
+        verifyNoInteractions(signer);
+    }
+
+    // Giữ nguyên dữ liệu khi chính người soạn thử các đường ghi trên hồ sơ đã từ chối.
+    @ParameterizedTest
+    @EnumSource(Role.class)
+    void rejectedRoundKeepsPdfAndBlocksEveryDraftWrite(Role drafterRole) throws Exception {
+        author = tx.execute(status -> {
+            UserLogin drafter = users.findById(author.getId()).orElseThrow();
+            drafter.setRole(drafterRole);
+            return users.save(drafter);
+        });
+        var original = prepareReviewRound();
+        assertEquals(200, applyReviewAction("initial-sign").getResponse().getStatus());
+        assertEquals(200, applyReviewAction("reject").getResponse().getStatus());
+        var asAuthor = authentication(authWithRole(author, drafterRole));
+        String path = "/documents/" + id;
+        var update = put(path).with(asAuthor).contentType("application/json")
+                .content("{\"title\":\"Changed\",\"summary\":\"Changed\",\"documentTypeCd\":\"CONG_VAN\"}");
+        var attachment = new MockMultipartFile("file", "changed.pdf", "application/pdf", new byte[]{1});
+        var upload = multipart(path + "/attachments").file(attachment).param("isMain", "true").with(asAuthor);
+        var main = attachments.findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(id).getFirst();
+        for (var write : List.of(update, upload, delete(path + "/attachments/" + main.getId()).with(asAuthor),
+                post(path + "/versions/1/restore").with(asAuthor), delete(path).with(asAuthor))) {
+            mvc.perform(write).andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode").value("DOCUMENT_INVALID_STATUS"));
+        }
+
+        when(pdfStorage.readAsResource("storage://102")).thenReturn(new ByteArrayResource(new byte[]{3, 4}));
+        for (var viewer : List.of(author, dean)) {
+            mvc.perform(get(path + "/files/primary").with(authentication(authWithRole(viewer, viewer.getRole()))))
+                    .andExpect(status().isOk()).andExpect(content().bytes(new byte[]{3, 4}));
+        }
+        assertStatusAndFiles(DocumentStatus.REJECTED, "storage://102", true);
+        var rejected = requests.findById(original.getId()).orElseThrow();
+        assertEquals(ApprovalRequestStatus.REJECTED, rejected.getStatus());
+        assertEquals("reject", rejected.getDecisionNote());
+        assertTrue(processLogs.findByDocumentIdAndDeleteFlgFalseOrderByLogTimeDesc(id).isEmpty());
+        assertEquals(2, logs.findByDocumentIdOrderByCreatedDateAsc(id).size());
+    }
+
+    // Ép lỗi ghi log sau khi đã lưu PDF và xác nhận cả DB lẫn tệp được khôi phục.
+    @Test
+    void logWriteFailureRollsBackAndDiscardsSignedFile(@TempDir Path storageDirectory) throws Exception {
+        var original = prepareReviewRound();
+        var provider = new FileSystemFileStorageProvider(storageDirectory.toString());
+        var registry = new FileStorageProviderRegistry(List.of(provider), provider.getName());
+        var realStorage = new DocumentPdfStorageService(registry, storageMetadata, legacyStorage, uploadProperties);
+        var writtenReference = new AtomicReference<String>();
+        doAnswer(call -> {
+            String reference = realStorage.storeSignedPdf(call.getArgument(0), call.getArgument(1), id);
+            assertArrayEquals(new byte[]{3, 4}, realStorage.readPdf(reference));
+            writtenReference.set(reference);
+            return reference;
+        }).when(pdfStorage).storeSignedPdf(any(), anyString(), eq(id));
+        doThrow(new DataIntegrityViolationException("Test ghi log thất bại")).when(logs).save(any(DocumentWorkflowLog.class));
+
+        assertEquals(409, applyReviewAction("initial-sign").getResponse().getStatus());
+
+        assertStatusAndFiles(DocumentStatus.IN_REVIEW, "storage://101", true);
+        assertEquals(ApprovalRequestStatus.PENDING, requests.findById(original.getId()).orElseThrow().getStatus());
+        assertTrue(logs.findByDocumentIdOrderByCreatedDateAsc(id).isEmpty());
+        assertNotNull(writtenReference.get());
+        assertFalse(storageMetadata.existsById(DocumentPdfReference.parseMetadataId(writtenReference.get())));
+        try (var savedFiles = Files.list(storageDirectory)) {
+            assertEquals(0, savedFiles.count());
+        }
+    }
+
+    // Tạo tệp chính và yêu cầu đang chờ cho cùng một lượt.
+    private DocumentApprovalRequest prepareReviewRound() {
+        tx.executeWithoutResult(status -> attachments.saveAndFlush(DocumentAttachment.builder()
+                .document(documents.getReferenceById(id)).uploadedByUser(author)
+                .originalFileName("round.pdf").storageFileName("round.pdf").storagePath("round")
+                .fileExtension("PDF").mimeType("application/pdf").fileSizeBytes(2).sha256Checksum("sample")
+                .isMainDocument(true).build()));
+        signs(dean);
+        return request(id, dean, ApprovalRequestStatus.PENDING, false, time);
+    }
+
+    // Giữ khóa của giao dịch đầu cho tới khi giao dịch thứ hai bắt đầu xử lý.
+    private List<MvcResult> race(String firstAction, String secondAction) throws Exception {
+        var firstLocked = new CountDownLatch(1);
+        var secondStarted = new CountDownLatch(1);
+        var releaseFirst = new CountDownLatch(1);
+        var lockerPid = new AtomicInteger();
+        boolean onPostgres = System.getenv("EOFFICE_TASK3_TEST_JDBC_URL") != null
+                && !System.getenv("EOFFICE_TASK3_TEST_JDBC_URL").isBlank();
+        try (var workers = Executors.newFixedThreadPool(2)) {
+            Future<MvcResult> first = workers.submit(() -> tx.execute(status -> {
+                documents.findByIdForUpdate(id).orElseThrow();
+                if (onPostgres) {
+                    lockerPid.set(jdbc.queryForObject("SELECT pg_backend_pid()", Integer.class));
+                }
+                firstLocked.countDown();
+                awaitSignal(releaseFirst);
+                try {
+                    MvcResult result = applyReviewAction(firstAction);
+                    if (result.getResponse().getStatus() >= 400) {
+                        status.setRollbackOnly();
+                    }
+                    return result;
+                } catch (Exception failure) {
+                    throw new CompletionException(failure);
+                }
+            }));
+            try {
+                awaitSignal(firstLocked);
+                Future<MvcResult> second = workers.submit(() -> {
+                    secondStarted.countDown();
+                    return applyReviewAction(secondAction);
+                });
+                awaitSignal(secondStarted);
+                if (onPostgres) {
+                    assertWaitingForPostgresLock(lockerPid.get());
+                } else {
+                    assertThrows(TimeoutException.class, () -> second.get(400, TimeUnit.MILLISECONDS));
+                }
+                releaseFirst.countDown();
+                return List.of(first.get(10, TimeUnit.SECONDS), second.get(10, TimeUnit.SECONDS));
+            } finally {
+                releaseFirst.countDown();
+            }
+        }
+    }
+
+    // Xác nhận PostgreSQL thấy transaction thứ hai đang chờ đúng khóa của transaction đầu.
+    private void assertWaitingForPostgresLock(int blockerPid) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(4);
+        while (System.nanoTime() < deadline) {
+            Boolean blocked = jdbc.queryForObject("""
+                    SELECT EXISTS(SELECT 1 FROM pg_stat_activity
+                      WHERE datname = current_database() AND ? = ANY(pg_blocking_pids(pid)))
+                    """, Boolean.class, blockerPid);
+            if (Boolean.TRUE.equals(blocked)) {
+                return;
+            }
+            Thread.sleep(25);
+        }
+        fail("PostgreSQL không ghi nhận giao dịch thứ hai chờ khóa văn bản");
+    }
+
+    // Đợi tín hiệu trong thời gian giới hạn để test không treo.
+    private static void awaitSignal(CountDownLatch signal) {
+        try {
+            assertTrue(signal.await(8, TimeUnit.SECONDS), "Không nhận được tín hiệu giao dịch");
+        } catch (InterruptedException failure) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("Bị ngắt khi đợi giao dịch", failure);
+        }
+    }
+
+    // Gọi API bằng đúng tài khoản của thao tác cần kiểm thử.
+    private MvcResult applyReviewAction(String action) throws Exception {
+        if (action.equals("recall")) {
+            return mvc.perform(post("/documents/" + id + "/recall-approval")
+                    .with(authentication(authWithRole(author, Role.USER)))
+                    .contentType("application/json").content("{\"recallReason\":\"recall\"}")).andReturn();
+        }
+        return mvc.perform(post("/documents/" + id + "/workflow/" + action)
+                .with(authentication(auth(dean))).contentType("application/json")
+                .content("{\"comment\":\"" + action + "\"}")).andReturn();
+    }
+
+    // Đối chiếu trạng thái và cờ tệp chính sau khi giao dịch commit.
+    private void assertStatusAndFiles(DocumentStatus expected, String pdf, boolean activeMain) {
+        tx.executeWithoutResult(status -> {
+            Document committed = documents.findById(id).orElseThrow();
+            assertEquals(expected, committed.getStatus());
+            assertEquals(pdf, committed.getPrimaryFilePath());
+            assertEquals(activeMain, !attachments.findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(id).isEmpty());
+        });
+    }
+
+    // Kiểm tra bàn giao chỉ sinh một yêu cầu mới và giữ hash của PDF ký nháy.
+    private void assertHandover(DocumentApprovalRequest original) throws Exception {
+        assertStatusAndFiles(DocumentStatus.PENDING_APPROVAL, "storage://102", true);
+        var workflowLogs = logs.findByDocumentIdOrderByCreatedDateAsc(id);
+        assertEquals(2, workflowLogs.size());
+        String signedHash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(new byte[]{3, 4}));
+        assertEquals(signedHash, workflowLogs.getFirst().getSignatureHash());
+        assertEquals(signedHash, workflowLogs.getLast().getSignatureHash());
+        var pending = requests.findByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(id);
+        assertEquals(2, pending.size());
+        assertEquals(ApprovalRequestStatus.PENDING, pending.getFirst().getStatus());
+        assertEquals(rector.getId(), pending.getFirst().getApproverUser().getId());
+        assertEquals(original.getId(), pending.getLast().getId());
+        assertEquals(ApprovalRequestStatus.APPROVED, pending.getLast().getStatus());
     }
 
 }

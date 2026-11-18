@@ -254,7 +254,7 @@ class DocumentWorkflowServiceTest {
 
     @Test
     void initialSign_missingCaKeepsErrorAndDoesNotChangeDocument() {
-        preparePublishDocument();
+        prepareSigningDocument(true);
         BusinessException failure = new BusinessException(ErrorCode.PKI_CA_NOT_INITIALIZED);
         when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString())).thenThrow(failure);
 
@@ -267,7 +267,7 @@ class DocumentWorkflowServiceTest {
 
     @Test
     void approve_missingCaKeepsErrorAndDoesNotChangeDocument() {
-        preparePublishDocument();
+        prepareSigningDocument(true);
         document.setStatus(DocumentStatus.PENDING_APPROVAL);
         BusinessException failure = new BusinessException(ErrorCode.PKI_CA_NOT_INITIALIZED);
         when(pdfSigner.signVisibleBytes(any(byte[].class), anyString(), anyString(), any(), any(), anyString(), any())).thenThrow(failure);
@@ -282,13 +282,27 @@ class DocumentWorkflowServiceTest {
     }
 
     private byte[] preparePublishDocument() {
+        return prepareSigningDocument(false);
+    }
+
+    // Thiết lập truy vấn tương ứng với thao tác ký đang được kiểm thử.
+    private byte[] prepareSigningDocument(boolean lockDocument) {
         document.setStatus(DocumentStatus.APPROVED);
         document.setOfficialNumber("1/QD-DHEPU");
         document.setPrimaryFilePath("drafts/sample.pdf");
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        stubSigningDocument(lockDocument);
         byte[] rawBytes = new byte[]{1, 2, 3};
         when(documentPdfStorageService.readPdf("drafts/sample.pdf")).thenReturn(rawBytes);
         return rawBytes;
+    }
+
+    // Trả hồ sơ từ truy vấn đọc hoặc truy vấn khóa theo thao tác đang chạy.
+    private void stubSigningDocument(boolean lockDocument) {
+        if (lockDocument) {
+            when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
+        } else {
+            when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        }
     }
 
     private PdfSigner.SignResult testSignature(byte[] bytes) {
@@ -301,7 +315,7 @@ class DocumentWorkflowServiceTest {
     void signing_missingStoredVersionStopsWithoutReadingOriginalAttachment(DocumentStatus status) {
         document.setStatus(status);
         document.setPrimaryFilePath("storage://35001");
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        stubSigningDocument(status != DocumentStatus.APPROVED);
         BusinessException failure = new BusinessException(ErrorCode.DOCUMENT_PDF_NOT_FOUND);
         when(documentPdfStorageService.readPdf("storage://35001")).thenThrow(failure);
 
@@ -319,7 +333,7 @@ class DocumentWorkflowServiceTest {
     void signing_uploadFailureKeepsReferenceAndStopsTransition(DocumentStatus status) {
         document.setStatus(status);
         document.setPrimaryFilePath("storage://35001");
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        stubSigningDocument(status != DocumentStatus.APPROVED);
         byte[] previous = "%PDF-previous-signature".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         byte[] signed = "%PDF-next-signature".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         when(documentPdfStorageService.readPdf("storage://35001")).thenReturn(previous);
@@ -344,7 +358,7 @@ class DocumentWorkflowServiceTest {
     @Test
     void approve_nextSignerReceivesPreviouslyStoredSignedPdf() {
         document.setPrimaryFilePath("storage://35001");
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         byte[] previous = new byte[]{1, 2};
         byte[] reviewed = new byte[]{1, 2, 3};
         byte[] approved = new byte[]{1, 2, 3, 4};
@@ -402,7 +416,7 @@ class DocumentWorkflowServiceTest {
         document.setPrimaryFilePath("drafts/previous.pdf");
         byte[] previous = "%PDF-previous".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         byte[] signed = "%PDF-signed".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        stubSigningDocument(status != DocumentStatus.APPROVED);
         when(fileStorageService.loadFileBytes("drafts/previous.pdf")).thenReturn(previous);
         if (status == DocumentStatus.PENDING_APPROVAL) {
             when(pdfSigner.signVisibleBytes(eq(previous), anyString(), anyString(), any(), any(), anyString(), any()))
@@ -516,7 +530,7 @@ class DocumentWorkflowServiceTest {
     @DisplayName("UC12: Duyệt văn bản với Bút phê lãnh đạo và đơn vị chủ trì")
     void approve_success() {
         document.setPrimaryFilePath("drafts/doc_5001.pdf");
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
         when(orgNodeRepository.findByIdAndDeleteFlgFalse(2001L)).thenReturn(Optional.of(orgNode));
 
@@ -548,7 +562,7 @@ class DocumentWorkflowServiceTest {
     void approve_whenInReviewWithPdf_shouldReuseInitialSignature() {
         document.setStatus(DocumentStatus.IN_REVIEW);
         document.setPrimaryFilePath("drafts/doc_5001.pdf");
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
         byte[] rawPdfBytes = "%PDF-1.5 test".getBytes();
@@ -602,7 +616,7 @@ class DocumentWorkflowServiceTest {
     void approve_whenLeaderReview_shouldUseLeaderApprove() {
         document.setStatus(DocumentStatus.PENDING_APPROVAL);
         document.setPrimaryFilePath("drafts/doc_5001.pdf");
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
         when(documentPdfStorageService.readPdf("drafts/doc_5001.pdf")).thenReturn("%PDF-1.5 test".getBytes());
@@ -636,7 +650,7 @@ class DocumentWorkflowServiceTest {
     void approve_whenPendingApproval_shouldUseLeaderApprove() {
         document.setStatus(DocumentStatus.PENDING_APPROVAL);
         document.setPrimaryFilePath("drafts/doc_5001.pdf");
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
         when(documentPdfStorageService.readPdf("drafts/doc_5001.pdf")).thenReturn("%PDF-1.5 test".getBytes());
@@ -670,7 +684,7 @@ class DocumentWorkflowServiceTest {
     void approve_whenPendingApprovalWithPdf_shouldAutoSignVisible() {
         document.setStatus(DocumentStatus.PENDING_APPROVAL);
         document.setPrimaryFilePath("drafts/doc_5001.pdf");
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
         byte[] rawPdfBytes = "%PDF-1.5 test".getBytes();
@@ -723,7 +737,7 @@ class DocumentWorkflowServiceTest {
     void approve_whenWaitingApproval_shouldUseLeaderApprove() {
         document.setStatus(DocumentStatus.PENDING_APPROVAL);
         document.setPrimaryFilePath("drafts/doc_5001.pdf");
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
         when(documentPdfStorageService.readPdf("drafts/doc_5001.pdf")).thenReturn("%PDF-1.5 test".getBytes());
@@ -756,7 +770,7 @@ class DocumentWorkflowServiceTest {
     @DisplayName("Fix B1: approve ném DOCUMENT_PRIMARY_FILE_MISSING khi văn bản không có tệp PDF")
     void approve_whenReviewPdfMissing_shouldRequireSignature() {
         document.setPrimaryFilePath(null);
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
         DocumentApproveRequest request = DocumentApproveRequest.builder()
@@ -772,7 +786,7 @@ class DocumentWorkflowServiceTest {
     @DisplayName("UC12: Duyệt văn bản thất bại khi trạng thái không hợp lệ (ví dụ DRAFT)")
     void approve_whenInvalidStatus_shouldThrowBusinessException() {
         document.setStatus(DocumentStatus.DRAFT);
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
         DocumentApproveRequest request = DocumentApproveRequest.builder()
@@ -787,7 +801,7 @@ class DocumentWorkflowServiceTest {
     @Test
     @DisplayName("UC12: Duyệt văn bản thất bại khi không tìm thấy đơn vị chủ trì được gán")
     void approve_whenAssignedOrgNotFound_shouldThrowException() {
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
         when(orgNodeRepository.findByIdAndDeleteFlgFalse(9999L)).thenReturn(Optional.empty());
 
@@ -810,7 +824,7 @@ class DocumentWorkflowServiceTest {
                 .status(ApprovalRequestStatus.PENDING)
                 .build();
 
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
         when(workflowEngine.validateActorPermission(eq(document), eq(leader), eq(WorkflowAction.REQUEST_REVISION)))
                 .thenReturn(reviewRequest);
@@ -855,7 +869,7 @@ class DocumentWorkflowServiceTest {
                 .isMainDocument(true)
                 .build();
 
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
 
@@ -878,7 +892,7 @@ class DocumentWorkflowServiceTest {
         document.setPrimaryFilePath("drafts/sample.pdf");
         byte[] mockBytes = new byte[]{1, 2, 3};
 
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
         when(documentPdfStorageService.readPdf("drafts/sample.pdf")).thenReturn(mockBytes);
         when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString()))
@@ -1031,7 +1045,7 @@ class DocumentWorkflowServiceTest {
         document.setPrimaryFilePath("drafts/sample.pdf");
         byte[] mockBytes = new byte[]{1, 2, 3};
 
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
         when(documentPdfStorageService.readPdf("drafts/sample.pdf")).thenReturn(mockBytes);
         when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString()))
@@ -1106,7 +1120,7 @@ class DocumentWorkflowServiceTest {
     void initialSign_whenPrimaryFileMissing_shouldThrowException() {
         document.setPrimaryFilePath(null);
 
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
         DocumentInitialSignRequest request = DocumentInitialSignRequest.builder()
@@ -1124,7 +1138,7 @@ class DocumentWorkflowServiceTest {
         document.setPrimaryFilePath(null);
         byte[] mockBytes = new byte[]{1, 2, 3};
 
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
         DocumentAttachment attachment = DocumentAttachment.builder()
@@ -1172,7 +1186,7 @@ class DocumentWorkflowServiceTest {
     void initialSign_whenAttachmentNotPdf_shouldThrowBadRequest() {
         document.setPrimaryFilePath(null);
 
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
         DocumentAttachment docxAttachment = DocumentAttachment.builder()
@@ -1203,7 +1217,7 @@ class DocumentWorkflowServiceTest {
     void initialSign_whenMainAttachmentIsNotPdf_evenIfOtherAttachmentIsPdf_shouldThrowBadRequest() {
         document.setPrimaryFilePath(null);
 
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
         DocumentAttachment docxAttachment = DocumentAttachment.builder()
@@ -1245,7 +1259,7 @@ class DocumentWorkflowServiceTest {
         document.setPrimaryFilePath(null);
         byte[] mockBytes = new byte[]{1, 2, 3};
 
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
         DocumentAttachment docxAttachment = DocumentAttachment.builder()
@@ -1303,7 +1317,7 @@ class DocumentWorkflowServiceTest {
     void initialSign_whenPdfAttachmentExists_butStorageFails_shouldThrowStorageError() {
         document.setPrimaryFilePath(null);
 
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
         DocumentAttachment attachment = DocumentAttachment.builder()
@@ -1445,7 +1459,7 @@ class DocumentWorkflowServiceTest {
     @Test
     @DisplayName("UC14: Từ chối phê duyệt văn bản")
     void reject_success() {
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
         DocumentRejectRequest request = DocumentRejectRequest.builder()
@@ -1483,7 +1497,7 @@ class DocumentWorkflowServiceTest {
                 .status(ApprovalRequestStatus.PENDING)
                 .build();
 
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
         when(workflowEngine.validateActorPermission(eq(document), eq(leader), eq(WorkflowAction.REJECT)))
                 .thenReturn(reviewRequest);
@@ -1548,7 +1562,7 @@ class DocumentWorkflowServiceTest {
     @Test
     @DisplayName("approve: Actor không có thẩm quyền ném lỗi UNAUTHORIZED_WORKFLOW_ACTION")
     void approve_unauthorizedActor_shouldThrowUnauthorizedWorkflowAction() {
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
         doThrow(new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION))
@@ -1568,7 +1582,7 @@ class DocumentWorkflowServiceTest {
     @Test
     @DisplayName("requestRevision: Actor không có thẩm quyền ném lỗi UNAUTHORIZED_WORKFLOW_ACTION")
     void requestRevision_unauthorizedActor_shouldThrowUnauthorizedWorkflowAction() {
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
         doThrow(new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION))
@@ -1588,7 +1602,7 @@ class DocumentWorkflowServiceTest {
     @Test
     @DisplayName("initialSign: Chặn actor không có quyền ngay từ đầu và bỏ qua xử lý PDF/lưu file")
     void initialSign_unauthorizedActor_shouldThrowUnauthorizedAndSkipPdfProcessing() {
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
         doThrow(new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION))
@@ -1654,7 +1668,7 @@ class DocumentWorkflowServiceTest {
     @Test
     @DisplayName("reject: Actor không có thẩm quyền ném lỗi UNAUTHORIZED_WORKFLOW_ACTION")
     void reject_unauthorizedActor_shouldThrowUnauthorizedWorkflowAction() {
-        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+        when(documentRepository.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
         when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
 
         doThrow(new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION))
