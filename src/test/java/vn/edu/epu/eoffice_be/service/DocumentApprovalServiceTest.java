@@ -810,9 +810,10 @@ class DocumentApprovalServiceTest {
         org.junit.jupiter.api.Assertions.assertFalse(documentApprovalService.isUserEligibleApprover(user));
     }
 
+    // Kiểm tra chặn gửi duyệt lại văn bản đã bị từ chối.
     @Test
     @DisplayName("Không cho phép gửi duyệt lại văn bản đã bị REJECTED (trạng thái kết thúc), ném DOCUMENT_INVALID_STATUS")
-    void submitForApproval_FromRejectedStatus_LogsFromStatusAsRejected() {
+    void submitForApproval_FromRejectedStatus_ThrowsDocumentInvalidStatus() {
         Long docId = 1L;
         Long senderId = 100L;
         Long approverId = 200L;
