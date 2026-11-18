@@ -57,11 +57,11 @@ public class FileSystemFileStorageProvider implements FileStorageProvider {
     @Override
     public StoredFile save(StoredFile file) {
         if (file == null || file.getContent() == null || file.getContent().length == 0) {
-            throw new FileStorageException("Nội dung tệp không được để trống");
+            throw new InvalidFileStorageException("Nội dung tệp không được để trống");
         }
 
         if (file.getContent().length > maxReadSizeBytes) {
-            throw new FileStorageException("Kích thước tệp vượt quá giới hạn cho phép (" + maxReadSizeBytes + " bytes)");
+            throw new InvalidFileStorageException("Kích thước tệp vượt quá giới hạn cho phép (" + maxReadSizeBytes + " bytes)");
         }
 
         String originalName = file.getOriginalFileName();
@@ -105,7 +105,7 @@ public class FileSystemFileStorageProvider implements FileStorageProvider {
     public StoredFile get(String fileId) {
         Path targetPath = resolveSecurePath(fileId);
         if (!Files.exists(targetPath) || !Files.isReadable(targetPath)) {
-            throw new FileStorageException("Không tìm thấy tệp cục bộ với id: " + fileId);
+            throw new FileNotFoundStorageException("Không tìm thấy tệp cục bộ với id: " + fileId);
         }
 
         long fileSize;
@@ -117,7 +117,7 @@ public class FileSystemFileStorageProvider implements FileStorageProvider {
 
         // Kiểm tra giới hạn kích thước trước khi đọc mảng byte vào RAM tránh OutOfMemoryError
         if (fileSize > maxReadSizeBytes) {
-            throw new FileStorageException("Kích thước tệp (" + fileSize + " bytes) vượt quá giới hạn an toàn ("
+            throw new InvalidFileStorageException("Kích thước tệp (" + fileSize + " bytes) vượt quá giới hạn an toàn ("
                     + maxReadSizeBytes + " bytes) để nạp vào bộ nhớ");
         }
 
@@ -159,11 +159,11 @@ public class FileSystemFileStorageProvider implements FileStorageProvider {
 
     private Path resolveSecurePath(String fileId) {
         if (fileId == null || fileId.isBlank() || fileId.contains("..")) {
-            throw new FileStorageException("Đường dẫn tệp không hợp lệ: fileId không hợp lệ");
+            throw new InvalidFileStorageException("Đường dẫn tệp không hợp lệ: fileId không hợp lệ");
         }
         Path targetPath = rootPath.resolve(fileId).normalize();
         if (!targetPath.startsWith(rootPath)) {
-            throw new FileStorageException("Đường dẫn tệp không hợp lệ: truy cập ngoài thư mục lưu trữ");
+            throw new InvalidFileStorageException("Đường dẫn tệp không hợp lệ: truy cập ngoài thư mục lưu trữ");
         }
         return targetPath;
     }

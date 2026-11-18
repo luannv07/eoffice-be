@@ -59,7 +59,7 @@ public class TelegramFileStorageProvider implements FileStorageProvider {
     @Override
     public StoredFile saveForDocument(StoredFile file) {
         if (file == null || file.getContent() == null || file.getContent().length == 0) {
-            throw new FileStorageException("Nội dung tệp không được để trống");
+            throw new InvalidFileStorageException("Nội dung tệp không được để trống");
         }
         String token = yeuCauToken();
         String chatId = yeuCauChannelId();
@@ -116,7 +116,7 @@ public class TelegramFileStorageProvider implements FileStorageProvider {
     @Override
     public void discardUpload(StoredFile receipt) {
         if (receipt == null || receipt.getMetadata() == null) {
-            throw new FileStorageException("Missing Telegram upload receipt");
+            throw new InvalidFileStorageException("Missing Telegram upload receipt");
         }
         String messageId = receipt.getMetadata().get("messageId");
         String chatId = receipt.getMetadata().get("chatId");
@@ -125,7 +125,7 @@ public class TelegramFileStorageProvider implements FileStorageProvider {
                 throw new IllegalArgumentException();
             }
         } catch (RuntimeException e) {
-            throw new FileStorageException("Invalid Telegram upload receipt");
+            throw new InvalidFileStorageException("Invalid Telegram upload receipt");
         }
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
         body.add("chat_id", chatId);
@@ -224,7 +224,7 @@ public class TelegramFileStorageProvider implements FileStorageProvider {
     @Override
     public StoredFile getDetail(String fileId) {
         StoredFileMetadata metadata = timMetadata(fileId)
-                .orElseThrow(() -> new FileStorageException("Không tìm thấy tệp " + fileId + " trong kho lưu trữ"));
+                .orElseThrow(() -> new FileNotFoundStorageException("Không tìm thấy tệp " + fileId + " trong kho lưu trữ"));
         return sieuDuLieuThanhStoredFile(metadata);
     }
 
@@ -240,10 +240,31 @@ public class TelegramFileStorageProvider implements FileStorageProvider {
 
     private String giaiQuyetDuongDan(String token, String fileId) {
         String url = API_BASE + token + "/getFile?file_id=" + fileId;
-        JsonNode root = restTemplate.getForObject(url, JsonNode.class);
+        JsonNode root;
+        try {
+            root = restTemplate.getForObject(url, JsonNode.class);
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            String body = e.getResponseBodyAsString();
+            if (e.getStatusCode().value() == 404
+                    || body.contains("wrong file identifier")
+                    || body.contains("not found")
+                    || body.contains("Not Found")) {
+                throw new FileNotFoundStorageException("Không tìm thấy tệp Telegram với fileId: " + fileId, e);
+            }
+            if (e.getStatusCode().is4xxClientError()) {
+                throw new InvalidFileStorageException("Yêu cầu tệp Telegram không hợp lệ: " + e.getMessage(), e);
+            }
+            throw new FileStorageException("Lấy thông tin tệp Telegram thất bại: " + e.getMessage(), e);
+        } catch (Exception e) {
+            throw new FileStorageException("Lỗi kết nối tới máy chủ Telegram: " + e.getMessage(), e);
+        }
+
         if (root == null || !root.path("ok").asBoolean(false)) {
-            throw new FileStorageException(
-                    "Lấy thông tin tệp Telegram thất bại: " + (root == null ? "không có phản hồi" : root.path("description").asText()));
+            String desc = root == null ? "không có phản hồi" : root.path("description").asText();
+            if (desc.contains("wrong file identifier") || desc.contains("not found") || desc.contains("Not Found")) {
+                throw new FileNotFoundStorageException("Không tìm thấy tệp Telegram với fileId: " + fileId);
+            }
+            throw new FileStorageException("Lấy thông tin tệp Telegram thất bại: " + desc);
         }
         return root.path("result").path("file_path").asText();
     }
