@@ -208,7 +208,10 @@ class DocumentPdfSubmissionAndNumberingTest {
                     new SubmissionRoutingService.Decision(vn.edu.epu.eoffice_be.common.enums.SubmissionRoute.LEADER_APPROVAL, 200L));
             org.mockito.Mockito.lenient().when(submissionWorkflowEngine.executeTransition(any(), any(), any(), any(), any(), any(), any()))
                     .thenAnswer(inv -> { document.setStatus(DocumentStatus.PENDING_APPROVAL); documents.save(document); return null; });
-            when(documents.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+            // Chuyển sang lenient để tương thích nếu có luồng gọi tìm kiếm không khóa
+            org.mockito.Mockito.lenient().when(documents.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+            // Cung cấp văn bản khi service gọi khóa bi quan lúc gửi duyệt
+            when(documents.findByIdForUpdate(5001L)).thenReturn(Optional.of(document));
             when(users.findByIdAndDeleteFlgFalse(200L)).thenReturn(Optional.of(
                     UserLogin.builder().id(200L).username("approver").role(Role.ADMIN).build()));
             when(attachments.findByDocumentIdAndIsMainDocumentTrueAndDeleteFlgFalse(5001L)).thenReturn(List.of(
