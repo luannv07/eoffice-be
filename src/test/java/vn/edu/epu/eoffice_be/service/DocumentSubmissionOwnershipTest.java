@@ -69,7 +69,10 @@ class DocumentSubmissionOwnershipTest {
         Document document = Document.builder().id(1L).drafter(drafter).status(DocumentStatus.NEEDS_REVISION)
                 .title("Title").summary("Summary").currentVersion(4).primaryFilePath("storage://10").build();
         when(users.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(sender));
-        when(documents.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
+        // Chuyển sang lenient để tương thích nếu có luồng gọi tìm kiếm không khóa
+        lenient().when(documents.findByIdAndDeleteFlgFalse(1L)).thenReturn(Optional.of(document));
+        // Cung cấp văn bản khi service gọi khóa bi quan lúc gửi duyệt
+        when(documents.findByIdForUpdate(1L)).thenReturn(Optional.of(document));
         return document;
     }
 

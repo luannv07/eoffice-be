@@ -61,6 +61,16 @@ public class DocumentWorkflowLog extends BaseEntity {
     @Column(name = "signature_hash", length = 64)
     String signatureHash;
 
+    // Liên kết bằng chứng ký nháy với lượt thẩm định.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "approval_request_id")
+    DocumentApprovalRequest approvalRequest;
+
+    // Gắn yêu cầu thẩm định vào log ký nháy.
+    public void linkApprovalRequest(DocumentApprovalRequest request) {
+        this.approvalRequest = request;
+    }
+
     @Builder.Default
     @Column(name = "delete_flg", nullable = false)
     boolean deleteFlg = false;
@@ -68,8 +78,9 @@ public class DocumentWorkflowLog extends BaseEntity {
     public DocumentWorkflowLog(Long id, Document document, WorkflowAction action, UserLogin actor,
                                DocumentStatus fromStatus, DocumentStatus toStatus, String comment,
                                String leadershipInstruction, OrgNode assignedOrgNode, String signatureHash,
-                               boolean deleteFlg) {
+                               DocumentApprovalRequest approvalRequest, boolean deleteFlg) {
         this(id, document, action, actor, fromStatus, toStatus, comment, leadershipInstruction, assignedOrgNode, signatureHash, deleteFlg, null, null);
+        this.approvalRequest = approvalRequest;
     }
 
     public DocumentWorkflowLog(Long id, Document document, WorkflowAction action, UserLogin actor,

@@ -130,7 +130,8 @@ public class DocumentDraftService {
     public DocumentResponse updateDraft(Long documentId, DocumentUpdateRequest request, Long userId) {
         UserLogin user = readPolicy.requireUser(userId);
 
-        Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
+        // Khóa văn bản trước khi kiểm tra và cập nhật dự thảo.
+        Document document = documentRepository.findByIdForUpdate(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
         if (readPolicy.applies(document) || DocumentAdminPolicy.isAdmin(user)) readPolicy.assertDraftWrite(document, userId);
@@ -144,8 +145,9 @@ public class DocumentDraftService {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền chỉnh sửa dự thảo này");
         }
 
-        // Kiểm tra trạng thái: chỉ cho phép sửa khi là DRAFT hoặc REJECTED
-        if (document.getStatus() != DocumentStatus.DRAFT && document.getStatus() != DocumentStatus.REJECTED&& document.getStatus() != DocumentStatus.NEEDS_REVISION) {
+        // Chỉ cho phép sửa dự thảo hoặc hồ sơ cần chỉnh sửa.
+        if (document.getStatus() != DocumentStatus.DRAFT
+                && document.getStatus() != DocumentStatus.NEEDS_REVISION) {
             throw new BusinessException(ErrorCode.DOCUMENT_INVALID_STATUS,
                     "Không thể chỉnh sửa văn bản đang ở trạng thái: " + document.getStatus().getDescription());
         }
@@ -210,7 +212,8 @@ public class DocumentDraftService {
     public void deleteDraft(Long documentId, Long userId) {
         UserLogin user = readPolicy.requireUser(userId);
 
-        Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
+        // Khóa dự thảo để không xóa trong lúc gửi duyệt.
+        Document document = documentRepository.findByIdForUpdate(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
         if (readPolicy.applies(document) || DocumentAdminPolicy.isAdmin(user)) readPolicy.assertDraftWrite(document, userId);

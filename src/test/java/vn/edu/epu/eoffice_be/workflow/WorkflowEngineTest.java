@@ -105,10 +105,15 @@ class WorkflowEngineTest {
     }
 
     @Test
-    @DisplayName("State Machine: REJECTED transitions (SUBMIT -> IN_REVIEW, WITHDRAW -> DRAFT)")
+    @DisplayName("State Machine: REJECTED la trang thai ket thuc (terminal), chan moi hanh dong chuyen tiep")
     void getNextStatus_fromRejected_transitions_shouldSucceed() {
-        assertEquals(DocumentStatus.IN_REVIEW, workflowEngine.getNextStatus(DocumentStatus.REJECTED, WorkflowAction.SUBMIT));
-        assertEquals(DocumentStatus.DRAFT, workflowEngine.getNextStatus(DocumentStatus.REJECTED, WorkflowAction.WITHDRAW));
+        BusinessException exSubmit = assertThrows(BusinessException.class, () ->
+                workflowEngine.getNextStatus(DocumentStatus.REJECTED, WorkflowAction.SUBMIT));
+        assertEquals(ErrorCode.WORKFLOW_TRANSITION_NOT_ALLOWED, exSubmit.getErrorCode());
+
+        BusinessException exWithdraw = assertThrows(BusinessException.class, () ->
+                workflowEngine.getNextStatus(DocumentStatus.REJECTED, WorkflowAction.WITHDRAW));
+        assertEquals(ErrorCode.WORKFLOW_TRANSITION_NOT_ALLOWED, exWithdraw.getErrorCode());
     }
 
     @Test

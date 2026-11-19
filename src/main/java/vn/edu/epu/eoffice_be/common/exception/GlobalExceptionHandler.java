@@ -91,7 +91,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<BaseResponse<Void>> handleMissingServletRequestParameter(MissingServletRequestParameterException ex) {
         log.warn("Missing request parameter: {}", ex.getParameterName());
         return ResponseEntity.status(ErrorCode.BAD_REQUEST.getStatus())
-                .body(BaseResponse.error("Thiếu tham số bắt buộc: " + ex.getParameterName(), ErrorCode.BAD_REQUEST.getCode()));
+                .body(BaseResponse.error("Thiếu tham số bắt buộc: " +    ex.getParameterName(), ErrorCode.BAD_REQUEST.getCode()));
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)

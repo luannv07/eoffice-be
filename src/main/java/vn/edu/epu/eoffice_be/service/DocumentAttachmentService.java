@@ -73,7 +73,8 @@ public class DocumentAttachmentService {
         UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
 
-        Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
+        // Khóa văn bản trước khi kiểm tra và tải tệp lên.
+        Document document = documentRepository.findByIdForUpdate(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
         // Kiểm tra quyền: chỉ người tạo hoặc admin mới được upload tệp
@@ -85,10 +86,9 @@ public class DocumentAttachmentService {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền tải tệp lên dự thảo này");
         }
 
-        // Kiểm tra trạng thái: chỉ cho phép upload khi là DRAFT hoặc REJECTED
-        if (document.getStatus() != DocumentStatus.DRAFT 
-        && document.getStatus() != DocumentStatus.REJECTED
-        && document.getStatus() != DocumentStatus.NEEDS_REVISION) {
+        // Chỉ cho phép tải tệp lên dự thảo hoặc hồ sơ cần chỉnh sửa.
+        if (document.getStatus() != DocumentStatus.DRAFT
+                && document.getStatus() != DocumentStatus.NEEDS_REVISION) {
             throw new BusinessException(ErrorCode.DOCUMENT_INVALID_STATUS,
                     "Chỉ có thể tải tệp lên khi văn bản ở trạng thái Dự thảo hoặc Cần chỉnh sửa");
         }
@@ -231,7 +231,8 @@ public class DocumentAttachmentService {
         UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
 
-        Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
+        // Khóa văn bản trước khi kiểm tra và xóa tệp.
+        Document document = documentRepository.findByIdForUpdate(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
         if (readPolicy.applies(document) || DocumentAdminPolicy.isAdmin(user)) readPolicy.assertDraftWrite(document, userId);
@@ -242,9 +243,9 @@ public class DocumentAttachmentService {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền xóa tệp đính kèm này");
         }
 
-        if (document.getStatus() != DocumentStatus.DRAFT 
-        && document.getStatus() != DocumentStatus.REJECTED
-        && document.getStatus() != DocumentStatus.NEEDS_REVISION) {
+        // Chỉ cho phép xóa tệp ở dự thảo hoặc hồ sơ cần chỉnh sửa.
+        if (document.getStatus() != DocumentStatus.DRAFT
+                && document.getStatus() != DocumentStatus.NEEDS_REVISION) {
             throw new BusinessException(ErrorCode.DOCUMENT_INVALID_STATUS,
                     "Không thể xóa tệp của văn bản đã gửi duyệt hoặc đã ban hành");
         }

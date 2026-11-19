@@ -1,0 +1,24 @@
+# Liên kết log ký nháy với lượt thẩm định.
+databaseChangeLog:
+  - changeSet:
+      id: 2026-11-15-workflow-log-approval-request
+      author: eoffice
+      changes:
+        - addColumn:
+            tableName: document_workflow_logs
+            columns:
+              - column:
+                  name: approval_request_id
+                  type: BIGINT
+        - addForeignKeyConstraint:
+            baseTableName: document_workflow_logs
+            baseColumnNames: approval_request_id
+            referencedTableName: document_approval_requests
+            referencedColumnNames: id
+            constraintName: fk_workflow_log_approval_request
+        - createIndex:
+            tableName: document_workflow_logs
+            indexName: idx_workflow_log_approval_request
+            columns:
+              - column:
+                  name: approval_request_id

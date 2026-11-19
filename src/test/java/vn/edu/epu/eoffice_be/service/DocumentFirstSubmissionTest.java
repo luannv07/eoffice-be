@@ -59,6 +59,8 @@ class DocumentFirstSubmissionTest {
         service = new DocumentApprovalService(documents, attachments, approvals, processLogs, users, profiles, positions, permissions, events, drafts, pdfStorage, storage, signer, routing, engine, org.mockito.Mockito.mock(vn.edu.epu.eoffice_be.service.DraftUnitResolver.class));
         lenient().when(users.findByIdAndDeleteFlgFalse(anyLong())).thenAnswer(inv -> Optional.ofNullable(accounts.get(inv.getArgument(0))));
         lenient().when(documents.findByIdAndDeleteFlgFalse(1L)).thenAnswer(inv -> Optional.of(document));
+        // Chuyển tiếp truy vấn khóa bi quan sang tìm văn bản chưa xóa
+        lenient().when(documents.findByIdForUpdate(any())).thenAnswer(inv -> documents.findByIdAndDeleteFlgFalse(inv.getArgument(0)));
         lenient().when(positions.findActiveAssignments(anyLong(), any())).thenAnswer(inv -> assignments.stream()
                 .filter(p -> p.getUserLogin().getId().equals(inv.getArgument(0))).toList());
         lenient().when(positions.findSubmissionCandidates(anyCollection(), nullable(Long.class), any()))

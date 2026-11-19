@@ -10,6 +10,7 @@ import vn.edu.epu.eoffice_be.common.enums.Role;
 import vn.edu.epu.eoffice_be.common.enums.WorkflowAction;
 import vn.edu.epu.eoffice_be.common.exception.BusinessException;
 import vn.edu.epu.eoffice_be.entity.Document;
+import vn.edu.epu.eoffice_be.entity.DocumentApprovalRequest;
 import vn.edu.epu.eoffice_be.entity.DocumentWorkflowLog;
 import vn.edu.epu.eoffice_be.entity.OrgNode;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
@@ -21,6 +22,7 @@ import vn.edu.epu.eoffice_be.service.SubmissionRoutingService;
 import vn.edu.epu.eoffice_be.common.enums.SubmissionRoute;
 import java.time.Instant;
 
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
@@ -74,11 +76,8 @@ public class WorkflowEngine {
         Map<WorkflowAction, DocumentStatus> publishedTransitions = new EnumMap<>(WorkflowAction.class);
         publishedTransitions.put(WorkflowAction.REVOKE, DocumentStatus.REVOKED);
         TRANSITION_MATRIX.put(DocumentStatus.PUBLISHED, publishedTransitions);
-        // 7. REJECTED (Bị từ chối: cho phép nạp file v2 gửi duyệt lại hoặc rút về DRAFT)
-        Map<WorkflowAction, DocumentStatus> rejectedTransitions = new EnumMap<>(WorkflowAction.class);
-        rejectedTransitions.put(WorkflowAction.SUBMIT, DocumentStatus.IN_REVIEW);
-        rejectedTransitions.put(WorkflowAction.WITHDRAW, DocumentStatus.DRAFT);
-        TRANSITION_MATRIX.put(DocumentStatus.REJECTED, rejectedTransitions);
+        // 7. REJECTED: Trang thai ket thuc ho so (terminal), dong bang chi doc, khong cho phep gui lai hay rut ve
+        TRANSITION_MATRIX.put(DocumentStatus.REJECTED, Collections.emptyMap());
     }
 
     /**
@@ -114,7 +113,7 @@ public class WorkflowEngine {
     /**
      * Kiểm tra thẩm quyền của người thực hiện trên văn bản.
      */
-    public void validateActorPermission(Document document, UserLogin actor, WorkflowAction action) {
+    public DocumentApprovalRequest validateActorPermission(Document document, UserLogin actor, WorkflowAction action) {
         if (actor == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
@@ -128,13 +127,18 @@ public class WorkflowEngine {
             vn.edu.epu.eoffice_be.service.DocumentAdminPolicy.assertBusinessActor(actor);
         }
 
+        // Lấy yêu cầu đã được kiểm tra cùng với tài khoản hiện hành.
+        DocumentApprovalRequest reviewRequest = null;
         if (vn.edu.epu.eoffice_be.service.ReviewAssignmentPolicy.applies(document, action)) {
-            actor = reviewAssignments.requireAssignedActor(document, actor);
+            var assignment = reviewAssignments.requireAssignment(document, actor);
+            actor = assignment.actor();
+            reviewRequest = assignment.request();
         }
 
         if (!hasActionPermission(document, actor, action)) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION);
         }
+        return reviewRequest;
     }
 
     private boolean hasActionPermission(Document document, UserLogin actor, WorkflowAction action) {
@@ -193,7 +197,7 @@ public class WorkflowEngine {
             String signatureHash
     ) {
         validateTransition(document, action, comment);
-        validateActorPermission(document, actor, action);
+        DocumentApprovalRequest reviewRequest = validateActorPermission(document, actor, action);
 
         if (action == WorkflowAction.SUBMIT_TO_CLERK_QUEUE && (signatureHash == null || signatureHash.isBlank())) {
             throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR,
@@ -221,6 +225,10 @@ public class WorkflowEngine {
                 .deleteFlg(false)
                 .build();
 
+        // Gắn yêu cầu thẩm định vào log khi ký nháy hoặc duyệt chuyển tiếp.
+        if ((action == WorkflowAction.INITIAL_SIGN || action == WorkflowAction.REVIEW_APPROVE) && reviewRequest != null) {
+            workflowLog.linkApprovalRequest(reviewRequest);
+        }
         DocumentWorkflowLog savedLog = documentWorkflowLogRepository.save(workflowLog);
 
         log.info("Chuyen trang thai van ban ID=[{}] thanh cong: [{}] -> [{}] boi User ID=[{}]",

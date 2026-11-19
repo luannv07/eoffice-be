@@ -125,18 +125,19 @@ public class DocumentVersionService {
      */
     @Transactional
     public DocumentResponse restoreVersion(Long documentId, int versionNumber, Long userId) {
-        Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
+        // Khóa văn bản trước khi kiểm tra và khôi phục phiên bản.
+        Document document = documentRepository.findByIdForUpdate(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
         if (readPolicy.applies(document)) readPolicy.assertDraftWrite(document, userId);
         UserLogin user = assertCanViewDocumentVersions(document, userId);
         if (!readPolicy.applies(document) && DocumentAdminPolicy.isAdmin(user)) readPolicy.assertDraftWrite(document, userId);
 
-        if (document.getStatus() != DocumentStatus.DRAFT 
-                && document.getStatus() != DocumentStatus.REJECTED 
+        // Chỉ cho phép khôi phục phiên bản ở trạng thái có thể chỉnh sửa.
+        if (document.getStatus() != DocumentStatus.DRAFT
                 && document.getStatus() != DocumentStatus.NEEDS_REVISION) {
             throw new BusinessException(ErrorCode.DOCUMENT_INVALID_STATUS,
-                    "Chỉ có thể khôi phục phiên bản khi văn bản ở trạng thái Dự thảo hoặc Cần chỉnh sửa hoặc Bị từ chối");
+                    "Chỉ có thể khôi phục phiên bản khi văn bản ở trạng thái Dự thảo hoặc Cần chỉnh sửa");
         }
 
         DocumentVersion targetVersion = documentVersionRepository

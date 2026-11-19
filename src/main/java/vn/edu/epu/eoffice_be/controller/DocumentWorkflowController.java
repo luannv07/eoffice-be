@@ -34,6 +34,7 @@ import vn.edu.epu.eoffice_be.dto.request.DocumentRevokeRequest;
 import vn.edu.epu.eoffice_be.dto.response.DocumentDetailResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentSignatureVerifyResponse;
 import vn.edu.epu.eoffice_be.dto.response.DocumentWorkflowLogResponse;
+import vn.edu.epu.eoffice_be.dto.response.HandoverOptionsResponse;
 import vn.edu.epu.eoffice_be.service.DocumentWorkflowService;
 
 @RestController
@@ -61,6 +62,14 @@ public class DocumentWorkflowController {
             @PageableDefault(sort = "createdDate", direction = Sort.Direction.ASC) Pageable pageable
     ) {
         return BaseResponse.success(documentWorkflowService.getWorkflowHistory(id, pageable));
+    }
+
+    // Lấy danh sách lãnh đạo (HT/PHT) khả dụng để bàn giao duyệt tiếp khi chuyển cấp
+    @PreAuthorize("hasAnyRole('REVIEWER', 'ADMIN', 'SYSTEM_ADMIN')")
+    @Operation(summary = "Lấy danh sách lãnh đạo (HT/PHT) khả dụng để bàn giao duyệt tiếp")
+    @GetMapping("/{id}/handover-options")
+    public BaseResponse<HandoverOptionsResponse> getHandoverOptions(@PathVariable Long id) {
+        return BaseResponse.success(documentWorkflowService.getHandoverOptions(id));
     }
 
     @PreAuthorize("hasAnyRole('LEADER', 'REVIEWER', 'ADMIN', 'SYSTEM_ADMIN')")

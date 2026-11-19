@@ -1,11 +1,13 @@
 package vn.edu.epu.eoffice_be.repository;
 
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -21,6 +23,11 @@ import java.util.Optional;
 public interface DocumentRepository extends JpaRepository<Document, Long>, JpaSpecificationExecutor<Document> {
 
     Optional<Document> findByIdAndDeleteFlgFalse(Long id);
+
+    // Khoa bi quan chong xung dot va race condition khi thuc hien cac thao tac chuyen doi trang thai
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT d FROM Document d WHERE d.id = :id AND d.deleteFlg = false")
+    Optional<Document> findByIdForUpdate(@Param("id") Long id);
 
     /** Correlated EXISTS preserves paging/counts and avoids per-document participant queries. */
     static Specification<Document> readableDrafts(Long userId, boolean legacyGlobal, boolean adminReadAll,

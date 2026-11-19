@@ -114,6 +114,10 @@ class DocumentApprovalServiceTest {
                     documentRepository.save(doc);
                     return null;
                 });
+        org.mockito.Mockito.lenient().when(documentRepository.findByIdForUpdate(any()))
+                .thenAnswer(inv -> documentRepository.findByIdAndDeleteFlgFalse(inv.getArgument(0)));
+        org.mockito.Mockito.lenient().when(documentApprovalRequestRepository.findFirstByDocumentIdOrderBySubmittedAtDescIdDesc(any()))
+                .thenAnswer(inv -> documentApprovalRequestRepository.findTopByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(inv.getArgument(0)));
     }
 
     private void submissionPdf(Long id, byte[] bytes) {
@@ -806,16 +810,15 @@ class DocumentApprovalServiceTest {
         org.junit.jupiter.api.Assertions.assertFalse(documentApprovalService.isUserEligibleApprover(user));
     }
 
+    // Kiểm tra chặn gửi duyệt lại văn bản đã bị từ chối.
     @Test
-    @DisplayName("Gửi duyệt văn bản từ trạng thái REJECTED ghi nhật ký tiến trình fromStatus = REJECTED")
-    void submitForApproval_FromRejectedStatus_LogsFromStatusAsRejected() {
+    @DisplayName("Không cho phép gửi duyệt lại văn bản đã bị REJECTED (trạng thái kết thúc), ném DOCUMENT_INVALID_STATUS")
+    void submitForApproval_FromRejectedStatus_ThrowsDocumentInvalidStatus() {
         Long docId = 1L;
         Long senderId = 100L;
         Long approverId = 200L;
 
         UserLogin sender = UserLogin.builder().id(senderId).username("author").role(Role.USER).build();
-        UserLogin approver = UserLogin.builder().id(approverId).username("dean").role(Role.REVIEWER).build();
-        org.mockito.Mockito.lenient().when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(approver.getId())).thenReturn(java.util.List.of(vn.edu.epu.eoffice_be.entity.PositionAssignment.builder().positionCd("TK").build()));
 
         Document doc = Document.builder()
                 .id(docId)
@@ -829,24 +832,16 @@ class DocumentApprovalServiceTest {
 
         when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(sender));
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
-        when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.of(approver));
-        when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(documentDraftService.mapToDocumentResponse(any())).thenReturn(DocumentResponse.builder().id(docId).status(DocumentStatus.IN_REVIEW).build());
 
-        submissionPdf(docId, new byte[]{1, 2, 3});
         SubmitApprovalRequest request = SubmitApprovalRequest.builder()
                 .approverUserId(approverId)
                 .submitNote("Đã sửa theo góp ý")
                 .build();
 
-        documentApprovalService.submitForApproval(docId, request, senderId);
-
-        org.mockito.ArgumentCaptor<DocumentProcessLog> logCaptor = org.mockito.ArgumentCaptor.forClass(DocumentProcessLog.class);
-        verify(documentProcessLogRepository).save(logCaptor.capture());
-        DocumentProcessLog capturedLog = logCaptor.getValue();
-        assertEquals("REJECTED", capturedLog.getFromStatus());
-        assertEquals("IN_REVIEW", capturedLog.getToStatus());
-        assertEquals(2, doc.getCurrentVersion());
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentApprovalService.submitForApproval(docId, request, senderId));
+        assertEquals(ErrorCode.DOCUMENT_INVALID_STATUS, ex.getErrorCode());
+        verify(documentRepository, never()).save(any());
     }
 
     @Test
