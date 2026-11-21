@@ -1889,6 +1889,27 @@ class DocumentWorkflowServiceTest {
     }
 
     @Test
+    @DisplayName("getDetail: Cho phép cán bộ Văn thư (CLERK) truy cập văn bản APPROVED để chuẩn bị cấp số")
+    void getDetail_whenDocumentApproved_shouldAllowClerk() {
+        UserLogin clerkUser = UserLogin.builder().id(3003L).username("vanthu").role(Role.CLERK).userStatusCd("ACTIVE").build();
+        JwtUserPrincipal principal = new JwtUserPrincipal(3003L, "vanthu", Role.CLERK.name(), true, List.of());
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, List.of()));
+        lenient().when(userLoginRepository.findByIdAndDeleteFlgFalse(3003L)).thenReturn(Optional.of(clerkUser));
+
+        Document approvedDoc = Document.builder()
+                .id(5001L)
+                .title("Văn bản đã duyệt chờ cấp số")
+                .status(DocumentStatus.APPROVED)
+                .build();
+        when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(approvedDoc));
+
+        DocumentDetailResponse response = documentWorkflowService.getDetail(5001L);
+        assertNotNull(response);
+        assertEquals(5001L, response.getId());
+    }
+
+    @Test
     @DisplayName("getDetail: Ném DOCUMENT_NOT_FOUND khi văn bản không tồn tại")
     void getDetail_whenNotFound_shouldThrowNotFound() {
         when(documentRepository.findByIdAndDeleteFlgFalse(99999L)).thenReturn(Optional.empty());

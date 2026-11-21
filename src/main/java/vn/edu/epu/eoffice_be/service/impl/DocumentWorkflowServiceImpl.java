@@ -706,6 +706,12 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         if (role == Role.ADMIN || role == Role.SYSTEM_ADMIN || role == Role.LEADER || role == Role.REVIEWER) {
             return;
         }
+        if (role == Role.CLERK &&
+                (document.getStatus() == DocumentStatus.APPROVED ||
+                 document.getStatus() == DocumentStatus.PUBLISHED ||
+                 document.getStatus() == DocumentStatus.REVOKED)) {
+            return;
+        }
         boolean isDrafter = document.getDrafter() != null && Objects.equals(document.getDrafter().getId(), actor.getId());
         boolean isSigner = document.getSigner() != null && Objects.equals(document.getSigner().getId(), actor.getId());
         if (isDrafter || isSigner) {
