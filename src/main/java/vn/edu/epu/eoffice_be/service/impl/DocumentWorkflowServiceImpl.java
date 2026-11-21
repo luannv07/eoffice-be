@@ -729,8 +729,12 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     }
 
     private UserLogin findActorOrThrow(Long id) {
-        return userLoginRepository.findByIdAndDeleteFlgFalse(id)
+        UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+        if (!"ACTIVE".equals(user.getUserStatusCd())) {
+            throw new BusinessException(ErrorCode.ACCOUNT_DISABLED, "Tài khoản đã bị khóa hoặc ngừng hoạt động");
+        }
+        return user;
     }
 
     private Long getCurrentActorId() {

@@ -134,7 +134,7 @@ class DocumentWorkflowServiceTest {
     @BeforeEach
     void setUp() {
         lenient().when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("a".repeat(64));
-        leader = UserLogin.builder().id(1002L).username("leader").role(Role.LEADER).build();
+        leader = UserLogin.builder().id(1002L).username("leader").role(Role.LEADER).userStatusCd("ACTIVE").build();
         orgNode = OrgNode.builder().id(2001L).nameVn("Khoa CNTT").build();
 
         document = Document.builder()
@@ -980,6 +980,7 @@ class DocumentWorkflowServiceTest {
                 .id(3003L)
                 .username("vanthu")
                 .role(Role.CLERK)
+                .userStatusCd("ACTIVE")
                 .build();
 
         document.setStatus(DocumentStatus.APPROVED);
@@ -1775,7 +1776,7 @@ class DocumentWorkflowServiceTest {
     @Test
     @DisplayName("getPendingPublishDocuments: Clerk (CLERK role) lấy được toàn bộ văn bản APPROVED mà không bị filterUserId")
     void getPendingPublishDocuments_withClerkRole_shouldFetchAllApprovedDocuments() {
-        UserLogin clerk = UserLogin.builder().id(1004L).username("vanthu").role(Role.CLERK).build();
+        UserLogin clerk = UserLogin.builder().id(1004L).username("vanthu").role(Role.CLERK).userStatusCd("ACTIVE").build();
         JwtUserPrincipal principal = new JwtUserPrincipal(1004L, "vanthu", Role.CLERK.name(), true, List.of());
         Authentication auth = new UsernamePasswordAuthenticationToken(principal, null, List.of());
         SecurityContextHolder.getContext().setAuthentication(auth);
@@ -1853,7 +1854,7 @@ class DocumentWorkflowServiceTest {
     @Test
     @DisplayName("getDetail: Ném FORBIDDEN khi người dùng thường không phải người soạn/ký truy cập văn bản nháp")
     void getDetail_whenUnauthorizedRegularUser_shouldThrowForbidden() {
-        UserLogin regularUser = UserLogin.builder().id(9999L).username("stranger").role(Role.USER).build();
+        UserLogin regularUser = UserLogin.builder().id(9999L).username("stranger").role(Role.USER).userStatusCd("ACTIVE").build();
         JwtUserPrincipal principal = new JwtUserPrincipal(9999L, "stranger", Role.USER.name(), true, List.of());
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(principal, null, List.of()));
@@ -1869,7 +1870,7 @@ class DocumentWorkflowServiceTest {
     @Test
     @DisplayName("getDetail: Cho phép người dùng thường truy cập khi văn bản đã được PUBLISHED")
     void getDetail_whenDocumentPublished_shouldAllowRegularUser() {
-        UserLogin regularUser = UserLogin.builder().id(9999L).username("stranger").role(Role.USER).build();
+        UserLogin regularUser = UserLogin.builder().id(9999L).username("stranger").role(Role.USER).userStatusCd("ACTIVE").build();
         JwtUserPrincipal principal = new JwtUserPrincipal(9999L, "stranger", Role.USER.name(), true, List.of());
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(principal, null, List.of()));
@@ -1900,7 +1901,7 @@ class DocumentWorkflowServiceTest {
     @Test
     @DisplayName("getWorkflowHistory: Ném FORBIDDEN khi người dùng không có quyền truy cập văn bản")
     void getWorkflowHistory_whenUnauthorized_shouldThrowForbidden() {
-        UserLogin regularUser = UserLogin.builder().id(9999L).username("stranger").role(Role.USER).build();
+        UserLogin regularUser = UserLogin.builder().id(9999L).username("stranger").role(Role.USER).userStatusCd("ACTIVE").build();
         JwtUserPrincipal principal = new JwtUserPrincipal(9999L, "stranger", Role.USER.name(), true, List.of());
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(principal, null, List.of()));
@@ -1916,7 +1917,7 @@ class DocumentWorkflowServiceTest {
     @Test
     @DisplayName("getDocumentTimeline: Ném FORBIDDEN khi người dùng không có quyền truy cập văn bản")
     void getDocumentTimeline_whenUnauthorized_shouldThrowForbidden() {
-        UserLogin regularUser = UserLogin.builder().id(9999L).username("stranger").role(Role.USER).build();
+        UserLogin regularUser = UserLogin.builder().id(9999L).username("stranger").role(Role.USER).userStatusCd("ACTIVE").build();
         JwtUserPrincipal principal = new JwtUserPrincipal(9999L, "stranger", Role.USER.name(), true, List.of());
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(principal, null, List.of()));
@@ -2235,7 +2236,7 @@ class DocumentWorkflowServiceTest {
     @Test
     @DisplayName("verifyDocumentSignatures: Ném FORBIDDEN khi người dùng không có quyền truy cập văn bản")
     void verifyDocumentSignatures_whenUnauthorized_shouldThrowForbidden() {
-        UserLogin regularUser = UserLogin.builder().id(9999L).username("stranger").role(Role.USER).build();
+        UserLogin regularUser = UserLogin.builder().id(9999L).username("stranger").role(Role.USER).userStatusCd("ACTIVE").build();
         JwtUserPrincipal principal = new JwtUserPrincipal(9999L, "stranger", Role.USER.name(), true, List.of());
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(principal, null, List.of()));
@@ -2251,7 +2252,7 @@ class DocumentWorkflowServiceTest {
     @Test
     @DisplayName("verifyDocumentSignatures: Cho phép kiểm định chữ ký khi văn bản đã PUBLISHED")
     void verifyDocumentSignatures_whenDocumentPublished_shouldAllowRegularUser() {
-        UserLogin regularUser = UserLogin.builder().id(9999L).username("stranger").role(Role.USER).build();
+        UserLogin regularUser = UserLogin.builder().id(9999L).username("stranger").role(Role.USER).userStatusCd("ACTIVE").build();
         JwtUserPrincipal principal = new JwtUserPrincipal(9999L, "stranger", Role.USER.name(), true, List.of());
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(principal, null, List.of()));
@@ -2322,5 +2323,16 @@ class DocumentWorkflowServiceTest {
 
         assertThrows(BusinessException.class, () -> documentWorkflowService.revokeDocument(docId, req));
         verify(workflowEngine, never()).executeTransition(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("Actor bị khóa (LOCKED / DISABLED) gọi API workflow bị ném ACCOUNT_DISABLED")
+    void findActorOrThrow_inactiveUser_throwsAccountDisabled() {
+        UserLogin lockedLeader = UserLogin.builder().id(1002L).username("leader").role(Role.LEADER).userStatusCd("LOCKED").build();
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(lockedLeader));
+
+        DocumentApproveRequest req = DocumentApproveRequest.builder().comment("Duyệt").build();
+        BusinessException ex = assertThrows(BusinessException.class, () -> documentWorkflowService.approve(5001L, req));
+        assertEquals(ErrorCode.ACCOUNT_DISABLED, ex.getErrorCode());
     }
 }
