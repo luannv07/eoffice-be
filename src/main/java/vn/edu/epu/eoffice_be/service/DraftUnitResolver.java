@@ -27,15 +27,21 @@ public class DraftUnitResolver {
 
     public Identity identity(UserLogin user, Instant at) {
         List<PositionAssignment> assignments = positions.findActiveAssignments(user.getId(), at).stream()
-                .filter(p -> valid(p, at)).toList();
-        if (assignments.stream().anyMatch(p -> UNSUPPORTED.contains(p.getPositionCd())))
-            throw bad("Chức danh chưa có tuyến gửi duyệt được quy định trên hệ thống");
+                .filter(p -> valid(p, at))
+                .filter(p -> !UNSUPPORTED.contains(p.getPositionCd()))
+                .toList();
         if (user.getRole() == Role.CLERK && assignments.stream().anyMatch(p -> !"VT".equals(p.getPositionCd())))
             throw ambiguous();
         if (assignments.stream().map(p -> p.getPositionCd() + ":" + p.getOrgNode().getId()).distinct().count() > 1)
             throw ambiguous();
         if (assignments.isEmpty()) {
-            if (user.getRole() == Role.CLERK) return new Identity(SubmissionRoute.LEADER_APPROVAL, null, Set.of("HT", "PHT"), false);
+            if (user.getRole() == Role.CLERK) {
+                OrgNode school = orgs.findAllByDeleteFlgFalseOrderByOrgOrderAsc().stream()
+                        .filter(o -> "UNIVERSITY".equals(o.getTypeCd()))
+                        .findFirst()
+                        .orElse(null);
+                return new Identity(SubmissionRoute.LEADER_APPROVAL, school, Set.of("HT", "PHT"), false);
+            }
             throw bad(user.getRole() == Role.USER ? "Tài khoản USER chưa được phân vào khoa/phòng."
                     : "Tài khoản chưa có chức vụ/phân nhiệm hợp lệ để xác định tuyến gửi.");
         }
