@@ -1333,22 +1333,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 null
         );
 
-        // 3. Tự động đồng bộ số Serial của chữ ký ban hành vào danh sách thu hồi CRL (revoked.json)
-        try {
-            byte[] pdfBytes = loadVerificationPdf(document);
-            if (pdfBytes != null && pdfBytes.length > 0 && pdfSignatureVerifier != null) {
-                DocumentSignatureVerifyResponse verifyResp = pdfSignatureVerifier.verify(pdfBytes);
-                if (verifyResp != null && verifyResp.getSignatures() != null) {
-                    for (SignatureItemResponse item : verifyResp.getSignatures()) {
-                        if (item.getSerialHex() != null && !item.getSerialHex().isBlank()) {
-                            pdfSignatureVerifier.revokeSerial(item.getSerialHex());
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            log.warn("Không thể tự động đồng bộ danh sách thu hồi CRL cho văn bản id={}: {}", documentId, e.getMessage());
-        }
+        // 3. Thu hồi văn bản chỉ chuyển trạng thái văn bản sang REVOKED và lưu vết kiểm toán.
+        // Không thu hồi Serial chứng thư số của người ký (chứng thư số cá nhân/tổ chức được dùng cho nhiều văn bản).
 
         return mapToDetailResponse(document);
     }

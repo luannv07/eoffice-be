@@ -2280,21 +2280,12 @@ class DocumentWorkflowServiceTest {
     }
 
     @Test
-    @DisplayName("REVOKE: Thu hồi văn bản đã ban hành thành công và đồng bộ CRL")
+    @DisplayName("REVOKE: Thu hồi văn bản đã ban hành thành công và không thu hồi chứng thư số người ký")
     void revokeDocument_success() {
         Long docId = 5001L;
         document.setStatus(DocumentStatus.PUBLISHED);
         document.setOfficialFilePath("official/test_signed.pdf");
         when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(document));
-        when(documentPdfStorageService.readPdf("official/test_signed.pdf")).thenReturn(new byte[]{1, 2, 3});
-
-        SignatureItemResponse item = SignatureItemResponse.builder()
-                .serialHex("ABC123456789")
-                .build();
-        DocumentSignatureVerifyResponse verifyResp = DocumentSignatureVerifyResponse.builder()
-                .signatures(List.of(item))
-                .build();
-        when(pdfSignatureVerifier.verify(any(byte[].class))).thenReturn(verifyResp);
 
         DocumentRevokeRequest req = DocumentRevokeRequest.builder()
                 .comment("Thu hồi văn bản do sai số liệu")
@@ -2313,7 +2304,7 @@ class DocumentWorkflowServiceTest {
                 null,
                 null
         );
-        verify(pdfSignatureVerifier).revokeSerial("ABC123456789");
+        verify(pdfSignatureVerifier, never()).revokeSerial(anyString());
     }
 
     @Test
