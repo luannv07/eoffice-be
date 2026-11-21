@@ -72,7 +72,7 @@ import vn.edu.epu.eoffice_be.service.DocumentBookService;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor(onConstructor_ = {@Autowired})
+@RequiredArgsConstructor(onConstructor_ = { @Autowired })
 public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
     private final DocumentRepository documentRepository;
@@ -96,15 +96,14 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
     private static final ZoneId ZONE_VN = ZoneId.of("Asia/Ho_Chi_Minh");
 
-    private static final DateTimeFormatter DATE_TIME_FORMATTER =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+            .withZone(ZoneId.systemDefault());
 
     public static final List<DocumentStatus> PENDING_STATUSES = List.of(
-        DocumentStatus.IN_REVIEW,
-        DocumentStatus.PENDING_APPROVAL,
-        DocumentStatus.PENDING_SIGN,
-        DocumentStatus.APPROVED
-    );
+            DocumentStatus.IN_REVIEW,
+            DocumentStatus.PENDING_APPROVAL,
+            DocumentStatus.PENDING_SIGN,
+            DocumentStatus.APPROVED);
 
     @Override
     @Transactional
@@ -123,7 +122,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         }
 
         // Kiểm tra thẩm quyền người xử lý trước khi thực hiện chuyển đổi
-        DocumentApprovalRequest reviewRequest = validateReviewAuthorization(document, actor, action, request.getComment());
+        DocumentApprovalRequest reviewRequest = validateReviewAuthorization(document, actor, action,
+                request.getComment());
         if (action == WorkflowAction.LEADER_APPROVE) {
             rejectRepeatedReviewHandover(documentId, actor.getId());
         }
@@ -175,24 +175,24 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                         titleInfo.title(),
                         titleInfo.orgUnit(),
                         signReason,
-                        pos
-                );
+                        pos);
             } catch (IllegalStateException ex) {
                 if (ex.getMessage() != null && ex.getMessage().contains("User đã ký")) {
                     throw new BusinessException(ErrorCode.BAD_REQUEST,
-                            "Người dùng [ID=" + actor.getId() + "] đã thực hiện ký trên tài liệu này rồi, không được phép ký đè lần 2!");
+                            "Người dùng [ID=" + actor.getId()
+                                    + "] đã thực hiện ký trên tài liệu này rồi, không được phép ký đè lần 2!");
                 }
                 throw ex;
             }
             if (signResult == null || signResult.signedPdfBytes() == null || signResult.signedPdfBytes().length == 0) {
-                throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR, "Không thể tạo chữ ký số khi lãnh đạo phê duyệt");
+                throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR,
+                        "Không thể tạo chữ ký số khi lãnh đạo phê duyệt");
             }
             byte[] stampedPdfBytes = signResult.signedPdfBytes();
             String newPdfReference = documentPdfStorageService.storeSignedPdf(
                     stampedPdfBytes,
                     "leader_signed_" + document.getId() + ".pdf",
-                    document.getId()
-            );
+                    document.getId());
             document.setPrimaryFilePath(newPdfReference);
             signatureHash = signResult.outPdfSha256();
             log.info("Đã tự động ký số hiển thị (Hiệu trưởng duyệt) cho văn bản id={}, người ký={}, hash={}",
@@ -207,8 +207,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 request.getComment(),
                 request.getLeadershipInstruction(),
                 assignedOrg,
-                signatureHash
-        );
+                signatureHash);
 
         if (action == WorkflowAction.REVIEW_APPROVE) {
             Instant now = Instant.now();
@@ -242,6 +241,16 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 eventPublisher.publishEvent(new DocumentSubmittedEvent(
                         this, document.getId(), actor.getId(), leader.getId(), cleanTitle, cleanComment));
             }
+        } else if (action == WorkflowAction.LEADER_APPROVE) {
+            // Đóng yêu cầu phê duyệt của lãnh đạo đang PENDING
+            reviewRequests.findFirstByDocumentIdOrderBySubmittedAtDescIdDesc(document.getId())
+                    .filter(r -> !r.isDeleteFlg() && r.getStatus() == ApprovalRequestStatus.PENDING)
+                    .ifPresent(r -> {
+                        r.setStatus(ApprovalRequestStatus.APPROVED);
+                        r.setProcessedAt(Instant.now());
+                        r.setDecisionNote(request.getComment());
+                        reviewRequests.save(r);
+                    });
         }
 
         return mapToDetailResponse(document);
@@ -257,7 +266,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         return submissionRoutingService.handoverOptions(document, actor, Instant.now());
     }
 
-    // Chặn người vừa bàn giao gọi lại duyệt và bị chuyển sang nhánh ký của lãnh đạo.
+    // Chặn người vừa bàn giao gọi lại duyệt và bị chuyển sang nhánh ký của lãnh
+    // đạo.
     private void rejectRepeatedReviewHandover(Long documentId, Long actorId) {
         var currentRequest = reviewRequests.findFirstByDocumentIdOrderBySubmittedAtDescIdDesc(documentId);
         if (currentRequest.isEmpty()) {
@@ -343,8 +353,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         Document document = lockDocumentOrThrow(documentId);
 
         // Kiểm tra thẩm quyền người yêu cầu chỉnh sửa
-        DocumentApprovalRequest reviewRequest =
-                validateReviewAuthorization(document, actor, WorkflowAction.REQUEST_REVISION, request.getComment());
+        DocumentApprovalRequest reviewRequest = validateReviewAuthorization(document, actor,
+                WorkflowAction.REQUEST_REVISION, request.getComment());
 
         workflowEngine.executeTransition(
                 document,
@@ -353,21 +363,30 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 request.getComment(),
                 null,
                 null,
-                null
-        );
+                null);
 
-        // Đóng yêu cầu thẩm định hiện hành với trạng thái NEEDS_REVISION
+        // Đóng yêu cầu thẩm định/phê duyệt hiện hành với trạng thái NEEDS_REVISION
         if (reviewRequest != null) {
             Instant now = Instant.now();
             reviewRequest.setStatus(ApprovalRequestStatus.NEEDS_REVISION);
             reviewRequest.setProcessedAt(now);
             reviewRequest.setDecisionNote(request.getComment());
             reviewRequests.save(reviewRequest);
+        } else {
+            reviewRequests.findFirstByDocumentIdOrderBySubmittedAtDescIdDesc(document.getId())
+                    .filter(r -> !r.isDeleteFlg() && r.getStatus() == ApprovalRequestStatus.PENDING)
+                    .ifPresent(r -> {
+                        r.setStatus(ApprovalRequestStatus.NEEDS_REVISION);
+                        r.setProcessedAt(Instant.now());
+                        r.setDecisionNote(request.getComment());
+                        reviewRequests.save(r);
+                    });
         }
 
         documentAttachmentRepository.retireCurrentMain(document.getId());
         document.setPrimaryFilePath(null);
-        // Retirement clears the context; map the managed instance returned by merge/save.
+        // Retirement clears the context; map the managed instance returned by
+        // merge/save.
         Document savedDocument = documentRepository.save(document);
         return mapToDetailResponse(savedDocument);
     }
@@ -378,9 +397,10 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         UserLogin actor = getCurrentActor();
         Document document = lockDocumentOrThrow(documentId);
 
-        // Kiểm tra thẩm quyền ký nháy TRƯỚC KHI xử lý file PDF nhằm tránh lãng phí tài nguyên CPU/IO
-        DocumentApprovalRequest reviewRequest =
-                validateReviewAuthorization(document, actor, WorkflowAction.INITIAL_SIGN, request.getComment());
+        // Kiểm tra thẩm quyền ký nháy TRƯỚC KHI xử lý file PDF nhằm tránh lãng phí tài
+        // nguyên CPU/IO
+        DocumentApprovalRequest reviewRequest = validateReviewAuthorization(document, actor,
+                WorkflowAction.INITIAL_SIGN, request.getComment());
 
         // 1. Kiểm tra file PDF nguồn: nếu chưa có file đính kèm chính thì báo lỗi
         ensureDocumentPdfExists(document);
@@ -396,7 +416,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 ? signerFullName + " - " + titleInfo.title()
                 : signerFullName;
 
-        // 3. Thực hiện Ký nháy số chuẩn BouncyCastle CMS Detached bằng PdfSigner (lưu tăng dần, bảo toàn chữ ký cũ)
+        // 3. Thực hiện Ký nháy số chuẩn BouncyCastle CMS Detached bằng PdfSigner (lưu
+        // tăng dần, bảo toàn chữ ký cũ)
         String signReason = (request.getComment() != null && !request.getComment().isBlank())
                 ? request.getComment()
                 : "Ký nháy văn bản";
@@ -406,12 +427,12 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                     currentPdfBytes,
                     String.valueOf(actor.getId()),
                     signerDisplayName,
-                    signReason
-            );
+                    signReason);
         } catch (IllegalStateException ex) {
             if (ex.getMessage() != null && ex.getMessage().contains("User đã ký")) {
                 throw new BusinessException(ErrorCode.BAD_REQUEST,
-                        "Người dùng [ID=" + actor.getId() + "] đã thực hiện ký trên tài liệu này rồi, không được phép ký đè lần 2!");
+                        "Người dùng [ID=" + actor.getId()
+                                + "] đã thực hiện ký trên tài liệu này rồi, không được phép ký đè lần 2!");
             }
             throw ex;
         }
@@ -429,16 +450,15 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         String newPdfReference = documentPdfStorageService.storeSignedPdf(
                 stampedPdfBytes,
                 "initial_signed_" + document.getId() + ".pdf",
-                document.getId()
-        );
+                document.getId());
         // Chỉ cập nhật PDF hiện hành khi có tham chiếu lưu trữ hợp lệ.
         if (newPdfReference == null || newPdfReference.isBlank()) {
             throw new BusinessException(ErrorCode.DOCUMENT_PDF_STORAGE_FAILED);
         }
         document.setPrimaryFilePath(newPdfReference);
 
-
-        // 5. Điều hướng luồng duyệt và ghi log (chạy trong @Transactional của WorkflowEngine)
+        // 5. Điều hướng luồng duyệt và ghi log (chạy trong @Transactional của
+        // WorkflowEngine)
         // Storage cleans up the uploaded version if this transaction rolls back.
         DocumentWorkflowLog signedLog = workflowEngine.executeTransition(
                 document,
@@ -447,8 +467,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 request.getComment(),
                 null,
                 null,
-                signatureHash
-        );
+                signatureHash);
 
         // Hủy kết quả nếu yêu cầu đã đổi trong lúc ký.
         if (reviewRequest != null && (signedLog.getApprovalRequest() == null
@@ -472,21 +491,26 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         Instant effectiveDate = request.getEffectiveDate() != null ? request.getEffectiveDate() : issueDate;
 
         if (effectiveDate.isBefore(issueDate)) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Ngày có hiệu lực (effectiveDate) không được trước ngày ban hành (issueDate)");
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR,
+                    "Ngày có hiệu lực (effectiveDate) không được trước ngày ban hành (issueDate)");
         }
 
-        // Nếu văn bản chưa có người ký được gán trước đó, gán actor làm signer tại thời điểm ký phát hành
+        // Nếu văn bản chưa có người ký được gán trước đó, gán actor làm signer tại thời
+        // điểm ký phát hành
         if (document.getSigner() == null) {
             document.setSigner(actor);
         }
 
-        // Kiểm tra thẩm quyền ký phát hành TRƯỚC KHI xử lý ký số PKI nhằm tránh lãng phí tài nguyên
+        // Kiểm tra thẩm quyền ký phát hành TRƯỚC KHI xử lý ký số PKI nhằm tránh lãng
+        // phí tài nguyên
         validateActorAuthorization(document, actor, WorkflowAction.SIGN_AND_PUBLISH);
 
-        // Kiểm tra file PDF nguồn TRƯỚC KHI cấp số và ký số: nếu chưa có file đính kèm chính thì báo lỗi
+        // Kiểm tra file PDF nguồn TRƯỚC KHI cấp số và ký số: nếu chưa có file đính kèm
+        // chính thì báo lỗi
         ensureDocumentPdfExists(document);
 
-        // 2. Cấp số chính thức qua Sổ văn bản (Pessimistic Write Lock) hoặc kế thừa số đã cấp
+        // 2. Cấp số chính thức qua Sổ văn bản (Pessimistic Write Lock) hoặc kế thừa số
+        // đã cấp
         String officialNumber;
         if (document.getOfficialNumber() != null && !document.getOfficialNumber().isBlank()) {
             // Tự động kế thừa số hiệu đã được cấp từ sổ văn bản ở bước Cấp số (APPROVED)
@@ -502,7 +526,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         } else if (request.getOfficialNumber() != null && !request.getOfficialNumber().isBlank()) {
             officialNumber = request.getOfficialNumber();
         } else {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "Bắt buộc chọn sổ văn bản để cấp số chính thức hoặc cấp số trước khi ban hành");
+            throw new BusinessException(ErrorCode.BAD_REQUEST,
+                    "Bắt buộc chọn sổ văn bản để cấp số chính thức hoặc cấp số trước khi ban hành");
         }
 
         // Kiểm tra null/blank trước khi gọi .trim() để tránh NullPointerException
@@ -512,7 +537,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         String trimmedOfficialNumber = officialNumber.trim();
 
         // Kiểm tra chống trùng số văn bản đã có trên hệ thống
-        if (documentRepository.existsByOfficialNumberAndIdNotAndDeleteFlgFalse(trimmedOfficialNumber, document.getId())) {
+        if (documentRepository.existsByOfficialNumberAndIdNotAndDeleteFlgFalse(trimmedOfficialNumber,
+                document.getId())) {
             throw new BusinessException(ErrorCode.DOCUMENT_NUMBER_ALREADY_EXISTS,
                     "Số hiệu văn bản '" + trimmedOfficialNumber + "' đã tồn tại trên một văn bản khác trong hệ thống!");
         }
@@ -524,7 +550,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         // 3. Đọc file PDF nguồn
         byte[] currentPdfBytes = loadDocumentPdfBytes(document);
 
-        // 4. Ký số điện tử PKI X.509 PAdES và đặt cờ niêm phong CERTIFIED_NO_CHANGES_ALLOWED
+        // 4. Ký số điện tử PKI X.509 PAdES và đặt cờ niêm phong
+        // CERTIFIED_NO_CHANGES_ALLOWED
         SignerTitleInfo titleInfo = resolveSignerTitleInfo(actor);
         String signerFullName = userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(actor.getId())
                 .map(UserInfo::getFullName)
@@ -540,8 +567,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                     currentPdfBytes,
                     actor.getId().toString(),
                     signerDisplayName,
-                    "Văn thư ký nháy duyệt ban hành: " + officialNumber
-            );
+                    "Văn thư ký nháy duyệt ban hành: " + officialNumber);
             if (initialSignResult == null || initialSignResult.signedPdfBytes() == null
                     || initialSignResult.signedPdfBytes().length == 0) {
                 throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR,
@@ -550,7 +576,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             pdfToCertify = initialSignResult.signedPdfBytes();
             log.info("Đã ký nháy duyệt ban hành cho văn bản id={}, người ký={}", document.getId(), actor.getUsername());
         } catch (DuplicateSignatureException ex) {
-            log.info("Người dùng {} đã ký trên tài liệu id={}, tiếp tục ban hành niêm phong", actor.getUsername(), document.getId());
+            log.info("Người dùng {} đã ký trên tài liệu id={}, tiếp tục ban hành niêm phong", actor.getUsername(),
+                    document.getId());
         } catch (BusinessException ex) {
             throw ex;
         } catch (Exception ex) {
@@ -559,7 +586,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                     "Không thể thực hiện ký nháy trước khi phát hành");
         }
 
-        // 4.2. Ban hành chính thức kèm khóa niêm phong DocMDP (P=1: CERTIFIED_NO_CHANGES_ALLOWED)
+        // 4.2. Ban hành chính thức kèm khóa niêm phong DocMDP (P=1:
+        // CERTIFIED_NO_CHANGES_ALLOWED)
         SignaturePosition pos = resolveSignaturePosition(request);
         PdfSigner.SignResult signResult;
         try {
@@ -570,8 +598,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                     titleInfo.title(),
                     titleInfo.orgUnit(),
                     "Ban hanh van ban: " + officialNumber,
-                    pos
-            );
+                    pos);
         } catch (BusinessException ex) {
             throw ex;
         } catch (Exception ex) {
@@ -585,14 +612,14 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         String officialReference = documentPdfStorageService.storeSignedPdf(
                 certifiedPdfBytes,
                 "official_" + document.getId() + ".pdf",
-                document.getId()
-        );
+                document.getId());
         String officialHash = fileStorageService.computeSha256(certifiedPdfBytes);
 
         document.setOfficialFilePath(officialReference);
         document.setOfficialHash(officialHash);
 
-        // 5. Chuyển trạng thái sang PUBLISHED và ghi log (chạy trong @Transactional của WorkflowEngine)
+        // 5. Chuyển trạng thái sang PUBLISHED và ghi log (chạy trong @Transactional của
+        // WorkflowEngine)
         // Storage discards this upload if the transaction rolls back.
         workflowEngine.executeTransition(
                 document,
@@ -601,8 +628,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 request.getComment(),
                 null,
                 null,
-                officialHash
-        );
+                officialHash);
 
         return mapToDetailResponse(document);
     }
@@ -614,8 +640,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         Document document = lockDocumentOrThrow(documentId);
 
         // Kiểm tra thẩm quyền từ chối văn bản
-        DocumentApprovalRequest reviewRequest =
-                validateReviewAuthorization(document, actor, WorkflowAction.REJECT, request.getComment());
+        DocumentApprovalRequest reviewRequest = validateReviewAuthorization(document, actor, WorkflowAction.REJECT,
+                request.getComment());
 
         workflowEngine.executeTransition(
                 document,
@@ -624,16 +650,24 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 request.getComment(),
                 null,
                 null,
-                null
-        );
+                null);
 
-        // Đóng yêu cầu thẩm định hiện hành với trạng thái REJECTED
+        // Đóng yêu cầu thẩm định/phê duyệt hiện hành với trạng thái REJECTED
         if (reviewRequest != null) {
             Instant now = Instant.now();
             reviewRequest.setStatus(ApprovalRequestStatus.REJECTED);
             reviewRequest.setProcessedAt(now);
             reviewRequest.setDecisionNote(request.getComment());
             reviewRequests.save(reviewRequest);
+        } else {
+            reviewRequests.findFirstByDocumentIdOrderBySubmittedAtDescIdDesc(document.getId())
+                    .filter(r -> !r.isDeleteFlg() && r.getStatus() == ApprovalRequestStatus.PENDING)
+                    .ifPresent(r -> {
+                        r.setStatus(ApprovalRequestStatus.REJECTED);
+                        r.setProcessedAt(Instant.now());
+                        r.setDecisionNote(request.getComment());
+                        reviewRequests.save(r);
+                    });
         }
 
         freezePreviousDocumentFiles(document);
@@ -644,7 +678,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
     // Bảo toàn nguyên vẹn tệp PDF chính và tài liệu đính kèm khi từ chối để tra cứu
     private void freezePreviousDocumentFiles(Document document) {
-        // Giữ nguyên primaryFilePath và cờ isMainDocument theo quy định bảo lưu hồ sơ bị từ chối
+        // Giữ nguyên primaryFilePath và cờ isMainDocument theo quy định bảo lưu hồ sơ
+        // bị từ chối
     }
 
     @Override
@@ -659,8 +694,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             effectivePageable = PageRequest.of(
                     0,
                     20,
-                    Sort.by(Sort.Order.asc("createdDate"), Sort.Order.asc("id"))
-            );
+                    Sort.by(Sort.Order.asc("createdDate"), Sort.Order.asc("id")));
         } else {
             Sort sort = pageable.getSort();
             if (sort.isUnsorted()) {
@@ -686,7 +720,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
     /**
      * Kiểm tra quyền đọc/xem chi tiết văn bản và lịch sử xử lý (Issue 1).
-     * Draft states use the participant policy; legacy rules outside that scope allow:
+     * Draft states use the participant policy; legacy rules outside that scope
+     * allow:
      * Quản trị viên (ADMIN, SYSTEM_ADMIN), người tạo (drafter),
      * người ký (signer), vai trò xét duyệt (LEADER, REVIEWER),
      * hoặc khi văn bản đã được ban hành chính thức (PUBLISHED).
@@ -708,11 +743,12 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         }
         if (role == Role.CLERK &&
                 (document.getStatus() == DocumentStatus.APPROVED ||
-                 document.getStatus() == DocumentStatus.PUBLISHED ||
-                 document.getStatus() == DocumentStatus.REVOKED)) {
+                        document.getStatus() == DocumentStatus.PUBLISHED ||
+                        document.getStatus() == DocumentStatus.REVOKED)) {
             return;
         }
-        boolean isDrafter = document.getDrafter() != null && Objects.equals(document.getDrafter().getId(), actor.getId());
+        boolean isDrafter = document.getDrafter() != null
+                && Objects.equals(document.getDrafter().getId(), actor.getId());
         boolean isSigner = document.getSigner() != null && Objects.equals(document.getSigner().getId(), actor.getId());
         if (isDrafter || isSigner) {
             return;
@@ -789,7 +825,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                     return;
                 }
 
-                // 2) Nếu không có tệp chính được chỉ định, kiểm tra có ít nhất một tệp PDF hợp lệ
+                // 2) Nếu không có tệp chính được chỉ định, kiểm tra có ít nhất một tệp PDF hợp
+                // lệ
                 boolean hasPdfAttachment = allAttachments.stream().anyMatch(this::isPdfAttachment);
                 if (!hasPdfAttachment) {
                     throw new BusinessException(ErrorCode.BAD_REQUEST,
@@ -810,12 +847,14 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     }
 
     private byte[] loadDocumentPdfBytes(Document document) {
-        // An existing working version is authoritative: never fall back to an unsigned attachment.
+        // An existing working version is authoritative: never fall back to an unsigned
+        // attachment.
         if (document.getPrimaryFilePath() != null && !document.getPrimaryFilePath().isBlank()) {
             return documentPdfStorageService.readPdf(document.getPrimaryFilePath());
         }
 
-        // 2. Thử nạp từ tệp đính kèm DocumentAttachment qua unifiedStorageService (Telegram/filesystem)
+        // 2. Thử nạp từ tệp đính kèm DocumentAttachment qua unifiedStorageService
+        // (Telegram/filesystem)
         if (documentAttachmentRepository != null) {
             List<DocumentAttachment> allAttachments = documentAttachmentRepository
                     .findByDocumentIdAndDeleteFlgFalse(document.getId());
@@ -850,8 +889,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 if (unifiedStorageService != null) {
                     try {
                         org.springframework.core.io.Resource res = unifiedStorageService.loadAsResource(
-                                targetAttachment.getStoragePath(), targetAttachment.getStorageFileName()
-                        );
+                                targetAttachment.getStoragePath(), targetAttachment.getStorageFileName());
                         if (res != null && res.exists() && res.isReadable()) {
                             try (java.io.InputStream is = res.getInputStream()) {
                                 byte[] bytes = is.readAllBytes();
@@ -860,15 +898,19 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                                 }
                             }
                         } else {
-                            log.error("Tệp đính kèm PDF id={} (storagePath={}, storageFileName={}) không tồn tại hoặc không thể đọc trên hệ thống lưu trữ",
-                                    targetAttachment.getId(), targetAttachment.getStoragePath(), targetAttachment.getStorageFileName());
+                            log.error(
+                                    "Tệp đính kèm PDF id={} (storagePath={}, storageFileName={}) không tồn tại hoặc không thể đọc trên hệ thống lưu trữ",
+                                    targetAttachment.getId(), targetAttachment.getStoragePath(),
+                                    targetAttachment.getStorageFileName());
                         }
                     } catch (Exception e) {
-                        log.error("Lỗi khi đọc tệp đính kèm PDF id={}: {}", targetAttachment.getId(), e.getMessage(), e);
+                        log.error("Lỗi khi đọc tệp đính kèm PDF id={}: {}", targetAttachment.getId(), e.getMessage(),
+                                e);
                     }
                 }
 
-                // Trường hợp 2: Có tệp đính kèm PDF hợp lệ nhưng không thể nạp nội dung từ storage
+                // Trường hợp 2: Có tệp đính kèm PDF hợp lệ nhưng không thể nạp nội dung từ
+                // storage
                 throw new BusinessException(ErrorCode.STORAGE_ERROR,
                         "Không thể tải nội dung tệp PDF đính kèm từ hệ thống lưu trữ. Vui lòng thử lại sau.");
             }
@@ -879,7 +921,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
 
     /**
      * Xác thực thẩm quyền của người dùng hiện tại đối với hành động trên văn bản,
-     * ủy quyền cho WorkflowEngine kiểm tra chi tiết theo vai trò và người được gán xử lý.
+     * ủy quyền cho WorkflowEngine kiểm tra chi tiết theo vai trò và người được gán
+     * xử lý.
      *
      * @param document Văn bản đang được xử lý
      * @param actor    Người dùng hiện tại thực hiện hành động
@@ -891,7 +934,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     }
 
     // Kiểm tra trạng thái, quyền và trả về yêu cầu thẩm định hiện hành.
-    private DocumentApprovalRequest validateReviewAuthorization(Document document, UserLogin actor, WorkflowAction action, String comment) {
+    private DocumentApprovalRequest validateReviewAuthorization(Document document, UserLogin actor,
+            WorkflowAction action, String comment) {
         workflowEngine.validateTransition(document, action, comment);
         return workflowEngine.validateActorPermission(document, actor, action);
     }
@@ -900,8 +944,10 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     @Transactional(readOnly = true)
     public Page<PendingDocumentResponse> getReviewInbox(Pageable pageable) {
         UserLogin viewer = readPolicy.currentUser();
-        // Query orders by the current request's submittedAt/id, not document metadata or role.
-        Pageable page = org.springframework.data.domain.PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+        // Query orders by the current request's submittedAt/id, not document metadata
+        // or role.
+        Pageable page = org.springframework.data.domain.PageRequest.of(pageable.getPageNumber(),
+                pageable.getPageSize());
         return reviewRequests.findReviewInbox(viewer.getId(), page).map(request -> {
             Document document = request.getDocument();
             return PendingDocumentResponse.builder().id(document.getId()).title(document.getTitle())
@@ -921,8 +967,11 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 .issuingOrgName(doc.getIssuingOrg() != null ? doc.getIssuingOrg().getNameVn() : null)
                 .drafterId(doc.getDrafter() != null ? doc.getDrafter().getId() : null)
                 .drafterUsername(doc.getDrafter() != null ? doc.getDrafter().getUsername() : null)
-                .drafterFullName(doc.getDrafter() != null ? userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(doc.getDrafter().getId())
-                        .map(UserInfo::getFullName).orElse(doc.getDrafter().getUsername()) : null)
+                .drafterFullName(
+                        doc.getDrafter() != null
+                                ? userInfoRepository.findByUserLoginIdAndDeleteFlgFalse(doc.getDrafter().getId())
+                                        .map(UserInfo::getFullName).orElse(doc.getDrafter().getUsername())
+                                : null)
                 .signerId(doc.getSigner() != null ? doc.getSigner().getId() : null)
                 .signerUsername(doc.getSigner() != null ? doc.getSigner().getUsername() : null)
                 .urgencyLevelCd(doc.getUrgencyLevelCd())
@@ -945,12 +994,16 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         return "/documents/" + documentId + "/files/" + fileType;
     }
 
-    private record SignerTitleInfo(String title, String orgUnit) {}
+    private record SignerTitleInfo(String title, String orgUnit) {
+    }
 
     /**
-     * Xác định Chức vụ (TITLE) và Phòng ban/Đơn vị (OU) của người ký theo nguyên tắc 2 lớp:
-     * 1. Lớp 1: Quyết định bổ nhiệm thực tế trong position_assignments đang có hiệu lực.
-     * 2. Lớp 2: Fallback theo vai trò Role hệ thống sang danh xưng tiếng Việt chuẩn hành chính.
+     * Xác định Chức vụ (TITLE) và Phòng ban/Đơn vị (OU) của người ký theo nguyên
+     * tắc 2 lớp:
+     * 1. Lớp 1: Quyết định bổ nhiệm thực tế trong position_assignments đang có hiệu
+     * lực.
+     * 2. Lớp 2: Fallback theo vai trò Role hệ thống sang danh xưng tiếng Việt chuẩn
+     * hành chính.
      */
     private SignerTitleInfo resolveSignerTitleInfo(UserLogin user) {
         if (user == null) {
@@ -960,7 +1013,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         // Lớp 1: Kiểm tra bổ nhiệm thực tế trong bảng position_assignments
         if (positionAssignmentRepository != null && user.getId() != null) {
             try {
-                List<PositionAssignment> assignments = positionAssignmentRepository.findActiveAssignments(user.getId(), Instant.now());
+                List<PositionAssignment> assignments = positionAssignmentRepository.findActiveAssignments(user.getId(),
+                        Instant.now());
                 if (assignments != null && !assignments.isEmpty()) {
                     PositionAssignment pa = assignments.get(0);
                     String posName = resolvePositionName(pa.getPositionCd());
@@ -989,7 +1043,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     }
 
     private String resolvePositionName(String positionCd) {
-        if (positionCd == null) return null;
+        if (positionCd == null)
+            return null;
         return switch (positionCd) {
             case "HT" -> "Hiệu trưởng";
             case "PHT" -> "Phó Hiệu trưởng";
@@ -1017,7 +1072,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 .comment(log.getComment())
                 .leadershipInstruction(log.getLeadershipInstruction())
                 .assignedOrgNodeId(log.getAssignedOrgNode() != null ? log.getAssignedOrgNode().getId() : null)
-                .assignedOrgNodeName(log.getAssignedOrgNode() != null   ? log.getAssignedOrgNode().getNameVn() : null)
+                .assignedOrgNodeName(log.getAssignedOrgNode() != null ? log.getAssignedOrgNode().getNameVn() : null)
                 .signatureHash(log.getSignatureHash())
                 .createdDate(log.getCreatedDate())
                 .build();
@@ -1039,27 +1094,30 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                         .id(log.getId())
                         .documentId(log.getDocument() != null ? log.getDocument().getId() : null)
                         .actorUsername(log.getActor() != null ? log.getActor().getUsername() : null)
-                        .actorRole(log.getActor() != null && log.getActor().getRole() != null 
-                        ? log.getActor().getRole().name() 
-                        : null)
+                        .actorRole(log.getActor() != null && log.getActor().getRole() != null
+                                ? log.getActor().getRole().name()
+                                : null)
                         .action(log.getAction() != null ? log.getAction().name() : null)
                         .comment(log.getComment())
-                        .createdAt(log.getCreatedDate() != null ? LocalDateTime.ofInstant(log.getCreatedDate(), ZONE_VN) : null)
+                        .createdAt(log.getCreatedDate() != null ? LocalDateTime.ofInstant(log.getCreatedDate(), ZONE_VN)
+                                : null)
                         .build())
                 .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<WorkflowTimelineResponse> getDocumentTimeline(Long documentId, org.springframework.security.core.Authentication authentication) {
+    public List<WorkflowTimelineResponse> getDocumentTimeline(Long documentId,
+            org.springframework.security.core.Authentication authentication) {
         verifyUserCanAccessDocument(documentId, authentication);
         return getDocumentTimeline(documentId);
     }
 
     @Override
-    public void verifyUserCanAccessDocument(Long documentId, org.springframework.security.core.Authentication authentication) {
-        if (authentication == null 
-                || !authentication.isAuthenticated() 
+    public void verifyUserCanAccessDocument(Long documentId,
+            org.springframework.security.core.Authentication authentication) {
+        if (authentication == null
+                || !authentication.isAuthenticated()
                 || authentication instanceof org.springframework.security.authentication.AnonymousAuthenticationToken) {
             throw new org.springframework.security.access.AccessDeniedException("Yêu cầu xác thực người dùng");
         }
@@ -1068,7 +1126,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
         if (readPolicy.applies(scoped)) {
             Long viewerId = extractUserId(authentication);
-            if (viewerId == null) throw new org.springframework.security.access.AccessDeniedException("Không xác định được người dùng");
+            if (viewerId == null)
+                throw new org.springframework.security.access.AccessDeniedException("Không xác định được người dùng");
             readPolicy.assertRead(scoped, viewerId);
             return;
         }
@@ -1079,7 +1138,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 readPolicy.assertRead(scoped, verifiedId);
                 return;
             }
-            if (verified.getRole() == Role.CLERK) return;
+            if (verified.getRole() == Role.CLERK)
+                return;
         }
 
         Document doc = documentRepository.findById(documentId)
@@ -1097,7 +1157,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             return;
         }
 
-        throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền xem timeline của tài liệu này");
+        throw new org.springframework.security.access.AccessDeniedException(
+                "Bạn không có quyền xem timeline của tài liệu này");
     }
 
     Long extractUserId(org.springframework.security.core.Authentication authentication) {
@@ -1139,8 +1200,12 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     public Page<PendingDocumentResponse> getPendingDocuments(Pageable pageable) {
         UserLogin viewer = pendingReader(Role.LEADER, Role.REVIEWER, Role.ADMIN, Role.SYSTEM_ADMIN);
         Page<Document> page = documentRepository.findAll(
-                DocumentRepository.readableDrafts(viewer.getId(), true, vn.edu.epu.eoffice_be.service.DocumentAdminPolicy.isAdmin(viewer), vn.edu.epu.eoffice_be.service.DocumentReadPolicy.STATUSES)
-                        .and((root, query, cb) -> root.get("status").in(PENDING_STATUSES)), pageable);
+                DocumentRepository
+                        .readableDrafts(viewer.getId(), true,
+                                vn.edu.epu.eoffice_be.service.DocumentAdminPolicy.isAdmin(viewer),
+                                vn.edu.epu.eoffice_be.service.DocumentReadPolicy.STATUSES)
+                        .and((root, query, cb) -> root.get("status").in(PENDING_STATUSES)),
+                pageable);
         if (page == null) {
             return Page.empty(pageable);
         }
@@ -1157,7 +1222,10 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     public List<PendingDocumentResponse> getPendingDocuments() {
         UserLogin viewer = pendingReader(Role.LEADER, Role.REVIEWER, Role.ADMIN, Role.SYSTEM_ADMIN);
         List<Document> list = documentRepository.findAll(
-                DocumentRepository.readableDrafts(viewer.getId(), true, vn.edu.epu.eoffice_be.service.DocumentAdminPolicy.isAdmin(viewer), vn.edu.epu.eoffice_be.service.DocumentReadPolicy.STATUSES)
+                DocumentRepository
+                        .readableDrafts(viewer.getId(), true,
+                                vn.edu.epu.eoffice_be.service.DocumentAdminPolicy.isAdmin(viewer),
+                                vn.edu.epu.eoffice_be.service.DocumentReadPolicy.STATUSES)
                         .and((root, query, cb) -> root.get("status").in(PENDING_STATUSES)));
         if (list == null) {
             list = List.of();
@@ -1207,7 +1275,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     }
 
     private long computePendingDays(java.time.Instant updatedAt) {
-        if (updatedAt == null) return 0;
+        if (updatedAt == null)
+            return 0;
         return java.time.temporal.ChronoUnit.DAYS.between(updatedAt, java.time.Instant.now());
     }
 
@@ -1275,8 +1344,10 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
             try {
                 toStatus = workflowEngine.getNextStatus(currentStatus, act);
             } catch (BusinessException ex) {
-                // Ngoại lệ nghiệp vụ mong đợi: hành động không làm thay đổi trạng thái trong ma trận
-                log.warn("Hành động '{}' không làm thay đổi trạng thái từ '{}'. Giữ nguyên trạng thái hiện tại. Lý do: {}",
+                // Ngoại lệ nghiệp vụ mong đợi: hành động không làm thay đổi trạng thái trong ma
+                // trận
+                log.warn(
+                        "Hành động '{}' không làm thay đổi trạng thái từ '{}'. Giữ nguyên trạng thái hiện tại. Lý do: {}",
                         act, currentStatus, ex.getMessage());
                 toStatus = currentStatus;
             } catch (Exception ex) {
@@ -1306,7 +1377,8 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
         byte[] pdfBytes = loadVerificationPdf(document);
 
         if (pdfSignatureVerifier == null) {
-            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "Dịch vụ kiểm định chữ ký số (PdfSignatureVerifier) chưa được khởi tạo.");
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR,
+                    "Dịch vụ kiểm định chữ ký số (PdfSignatureVerifier) chưa được khởi tạo.");
         }
 
         DocumentSignatureVerifyResponse response = pdfSignatureVerifier.verify(pdfBytes);
@@ -1340,11 +1412,12 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 request.getComment(),
                 null,
                 null,
-                null
-        );
+                null);
 
-        // 3. Thu hồi văn bản chỉ chuyển trạng thái văn bản sang REVOKED và lưu vết kiểm toán.
-        // Không thu hồi Serial chứng thư số của người ký (chứng thư số cá nhân/tổ chức được dùng cho nhiều văn bản).
+        // 3. Thu hồi văn bản chỉ chuyển trạng thái văn bản sang REVOKED và lưu vết kiểm
+        // toán.
+        // Không thu hồi Serial chứng thư số của người ký (chứng thư số cá nhân/tổ chức
+        // được dùng cho nhiều văn bản).
 
         return mapToDetailResponse(document);
     }
