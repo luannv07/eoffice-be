@@ -482,7 +482,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     @Transactional(rollbackFor = Exception.class)
     public DocumentDetailResponse signAndPublish(Long documentId, DocumentPublishRequest request) {
         UserLogin actor = getCurrentActor();
-        Document document = findDocumentOrThrow(documentId);
+        Document document = lockDocumentOrThrow(documentId);
         vn.edu.epu.eoffice_be.service.DocumentAdminPolicy.assertBusinessActor(actor);
         vn.edu.epu.eoffice_be.service.TestDocumentGuard.assertReal(document);
 
