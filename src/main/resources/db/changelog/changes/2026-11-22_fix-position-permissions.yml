@@ -1,0 +1,120 @@
+databaseChangeLog:
+
+  # ── Task 1.1: Bổ sung DOCUMENT_ASSIGN_NUMBER vào từ điển PERMISSION_CD ──────
+  # Lý do: permission này đang được dùng trong code (DocumentBookController, DocumentBookServiceImpl)
+  # nhưng chưa có trong dictionary_items → cần seed để hệ thống nhận diện hợp lệ.
+  - changeSet:
+      id: fix-perm-01-seed-assign-number-permission-cd
+      author: namnh05
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: "SELECT COUNT(*) FROM dictionary_items WHERE group_cd = 'PERMISSION_CD' AND item_cd = 'DOCUMENT_ASSIGN_NUMBER'"
+      changes:
+        - insert:
+            tableName: dictionary_items
+            columns:
+              - column:
+                  name: group_cd
+                  value: PERMISSION_CD
+              - column:
+                  name: item_cd
+                  value: DOCUMENT_ASSIGN_NUMBER
+              - column:
+                  name: name_vn
+                  value: Cấp số văn bản
+              - column:
+                  name: name_en
+                  value: Assign document number
+              - column:
+                  name: display_order
+                  valueNumeric: 5
+              - column:
+                  name: active_flg
+                  valueBoolean: true
+              - column:
+                  name: delete_flg
+                  valueBoolean: false
+      rollback:
+        - sql:
+            sql: DELETE FROM dictionary_items WHERE group_cd = 'PERMISSION_CD' AND item_cd = 'DOCUMENT_ASSIGN_NUMBER'
+
+  # ── Task 1.1: Bổ sung quyền còn thiếu cho các chức vụ Khoa/Phòng ───────────
+  # Hiện trạng:
+  #   PK: chỉ có DOCUMENT_SIGN_DRAFT (id=9) và DOCUMENT_CREATE (id=10) → thiếu DOCUMENT_APPROVE
+  #   TP: chỉ có DOCUMENT_APPROVE (id=11) và DOCUMENT_CREATE (id=12)   → thiếu DOCUMENT_SIGN_DRAFT
+  #   PP: chỉ có DOCUMENT_CREATE (id=13)                               → thiếu DOCUMENT_APPROVE + DOCUMENT_SIGN_DRAFT
+  #   VT: chỉ có DOCUMENT_CREATE và DOCUMENT_DISTRIBUTE (từ changeset fix-pa-07) → thiếu DOCUMENT_ASSIGN_NUMBER
+  #
+  # Tác động nghiệp vụ:
+  #   - PK/TP/PP nhận hồ sơ thẩm định nhưng không thể duyệt chuyển tiếp lên Lãnh đạo → giao dịch tắc nghẽn
+  #   - VT không thể cấp số văn bản dù API đã kiểm tra hasAuthority('DOCUMENT_ASSIGN_NUMBER')
+  - changeSet:
+      id: fix-perm-02-add-approve-to-pk
+      author: namnh05
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: "SELECT COUNT(*) FROM position_permissions WHERE position_cd = 'PK' AND permission_cd = 'DOCUMENT_APPROVE' AND delete_flg = false"
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO position_permissions (position_cd, permission_cd, inherit_to_children, delete_flg)
+              VALUES ('PK', 'DOCUMENT_APPROVE', true, false)
+      rollback:
+        - sql:
+            sql: DELETE FROM position_permissions WHERE position_cd = 'PK' AND permission_cd = 'DOCUMENT_APPROVE'
+
+  - changeSet:
+      id: fix-perm-03-add-sign-draft-to-tp
+      author: namnh05
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: "SELECT COUNT(*) FROM position_permissions WHERE position_cd = 'TP' AND permission_cd = 'DOCUMENT_SIGN_DRAFT' AND delete_flg = false"
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO position_permissions (position_cd, permission_cd, inherit_to_children, delete_flg)
+              VALUES ('TP', 'DOCUMENT_SIGN_DRAFT', true, false)
+      rollback:
+        - sql:
+            sql: DELETE FROM position_permissions WHERE position_cd = 'TP' AND permission_cd = 'DOCUMENT_SIGN_DRAFT'
+
+  - changeSet:
+      id: fix-perm-04-add-approve-and-sign-draft-to-pp
+      author: namnh05
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: "SELECT COUNT(*) FROM position_permissions WHERE position_cd = 'PP' AND permission_cd IN ('DOCUMENT_APPROVE', 'DOCUMENT_SIGN_DRAFT') AND delete_flg = false"
+      changes:
+        - sql:
+            sql: |-
+              INSERT INTO position_permissions (position_cd, permission_cd, inherit_to_children, delete_flg)
+              VALUES ('PP', 'DOCUMENT_APPROVE',    true, false),
+                     ('PP', 'DOCUMENT_SIGN_DRAFT', true, false)
+      rollback:
+        - sql:
+            sql: DELETE FROM position_permissions WHERE position_cd = 'PP' AND permission_cd IN ('DOCUMENT_APPROVE', 'DOCUMENT_SIGN_DRAFT')
+
+  - changeSet:
+      id: fix-perm-05-add-assign-number-to-vt
+      author: namnh05
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: "SELECT COUNT(*) FROM position_permissions WHERE position_cd = 'VT' AND permission_cd = 'DOCUMENT_ASSIGN_NUMBER' AND delete_flg = false"
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO position_permissions (position_cd, permission_cd, inherit_to_children, delete_flg)
+              VALUES ('VT', 'DOCUMENT_ASSIGN_NUMBER', false, false)
+      rollback:
+        - sql:
+            sql: DELETE FROM position_permissions WHERE position_cd = 'VT' AND permission_cd = 'DOCUMENT_ASSIGN_NUMBER'
