@@ -264,10 +264,11 @@ public class DocumentApprovalService {
                         "Người được chọn không có thẩm quyền duyệt văn bản này hoặc không thuộc đơn vị phù hợp");
             }
             boolean fromLeaderOrApproved = documentWorkflowLogRepository != null
-                    && documentWorkflowLogRepository.findFirstByDocumentIdAndActionAndDeleteFlgFalseOrderByIdDesc(documentId, WorkflowAction.REQUEST_REVISION)
+                    && documentWorkflowLogRepository.findFirstByDocument_IdAndActionAndDeleteFlgFalseOrderByIdDesc(documentId, WorkflowAction.REQUEST_REVISION)
                     .map(l -> l.getFromStatus() == DocumentStatus.PENDING_APPROVAL || l.getFromStatus() == DocumentStatus.APPROVED)
                     .orElse(false);
-            submissionAction = fromLeaderOrApproved ? WorkflowAction.SUBMIT_TO_LEADER : WorkflowAction.SUBMIT;
+            boolean approverIsLeader = approver.getRole() == Role.LEADER;
+            submissionAction = (fromLeaderOrApproved && approverIsLeader) ? WorkflowAction.SUBMIT_TO_LEADER : WorkflowAction.SUBMIT;
             workflowEngine.validateTransition(document, submissionAction, request.getSubmitNote());
             workflowEngine.validateActorPermission(document, sender, submissionAction);
         }
@@ -344,7 +345,7 @@ public class DocumentApprovalService {
                             + (request.getSubmitNote() == null ? "" : request.getSubmitNote()) : request.getSubmitNote(),
                     null, null, signatureHash);
             savedDocument = document;
-        } else {
+                } else {
             workflowEngine.executeTransition(document, submissionAction, sender,
                     request.getSubmitNote(), null, null, signatureHash);
             savedDocument = document;

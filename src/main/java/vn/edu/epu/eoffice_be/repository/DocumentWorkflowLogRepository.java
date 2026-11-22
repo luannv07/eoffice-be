@@ -19,7 +19,7 @@ public interface DocumentWorkflowLogRepository extends JpaRepository<DocumentWor
     @Query("SELECT l FROM DocumentWorkflowLog l WHERE l.document.id = :documentId AND (l.deleteFlg = false OR l.deleteFlg IS NULL) ORDER BY l.createdDate ASC, l.id ASC")
     List<DocumentWorkflowLog> findByDocumentIdOrderByCreatedDateAsc(@Param("documentId") Long documentId);
 
-    Optional<DocumentWorkflowLog> findFirstByDocumentIdAndActionAndDeleteFlgFalseOrderByIdDesc(Long documentId, WorkflowAction action);
+    Optional<DocumentWorkflowLog> findFirstByDocument_IdAndActionAndDeleteFlgFalseOrderByIdDesc(Long documentId, WorkflowAction action);
 
     // Đối chiếu hash với log ký nháy của đúng hồ sơ, người ký và lượt thẩm định.
     @Query("""

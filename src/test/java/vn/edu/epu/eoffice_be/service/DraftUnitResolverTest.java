@@ -77,4 +77,28 @@ class DraftUnitResolverTest {
         when(positions.findActiveAssignments(10L,now)).thenReturn(List.of(assignment(org(100,"FACULTY"),"GV"),assignment(org(200,"FACULTY"),"GV")));
         assertTrue(assertThrows(BusinessException.class,()->resolver.resolve(user(Role.USER),100L,now)).getMessage().contains("duy nhất"));
     }
+
+    @Test void userWithOnlyUnsupportedPositionThrowsExplicitBusinessException() {
+        var unit = org(100, "FACULTY");
+        when(positions.findActiveAssignments(10L, now)).thenReturn(List.of(assignment(unit, "GĐTT")));
+        var ex = assertThrows(BusinessException.class, () -> resolver.resolve(user(Role.USER), 100L, now));
+        assertTrue(ex.getMessage().contains("Chức danh chưa có tuyến gửi duyệt được quy định"));
+    }
+
+    @Test void clerkWithUnsupportedPositionCannotBypassToUniversityUnit() {
+        var unit = org(100, "FACULTY");
+        when(positions.findActiveAssignments(10L, now)).thenReturn(List.of(assignment(unit, "GĐTT")));
+        var ex = assertThrows(BusinessException.class, () -> resolver.resolve(user(Role.CLERK), null, now));
+        assertTrue(ex.getMessage().contains("Chức danh chưa có tuyến gửi duyệt được quy định"));
+    }
+
+    @Test void userWithValidAndUnsupportedPositionIgnoresUnsupportedAndResolvesValid() {
+        var unit = org(100, "FACULTY");
+        when(positions.findActiveAssignments(10L, now)).thenReturn(List.of(
+                assignment(unit, "GV"),
+                PositionAssignment.builder().id(2L).userLogin(user(Role.USER)).orgNode(unit).positionCd("BT").effectiveFrom(now.minusSeconds(60)).build()
+        ));
+        when(orgs.findByIdAndDeleteFlgFalse(100L)).thenReturn(Optional.of(unit));
+        assertEquals(100L, resolver.resolve(user(Role.USER), 100L, now).getId());
+    }
 }

@@ -149,7 +149,13 @@ public class WorkflowEngine {
         if (action == WorkflowAction.SUBMIT_TO_LEADER || action == WorkflowAction.SUBMIT_TO_CLERK_QUEUE) {
             if (!isDrafter || actor.getId() == null) return false;
             if (document.getStatus() == DocumentStatus.NEEDS_REVISION && action == WorkflowAction.SUBMIT_TO_LEADER) {
-                return true;
+                boolean revisedByLeaderOrClerk = documentWorkflowLogRepository != null
+                        && documentWorkflowLogRepository.findFirstByDocument_IdAndActionAndDeleteFlgFalseOrderByIdDesc(document.getId(), WorkflowAction.REQUEST_REVISION)
+                        .map(l -> l.getFromStatus() == DocumentStatus.PENDING_APPROVAL || l.getFromStatus() == DocumentStatus.APPROVED)
+                        .orElse(false);
+                if (revisedByLeaderOrClerk) {
+                    return true;
+                }
             }
             SubmissionRoute route = action == WorkflowAction.SUBMIT_TO_LEADER
                     ? SubmissionRoute.LEADER_APPROVAL : SubmissionRoute.CLERK_QUEUE;

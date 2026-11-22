@@ -953,7 +953,7 @@ class DocumentApprovalServiceTest {
                 .fromStatus(DocumentStatus.PENDING_APPROVAL)
                 .toStatus(DocumentStatus.NEEDS_REVISION)
                 .build();
-        when(documentWorkflowLogRepository.findFirstByDocumentIdAndActionAndDeleteFlgFalseOrderByIdDesc(docId, vn.edu.epu.eoffice_be.common.enums.WorkflowAction.REQUEST_REVISION))
+        when(documentWorkflowLogRepository.findFirstByDocument_IdAndActionAndDeleteFlgFalseOrderByIdDesc(docId, vn.edu.epu.eoffice_be.common.enums.WorkflowAction.REQUEST_REVISION))
                 .thenReturn(Optional.of(leaderRevisionLog));
 
         org.mockito.Mockito.doAnswer(inv -> {
