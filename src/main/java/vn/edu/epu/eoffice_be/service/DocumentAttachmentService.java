@@ -60,7 +60,8 @@ public class DocumentAttachmentService {
         Document document = documentRepository.findByIdAndDeleteFlgFalse(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
         assertCanAccessAttachment(document, userId);
-        // Each URL selects exactly one version; storage reports missing/invalid references.
+        // Each URL selects exactly one version; storage reports missing/invalid
+        // references.
         String reference = official ? document.getOfficialFilePath() : document.getPrimaryFilePath();
         return documentPdfStorageService.readAsResource(reference);
     }
@@ -69,7 +70,8 @@ public class DocumentAttachmentService {
      * UC09: Tải tệp PDF đính kèm lên hệ thống
      */
     @Transactional
-    public DocumentAttachmentResponse uploadAttachment(Long documentId, MultipartFile file, boolean isMain, Long userId) {
+    public DocumentAttachmentResponse uploadAttachment(Long documentId, MultipartFile file, boolean isMain,
+            Long userId) {
         UserLogin user = userLoginRepository.findByIdAndDeleteFlgFalse(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
 
@@ -78,7 +80,8 @@ public class DocumentAttachmentService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
         // Kiểm tra quyền: chỉ người tạo hoặc admin mới được upload tệp
-        if (readPolicy.applies(document) || DocumentAdminPolicy.isAdmin(user)) readPolicy.assertDraftWrite(document, userId);
+        if (readPolicy.applies(document) || DocumentAdminPolicy.isAdmin(user))
+            readPolicy.assertDraftWrite(document, userId);
         UserLogin drafter = document.getDrafter();
         boolean isDrafter = drafter != null && drafter.getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
@@ -187,7 +190,8 @@ public class DocumentAttachmentService {
     }
 
     /**
-     * Draft states use the participant policy. Legacy rules below apply only outside that scope:
+     * Draft states use the participant policy. Legacy rules below apply only
+     * outside that scope:
      * - Người tạo văn bản
      * - Quản trị viên hệ thống (ADMIN, SYSTEM_ADMIN)
      * - Văn bản đã ban hành hoặc đã được phê duyệt (ISSUED, APPROVED)
@@ -211,15 +215,18 @@ public class DocumentAttachmentService {
         }
         boolean isDrafter = document.getDrafter() != null && document.getDrafter().getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
-        boolean isPublished = document.getStatus() == DocumentStatus.PUBLISHED || document.getStatus() == DocumentStatus.APPROVED;
+        boolean isSigner = document.getSigner() != null && document.getSigner().getId().equals(userId);
+        boolean isClerk = user.getRole() == Role.CLERK;
+        boolean isPublished = document.getStatus() == DocumentStatus.PUBLISHED;
 
         boolean isApprover = documentApprovalRequestRepository
                 .findByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(document.getId()).stream()
                 .filter(req -> req.getStatus() == ApprovalRequestStatus.PENDING)
                 .anyMatch(req -> req.getApproverUser() != null && req.getApproverUser().getId().equals(userId));
 
-        if (!isDrafter && !isAdmin && !isPublished && !isApprover) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền truy cập tệp đính kèm của văn bản này");
+        if (!isDrafter && !isAdmin && !isPublished && !isApprover && !isSigner && !isClerk) {
+            throw new BusinessException(ErrorCode.FORBIDDEN,
+                    "Bạn không có quyền truy cập tệp đính kèm của văn bản này");
         }
     }
 
@@ -235,7 +242,8 @@ public class DocumentAttachmentService {
         Document document = documentRepository.findByIdForUpdate(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
 
-        if (readPolicy.applies(document) || DocumentAdminPolicy.isAdmin(user)) readPolicy.assertDraftWrite(document, userId);
+        if (readPolicy.applies(document) || DocumentAdminPolicy.isAdmin(user))
+            readPolicy.assertDraftWrite(document, userId);
         UserLogin drafter = document.getDrafter();
         boolean isDrafter = drafter != null && drafter.getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;

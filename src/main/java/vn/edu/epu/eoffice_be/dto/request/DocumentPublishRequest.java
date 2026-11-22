@@ -61,6 +61,12 @@ public class DocumentPublishRequest {
     @Schema(description = "Chiều cao khung con dấu (PDF points, mặc định 60pt)", example = "60.0")
     private Float signatureHeight;
 
+    @Schema(description = "Danh sách ID đơn vị nhận văn bản phát hành (org_node IDs)", example = "[100, 200]")
+    private java.util.List<Long> recipientOrgIds;
+
+    @Schema(description = "Phát hành công khai toàn hệ thống", example = "false")
+    private Boolean isPublicToAll;
+
     @jakarta.validation.constraints.AssertTrue(message = "Ngày có hiệu lực (effectiveDate) không được trước ngày ban hành (issueDate)")
     public boolean isEffectiveDateValid() {
         if (effectiveDate == null || issueDate == null) {

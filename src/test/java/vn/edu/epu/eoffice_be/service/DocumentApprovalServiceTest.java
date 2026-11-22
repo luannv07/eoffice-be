@@ -69,6 +69,8 @@ class DocumentApprovalServiceTest {
     @Mock
     private DocumentProcessLogRepository documentProcessLogRepository;
     @Mock
+    private vn.edu.epu.eoffice_be.repository.DocumentWorkflowLogRepository documentWorkflowLogRepository;
+    @Mock
     private UserLoginRepository userLoginRepository;
     @Mock
     private UserInfoRepository userInfoRepository;
@@ -916,6 +918,71 @@ class DocumentApprovalServiceTest {
 
         assertEquals(2, doc.getCurrentVersion());
         assertEquals(DocumentStatus.IN_REVIEW, doc.getStatus());
+    }
+
+    @Test
+    @DisplayName("Gửi duyệt lại từ NEEDS_REVISION khi bị Lãnh đạo trả sửa: chuyển sang PENDING_APPROVAL với SUBMIT_TO_LEADER")
+    void submitForApproval_Resubmission_FromLeaderRevision_TransitionsToPendingApproval() {
+        Long docId = 4L;
+        Long senderId = 100L;
+        Long approverId = 300L;
+
+        UserLogin sender = UserLogin.builder().id(senderId).username("author").role(Role.USER).build();
+        UserLogin leader = UserLogin.builder().id(approverId).username("leader").role(Role.LEADER).build();
+        org.mockito.Mockito.lenient().when(positionAssignmentRepository.findByUserLoginIdAndDeleteFlgFalse(leader.getId()))
+                .thenReturn(java.util.List.of(vn.edu.epu.eoffice_be.entity.PositionAssignment.builder().positionCd("PHT").build()));
+
+        Document doc = Document.builder()
+                .id(docId)
+                .title("Kế hoạch v2 sửa cho lãnh đạo")
+                .summary("Trích yếu v2")
+                .drafter(sender)
+                .status(DocumentStatus.NEEDS_REVISION)
+                .currentVersion(1)
+                .build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(senderId)).thenReturn(Optional.of(sender));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(approverId)).thenReturn(Optional.of(leader));
+        org.mockito.Mockito.lenient().when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(documentDraftService.mapToDocumentResponse(any())).thenReturn(DocumentResponse.builder().id(docId).status(DocumentStatus.PENDING_APPROVAL).build());
+
+        // Mock lịch sử trả sửa từ Lãnh đạo (fromStatus = PENDING_APPROVAL)
+        vn.edu.epu.eoffice_be.entity.DocumentWorkflowLog leaderRevisionLog = vn.edu.epu.eoffice_be.entity.DocumentWorkflowLog.builder()
+                .action(vn.edu.epu.eoffice_be.common.enums.WorkflowAction.REQUEST_REVISION)
+                .fromStatus(DocumentStatus.PENDING_APPROVAL)
+                .toStatus(DocumentStatus.NEEDS_REVISION)
+                .build();
+        when(documentWorkflowLogRepository.findFirstByDocument_IdAndActionAndDeleteFlgFalseOrderByIdDesc(docId, vn.edu.epu.eoffice_be.common.enums.WorkflowAction.REQUEST_REVISION))
+                .thenReturn(Optional.of(leaderRevisionLog));
+
+        org.mockito.Mockito.doAnswer(inv -> {
+            Document d = inv.getArgument(0);
+            if (d != null) {
+                d.setStatus(DocumentStatus.PENDING_APPROVAL);
+            }
+            return null;
+        }).when(submissionWorkflowEngine).executeTransition(any(), any(), any(), any(), any(), any(), any());
+
+        submissionPdf(docId, new byte[]{1, 2, 3});
+        SubmitApprovalRequest request = SubmitApprovalRequest.builder()
+                .approverUserId(approverId)
+                .submitNote("Đã sửa nội dung theo chỉ đạo của Lãnh đạo")
+                .build();
+
+        documentApprovalService.submitForApproval(docId, request, senderId);
+
+        verify(submissionWorkflowEngine).executeTransition(
+                org.mockito.ArgumentMatchers.eq(doc),
+                org.mockito.ArgumentMatchers.eq(vn.edu.epu.eoffice_be.common.enums.WorkflowAction.SUBMIT_TO_LEADER),
+                org.mockito.ArgumentMatchers.eq(sender),
+                org.mockito.ArgumentMatchers.eq("Đã sửa nội dung theo chỉ đạo của Lãnh đạo"),
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.any()
+        );
+        assertEquals(DocumentStatus.PENDING_APPROVAL, doc.getStatus());
+        assertEquals(2, doc.getCurrentVersion());
     }
 
     @Test

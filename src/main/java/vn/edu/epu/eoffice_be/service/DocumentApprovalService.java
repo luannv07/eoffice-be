@@ -34,6 +34,7 @@ import vn.edu.epu.eoffice_be.repository.DocumentApprovalRequestRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentAttachmentRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentProcessLogRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
+import vn.edu.epu.eoffice_be.repository.DocumentWorkflowLogRepository;
 import vn.edu.epu.eoffice_be.repository.PositionAssignmentRepository;
 import vn.edu.epu.eoffice_be.repository.PositionPermissionRepository;
 import vn.edu.epu.eoffice_be.repository.UserInfoRepository;
@@ -58,6 +59,7 @@ public class DocumentApprovalService {
     private final DocumentAttachmentRepository documentAttachmentRepository;
     private final DocumentApprovalRequestRepository documentApprovalRequestRepository;
     private final DocumentProcessLogRepository documentProcessLogRepository;
+    private final DocumentWorkflowLogRepository documentWorkflowLogRepository;
     private final UserLoginRepository userLoginRepository;
     private final UserInfoRepository userInfoRepository;
     private final PositionAssignmentRepository positionAssignmentRepository;
@@ -261,6 +263,14 @@ public class DocumentApprovalService {
                 throw new BusinessException(ErrorCode.APPROVER_NOT_ELIGIBLE,
                         "Người được chọn không có thẩm quyền duyệt văn bản này hoặc không thuộc đơn vị phù hợp");
             }
+            boolean fromLeaderOrApproved = documentWorkflowLogRepository != null
+                    && documentWorkflowLogRepository.findFirstByDocument_IdAndActionAndDeleteFlgFalseOrderByIdDesc(documentId, WorkflowAction.REQUEST_REVISION)
+                    .map(l -> l.getFromStatus() == DocumentStatus.PENDING_APPROVAL || l.getFromStatus() == DocumentStatus.APPROVED)
+                    .orElse(false);
+            boolean approverIsLeader = approver.getRole() == Role.LEADER;
+            submissionAction = (fromLeaderOrApproved && approverIsLeader) ? WorkflowAction.SUBMIT_TO_LEADER : WorkflowAction.SUBMIT;
+            workflowEngine.validateTransition(document, submissionAction, request.getSubmitNote());
+            workflowEngine.validateActorPermission(document, sender, submissionAction);
         }
 
         // Complete all dossier/recipient checks before signing or mutating submission data.
@@ -335,9 +345,10 @@ public class DocumentApprovalService {
                             + (request.getSubmitNote() == null ? "" : request.getSubmitNote()) : request.getSubmitNote(),
                     null, null, signatureHash);
             savedDocument = document;
-        } else {
-            document.setStatus(DocumentStatus.IN_REVIEW);
-            savedDocument = documentRepository.save(document);
+                } else {
+            workflowEngine.executeTransition(document, submissionAction, sender,
+                    request.getSubmitNote(), null, null, signatureHash);
+            savedDocument = document;
         }
 
         if (!clerkQueue) {

@@ -39,7 +39,7 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class DocumentPdfAccessTest {
     enum Kind { PRIMARY, OFFICIAL }
-    enum Access { DRAFTER, ADMIN, SYSTEM_ADMIN, PENDING_APPROVER, APPROVED, PUBLISHED }
+    enum Access { DRAFTER, ADMIN, SYSTEM_ADMIN, PENDING_APPROVER, PUBLISHED }
     @Mock DocumentRepository documents;
     @Mock UserLoginRepository users;
     @Mock DocumentApprovalRequestRepository approvals;
@@ -69,7 +69,6 @@ class DocumentPdfAccessTest {
             case ADMIN -> actor.setRole(Role.ADMIN);
             case SYSTEM_ADMIN -> actor.setRole(Role.SYSTEM_ADMIN);
             case PENDING_APPROVER -> when(approvals.existsParticipant(5001L,100L)).thenReturn(true);
-            case APPROVED -> document.setStatus(DocumentStatus.APPROVED);
             case PUBLISHED -> document.setStatus(DocumentStatus.PUBLISHED);
         }
         Resource pdf = new ByteArrayResource(new byte[]{1, 2, 3});

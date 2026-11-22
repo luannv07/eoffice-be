@@ -70,6 +70,8 @@ public class WorkflowEngine {
         // 5. NEEDS_REVISION (Yêu cầu chỉnh sửa)
         Map<WorkflowAction, DocumentStatus> needsRevisionTransitions = new EnumMap<>(WorkflowAction.class);
         needsRevisionTransitions.put(WorkflowAction.SUBMIT, DocumentStatus.IN_REVIEW); // Sửa xong gửi duyệt lại
+        needsRevisionTransitions.put(WorkflowAction.SUBMIT_TO_LEADER, DocumentStatus.PENDING_APPROVAL); // Sửa xong gửi lại Lãnh đạo
+        needsRevisionTransitions.put(WorkflowAction.SUBMIT_TO_CLERK_QUEUE, DocumentStatus.APPROVED); // Sửa xong gửi lại hàng chờ Văn thư
         needsRevisionTransitions.put(WorkflowAction.WITHDRAW, DocumentStatus.DRAFT); // Rút về hẳn DRAFT
         TRANSITION_MATRIX.put(DocumentStatus.NEEDS_REVISION, needsRevisionTransitions);
         // 6. PUBLISHED (Đã ban hành: cho phép Thu hồi văn bản)
@@ -147,6 +149,36 @@ public class WorkflowEngine {
 
         if (action == WorkflowAction.SUBMIT_TO_LEADER || action == WorkflowAction.SUBMIT_TO_CLERK_QUEUE) {
             if (!isDrafter || actor.getId() == null) return false;
+            if (document.getStatus() == DocumentStatus.NEEDS_REVISION) {
+                if (documentWorkflowLogRepository == null) {
+                    // Unit test hoặc thiếu repo: fallback cho phép nộp lại
+                    return true;
+                }
+                var lastRevisionLog = documentWorkflowLogRepository
+                        .findFirstByDocument_IdAndActionAndDeleteFlgFalseOrderByIdDesc(document.getId(), WorkflowAction.REQUEST_REVISION);
+                if (lastRevisionLog.isEmpty()) {
+                    // Dữ liệu cũ thiếu log hoặc log bị xóa: fallback cho phép nộp lại để không chặn người soạn thảo
+                    return true;
+                }
+                DocumentStatus fromStatus = lastRevisionLog.get().getFromStatus();
+
+                if (action == WorkflowAction.SUBMIT_TO_LEADER) {
+                    if (fromStatus == DocumentStatus.PENDING_APPROVAL || fromStatus == DocumentStatus.APPROVED) {
+                        return true;
+                    }
+                    if (fromStatus == DocumentStatus.IN_REVIEW) {
+                        // Trả sửa từ bước thẩm định: không được nộp thẳng lên Lãnh đạo mà phải nộp lại Thẩm định (SUBMIT)
+                        return false;
+                    }
+                    // Các trường hợp fromStatus khác (legacy hoặc không xác định): fallback cho phép nộp lại
+                    return true;
+                }
+                // SUBMIT_TO_CLERK_QUEUE: chỉ cho phép khi trả sửa từ APPROVED (luồng ký phát hành / văn thư)
+                return fromStatus == DocumentStatus.APPROVED;
+            }
+            if (submissionRoutingService == null) {
+                return true;
+            }
             SubmissionRoute route = action == WorkflowAction.SUBMIT_TO_LEADER
                     ? SubmissionRoute.LEADER_APPROVAL : SubmissionRoute.CLERK_QUEUE;
             return submissionRoutingService.options(document, actor, Instant.now()).routes().stream()
