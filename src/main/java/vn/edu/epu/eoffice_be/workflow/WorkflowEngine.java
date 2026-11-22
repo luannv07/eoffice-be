@@ -148,14 +148,32 @@ public class WorkflowEngine {
 
         if (action == WorkflowAction.SUBMIT_TO_LEADER || action == WorkflowAction.SUBMIT_TO_CLERK_QUEUE) {
             if (!isDrafter || actor.getId() == null) return false;
-            if (document.getStatus() == DocumentStatus.NEEDS_REVISION && action == WorkflowAction.SUBMIT_TO_LEADER) {
-                boolean revisedByLeaderOrClerk = documentWorkflowLogRepository != null
-                        && documentWorkflowLogRepository.findFirstByDocument_IdAndActionAndDeleteFlgFalseOrderByIdDesc(document.getId(), WorkflowAction.REQUEST_REVISION)
-                        .map(l -> l.getFromStatus() == DocumentStatus.PENDING_APPROVAL || l.getFromStatus() == DocumentStatus.APPROVED)
-                        .orElse(false);
-                if (revisedByLeaderOrClerk) {
+            if (document.getStatus() == DocumentStatus.NEEDS_REVISION) {
+                if (action == WorkflowAction.SUBMIT_TO_LEADER) {
+                    if (documentWorkflowLogRepository == null) {
+                        return true;
+                    }
+                    var lastRevisionLog = documentWorkflowLogRepository
+                            .findFirstByDocument_IdAndActionAndDeleteFlgFalseOrderByIdDesc(document.getId(), WorkflowAction.REQUEST_REVISION);
+                    if (lastRevisionLog.isEmpty()) {
+                        // Dữ liệu cũ thiếu log hoặc log bị xóa: fallback cho phép nộp lại để không chặn người soạn thảo
+                        return true;
+                    }
+                    DocumentStatus fromStatus = lastRevisionLog.get().getFromStatus();
+                    if (fromStatus == DocumentStatus.PENDING_APPROVAL || fromStatus == DocumentStatus.APPROVED) {
+                        return true;
+                    }
+                    if (fromStatus == DocumentStatus.IN_REVIEW) {
+                        // Trả sửa từ bước thẩm định: không được nộp thẳng lên Lãnh đạo mà phải nộp lại Thẩm định (SUBMIT)
+                        return false;
+                    }
+                    // Các trường hợp fromStatus khác (legacy hoặc không xác định): fallback cho phép nộp lại
                     return true;
                 }
+                return false;
+            }
+            if (submissionRoutingService == null) {
+                return true;
             }
             SubmissionRoute route = action == WorkflowAction.SUBMIT_TO_LEADER
                     ? SubmissionRoute.LEADER_APPROVAL : SubmissionRoute.CLERK_QUEUE;

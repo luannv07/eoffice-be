@@ -358,4 +358,113 @@ class WorkflowEngineTest {
                 workflowEngine.validateActorPermission(document, drafter, WorkflowAction.WITHDRAW));
         assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, exWithdraw.getErrorCode());
     }
+
+    // =========================================================================
+    // 4. NEEDS_REVISION RESUBMISSION PERMISSION TESTS
+    // =========================================================================
+
+    @Test
+    @DisplayName("NEEDS_REVISION + SUBMIT_TO_LEADER: repository null -> fallback cho phép nộp lại")
+    void validateActorPermission_needsRevision_submitToLeader_repoNull_shouldPass() {
+        WorkflowEngine engineWithoutRepo = new WorkflowEngine(documentRepository, null, permissionResolver, null, null);
+        document.setStatus(DocumentStatus.NEEDS_REVISION);
+
+        assertDoesNotThrow(() -> engineWithoutRepo.validateActorPermission(document, drafter, WorkflowAction.SUBMIT_TO_LEADER));
+    }
+
+    @Test
+    @DisplayName("NEEDS_REVISION + SUBMIT_TO_LEADER: không tìm thấy log sửa đổi (dữ liệu cũ) -> fallback cho phép nộp lại")
+    void validateActorPermission_needsRevision_submitToLeader_noLogFound_fallbackPass() {
+        document.setStatus(DocumentStatus.NEEDS_REVISION);
+        when(documentWorkflowLogRepository.findFirstByDocument_IdAndActionAndDeleteFlgFalseOrderByIdDesc(
+                document.getId(), WorkflowAction.REQUEST_REVISION))
+                .thenReturn(java.util.Optional.empty());
+
+        assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, drafter, WorkflowAction.SUBMIT_TO_LEADER));
+    }
+
+    @Test
+    @DisplayName("NEEDS_REVISION + SUBMIT_TO_LEADER: trả sửa từ PENDING_APPROVAL hoặc APPROVED -> cho phép nộp lại Lãnh đạo")
+    void validateActorPermission_needsRevision_submitToLeader_fromPendingApprovalOrApproved_shouldPass() {
+        document.setStatus(DocumentStatus.NEEDS_REVISION);
+
+        // 1. fromStatus = PENDING_APPROVAL
+        DocumentWorkflowLog logPending = DocumentWorkflowLog.builder()
+                .action(WorkflowAction.REQUEST_REVISION)
+                .fromStatus(DocumentStatus.PENDING_APPROVAL)
+                .toStatus(DocumentStatus.NEEDS_REVISION)
+                .build();
+        when(documentWorkflowLogRepository.findFirstByDocument_IdAndActionAndDeleteFlgFalseOrderByIdDesc(
+                document.getId(), WorkflowAction.REQUEST_REVISION))
+                .thenReturn(java.util.Optional.of(logPending));
+
+        assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, drafter, WorkflowAction.SUBMIT_TO_LEADER));
+
+        // 2. fromStatus = APPROVED
+        DocumentWorkflowLog logApproved = DocumentWorkflowLog.builder()
+                .action(WorkflowAction.REQUEST_REVISION)
+                .fromStatus(DocumentStatus.APPROVED)
+                .toStatus(DocumentStatus.NEEDS_REVISION)
+                .build();
+        when(documentWorkflowLogRepository.findFirstByDocument_IdAndActionAndDeleteFlgFalseOrderByIdDesc(
+                document.getId(), WorkflowAction.REQUEST_REVISION))
+                .thenReturn(java.util.Optional.of(logApproved));
+
+        assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, drafter, WorkflowAction.SUBMIT_TO_LEADER));
+    }
+
+    @Test
+    @DisplayName("NEEDS_REVISION + SUBMIT_TO_LEADER: trả sửa từ IN_REVIEW -> không cho phép nộp thẳng Lãnh đạo")
+    void validateActorPermission_needsRevision_submitToLeader_fromInReview_shouldBeDenied() {
+        document.setStatus(DocumentStatus.NEEDS_REVISION);
+        DocumentWorkflowLog logInReview = DocumentWorkflowLog.builder()
+                .action(WorkflowAction.REQUEST_REVISION)
+                .fromStatus(DocumentStatus.IN_REVIEW)
+                .toStatus(DocumentStatus.NEEDS_REVISION)
+                .build();
+        when(documentWorkflowLogRepository.findFirstByDocument_IdAndActionAndDeleteFlgFalseOrderByIdDesc(
+                document.getId(), WorkflowAction.REQUEST_REVISION))
+                .thenReturn(java.util.Optional.of(logInReview));
+
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                workflowEngine.validateActorPermission(document, drafter, WorkflowAction.SUBMIT_TO_LEADER));
+        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("NEEDS_REVISION + SUBMIT_TO_LEADER: fromStatus khác / legacy null -> fallback cho phép nộp lại")
+    void validateActorPermission_needsRevision_submitToLeader_fromLegacyOrNullStatus_fallbackPass() {
+        document.setStatus(DocumentStatus.NEEDS_REVISION);
+        DocumentWorkflowLog legacyLog = DocumentWorkflowLog.builder()
+                .action(WorkflowAction.REQUEST_REVISION)
+                .fromStatus(null)
+                .toStatus(DocumentStatus.NEEDS_REVISION)
+                .build();
+        when(documentWorkflowLogRepository.findFirstByDocument_IdAndActionAndDeleteFlgFalseOrderByIdDesc(
+                document.getId(), WorkflowAction.REQUEST_REVISION))
+                .thenReturn(java.util.Optional.of(legacyLog));
+
+        assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, drafter, WorkflowAction.SUBMIT_TO_LEADER));
+    }
+
+    @Test
+    @DisplayName("NEEDS_REVISION + SUBMIT_TO_LEADER: người không phải drafter bị từ chối")
+    void validateActorPermission_needsRevision_submitToLeader_stranger_shouldThrow() {
+        document.setStatus(DocumentStatus.NEEDS_REVISION);
+        UserLogin stranger = UserLogin.builder().id(9999L).username("stranger").role(Role.USER).build();
+
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                workflowEngine.validateActorPermission(document, stranger, WorkflowAction.SUBMIT_TO_LEADER));
+        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("NEEDS_REVISION + SUBMIT_TO_CLERK_QUEUE: không hợp lệ từ trạng thái NEEDS_REVISION -> bị từ chối")
+    void validateActorPermission_needsRevision_submitToClerkQueue_shouldBeDenied() {
+        document.setStatus(DocumentStatus.NEEDS_REVISION);
+
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                workflowEngine.validateActorPermission(document, drafter, WorkflowAction.SUBMIT_TO_CLERK_QUEUE));
+        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, ex.getErrorCode());
+    }
 }
