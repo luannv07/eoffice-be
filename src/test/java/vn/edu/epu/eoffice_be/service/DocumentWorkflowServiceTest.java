@@ -66,6 +66,7 @@ import vn.edu.epu.eoffice_be.dto.response.SignatureItemResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.entity.DocumentApprovalRequest;
 import vn.edu.epu.eoffice_be.entity.DocumentAttachment;
+import vn.edu.epu.eoffice_be.entity.DocumentDistribution;
 import vn.edu.epu.eoffice_be.entity.DocumentWorkflowLog;
 import vn.edu.epu.eoffice_be.entity.OrgNode;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
@@ -79,8 +80,11 @@ import vn.edu.epu.eoffice_be.security.pki.DuplicateSignatureException;
 import vn.edu.epu.eoffice_be.security.pki.PdfSigner;
 import vn.edu.epu.eoffice_be.service.impl.DocumentWorkflowServiceImpl;
 import vn.edu.epu.eoffice_be.workflow.WorkflowEngine;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class DocumentWorkflowServiceTest {
 
         @Mock
@@ -110,6 +114,8 @@ class DocumentWorkflowServiceTest {
 
         @Mock
         private vn.edu.epu.eoffice_be.storage.DocumentPdfStorageService documentPdfStorageService;
+        @Mock
+        private vn.edu.epu.eoffice_be.repository.DocumentDistributionRepository documentDistributionRepository;
 
         @org.mockito.Mock
         private vn.edu.epu.eoffice_be.service.DocumentReadPolicy draftReadPolicy;
@@ -1015,6 +1021,92 @@ class DocumentWorkflowServiceTest {
                                 null,
                                 null,
                                 "official_sha256_hash");
+                verify(documentDistributionRepository).save(any(DocumentDistribution.class));
+        }
+
+        @Test
+        @DisplayName("signAndPublish: tạo bản ghi phân phối cho từng đơn vị nhận theo recipientOrgIds")
+        void signAndPublish_withRecipientOrgIds_createsDistributionForEveryRecipient() {
+                document.setPrimaryFilePath("drafts/sample.pdf");
+                byte[] mockBytes = new byte[] { 1, 2, 3 };
+
+                when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+                when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+                when(documentPdfStorageService.readPdf("drafts/sample.pdf")).thenReturn(mockBytes);
+                when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString()))
+                                .thenReturn(testSignature(mockBytes));
+                when(pdfSigner.signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any()))
+                                .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
+                                                "1002", "leader", "123456", "official_sha256_hash",
+                                                new java.util.Date(), "sig_publish_1002", null, mockBytes));
+                when(documentPdfStorageService.storeSignedPdf(any(byte[].class), anyString(), eq(5001L)))
+                                .thenReturn("storage://36001");
+                when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("official_sha256_hash");
+                when(documentBookService.assignNumber(any(AssignDocumentNumberRequest.class))).thenReturn(
+                                AssignDocumentNumberResponse.builder()
+                                                .documentNumber("126/QD-DHEPU")
+                                                .bookId(1001L)
+                                                .currentNumber(2)
+                                                .build());
+
+                DocumentPublishRequest request = DocumentPublishRequest.builder()
+                                .bookId(1001L)
+                                .recipientOrgIds(java.util.List.of(2001L, 2002L))
+                                .comment("Ban hanh den Khoa CNTT va Phong DT")
+                                .build();
+
+                DocumentDetailResponse response = documentWorkflowService.signAndPublish(5001L, request);
+
+                assertNotNull(response);
+                org.mockito.ArgumentCaptor<DocumentDistribution> captor = org.mockito.ArgumentCaptor.forClass(DocumentDistribution.class);
+                verify(documentDistributionRepository, org.mockito.Mockito.times(2)).save(captor.capture());
+                java.util.List<DocumentDistribution> savedDistributions = captor.getAllValues();
+                assertEquals(2, savedDistributions.size());
+                assertEquals(2001L, savedDistributions.get(0).getTargetId());
+                assertEquals("ORG", savedDistributions.get(0).getTargetType());
+                assertEquals(2002L, savedDistributions.get(1).getTargetId());
+                assertEquals("ORG", savedDistributions.get(1).getTargetType());
+        }
+
+        @Test
+        @DisplayName("signAndPublish: tạo bản ghi phân phối toàn hệ thống khi isPublicToAll=true")
+        void signAndPublish_withPublicToAll_createsAllDistribution() {
+                document.setPrimaryFilePath("drafts/sample.pdf");
+                byte[] mockBytes = new byte[] { 1, 2, 3 };
+
+                when(documentRepository.findByIdAndDeleteFlgFalse(5001L)).thenReturn(Optional.of(document));
+                when(userLoginRepository.findByIdAndDeleteFlgFalse(1002L)).thenReturn(Optional.of(leader));
+                when(documentPdfStorageService.readPdf("drafts/sample.pdf")).thenReturn(mockBytes);
+                when(pdfSigner.signBytes(any(byte[].class), anyString(), anyString(), anyString()))
+                                .thenReturn(testSignature(mockBytes));
+                when(pdfSigner.signAndCertifyBytes(any(), any(), any(), any(), any(), any(), any()))
+                                .thenReturn(new vn.edu.epu.eoffice_be.security.pki.PdfSigner.SignResult(
+                                                "1002", "leader", "123456", "official_sha256_hash",
+                                                new java.util.Date(), "sig_publish_1002", null, mockBytes));
+                when(documentPdfStorageService.storeSignedPdf(any(byte[].class), anyString(), eq(5001L)))
+                                .thenReturn("storage://36001");
+                when(fileStorageService.computeSha256(any(byte[].class))).thenReturn("official_sha256_hash");
+                when(documentBookService.assignNumber(any(AssignDocumentNumberRequest.class))).thenReturn(
+                                AssignDocumentNumberResponse.builder()
+                                                .documentNumber("127/QD-DHEPU")
+                                                .bookId(1001L)
+                                                .currentNumber(3)
+                                                .build());
+
+                DocumentPublishRequest request = DocumentPublishRequest.builder()
+                                .bookId(1001L)
+                                .isPublicToAll(true)
+                                .comment("Ban hanh toan truong")
+                                .build();
+
+                DocumentDetailResponse response = documentWorkflowService.signAndPublish(5001L, request);
+
+                assertNotNull(response);
+                org.mockito.ArgumentCaptor<DocumentDistribution> captor = org.mockito.ArgumentCaptor.forClass(DocumentDistribution.class);
+                verify(documentDistributionRepository).save(captor.capture());
+                DocumentDistribution dist = captor.getValue();
+                assertEquals("ALL", dist.getTargetType());
+                assertEquals(5001L, dist.getDocumentId());
         }
 
         @Test

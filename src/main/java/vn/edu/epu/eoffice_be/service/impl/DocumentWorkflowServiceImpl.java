@@ -35,6 +35,7 @@ import vn.edu.epu.eoffice_be.dto.response.HandoverOptionsResponse;
 import vn.edu.epu.eoffice_be.entity.Document;
 import vn.edu.epu.eoffice_be.entity.DocumentApprovalRequest;
 import vn.edu.epu.eoffice_be.entity.DocumentAttachment;
+import vn.edu.epu.eoffice_be.entity.DocumentDistribution;
 import vn.edu.epu.eoffice_be.entity.DocumentWorkflowLog;
 import vn.edu.epu.eoffice_be.entity.OrgNode;
 import vn.edu.epu.eoffice_be.entity.PositionAssignment;
@@ -42,6 +43,7 @@ import vn.edu.epu.eoffice_be.entity.UserInfo;
 import vn.edu.epu.eoffice_be.entity.UserLogin;
 import vn.edu.epu.eoffice_be.event.DocumentSubmittedEvent;
 import vn.edu.epu.eoffice_be.repository.DocumentAttachmentRepository;
+import vn.edu.epu.eoffice_be.repository.DocumentDistributionRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentRepository;
 import vn.edu.epu.eoffice_be.repository.DocumentWorkflowLogRepository;
 import vn.edu.epu.eoffice_be.repository.OrgNodeRepository;
@@ -91,6 +93,7 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
     private final PositionAssignmentRepository positionAssignmentRepository;
     private final PdfSignatureVerifier pdfSignatureVerifier;
     private final DocumentPdfStorageService documentPdfStorageService;
+    private final DocumentDistributionRepository documentDistributionRepository;
     private final SubmissionRoutingService submissionRoutingService;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -630,7 +633,50 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 null,
                 officialHash);
 
+        // 6. Tạo bản ghi phân phối cho các đơn vị nhận sau khi phát hành
+        distributeAfterPublish(document, request);
+
         return mapToDetailResponse(document);
+    }
+
+    /**
+     * Tạo bản ghi phân phối sau khi phát hành chính thức.
+     * Nếu request chỉ định isPublicToAll=true → tạo 1 bản ghi ALL.
+     * Nếu có recipientOrgIds → tạo bản ghi cho từng đơn vị.
+     * Nếu không có thông tin phân phối → tạo bản ghi cho đơn vị ban hành (issuing org).
+     */
+    private void distributeAfterPublish(Document document, DocumentPublishRequest request) {
+        if (documentDistributionRepository == null || document == null) return;
+
+        Long documentId = document.getId();
+        if (Boolean.TRUE.equals(request.getIsPublicToAll())) {
+            documentDistributionRepository.save(DocumentDistribution.builder()
+                    .documentId(documentId)
+                    .targetType("ALL")
+                    .isRead(false)
+                    .build());
+            return;
+        }
+
+        java.util.List<Long> recipients = request.getRecipientOrgIds();
+        if (recipients != null && !recipients.isEmpty()) {
+            for (Long orgId : recipients) {
+                documentDistributionRepository.save(DocumentDistribution.builder()
+                        .documentId(documentId)
+                        .targetId(orgId)
+                        .targetType("ORG")
+                        .isRead(false)
+                        .build());
+            }
+        } else if (document.getOrgId() != null) {
+            // Mặc định: phân phối về đơn vị ban hành
+            documentDistributionRepository.save(DocumentDistribution.builder()
+                    .documentId(documentId)
+                    .targetId(document.getOrgId())
+                    .targetType("ORG")
+                    .isRead(false)
+                    .build());
+        }
     }
 
     @Override
