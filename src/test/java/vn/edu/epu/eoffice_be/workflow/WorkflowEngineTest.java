@@ -459,12 +459,52 @@ class WorkflowEngineTest {
     }
 
     @Test
-    @DisplayName("NEEDS_REVISION + SUBMIT_TO_CLERK_QUEUE: không hợp lệ từ trạng thái NEEDS_REVISION -> bị từ chối")
-    void validateActorPermission_needsRevision_submitToClerkQueue_shouldBeDenied() {
+    @DisplayName("NEEDS_REVISION + SUBMIT_TO_CLERK_QUEUE: trả sửa từ APPROVED (luồng văn thư) -> cho phép nộp lại")
+    void validateActorPermission_needsRevision_submitToClerkQueue_fromApproved_shouldPass() {
+        document.setStatus(DocumentStatus.NEEDS_REVISION);
+        DocumentWorkflowLog logApproved = DocumentWorkflowLog.builder()
+                .action(WorkflowAction.REQUEST_REVISION)
+                .fromStatus(DocumentStatus.APPROVED)
+                .toStatus(DocumentStatus.NEEDS_REVISION)
+                .build();
+        when(documentWorkflowLogRepository.findFirstByDocument_IdAndActionAndDeleteFlgFalseOrderByIdDesc(
+                document.getId(), WorkflowAction.REQUEST_REVISION))
+                .thenReturn(java.util.Optional.of(logApproved));
+
+        assertDoesNotThrow(() -> workflowEngine.validateActorPermission(document, drafter, WorkflowAction.SUBMIT_TO_CLERK_QUEUE));
+    }
+
+    @Test
+    @DisplayName("NEEDS_REVISION + SUBMIT_TO_CLERK_QUEUE: trả sửa từ PENDING_APPROVAL hoặc IN_REVIEW -> bị từ chối")
+    void validateActorPermission_needsRevision_submitToClerkQueue_fromNonApproved_shouldBeDenied() {
         document.setStatus(DocumentStatus.NEEDS_REVISION);
 
-        BusinessException ex = assertThrows(BusinessException.class, () ->
+        // 1. fromStatus = PENDING_APPROVAL
+        DocumentWorkflowLog logPending = DocumentWorkflowLog.builder()
+                .action(WorkflowAction.REQUEST_REVISION)
+                .fromStatus(DocumentStatus.PENDING_APPROVAL)
+                .toStatus(DocumentStatus.NEEDS_REVISION)
+                .build();
+        when(documentWorkflowLogRepository.findFirstByDocument_IdAndActionAndDeleteFlgFalseOrderByIdDesc(
+                document.getId(), WorkflowAction.REQUEST_REVISION))
+                .thenReturn(java.util.Optional.of(logPending));
+
+        BusinessException exPending = assertThrows(BusinessException.class, () ->
                 workflowEngine.validateActorPermission(document, drafter, WorkflowAction.SUBMIT_TO_CLERK_QUEUE));
-        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, ex.getErrorCode());
+        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, exPending.getErrorCode());
+
+        // 2. fromStatus = IN_REVIEW
+        DocumentWorkflowLog logInReview = DocumentWorkflowLog.builder()
+                .action(WorkflowAction.REQUEST_REVISION)
+                .fromStatus(DocumentStatus.IN_REVIEW)
+                .toStatus(DocumentStatus.NEEDS_REVISION)
+                .build();
+        when(documentWorkflowLogRepository.findFirstByDocument_IdAndActionAndDeleteFlgFalseOrderByIdDesc(
+                document.getId(), WorkflowAction.REQUEST_REVISION))
+                .thenReturn(java.util.Optional.of(logInReview));
+
+        BusinessException exReview = assertThrows(BusinessException.class, () ->
+                workflowEngine.validateActorPermission(document, drafter, WorkflowAction.SUBMIT_TO_CLERK_QUEUE));
+        assertEquals(ErrorCode.UNAUTHORIZED_WORKFLOW_ACTION, exReview.getErrorCode());
     }
 }
