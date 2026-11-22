@@ -11,12 +11,15 @@ import vn.edu.epu.eoffice_be.entity.DocumentWorkflowLog;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface DocumentWorkflowLogRepository extends JpaRepository<DocumentWorkflowLog, Long> {
 
     @Query("SELECT l FROM DocumentWorkflowLog l WHERE l.document.id = :documentId AND (l.deleteFlg = false OR l.deleteFlg IS NULL) ORDER BY l.createdDate ASC, l.id ASC")
     List<DocumentWorkflowLog> findByDocumentIdOrderByCreatedDateAsc(@Param("documentId") Long documentId);
+
+    Optional<DocumentWorkflowLog> findFirstByDocumentIdAndActionAndDeleteFlgFalseOrderByIdDesc(Long documentId, WorkflowAction action);
 
     // Đối chiếu hash với log ký nháy của đúng hồ sơ, người ký và lượt thẩm định.
     @Query("""

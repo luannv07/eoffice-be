@@ -70,6 +70,7 @@ public class WorkflowEngine {
         // 5. NEEDS_REVISION (Yêu cầu chỉnh sửa)
         Map<WorkflowAction, DocumentStatus> needsRevisionTransitions = new EnumMap<>(WorkflowAction.class);
         needsRevisionTransitions.put(WorkflowAction.SUBMIT, DocumentStatus.IN_REVIEW); // Sửa xong gửi duyệt lại
+        needsRevisionTransitions.put(WorkflowAction.SUBMIT_TO_LEADER, DocumentStatus.PENDING_APPROVAL); // Sửa xong gửi lại Lãnh đạo
         needsRevisionTransitions.put(WorkflowAction.WITHDRAW, DocumentStatus.DRAFT); // Rút về hẳn DRAFT
         TRANSITION_MATRIX.put(DocumentStatus.NEEDS_REVISION, needsRevisionTransitions);
         // 6. PUBLISHED (Đã ban hành: cho phép Thu hồi văn bản)
@@ -147,6 +148,9 @@ public class WorkflowEngine {
 
         if (action == WorkflowAction.SUBMIT_TO_LEADER || action == WorkflowAction.SUBMIT_TO_CLERK_QUEUE) {
             if (!isDrafter || actor.getId() == null) return false;
+            if (document.getStatus() == DocumentStatus.NEEDS_REVISION && action == WorkflowAction.SUBMIT_TO_LEADER) {
+                return true;
+            }
             SubmissionRoute route = action == WorkflowAction.SUBMIT_TO_LEADER
                     ? SubmissionRoute.LEADER_APPROVAL : SubmissionRoute.CLERK_QUEUE;
             return submissionRoutingService.options(document, actor, Instant.now()).routes().stream()
