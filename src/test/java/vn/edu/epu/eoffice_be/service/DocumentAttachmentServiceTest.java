@@ -425,6 +425,55 @@ class DocumentAttachmentServiceTest {
     }
 
     @Test
+    @DisplayName("Văn bản đã duyệt APPROVED: User không liên quan bị chặn tải tệp đính kèm (FORBIDDEN)")
+    void getAttachmentMetadata_ApprovedDocument_UnrelatedUser_ThrowsForbidden() {
+        Long docId = 2L;
+        Long attId = 20L;
+        Long unrelatedUserId = 600L;
+        Long drafterId = 100L;
+
+        UserLogin drafter = UserLogin.builder().id(drafterId).username("drafter").role(Role.USER).build();
+        UserLogin unrelatedUser = UserLogin.builder().id(unrelatedUserId).username("stranger").role(Role.USER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).status(DocumentStatus.APPROVED).build();
+
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(unrelatedUserId)).thenReturn(Optional.of(unrelatedUser));
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> documentAttachmentService.getAttachmentMetadata(docId, attId, unrelatedUserId));
+        assertEquals(ErrorCode.FORBIDDEN, error.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Văn bản đã duyệt APPROVED: Cho phép Cán bộ văn thư (CLERK) hoặc Người ký (SIGNER) truy cập tệp")
+    void getAttachmentMetadata_ApprovedDocument_ClerkAndSigner_Success() {
+        Long docId = 2L;
+        Long attId = 20L;
+        Long clerkId = 700L;
+        Long signerId = 800L;
+        Long drafterId = 100L;
+
+        UserLogin drafter = UserLogin.builder().id(drafterId).username("drafter").role(Role.USER).build();
+        UserLogin clerk = UserLogin.builder().id(clerkId).username("clerk").role(Role.CLERK).build();
+        UserLogin signer = UserLogin.builder().id(signerId).username("signer").role(Role.LEADER).build();
+        Document doc = Document.builder().id(docId).drafter(drafter).signer(signer).status(DocumentStatus.APPROVED).build();
+        DocumentAttachment att = DocumentAttachment.builder().id(attId).document(doc).originalFileName("draft.pdf").build();
+
+        when(documentRepository.findByIdAndDeleteFlgFalse(docId)).thenReturn(Optional.of(doc));
+        when(documentAttachmentRepository.findByIdAndDocumentIdAndDeleteFlgFalse(attId, docId)).thenReturn(Optional.of(att));
+
+        // 1. Clerk truy cập thành công
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(clerkId)).thenReturn(Optional.of(clerk));
+        DocumentAttachment clerkResult = documentAttachmentService.getAttachmentMetadata(docId, attId, clerkId);
+        assertNotNull(clerkResult);
+
+        // 2. Signer truy cập thành công
+        when(userLoginRepository.findByIdAndDeleteFlgFalse(signerId)).thenReturn(Optional.of(signer));
+        DocumentAttachment signerResult = documentAttachmentService.getAttachmentMetadata(docId, attId, signerId);
+        assertNotNull(signerResult);
+    }
+
+    @Test
     @DisplayName("Tải tệp bị từ chối khi không phải người tạo và không phải admin (FORBIDDEN)")
     void uploadAttachment_Forbidden_ShouldThrowForbidden() {
         Long userId = 100L;

@@ -211,14 +211,16 @@ public class DocumentAttachmentService {
         }
         boolean isDrafter = document.getDrafter() != null && document.getDrafter().getId().equals(userId);
         boolean isAdmin = user.getRole() == Role.ADMIN || user.getRole() == Role.SYSTEM_ADMIN;
-        boolean isPublished = document.getStatus() == DocumentStatus.PUBLISHED || document.getStatus() == DocumentStatus.APPROVED;
+        boolean isSigner = document.getSigner() != null && document.getSigner().getId().equals(userId);
+        boolean isClerk = user.getRole() == Role.CLERK;
+        boolean isPublished = document.getStatus() == DocumentStatus.PUBLISHED;
 
         boolean isApprover = documentApprovalRequestRepository
                 .findByDocumentIdAndDeleteFlgFalseOrderBySubmittedAtDesc(document.getId()).stream()
                 .filter(req -> req.getStatus() == ApprovalRequestStatus.PENDING)
                 .anyMatch(req -> req.getApproverUser() != null && req.getApproverUser().getId().equals(userId));
 
-        if (!isDrafter && !isAdmin && !isPublished && !isApprover) {
+        if (!isDrafter && !isAdmin && !isPublished && !isApprover && !isSigner && !isClerk) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Bạn không có quyền truy cập tệp đính kèm của văn bản này");
         }
     }
