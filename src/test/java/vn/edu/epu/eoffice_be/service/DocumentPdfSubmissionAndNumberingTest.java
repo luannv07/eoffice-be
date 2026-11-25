@@ -99,7 +99,7 @@ class DocumentPdfSubmissionAndNumberingTest {
     }
 
     @ParameterizedTest
-    @EnumSource(Step.class)
+    @EnumSource(value = Step.class, names = "SUBMIT")
     void missingRequiredPdfDoesNotFallBackToAnotherSource(Step step) {
         Document document = prepare(step);
         BusinessException failure = new BusinessException(ErrorCode.DOCUMENT_PDF_NOT_FOUND);
@@ -117,7 +117,7 @@ class DocumentPdfSubmissionAndNumberingTest {
     }
 
     @ParameterizedTest
-    @EnumSource(Step.class)
+    @EnumSource(value = Step.class, names = "SUBMIT")
     void uploadFailureKeepsOldVersionAndDoesNotRecordSigningSuccess(Step step) {
         Document document = prepare(step);
         prepareSigning(step);
@@ -132,7 +132,7 @@ class DocumentPdfSubmissionAndNumberingTest {
     }
 
     @ParameterizedTest
-    @EnumSource(Step.class)
+    @EnumSource(value = Step.class, names = "SUBMIT")
     void savesExactSignedBytesAndUpdatesReference(Step step) {
         Document document = prepare(step);
         prepareSigning(step);
@@ -153,8 +153,20 @@ class DocumentPdfSubmissionAndNumberingTest {
         else verify(workflowLogs).save(any());
     }
 
+    // Kiểm chứng bước cấp số không đọc/ký/lưu PDF
+    @org.junit.jupiter.api.Test
+    void assignNumberDoesNotTouchPdfStorageOrSigner() {
+        Document document = prepare(Step.ASSIGN_NUMBER);
+
+        invoke(Step.ASSIGN_NUMBER, submission, numbering);
+
+        assertEquals("1/TEST", document.getOfficialNumber());
+        assertEquals("storage://35001", document.getPrimaryFilePath());
+        verifyNoInteractions(signer, storage, unifiedStorage, workflowLogs);
+    }
+
     @ParameterizedTest
-    @EnumSource(Step.class)
+    @EnumSource(value = Step.class, names = "SUBMIT")
     void laterDatabaseFailureRollsBackAndDiscardsOnlyNewUpload(Step step) {
         prepare(step);
         FileStorageService legacy = mock(FileStorageService.class);
