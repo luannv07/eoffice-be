@@ -14,6 +14,8 @@ public interface OrgNodeRepository extends JpaRepository<OrgNode, Long> {
 
 	Optional<OrgNode> findByCodeAndDeleteFlgFalse(String code);
 
+	Optional<OrgNode> findFirstByTypeCdAndDeleteFlgFalseOrderByOrgOrderAsc(String typeCd);
+
 	List<OrgNode> findAllByDeleteFlgFalseOrderByOrgOrderAsc();
 
 	@Query(nativeQuery = true, value = """

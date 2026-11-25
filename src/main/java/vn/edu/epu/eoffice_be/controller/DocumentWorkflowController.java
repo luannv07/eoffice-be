@@ -65,7 +65,7 @@ public class DocumentWorkflowController {
     }
 
     // Lấy danh sách lãnh đạo (HT/PHT) khả dụng để bàn giao duyệt tiếp khi chuyển cấp
-    @PreAuthorize("hasAnyRole('REVIEWER', 'ADMIN', 'SYSTEM_ADMIN')")
+    @PreAuthorize("hasAnyRole('REVIEWER', 'LEADER', 'ADMIN', 'SYSTEM_ADMIN')")
     @Operation(summary = "Lấy danh sách lãnh đạo (HT/PHT) khả dụng để bàn giao duyệt tiếp")
     @GetMapping("/{id}/handover-options")
     public BaseResponse<HandoverOptionsResponse> getHandoverOptions(@PathVariable Long id) {

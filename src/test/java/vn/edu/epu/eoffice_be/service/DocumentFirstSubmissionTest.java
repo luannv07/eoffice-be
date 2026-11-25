@@ -56,7 +56,7 @@ class DocumentFirstSubmissionTest {
     @BeforeEach void setup() {
         routing = new SubmissionRoutingService(positions, profiles, vn.edu.epu.eoffice_be.service.TestDraftUnits.resolver(positions));
         engine = new WorkflowEngine(documents, workflowLogs, permissionResolver, routing, mock(ReviewAssignmentPolicy.class));
-        service = new DocumentApprovalService(documents, attachments, approvals, processLogs, users, profiles, positions, permissions, events, drafts, pdfStorage, storage, signer, routing, engine, org.mockito.Mockito.mock(vn.edu.epu.eoffice_be.service.DraftUnitResolver.class));
+        service = new DocumentApprovalService(documents, attachments, approvals, processLogs, workflowLogs, users, profiles, positions, permissions, events, drafts, pdfStorage, storage, signer, routing, engine, org.mockito.Mockito.mock(vn.edu.epu.eoffice_be.service.DraftUnitResolver.class));
         lenient().when(users.findByIdAndDeleteFlgFalse(anyLong())).thenAnswer(inv -> Optional.ofNullable(accounts.get(inv.getArgument(0))));
         lenient().when(documents.findByIdAndDeleteFlgFalse(1L)).thenAnswer(inv -> Optional.of(document));
         // Chuyển tiếp truy vấn khóa bi quan sang tìm văn bản chưa xóa
@@ -221,7 +221,7 @@ class DocumentFirstSubmissionTest {
         prepare(Role.LEADER, "HT");
         sourcePdf(failure.equals("missingPdf") ? new byte[0] : new byte[]{1});
         if (failure.equals("missingSigner")) {
-            service = new DocumentApprovalService(documents, attachments, approvals, processLogs, users, profiles, positions, permissions, events, drafts, pdfStorage, storage, null, routing, engine, org.mockito.Mockito.mock(vn.edu.epu.eoffice_be.service.DraftUnitResolver.class));
+            service = new DocumentApprovalService(documents, attachments, approvals, processLogs, workflowLogs, users, profiles, positions, permissions, events, drafts, pdfStorage, storage, null, routing, engine, org.mockito.Mockito.mock(vn.edu.epu.eoffice_be.service.DraftUnitResolver.class));
         } else if (!failure.equals("missingPdf")) {
             if (failure.equals("signFailure")) when(signer.signBytes(any(), any(), any(), any(), any(), any()))
                     .thenThrow(new BusinessException(ErrorCode.PKI_STORAGE_ERROR));

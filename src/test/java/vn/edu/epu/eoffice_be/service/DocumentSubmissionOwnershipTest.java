@@ -127,7 +127,12 @@ class DocumentSubmissionOwnershipTest {
         when(signer.signBytes(eq(original), eq("100"), any(), any(), any(), any()))
                 .thenReturn(new PdfSigner.SignResult("100", "author", "serial", "hash", new Date(), "sig_user_100", null, signed));
         when(pdfStorage.storeSignedPdf(signed, "initial_signed_1.pdf", 1L)).thenReturn("storage://11");
-        when(documents.save(document)).thenReturn(document);
+        lenient().when(documents.save(document)).thenReturn(document);
+        org.mockito.Mockito.doAnswer(inv -> {
+            Document d = inv.getArgument(0);
+            if (d != null) d.setStatus(DocumentStatus.IN_REVIEW);
+            return null;
+        }).when(submissionWorkflowEngine).executeTransition(any(), any(), any(), any(), any(), any(), any());
 
         service.submitForApproval(1L, request(), 100L);
 
