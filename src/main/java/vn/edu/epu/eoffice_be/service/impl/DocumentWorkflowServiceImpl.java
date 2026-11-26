@@ -50,7 +50,6 @@ import vn.edu.epu.eoffice_be.repository.OrgNodeRepository;
 import vn.edu.epu.eoffice_be.repository.PositionAssignmentRepository;
 import vn.edu.epu.eoffice_be.repository.UserInfoRepository;
 import vn.edu.epu.eoffice_be.repository.UserLoginRepository;
-import vn.edu.epu.eoffice_be.security.pki.DuplicateSignatureException;
 import vn.edu.epu.eoffice_be.security.pki.PdfSigner;
 import vn.edu.epu.eoffice_be.security.pki.PdfSignatureVerifier;
 import vn.edu.epu.eoffice_be.security.pki.SignaturePosition;
@@ -563,45 +562,25 @@ public class DocumentWorkflowServiceImpl implements DocumentWorkflowService {
                 ? signerFullName + " - " + titleInfo.title()
                 : signerFullName;
 
-        // 4.1. Ký nháy của Cán bộ Văn thư trước khi phát hành chính thức
-        byte[] pdfToCertify = currentPdfBytes;
-        try {
-            PdfSigner.SignResult initialSignResult = pdfSigner.signBytes(
-                    currentPdfBytes,
-                    actor.getId().toString(),
-                    signerDisplayName,
-                    "Văn thư ký nháy duyệt ban hành: " + officialNumber);
-            if (initialSignResult == null || initialSignResult.signedPdfBytes() == null
-                    || initialSignResult.signedPdfBytes().length == 0) {
-                throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR,
-                        "Không nhận được tệp PDF đã ký nháy trước khi phát hành");
-            }
-            pdfToCertify = initialSignResult.signedPdfBytes();
-            log.info("Đã ký nháy duyệt ban hành cho văn bản id={}, người ký={}", document.getId(), actor.getUsername());
-        } catch (DuplicateSignatureException ex) {
-            log.info("Người dùng {} đã ký trên tài liệu id={}, tiếp tục ban hành niêm phong", actor.getUsername(),
-                    document.getId());
-        } catch (BusinessException ex) {
-            throw ex;
-        } catch (Exception ex) {
-            log.error("Lỗi ký nháy trước khi phát hành văn bản id={}", document.getId(), ex);
-            throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR,
-                    "Không thể thực hiện ký nháy trước khi phát hành");
-        }
-
-        // 4.2. Ban hành chính thức kèm khóa niêm phong DocMDP (P=1:
-        // CERTIFIED_NO_CHANGES_ALLOWED)
+        // Ký phát hành chính thức duy nhất kèm khóa niêm phong DocMDP (P=1: CERTIFIED_NO_CHANGES_ALLOWED)
         SignaturePosition pos = resolveSignaturePosition(request);
         PdfSigner.SignResult signResult;
         try {
             signResult = pdfSigner.signAndCertifyBytes(
-                    pdfToCertify,
+                    currentPdfBytes,
                     actor.getId().toString(),
                     signerDisplayName,
                     titleInfo.title(),
                     titleInfo.orgUnit(),
                     "Ban hanh van ban: " + officialNumber,
-                    pos);
+                    pos
+            );
+            // Đảm bảo kết quả ký phát hành có dữ liệu PDF hợp lệ trước khi lưu trữ
+            if (signResult == null || signResult.signedPdfBytes() == null
+                    || signResult.signedPdfBytes().length == 0) {
+                throw new BusinessException(ErrorCode.SIGNATURE_PROCESS_ERROR,
+                        "Không nhận được tệp PDF đã ký phát hành");
+            }
         } catch (BusinessException ex) {
             throw ex;
         } catch (Exception ex) {

@@ -178,33 +178,6 @@ class DocumentBookServiceImplTest {
         verifyNoInteractions(pdfSigner, documentPdfStorageService, documentWorkflowLogRepository);
     }
 
-	@ParameterizedTest
-	@EnumSource(value = ErrorCode.class, names = {
-			"PKI_CA_NOT_INITIALIZED", "PKI_CA_EXPIRED", "PKI_CA_RECOVERY_REQUIRED",
-			"PKI_STORAGE_ERROR", "PKI_USER_KEYSTORE_INVALID"
-	})
-	void assignNumber_keepsPkiErrorAndDoesNotStoreSignedDocument(ErrorCode code) {
-		Document document = Document.builder().id(5001L).status(DocumentStatus.APPROVED)
-				.documentTypeCd("QD").primaryFilePath("drafts/sample.pdf").issuingOrg(orgNode).build();
-		when(documentBookRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(book));
-		when(documentRepository.findById(5001L)).thenReturn(Optional.of(document));
-		when(documentPdfStorageService.readPdf("drafts/sample.pdf")).thenReturn(new byte[]{1, 2, 3});
-		BusinessException failure = new BusinessException(code);
-		when(pdfSigner.signBytes(any(byte[].class), eq("3003"), anyString(), anyString())).thenThrow(failure);
-		AssignDocumentNumberRequest request = new AssignDocumentNumberRequest();
-		request.setBookId(1L);
-		request.setDocumentId(5001L);
-		request.setEffectiveDate(LocalDate.of(2026, 9, 10));
-
-		BusinessException actual = assertThrows(BusinessException.class, () -> documentBookService.assignNumber(request));
-
-		assertSame(failure, actual);
-		assertEquals(DocumentStatus.APPROVED, document.getStatus());
-		assertEquals("drafts/sample.pdf", document.getPrimaryFilePath());
-		verify(fileStorageService, never()).storeFile(any(), any(), any());
-		verify(documentWorkflowLogRepository, never()).save(any());
-	}
-
 	@Test
 	void create_Success() {
 		DocumentBookCreateRequest req = new DocumentBookCreateRequest();
@@ -900,8 +873,9 @@ class DocumentBookServiceImplTest {
 		verifyNoInteractions(documentRepository, userInfoRepository, dictionaryItemRepository);
 	}
 
+	// Kiểm chứng cấp số chỉ gán số hiệu vào sổ và không kích hoạt ký số PDF
 	@Test
-	void assignNumber_WithPdfAndClerk_SignsPdfSuccessfully() {
+	void assignNumber_WithPdfAndClerk_AssignsNumberWithoutSigningPdf() {
 		UserLogin clerk = UserLogin.builder()
 				.id(3003L)
 				.username("vanthu")
@@ -923,14 +897,6 @@ class DocumentBookServiceImplTest {
 		when(userLoginRepository.findByIdAndDeleteFlgFalse(3003L)).thenReturn(Optional.of(clerk));
 		when(documentBookRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(book));
 		when(documentRepository.findById(5001L)).thenReturn(Optional.of(doc));
-		when(documentPdfStorageService.readPdf("uploads/sample.pdf")).thenReturn(new byte[]{1, 2, 3});
-		PdfSigner.SignResult signResult = new PdfSigner.SignResult(
-				"3003", "Cán bộ Văn thư", "serial123", "hash_clerk_sha256",
-				new java.util.Date(), "sig_clerk", java.nio.file.Path.of("drafts/test.pdf"), new byte[]{4, 5, 6}
-		);
-		when(pdfSigner.signBytes(any(byte[].class), eq("3003"), anyString(), anyString())).thenReturn(signResult);
-		when(documentPdfStorageService.storeSignedPdf(any(byte[].class), eq("initial_signed_5001.pdf"), eq(5001L)))
-				.thenReturn("storage://35001");
 
 		AssignDocumentNumberRequest req = new AssignDocumentNumberRequest();
 		req.setBookId(1L);
@@ -941,10 +907,10 @@ class DocumentBookServiceImplTest {
 			AssignDocumentNumberResponse res = documentBookService.assignNumber(req);
 			assertNotNull(res);
 			assertEquals("1/QĐ-ĐHEPU", res.getDocumentNumber());
-			assertEquals("hash_clerk_sha256", res.getSignatureHash());
-			assertEquals("storage://35001", res.getSignedPdfPath());
-			assertEquals("storage://35001", doc.getPrimaryFilePath());
-			verify(pdfSigner).signBytes(any(byte[].class), eq("3003"), anyString(), contains("Văn thư cấp số văn bản"));
+			assertNull(res.getSignatureHash());
+			assertNull(res.getSignedPdfPath());
+			assertEquals("uploads/sample.pdf", doc.getPrimaryFilePath());
+			verifyNoInteractions(pdfSigner, documentPdfStorageService, documentWorkflowLogRepository);
 		} finally {
 			SecurityContextHolder.clearContext();
 		}
