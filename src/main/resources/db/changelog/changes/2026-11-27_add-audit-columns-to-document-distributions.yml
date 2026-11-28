@@ -1,0 +1,124 @@
+# Bổ sung 4 cột audit của BaseEntity cho bảng document_distributions.
+databaseChangeLog:
+  # Thêm cột created_by nếu bảng document_distributions chưa có.
+  - changeSet:
+      id: 2026-11-27-add-created-by-to-document-distributions
+      author: eoffice
+      preConditions:
+        onFail: MARK_RAN
+        sqlCheck:
+          expectedResult: 0
+          sql: "SELECT COUNT(*) FROM information_schema.columns WHERE LOWER(table_schema) = LOWER(CURRENT_SCHEMA) AND LOWER(table_name) = 'document_distributions' AND LOWER(column_name) = 'created_by'"
+      changes:
+        - addColumn:
+            tableName: document_distributions
+            columns:
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+                  remarks: Người tạo bản ghi phân phối văn bản
+      rollback:
+        - dropColumn:
+            tableName: document_distributions
+            columnName: created_by
+
+  # Thêm cột created_date với giá trị mặc định CURRENT_TIMESTAMP để backfill dữ liệu cũ.
+  - changeSet:
+      id: 2026-11-27-add-created-date-to-document-distributions
+      author: eoffice
+      preConditions:
+        onFail: MARK_RAN
+        sqlCheck:
+          expectedResult: 0
+          sql: "SELECT COUNT(*) FROM information_schema.columns WHERE LOWER(table_schema) = LOWER(CURRENT_SCHEMA) AND LOWER(table_name) = 'document_distributions' AND LOWER(column_name) = 'created_date'"
+      changes:
+        - addColumn:
+            tableName: document_distributions
+            columns:
+              - column:
+                  name: created_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  remarks: Thời điểm tạo bản ghi phân phối văn bản
+                  constraints:
+                    nullable: false
+      rollback:
+        - dropColumn:
+            tableName: document_distributions
+            columnName: created_date
+
+  # Thêm cột updated_by nếu bảng document_distributions chưa có.
+  - changeSet:
+      id: 2026-11-27-add-updated-by-to-document-distributions
+      author: eoffice
+      preConditions:
+        onFail: MARK_RAN
+        sqlCheck:
+          expectedResult: 0
+          sql: "SELECT COUNT(*) FROM information_schema.columns WHERE LOWER(table_schema) = LOWER(CURRENT_SCHEMA) AND LOWER(table_name) = 'document_distributions' AND LOWER(column_name) = 'updated_by'"
+      changes:
+        - addColumn:
+            tableName: document_distributions
+            columns:
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+                  remarks: Người cập nhật bản ghi phân phối văn bản gần nhất
+      rollback:
+        - dropColumn:
+            tableName: document_distributions
+            columnName: updated_by
+
+  # Thêm cột updated_date nếu bảng document_distributions chưa có.
+  - changeSet:
+      id: 2026-11-27-add-updated-date-to-document-distributions
+      author: eoffice
+      preConditions:
+        onFail: MARK_RAN
+        sqlCheck:
+          expectedResult: 0
+          sql: "SELECT COUNT(*) FROM information_schema.columns WHERE LOWER(table_schema) = LOWER(CURRENT_SCHEMA) AND LOWER(table_name) = 'document_distributions' AND LOWER(column_name) = 'updated_date'"
+      changes:
+        - addColumn:
+            tableName: document_distributions
+            columns:
+              - column:
+                  name: updated_date
+                  type: TIMESTAMP WITH TIME ZONE
+                  remarks: Thời điểm cập nhật bản ghi phân phối văn bản gần nhất
+      rollback:
+        - dropColumn:
+            tableName: document_distributions
+            columnName: updated_date
+
+  # Đồng bộ lại sequence của cột document_distributions.id trên PostgreSQL sau dữ liệu seed.
+  - changeSet:
+      id: 2026-11-27-resync-document-distributions-id-seq-pg
+      author: eoffice
+      dbms: postgresql
+      changes:
+        - sql:
+            splitStatements: false
+            stripComments: false
+            sql: |-
+              SELECT setval(
+                pg_get_serial_sequence('document_distributions', 'id'),
+                COALESCE((SELECT MAX(id) FROM document_distributions), 0) + 1,
+                false
+              )
+              WHERE pg_get_serial_sequence('document_distributions', 'id') IS NOT NULL;
+      rollback:
+        - sql:
+            sql: SELECT 1
+
+  # Đồng bộ lại identity của cột document_distributions.id trên H2 sau dữ liệu seed.
+  - changeSet:
+      id: 2026-11-27-resync-document-distributions-id-seq-h2
+      author: eoffice
+      dbms: h2
+      changes:
+        - sql:
+            sql: ALTER TABLE document_distributions ALTER COLUMN id RESTART WITH (SELECT COALESCE(MAX(id), 0) + 1 FROM document_distributions)
+      rollback:
+        - sql:
+            sql: SELECT 1
